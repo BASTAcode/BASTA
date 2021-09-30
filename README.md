@@ -4,7 +4,7 @@
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation Status](https://readthedocs.org/projects/basta/badge/?version=latest)](https://basta.readthedocs.io/en/latest/?badge=latest)
 
-Current stable version: v1.0-rc
+Current stable version: v1.0
 
 **Important note:** BASTA is developed for Python 3.8. **Python 3.9 is currently
 *not* supported due to problems with h5py.**
