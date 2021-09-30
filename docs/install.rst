@@ -1,0 +1,143 @@
+.. _install:
+
+Installation
+================
+
+**Please read all subsections on this page carefully to make sure all aspects of
+the installation are performed correctly!**
+
+.. _ref_setup:
+
+Setup
+-----
+**Important**: If you want to install BASTA on a system running MacOS, note that Matplotlib has introduced a dependency
+on ``freetype``. Due to this, the installation of BASTA packages will choke with a long error report. To avoid this
+problem, install the package with Homebrew (or equivalent) in advance:
+
+.. code-block:: bash
+
+    brew install freetype
+
+.. _ref_code:
+
+Obtaining the code and virtual environment
+------------------------------------------
+
+To obtain the repository and setup the virtual environment, run in a bash shell:
+
+.. code-block:: bash
+
+    git clone git@github.com:BASTAcode/BASTA.git
+    cd BASTA
+    python3 -m venv venv
+    source venv/bin/activate
+    pip install --upgrade pip
+    deactivate
+    source venv/bin/activate
+    pip install wheel
+    pip install -r requirements.txt
+    deactivate
+
+It is important to deactivate and re-activate the virtual environment after upgrading ``pip`` to ensure the proper
+installation of packages afterwards.
+
+.. _ref_shell:
+
+Configuring the shell/environment
+---------------------------------
+
+Add the following to your ``~/.bashrc`` (or equivalent) and run ``source ~/.bashrc``:
+
+.. code-block:: bash
+
+    export BASTADIR=${HOME}/BASTA
+    export PYTHONPATH=${PYTHONPATH}:${BASTADIR}
+    export PATH=${PATH}:${BASTADIR}/bin
+
+.. _ref_f2py:
+
+If your installation of BASTA is in a folder different than ``${HOME}/BASTA`` please update the path in the first line
+accordingly.
+
+Consistent f2py
+---------------
+
+BASTA needs the executable ``f2py3`` to exist in the path to be able to compile external Fortran routines required for
+different parts of the code. In order to avoid issues, this tool *must* match the version of NumPy used to run BASTA.
+It is possible to ensure this by utilizing the version installed in the virtual environment (since the executable is
+shipped with NumPy). To do this, execute the following commands **after** the creation of the virtual environment and
+installation of packages described in :ref:`ref_code`
+
+.. code-block:: bash
+
+    mkdir ~/bin; cd ~/bin
+    ln -s ${BASTADIR}/venv/bin/f2py f2py3
+
+Add the following to your ``~/.bashrc`` (or equivalent) and run ``source ~/.bashrc`` to put your personal bin-folder
+first in the search path:
+
+.. code-block:: bash
+
+    # My own bin first!
+    export PATH=${HOME}/bin:${PATH}
+
+Please note, that now it is only possible to use the ``f2py3`` tool when the
+virtual environment is activated. You can check that the symlink works and the
+location is correct, by running
+
+.. code-block:: bash
+
+    which f2py3
+
+.. _ref_dust:
+
+External routines and dustmaps
+------------------------------
+
+To automatically compile the external routines with ``f2py3`` (described above)
+and setup the dustmaps, use the installation file shipped with BASTA (please
+deactivate and re-activate the venv, if you just installed it):
+
+.. code-block:: bash
+
+    cd ${BASTADIR}
+    deactivate
+    source venv/bin/activate
+    python setup.py CASE
+
+Here ``CASE`` can be either ``grendel`` (if installing on the Grendel-S cluster), ``light`` if installing in a Mac M1
+or M2 machine, or ``personal`` if installing on any other system. Setting ``grendel`` makes BASTA use the dustmaps from
+our shared project folder on Grendel, otherwise these will be downloaded as part of the installation.
+
+Please note that quite a lot of output will be produced, including some
+warnings. However, these warnings (e.g. the deprecated NumPy API) are harmless
+and cannot be avoided until the Scipy-people update ``f2py``. Unless the
+compilation fails, just ignore the warnings.
+
+The path to ``f2py3`` is printed by the script -- make sure this is correctly
+pointing to the BASTA virtual environment! The script will try to import the
+compiled modules to check the compiled files.
+
+.. _ref_hooks:
+
+Git hooks
+---------
+
+BASTA uses ``pre-commit`` to manage git hooks, and the final setup task is to
+activate them:
+
+.. code-block:: bash
+
+    source venv/bin/activate
+    pre-commit install
+
+
+It might take a minute or two to complete. Now, to ensure everything is
+correctly setup, run the command:
+
+.. code-block:: bash
+
+    pre-commit run --all-files
+
+
+It should pass all checks. BASTA is now ready to go.

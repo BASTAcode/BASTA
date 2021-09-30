@@ -1,0 +1,269 @@
+<?xml version="1.0" ?>
+<frequencies kic="16CygA">
+	<flags cov="0" ratios="0" cov010="0" cov02="0" cov01="0" cov10="0" cov012="0" cov102="0"/>
+	<mode id="mode1">
+		<order value="11"/>
+		<degree value="1"/>
+		<frequency error="1.00643301638" unit="uHz" value="1334.28530945"/>
+	</mode>
+	<mode id="mode2">
+		<order value="12"/>
+		<degree value="0"/>
+		<frequency error="0.8633433785" unit="uHz" value="1390.80818859"/>
+	</mode>
+	<mode id="mode3">
+		<order value="12"/>
+		<degree value="1"/>
+		<frequency error="0.447420447278" unit="uHz" value="1437.38529836"/>
+	</mode>
+	<mode id="mode4">
+		<order value="12"/>
+		<degree value="2"/>
+		<frequency error="0.706849942065" unit="uHz" value="1487.8314424"/>
+	</mode>
+	<mode id="mode5">
+		<order value="13"/>
+		<degree value="0"/>
+		<frequency error="0.235285033687" unit="uHz" value="1495.05302937"/>
+	</mode>
+	<mode id="mode6">
+		<order value="13"/>
+		<degree value="1"/>
+		<frequency error="0.140171466481" unit="uHz" value="1542.05982978"/>
+	</mode>
+	<mode id="mode7">
+		<order value="13"/>
+		<degree value="2"/>
+		<frequency error="0.386663478749" unit="uHz" value="1590.36630376"/>
+	</mode>
+	<mode id="mode8">
+		<order value="14"/>
+		<degree value="0"/>
+		<frequency error="0.0720618901275" unit="uHz" value="1598.68962055"/>
+	</mode>
+	<mode id="mode9">
+		<order value="14"/>
+		<degree value="1"/>
+		<frequency error="0.108858525051" unit="uHz" value="1645.139472"/>
+	</mode>
+	<mode id="mode10">
+		<order value="14"/>
+		<degree value="2"/>
+		<frequency error="0.18596079409" unit="uHz" value="1693.93679038"/>
+	</mode>
+	<mode id="mode11">
+		<order value="15"/>
+		<degree value="0"/>
+		<frequency error="0.101411045839" unit="uHz" value="1700.95243323"/>
+	</mode>
+	<mode id="mode12">
+		<order value="15"/>
+		<degree value="1"/>
+		<frequency error="0.0848920204053" unit="uHz" value="1747.19868228"/>
+	</mode>
+	<mode id="mode13">
+		<order value="15"/>
+		<degree value="2"/>
+		<frequency error="0.130726571757" unit="uHz" value="1795.84331391"/>
+	</mode>
+	<mode id="mode14">
+		<order value="16"/>
+		<degree value="0"/>
+		<frequency error="0.0794675195876" unit="uHz" value="1802.35128017"/>
+	</mode>
+	<mode id="mode15">
+		<order value="16"/>
+		<degree value="1"/>
+		<frequency error="0.0556096542426" unit="uHz" value="1849.00886124"/>
+	</mode>
+	<mode id="mode16">
+		<order value="16"/>
+		<degree value="2"/>
+		<frequency error="0.0978307904853" unit="uHz" value="1898.39891315"/>
+	</mode>
+	<mode id="mode17">
+		<order value="17"/>
+		<degree value="0"/>
+		<frequency error="0.0583487048825" unit="uHz" value="1904.52077374"/>
+	</mode>
+	<mode id="mode18">
+		<order value="17"/>
+		<degree value="1"/>
+		<frequency error="0.0503908592746" unit="uHz" value="1952.00824484"/>
+	</mode>
+	<mode id="mode19">
+		<order value="17"/>
+		<degree value="2"/>
+		<frequency error="0.0815081444474" unit="uHz" value="2001.58790927"/>
+	</mode>
+	<mode id="mode20">
+		<order value="18"/>
+		<degree value="0"/>
+		<frequency error="0.0445692583862" unit="uHz" value="2007.5379801"/>
+	</mode>
+	<mode id="mode21">
+		<order value="17"/>
+		<degree value="3"/>
+		<frequency error="0.368183739741" unit="uHz" value="2045.85069541"/>
+	</mode>
+	<mode id="mode22">
+		<order value="18"/>
+		<degree value="1"/>
+		<frequency error="0.0472804914998" unit="uHz" value="2055.49320744"/>
+	</mode>
+	<mode id="mode23">
+		<order value="18"/>
+		<degree value="2"/>
+		<frequency error="0.0558153334323" unit="uHz" value="2105.37354776"/>
+	</mode>
+	<mode id="mode24">
+		<order value="19"/>
+		<degree value="0"/>
+		<frequency error="0.0407199203066" unit="uHz" value="2110.94954597"/>
+	</mode>
+	<mode id="mode25">
+		<order value="18"/>
+		<degree value="3"/>
+		<frequency error="0.204012805992" unit="uHz" value="2150.05661231"/>
+	</mode>
+	<mode id="mode26">
+		<order value="19"/>
+		<degree value="1"/>
+		<frequency error="0.0494573640208" unit="uHz" value="2159.14877541"/>
+	</mode>
+	<mode id="mode27">
+		<order value="19"/>
+		<degree value="2"/>
+		<frequency error="0.0717291103363" unit="uHz" value="2208.92783634"/>
+	</mode>
+	<mode id="mode28">
+		<order value="20"/>
+		<degree value="0"/>
+		<frequency error="0.0537751945651" unit="uHz" value="2214.22506316"/>
+	</mode>
+	<mode id="mode29">
+		<order value="19"/>
+		<degree value="3"/>
+		<frequency error="0.250212175298" unit="uHz" value="2253.79553858"/>
+	</mode>
+	<mode id="mode30">
+		<order value="20"/>
+		<degree value="1"/>
+		<frequency error="0.0509946731215" unit="uHz" value="2262.56252349"/>
+	</mode>
+	<mode id="mode31">
+		<order value="20"/>
+		<degree value="2"/>
+		<frequency error="0.0785928264579" unit="uHz" value="2312.50466457"/>
+	</mode>
+	<mode id="mode32">
+		<order value="21"/>
+		<degree value="0"/>
+		<frequency error="0.0569411856738" unit="uHz" value="2317.28210729"/>
+	</mode>
+	<mode id="mode33">
+		<order value="20"/>
+		<degree value="3"/>
+		<frequency error="0.226731165752" unit="uHz" value="2357.49675501"/>
+	</mode>
+	<mode id="mode34">
+		<order value="21"/>
+		<degree value="1"/>
+		<frequency error="0.0596394964582" unit="uHz" value="2366.24466426"/>
+	</mode>
+	<mode id="mode35">
+		<order value="21"/>
+		<degree value="2"/>
+		<frequency error="0.122573197268" unit="uHz" value="2416.24891009"/>
+	</mode>
+	<mode id="mode36">
+		<order value="22"/>
+		<degree value="0"/>
+		<frequency error="0.07995713686" unit="uHz" value="2420.93720443"/>
+	</mode>
+	<mode id="mode37">
+		<order value="21"/>
+		<degree value="3"/>
+		<frequency error="0.358181828777" unit="uHz" value="2461.45180311"/>
+	</mode>
+	<mode id="mode38">
+		<order value="22"/>
+		<degree value="1"/>
+		<frequency error="0.0909626771702" unit="uHz" value="2470.22662466"/>
+	</mode>
+	<mode id="mode39">
+		<order value="22"/>
+		<degree value="2"/>
+		<frequency error="0.199416581001" unit="uHz" value="2520.73413189"/>
+	</mode>
+	<mode id="mode40">
+		<order value="23"/>
+		<degree value="0"/>
+		<frequency error="0.155829791254" unit="uHz" value="2524.94962077"/>
+	</mode>
+	<mode id="mode41">
+		<order value="23"/>
+		<degree value="1"/>
+		<frequency error="0.121085459821" unit="uHz" value="2574.66041144"/>
+	</mode>
+	<mode id="mode42">
+		<order value="23"/>
+		<degree value="2"/>
+		<frequency error="0.361848612348" unit="uHz" value="2624.63604946"/>
+	</mode>
+	<mode id="mode43">
+		<order value="24"/>
+		<degree value="0"/>
+		<frequency error="0.259114657152" unit="uHz" value="2628.92965688"/>
+	</mode>
+	<mode id="mode44">
+		<order value="24"/>
+		<degree value="1"/>
+		<frequency error="0.200730389785" unit="uHz" value="2679.72574867"/>
+	</mode>
+	<mode id="mode45">
+		<order value="24"/>
+		<degree value="2"/>
+		<frequency error="0.756400749965" unit="uHz" value="2730.02356348"/>
+	</mode>
+	<mode id="mode46">
+		<order value="25"/>
+		<degree value="0"/>
+		<frequency error="0.420028514192" unit="uHz" value="2733.57075288"/>
+	</mode>
+	<mode id="mode47">
+		<order value="25"/>
+		<degree value="1"/>
+		<frequency error="0.335402736433" unit="uHz" value="2783.81583474"/>
+	</mode>
+	<mode id="mode48">
+		<order value="25"/>
+		<degree value="2"/>
+		<frequency error="0.797972728065" unit="uHz" value="2836.08826477"/>
+	</mode>
+	<mode id="mode49">
+		<order value="26"/>
+		<degree value="0"/>
+		<frequency error="0.943677463919" unit="uHz" value="2840.14780305"/>
+	</mode>
+	<mode id="mode50">
+		<order value="26"/>
+		<degree value="1"/>
+		<frequency error="0.69212063401" unit="uHz" value="2890.1976045"/>
+	</mode>
+	<mode id="mode51">
+		<order value="26"/>
+		<degree value="2"/>
+		<frequency error="1.10281086603" unit="uHz" value="2940.39275845"/>
+	</mode>
+	<mode id="mode52">
+		<order value="27"/>
+		<degree value="0"/>
+		<frequency error="0.791933776405" unit="uHz" value="2944.93721665"/>
+	</mode>
+	<mode id="mode53">
+		<order value="27"/>
+		<degree value="1"/>
+		<frequency error="1.01260477451" unit="uHz" value="2994.83963647"/>
+	</mode>
+</frequencies>

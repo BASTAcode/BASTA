@@ -1,0 +1,74 @@
+# This is the standard settings for plots made with BASTA.
+# This way we can make global changes to all plots.
+# Settings for seaborn poster
+figure.figsize: 12.8, 8.8
+axes.labelsize: 17.6
+axes.titlesize: 14
+xtick.labelsize: 14
+ytick.labelsize: 14
+legend.fontsize: 12
+
+grid.linewidth: 1.6
+lines.linewidth: 1.4  #2.8
+patch.linewidth: 0.48
+lines.markersize: 11.2
+lines.markeredgewidth: 0 # Markers without fill dissappear!
+
+xtick.major.width: 1.6
+ytick.major.width: 1.6
+xtick.minor.width: 0.8
+ytick.minor.width: 0.8
+
+xtick.major.pad: 11.2
+ytick.major.pad: 11.2
+
+# Colours of background and fonts
+figure.facecolor: white
+text.color: .15
+axes.facecolor: white
+axes.edgecolor: .15
+axes.labelcolor: .15
+
+# Other font settings
+font.family: sans-serif
+font.sans-serif: Arial, Liberation Sans, DejaVu Sans, Bitstream Vera Sans, sans-serif
+
+# Use scientific notation if log10 of the axis range is smaller than the first or larger than the second
+axes.formatter.limits: -4, 4
+axes.ymargin: .04
+
+# Legend settings
+legend.frameon: False
+legend.numpoints: 1
+legend.scatterpoints: 1
+
+# Grid settings
+grid.color: .8
+axes.axisbelow: True  # Draw axis gridlines and ticks below patches
+axes.grid: False
+grid.linestyle: -
+
+# Lines
+lines.solid_capstyle: round
+axes.linewidth: 1.25
+
+# Ticks
+xtick.top: True
+xtick.bottom: True
+ytick.left: True
+ytick.right: True
+xtick.major.size: 6
+ytick.major.size: 6
+xtick.minor.size: 3
+ytick.minor.size: 3
+
+xtick.direction: inout
+ytick.direction: inout
+xtick.color: .15
+ytick.color: .15
+
+# Seaborn colorblind palette
+# Consider changing this to Tableau10 or Tableau20, if you want more colours
+# (http://tableaufriction.blogspot.com/2012/11/finally-you-can-use-tableau-data-colors.html).
+axes.prop_cycle: cycler('color', ['0072B2', '009E73', 'D55E00', 'CC79A7', 'F0E442', '56B4E9'])
+patch.facecolor: 0072B2

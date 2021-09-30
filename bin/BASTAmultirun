@@ -1,0 +1,87 @@
+#!/usr/bin/env python3
+"""
+Run BASTA in parallel on directory of XML files! Make sure this file has run permissions
+and is added to PATH!
+"""
+import os
+import argparse
+from subprocess import run
+import multiprocessing as mp
+from contextlib import contextmanager
+
+
+@contextmanager
+def cd(newdir):
+    """Change directory"""
+    prevdir = os.getcwd()
+    os.chdir(os.path.expanduser(newdir))
+    try:
+        yield
+    finally:
+        os.chdir(prevdir)
+
+
+def _process_xmldir(rundir, nproc=4, debug=False):
+    """
+    Run BASTA on all files in a given directory. Multi-threaded version.
+
+    Parameters
+    ----------
+    rundir : str
+        Path to fully prepared validation run directory
+
+    nproc : int, optional
+        Number of cpus to use in the multiprocessing
+
+    Returns
+    -------
+    None
+
+    """
+    print(
+        "~~~~~~ RUNNING BASTA ON {0} WITH {1} THREADS NOW ~~~~~~\n".format(
+            rundir, nproc
+        )
+    )
+    with cd(rundir):
+        # Construct list of XML files in the directory and then process them in parallel
+        bastatasks = []
+        for filename in next(os.walk("."))[2]:
+            if filename.endswith(".xml"):
+                if debug:
+                    bastatasks.append((["BASTArun", "--debug", filename],))
+                else:
+                    bastatasks.append((["BASTArun", filename],))
+        with mp.Pool(processes=nproc) as pool:
+            pool.starmap(run, bastatasks)
+    print("\n~~~~~~ DONE! ~~~~~~\n")
+
+
+# ======================================================================================
+# Main func -- handling input arguments
+# ======================================================================================
+if __name__ == "__main__":
+    # Initialise parser and gather arguments
+    parser = argparse.ArgumentParser(description=("Run BASTA on multiple input files."))
+    parser.add_argument(
+        "xmlpath", help=("Path to the directory with xml files to process.")
+    )
+    parser.add_argument(
+        "--parallel",
+        help="Specify number of threads used in multiprocessing."
+        " If not set, will use max available on system.",
+        type=int,
+    )
+    parser.add_argument(
+        "--debug", action="store_true", help="Additional output for debugging."
+    )
+    args = parser.parse_args()
+
+    if args.parallel:
+        numthread = args.parallel
+    else:
+        numthread = os.cpu_count()
+
+    _process_xmldir(
+        rundir=os.path.abspath(args.xmlpath), nproc=numthread, debug=args.debug
+    )
