@@ -6,18 +6,6 @@ Installation
 **Please read all subsections on this page carefully to make sure all aspects of
 the installation are performed correctly!**
 
-.. _ref_setup:
-
-Setup
------
-**Important**: If you want to install BASTA on a system running MacOS, note that Matplotlib has introduced a dependency
-on ``freetype``. Due to this, the installation of BASTA packages will choke with a long error report. To avoid this
-problem, install the package with Homebrew (or equivalent) in advance:
-
-.. code-block:: bash
-
-    brew install freetype
-
 .. _ref_code:
 
 Obtaining the code and virtual environment
@@ -109,7 +97,7 @@ Here ``CASE`` can be either ``grendel`` (if installing on the Grendel-S cluster)
 or M2 machine, or ``personal`` if installing on any other system. Setting ``grendel`` makes BASTA use the dustmaps from
 our shared project folder on Grendel, otherwise these will be downloaded as part of the installation.
 
-Please note that quite a lot of output will be produced, including some
+Please note that quite a lot of output might be produced, including some
 warnings. However, these warnings (e.g. the deprecated NumPy API) are harmless
 and cannot be avoided until the Scipy-people update ``f2py``. Unless the
 compilation fails, just ignore the warnings.
@@ -118,10 +106,13 @@ The path to ``f2py3`` is printed by the script -- make sure this is correctly
 pointing to the BASTA virtual environment! The script will try to import the
 compiled modules to check the compiled files.
 
+
 .. _ref_hooks:
 
 Git hooks
 ---------
+
+*If you don't want to contribute to BASTA, you can skip this section!*
 
 BASTA uses ``pre-commit`` to manage git hooks, and the final setup task is to
 activate them:

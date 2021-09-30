@@ -3,14 +3,16 @@
 Troubleshoot
 ============
 
-Here is an overview of some common/known problems and how to solve them. **WHAT TO DO OTHERWISE**.
+Here is an overview of some common/known problems and how to solve them.
 
 .. _trouble_quick:
 
 I don't want to read this whole thing — I just have a question!
 ---------------------------------------------------------------
 
-**Please do not file an issue to ask a question.** Get in touch with us using some other channel.
+**Please do not file an issue to ask a question.** You can use the `discussion tab
+<https://github.com/BASTAcode/BASTA/discussions>`_ on GitHub if you have a
+question. You are also free to get in touch with us using some other channel.
 
 .. _trouble_virt:
 

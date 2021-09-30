@@ -12,6 +12,9 @@ Current stable version: v1.0-rc
 
 ## Before you begin
 
+*Please follow the repository here on GitHub to get notifications on new
+releases: Click "Watch" then "Custom" and tick "Releases.*
+
 Please have a look at [our documentation](https://basta.readthedocs.io/en/latest/index.html#).
 
 There we have written a guide [guide to installing

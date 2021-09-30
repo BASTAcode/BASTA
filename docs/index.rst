@@ -12,7 +12,7 @@ BASTA is a python-based fitting tool designed to determine properties of stars u
 models. It calculates the probability density function of a given stellar property based on a set of observational
 constraints defined by the user.
 
-Codewise, everything should be documented here.
+*Please follow the repository on GitHub to get notifications on new releases: Click "Watch" then "Custom" and tick "Releases.*
 
 .. toctree::
    :maxdepth: 1
