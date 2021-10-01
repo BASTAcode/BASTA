@@ -7,8 +7,7 @@
 
 Current stable version: v1.0
 
-**Important note:** BASTA is developed for Python 3.8. **Python 3.9 is currently
-*not* supported due to problems with h5py.**
+**Important note:** BASTA is developed for Python 3.8, but Python 3.7 should work as well. **Python 3.9 is currently *not* supported due to problems with h5py.**
 
 
 ## Before you begin

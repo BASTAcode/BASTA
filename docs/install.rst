@@ -11,6 +11,9 @@ the installation are performed correctly!**
 Obtaining the code and virtual environment
 ------------------------------------------
 
+**Important note:** BASTA is developed for Python 3.8, but Python 3.7 should work as well. **Python 3.9 is currently
+*not* supported due to problems with h5py.**
+
 To obtain the repository and setup the virtual environment, run in a bash shell:
 
 .. code-block:: bash
