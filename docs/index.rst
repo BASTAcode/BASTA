@@ -34,7 +34,7 @@ References and acknowledgements
 There are two articles containing the rationale, main features, and capabilities of the code:
 
 * `The BASTA paper I <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_
-* `The BASTA paper II <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_
+* `The BASTA paper II <https://arxiv.org/abs/2109.14622>`_
 
 Please consider citing these articles if you use BASTA in your work, and include the link to the code's repository
 ``https://github.com/BASTAcode/BASTA``.

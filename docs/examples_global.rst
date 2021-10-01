@@ -23,7 +23,7 @@ the frequency of maximum power :math:`\nu_\mathrm{max}`. Note that the input val
 ``dnu`` in block 1 of :py:meth:`create_inputfile.define_input`, and the parameter we are fitting here is called
 ``dnufit``. The reason is that BASTA supports several definitions of :math:`\Delta\nu` and it is the user's decision
 which one to fit. A description of the various types of :math:`\Delta\nu` available is given in Section 4.1.1 of
-`The BASTA paper II <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_, and their corresponding variable
+`The BASTA paper II <https://arxiv.org/abs/2109.14622>`_, and their corresponding variable
 names can be found in :py:meth:`constants.parameters`.
 
 The next block to be modified is 2a, where priors to the fit can be selected. We will apply a Salpeter IMF and flat
@@ -50,7 +50,7 @@ Finally, we define a reference solar model and solar values to be used in the sc
     define_fit["sunnumax"] = 3090.0
 
 Note that, in the present example, the solar model is used to scale the grid values of ``dnufit`` as described in
-Section 4.1.1 of `The BASTA paper II <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_.
+Section 4.1.1 of `The BASTA paper II <https://arxiv.org/abs/2109.14622>`_.
 
 In the folder ``${BASTADIR}/examples/xmlinput/`` you can find a file called ``create_inputfile_global.py`` that has been
 prepared following the above instructions to make a fit of the Kepler target 16 Cyg A to the example grid shipped with

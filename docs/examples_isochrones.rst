@@ -76,7 +76,7 @@ The first fit in this example will include spectroscopy, global asteroseismic pa
 Note that we fit the large frequency separation using the
 `Serenelli et al. 2017 correction <https://ui.adsabs.harvard.edu/abs/2017ApJS..233...23S/abstract>`_ (called ``dnuSer``)
 instead of ``dnufit`` since theoretical oscillation frequencies are not included in isochrones (see section 4.1.1 of
-`The BASTA paper II <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_). In order to fit the parallax,
+`The BASTA paper II <https://arxiv.org/abs/2109.14622>`_). In order to fit the parallax,
 we need to provide at least one apparent magnitude. This is done modifying block 2e as follows:
 
 .. code-block:: python

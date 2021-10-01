@@ -188,7 +188,7 @@ Individual frequencies: subgiants
 Reproducing the frequency spectrum of subgiant stars is a challenging task from a technical point of view, as the radial
 order of the observed mixed-modes does not correspond to the theoretical values used to label them in models. We have
 developed an algorithm that deals with this automatically, and we refer to section 4.1.5 of
-`The BASTA paper II <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_ for further details.
+`The BASTA paper II <https://arxiv.org/abs/2109.14622>`_ for further details.
 
 In practice, you simply need to provide an ``ascii`` file with the individual frequencies in the same format as in the
 main-sequence case (order, degree, frequency, error, flag). The radial order given is basically irrelevant, as BASTA
@@ -197,7 +197,7 @@ values for the l=1,2 modes to find the correct match.
 
 We include an example of frequencies for a subgiant in the file ``${BASTADIR}/examples/data/freqs/Valid_245.fre``. It
 corresponds to one of the artificial stars used for the validation of the code as described in section 6 of
-`The BASTA paper II <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_. Quick exploration of the file
+`The BASTA paper II <https://arxiv.org/abs/2109.14622>`_. Quick exploration of the file
 reveals that it has a number of mixed-modes of l=1 that have radial orders labelled in ascending order. You need to
 transform the ``.fre`` file into a ``.xml`` file following the usual procedure:
 

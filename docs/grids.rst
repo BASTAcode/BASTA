@@ -26,7 +26,7 @@ installing the code, type in the following commands:
 
 and follow the instructions to download the grids. Currently the following grids are available for download:
 
-* The validation grid of stellar tracks described in Section 6 of `The BASTA paper II <https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract>`_ (called `validation`)
+* The validation grid of stellar tracks described in Section 6 of `The BASTA paper II <https://arxiv.org/abs/2109.14622>`_ (called `validation`)
 * A complete grid of BaSTI stellar isochrones including all science cases described in the `Solar scaled paper <https://ui.adsabs.harvard.edu/abs/2018ApJ...856..125H/abstract>`_ and the `Alpha-enhanced paper <https://ui.adsabs.harvard.edu/abs/2021ApJ...908..102P/abstract>`_. (called `iso`)
 
 Additional grids can be built by the BASTA core development team upon reasonable request. Currently we are working on
