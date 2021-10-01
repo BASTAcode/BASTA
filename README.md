@@ -50,7 +50,7 @@ from the list please contact us.
 
 ## Authors
 
-The core developing team are:
+The current core developing team are:
 
 * Víctor Aguirre Børsen-Koch
 * Jakob Lysgaard Rørsted

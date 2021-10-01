@@ -2,7 +2,10 @@
 Production of corner plots.
 
 Modified from a fork of https://github.com/dfm/corner.py .
-This version add the observed quantities to the corner plots
+Original code: Copyright (c) 2013-2020 Daniel Foreman-Mackey
+Full license: https://github.com/dfm/corner.py/blob/main/LICENSE
+
+This modified version add the observed quantities to the corner plots.
 """
 import logging
 import colorsys
