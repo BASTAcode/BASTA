@@ -3,6 +3,7 @@
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation Status](https://readthedocs.org/projects/basta/badge/?version=latest)](https://basta.readthedocs.io/en/latest/?badge=latest)
+[![arXiv](https://img.shields.io/badge/arXiv-1234.56789-b31b1b.svg)](https://arxiv.org/abs/2109.14622)
 
 Current stable version: v1.0
 
@@ -34,7 +35,7 @@ There are two papers containing the rationale, main features, and capabilities
 of the code:
 
 * [The BASTA paper I](https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract).
-* [The BASTA paper II](https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract).
+* [The BASTA paper II](https://arxiv.org/abs/2109.14622).
 
 Please consider citing these references if you use BASTA in your work, and
 include the link to the code's repository `https://github.com/BASTAcode/BASTA`.
