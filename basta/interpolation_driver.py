@@ -503,10 +503,10 @@ def perform_interpolation(
     if any([x in allparams for x in ["distance", "parallax"]]):
         allparams += inputparams["distanceparams"]["filters"]
     intpolparams = list(np.unique(allparams))
-    if "distance" in allparams:
-        allparams.remove("distance")
+    if "distance" in intpolparams:
+        intpolparams.remove("distance")
     if "parallax" in allparams:
-        allparams.remove("parallax")
+        intpolparams.remove("parallax")
     mask = [True if par in parameters.names else False for par in intpolparams]
     intpolparams = list(np.asarray(intpolparams)[mask])
     if inputparams.get("fitfreqs", False):
