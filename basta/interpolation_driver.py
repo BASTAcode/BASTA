@@ -505,7 +505,7 @@ def perform_interpolation(
     intpolparams = list(np.unique(allparams))
     if "distance" in intpolparams:
         intpolparams.remove("distance")
-    if "parallax" in allparams:
+    if "parallax" in intpolparams:
         intpolparams.remove("parallax")
     mask = [True if par in parameters.names else False for par in intpolparams]
     intpolparams = list(np.asarray(intpolparams)[mask])
