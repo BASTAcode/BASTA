@@ -593,7 +593,10 @@ def run_xml(
             # Get fitparameters for the given star
             for param in fitparams:
                 # Entry of parameter for the star
-                kid = star.find(param)
+                if "dnu" in param:
+                    kid = star.find("dnu")
+                else:
+                    kid = star.find(param)
 
                 # Skip reading for special fitting keys, dealt with later
                 if param in [*overwriteparams, *freqtypes.alltypes]:
@@ -619,7 +622,7 @@ def run_xml(
 
                 # Handle general parameters
                 elif kid.get("value") is not None:
-                    starfitparams[kid.tag] = [
+                    starfitparams[param] = [
                         float(kid.get("value")),
                         float(kid.get("error")),
                     ]

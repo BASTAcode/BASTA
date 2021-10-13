@@ -74,6 +74,53 @@ def create_xmltag(
     starid = _get_param(paramvals, params, "starid")
     star = SubElement(main, "star", {"starid": str(starid)})
 
+    # Special treatment of dnu and numax for frequency fitting
+    nuset = {"dnu": False, "numax": False}
+
+    # Loop over fitting parameters
+    for param in fitparams:
+        if param in freqtypes.alltypes:
+            continue
+
+        # If fitting dnu*, get and save the observed value as simply dnu
+        param = "dnu" if "dnu" in param else param
+        paramval = _get_param(paramvals, params, param)
+        if isinstance(paramval, np.str_) and paramval != missingval:
+            SubElement(star, param, {"value": str(paramval)})
+        if (not isinstance(paramval, np.unicode_)) and (
+            not np.isclose(paramval, missingval)
+        ):
+            paramerr = _get_param(paramvals, params, param + "_err")
+            if not np.isclose(paramerr, missingval):
+                SubElement(
+                    star, param, {"value": str(paramval), "error": str(paramerr)}
+                )
+        if param in nuset:
+            nuset[param] = True
+
+    # Handle additional parameters (without errors)
+    for param in distparams:
+        paramval = _get_param(paramvals, params, param)
+        if not np.isclose(paramerr, missingval):
+            SubElement(star, param, {"value": str(paramval)})
+
+    # Handle interpolation parameters
+    for param in intpollim:
+        out = {}
+        gparam = "dnu" if "dnu" in param else param
+        nucheck = not nuset[gparam] if gparam in nuset else False
+        if "abstol" in intpollim[param] or nucheck:
+            paramval = _get_param(paramvals, params, gparam)
+            if not np.isclose(paramval, missingval):
+                out["value"] = str(paramval)
+            if nucheck:
+                nuset[gparam] = True
+        if "sigmacut" in intpollim[param]:
+            paramerr = _get_param(paramvals, params, gparam + "_err")
+            if not np.isclose(paramerr, missingval):
+                out["error"] = str(paramerr)
+        SubElement(star, gparam, out)
+
     # Handle the nottrustedfile object
     if freqparams and any(x in fitparams for x in freqtypes.alltypes):
         if "nottrustedfile" in freqparams:
@@ -90,53 +137,13 @@ def create_xmltag(
                 )
             else:
                 raise ValueError("Nottrustedfile is neither a dict or a str")
-
-    # Loop over fitting parameters
-    freq_set = False
-    for param in fitparams:
-        if param in freqtypes.alltypes and not freq_set:
-            numax = _get_param(paramvals, params, "numax")
+        if not nuset["dnu"]:
             dnu = _get_param(paramvals, params, "dnu")
-            SubElement(star, "numax", {"value": str(numax)})
             SubElement(star, "dnu", {"value": str(dnu)})
-            freq_set = True
-            continue
-        elif param in freqtypes.alltypes and freq_set:
-            continue
+        if not nuset["numax"]:
+            numax = _get_param(paramvals, params, "numax")
+            SubElement(star, "numax", {"value": str(numax)})
 
-        # If fitting dnu*, get the observed value as simply dnu from input
-        getparam = "dnu" if ("dnu" in param and param != "dnu") else param
-        paramval = _get_param(paramvals, params, getparam)
-        if isinstance(paramval, np.str_) and paramval != missingval:
-            SubElement(star, param, {"value": str(paramval)})
-        if (not isinstance(paramval, np.unicode_)) and (
-            not np.isclose(paramval, missingval)
-        ):
-            paramerr = _get_param(paramvals, params, getparam + "_err")
-            if not np.isclose(paramerr, missingval):
-                SubElement(
-                    star, param, {"value": str(paramval), "error": str(paramerr)}
-                )
-
-    # Handle additional parameters (without errors)
-    for param in distparams:
-        paramval = _get_param(paramvals, params, param)
-        if not np.isclose(paramerr, missingval):
-            SubElement(star, param, {"value": str(paramval)})
-
-    # Handle interpolation parameters
-    for param in intpollim:
-        out = {}
-        getparam = "dnu" if "dnu" in param else param
-        if "abstol" in intpollim[param]:
-            paramval = _get_param(paramvals, params, getparam)
-            if not np.isclose(paramval, missingval):
-                out["value"] = str(paramval)
-        if "sigmacut" in intpollim[param]:
-            paramerr = _get_param(paramvals, params, getparam + "_err")
-            if not np.isclose(paramerr, missingval):
-                out["error"] = str(paramerr)
-        SubElement(star, getparam, out)
     return main
 
 
