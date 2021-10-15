@@ -556,7 +556,7 @@ def _interpolate_across(
         baseparams, base, new_points[success], triangulation, sobol, outbasename
     )
     if plotted:
-        print("Across interpolation base has been plotted in", "figure", outbasename)
+        print("Across interpolation base has been plotted in figure", outbasename)
 
     # Remove all previous tracks, to conserve sobol homogeniety
     if grid == outfile and sobol:
