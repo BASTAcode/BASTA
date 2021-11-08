@@ -60,7 +60,7 @@ With the input file in the appropriate ``xml`` format, the following blocks must
     # BLOCK 2d: Fitting control, frequencies
     # ------------------------------------------------------------
     define_fit["freqparams"] = {
-        "freqpath": "${BASTADIR}/examples/data/freqs/",
+        "freqpath": "${BASTADIR}/examples/data/freqs",
         "fcor": "BG14",
         "correlations": False,
         "dnufrac": 0.15,
@@ -86,7 +86,7 @@ We have provided an ready-to-run example for this star:
     python create_inputfile_freqs.py
     BASTArun input_freqs.xml
 
-The fit should take less than a minute and the output is stored in ``${BASTADIR}/examples/output/freqs/``. Besides the
+The fit should take less than a minute and the output is stored in ``${BASTADIR}/examples/output/freqs``. Besides the
 corner plot and Kiel diagrams, the code produces output of the fit to the individual frequencies in form of echelle
 diagrams for both corrected and uncorrected frequencies:
 
@@ -168,7 +168,7 @@ Since the ``.glh`` file is located in the same folder as the individual frequenc
     # BLOCK 2d: Fitting control, frequencies
     # ------------------------------------------------------------
     define_fit["freqparams"] = {
-        "freqpath": "${BASTADIR}/examples/data/freqs/",
+        "freqpath": "${BASTADIR}/examples/data/freqs",
         "fcor": "BG14",
         "correlations": False,
         "dnufrac": 0.15,

@@ -1,10 +1,6 @@
 """
 Make an input file for BASTA in XML format
 """
-# Definition of the path to BASTA, just in case you need it
-import os
-
-BASTADIR = os.environ["BASTADIR"]
 
 
 # This is the function you are looking for!
@@ -24,10 +20,11 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
-    define_io["gridfile"] = os.path.join(BASTADIR, "grids/") + "Garstec_validation.hdf5"
+    # --> If you need the location of BASTA, it is in BASTADIR
+    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_validation.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = os.path.join(BASTADIR, "examples/") + "output/subgiant/"
+    define_io["outputpath"] = os.path.join(BASTADIR, "examples", "output/subgiant")
 
     # BASTA is designed to fit multiple stars in the same run. To generate the input
     # file, a table in plain ascii with the observed stellar parameters must be
@@ -49,7 +46,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> Only those relevant are included in the produced input file.
 
     # Example of the columns in the example file:
-    define_io["asciifile"] = os.path.join(BASTADIR, "examples/data/") + "subgiant.ascii"
+    define_io["asciifile"] = os.path.join(BASTADIR, "examples/data", "subgiant.ascii")
     define_io["params"] = (
         "starid",
         "Teff",
@@ -217,7 +214,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # Example of typical settings for a frequency fit (with default seismic weights):
     # define_fit["freqparams"] = {
     define_fit["freqparams"] = {
-        "freqpath": os.path.join(BASTADIR, "examples/data/freqs/"),
+        "freqpath": os.path.join(BASTADIR, "examples/data/freqs"),
         "fcor": "BG14",
         "correlations": False,
         "dnufrac": 0.15,
@@ -557,7 +554,6 @@ def _run_sanity_checks(
 
 def _print_summary(
     numfits,
-    xmlinputname,
     define_io,
     define_fit,
     define_output,
@@ -677,19 +673,29 @@ def _print_summary(
             "Additionally, a {0} IMF will be used as a prior.".format(imf.capitalize())
         )
 
-    # Final words...!
-    print(
-        "\n\n!!! To perform the fit, run the command: BASTArun {0}".format(xmlinputname)
-    )
-
 
 if __name__ == "__main__":
+    import os
     import sys
+    import argparse
     import numpy as np
     from basta.constants import freqtypes
     from basta.xml_create import generate_xml
 
-    print("~~~ Generating an XML input file for BASTA ~~~")
+    # Initialise argument parser
+    parser = argparse.ArgumentParser(description="Create input XML for BASTA")
+    parser.add_argument(
+        "--quiet", action="store_true", help="Suppress summary text output"
+    )
+    args = parser.parse_args()
+
+    if not args.quiet:
+        print(46 * "*")
+        print("*** Generating an XML input file for BASTA ***")
+        print(46 * "*", "\n")
+
+    # Definition of the path to BASTA, just in case you need it
+    BASTADIR = os.environ["BASTADIR"]
 
     # Define dictionaries for settings
     infodict_io = {}
@@ -699,7 +705,7 @@ if __name__ == "__main__":
     infodict_intpol = {}
 
     # Fill the dictionaries depending on the users selections
-    print("\nReading user input ...")
+    print("Reading user input ...")
     (
         xmlname,
         infodict_io,
@@ -754,18 +760,22 @@ if __name__ == "__main__":
             print("\nCannot create XML file! Aborting...")
             sys.exit(1)
 
+        # Write structure to file
         with open(xmlname, "w", encoding="utf-8") as xf:
             print(xmldat, file=xf)
         print("Done!")
-        print("\n\n" + 42 * "*")
-        print("*** Summary of the requested BASTA run ***")
-        print(42 * "*", "\n")
-        _print_summary(
-            numfits=numstars,
-            xmlinputname=xmlname,
-            define_io=infodict_io,
-            define_fit=infodict_fit,
-            define_output=infodict_output,
-            define_plots=infodict_plots,
-            define_intpol=infodict_intpol,
-        )
+
+        # Print summary of the fit
+        if not args.quiet:
+            print("\n\n   Summary of the requested BASTA run  ")
+            print(40 * "-", "\n")
+            _print_summary(
+                numfits=numstars,
+                define_io=infodict_io,
+                define_fit=infodict_fit,
+                define_output=infodict_output,
+                define_plots=infodict_plots,
+                define_intpol=infodict_intpol,
+            )
+        # Final words...!
+        print("\n!!! To perform the fit, run the command: BASTArun {0}".format(xmlname))

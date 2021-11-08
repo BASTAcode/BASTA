@@ -23,7 +23,7 @@ following input:
 
 .. code-block:: python
 
-    define_input["gridfile"] = "${BASTADIR}/grids/Garstec_16CygA.hdf5"
+    define_input["gridfile"] = os.path.join(os.environ["BASTADIR"], "grids/Garstec_16CygA.hdf5")
 
     define_input["construction"] = "bystar"
 
