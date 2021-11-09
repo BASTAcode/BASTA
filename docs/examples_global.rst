@@ -5,9 +5,9 @@ Spectroscopy and global asteroseismic parameters
 
 This example describes the fitting of what we call global parameters of the grid, with a specific application to
 asteroseismology for illustration purposes. As a general recommendation, the user should explore the
-:py:meth:`constants.parameters` function for a complete list of available fitting parameters.
+:py:meth:`constants.parameters` (in ``${BASTADIR}/basta/constants.py``) function for a complete list of available fitting parameters.
 
-Block 2 of :py:meth:`create_inputfile.define_input` defines the fitting parameters. For this example it looks as
+Block 2 of :py:meth:`create_inputfile.define_input` (in ``${BASTADIR}/examples/create_inputfile.py``) defines the fitting parameters. For this example it looks as
 follows:
 
 .. code-block:: python
@@ -65,9 +65,11 @@ the code. Simply run the following commands on your terminal:
 
 You should see the following output printed in your terminal:
 
-.. code-block:: bash
+.. code-block:: text
 
-    ~~~ Generating an XML input file for BASTA ~~~
+    **********************************************
+    *** Generating an XML input file for BASTA ***
+    **********************************************
 
     Reading user input ...
     Done!
@@ -78,11 +80,11 @@ You should see the following output printed in your terminal:
     Creating XML input file 'input_global.xml' ...
     Done!
 
-    ******************************************
-    *** Summary of the requested BASTA run ***
-    ******************************************
 
-    A total of 1 star(s) will be fitted with {Teff, FeH, dnufit, numax} to the grid '${BASTADIR}/grids/Garstec_16CygA.hdf5'.
+       Summary of the requested BASTA run
+    ----------------------------------------
+
+    A total of 1 star(s) will be fitted with {Teff, FeH, dnufit, numax} to the grid 'BASTADIR/grids/Garstec_16CygA.hdf5'.
 
     This will output {Teff, FeH, radPhot, massfin, age} to a results file.
 

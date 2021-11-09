@@ -28,7 +28,7 @@ the terminal:
 
 Which gives the oputput:
 
-.. code-block:: bash
+.. code-block:: text
 
     Star 16CygA has an epsilon of: 0.8.
     No correction made.
@@ -37,7 +37,7 @@ This will produce the file ``16CygA.xml``. You can provide ``ascii`` files with 
 simply use the argument ``nbeforel=False``. Note that when the argument ``check_radial_orders=True`` is given, you
 will get the following output when running the command:
 
-.. code-block:: bash
+.. code-block:: text
 
     Star 16CygA has an epsilon of: 0.8.
     The proposed correction has been implemented.
@@ -212,7 +212,7 @@ transform the ``.fre`` file into a ``.xml`` file following the usual procedure:
 
 You should see the following output:
 
-.. code-block:: bash
+.. code-block:: text
 
     Star Valid_245 has an odd epsilon value of 1.9,
     Correction of n-order by 1 gives epsilon value of 0.9.
