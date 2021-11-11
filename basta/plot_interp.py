@@ -173,6 +173,30 @@ def across_debug(
 
     Parameters
     ----------
+    grid : h5py file
+        Handle of original grid
+
+    outfile : h5py file
+        Handle of output grid
+
+    basepath : str
+        Base path to access tracks/isochrones in grid
+
+    basevar : str
+        Base parameter used for interpolation to map tracks/isochrones along
+
+    inttrack : str
+        Name (with path) of interpolated track/isochrone in outfile
+
+    envtracks : str
+        Name of enveloping tracks in grid used for interpolated track/isochrone
+
+    selmods : dict
+        Selectedmodels of enveloping tracks, to show what models were used for
+        interpolation
+
+    outname : str
+        Name and path of outputted plots
 
     Returns
     -------
