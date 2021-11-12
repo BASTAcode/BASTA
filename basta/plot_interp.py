@@ -4,7 +4,6 @@ Production of interpolation plots
 import os
 import numpy as np
 import matplotlib.pyplot as plt
-from mpl_toolkits.axes_grid1.inset_locator import inset_axes
 
 import basta.constants as bc
 
