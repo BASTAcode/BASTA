@@ -441,9 +441,9 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-# New in version 1.1: Imports auxiliary functions from template script!
+# New in version 1.1: Imports auxiliary functions from utils collection
 if __name__ == "__main__":
-    from examples.create_inputfile import make_input
+    from basta.utils_examples import make_basta_input
 
     # Process using the user defined input function above
-    make_input(define_user_input=define_input)
+    make_basta_input(define_user_input=define_input)
