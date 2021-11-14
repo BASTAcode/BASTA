@@ -1,9 +1,21 @@
 """
 Make an input file for BASTA in XML format
+
+THIS IS THE TEMPLATE VERSION OF THE FILE!
 """
+import os
+import sys
+import argparse
+import numpy as np
+from basta.constants import freqtypes
+from basta.xml_create import generate_xml
 
+# Definition of the path to BASTA, just in case you need it
+BASTADIR = os.environ["BASTADIR"]
 
-# This is the function you are looking for!
+#
+# THIS IS THE FUNCTION YOU ARE LOOKING FOR!
+#
 def define_input(define_io, define_fit, define_output, define_plots, define_intpol):
     """
     Define user input for BASTA. Will fill the dictionaries with required information
@@ -440,6 +452,9 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 # ~~~~~~~~~~~~~~~~~~~~~~~~ AUTOMATED PART OF THE SCRIPT BELOW ~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+# Exposed function(s) are imported by specific examples!
+
+
 def _run_sanity_checks(
     define_io, define_fit, define_output, define_plots, define_intpol
 ):
@@ -495,6 +510,15 @@ def _run_sanity_checks(
             errors += 1
 
     # TASK 3: Activated special fits or outputs?
+    allparams = list(
+        set(
+            [
+                *define_fit["fitparams"],
+                *define_output["outparams"],
+                *define_plots["cornerplots"],
+            ]
+        )
+    )
     globast = False
     freqfit = False
     distfit = False
@@ -519,6 +543,14 @@ def _run_sanity_checks(
     if globast:
         if not define_fit["solarmodel"]:
             print("--> Note: Solar scaling deactivated for asteroseismic fit?")
+        if "iso" in define_io["gridfile"]:
+            for param in allparams:
+                if "dnufit" in param:
+                    print(
+                        "--> WARNING: 'dnufit' is not available for isochrones! Use",
+                        "another dnu (e.g. 'dnuSer') instead!",
+                    )
+                    errors += 1
 
     # TASK 4b: Asteroseismology | Individual
     if freqfit:
@@ -685,14 +717,16 @@ def _print_summary(
         )
 
 
-if __name__ == "__main__":
-    import os
-    import sys
-    import argparse
-    import numpy as np
-    from basta.constants import freqtypes
-    from basta.xml_create import generate_xml
+# Main routine for running! Will be imported by specific examples
+def make_input(define_user_input):
+    """
+    Get user input, run sanity checks, produce files, print summary.
 
+    Parameters
+    ----------
+    define_user_input : func
+        Function handle to the user defined input
+    """
     # Initialise argument parser
     parser = argparse.ArgumentParser(description="Create input XML for BASTA")
     parser.add_argument(
@@ -704,9 +738,6 @@ if __name__ == "__main__":
         print(46 * "*")
         print("*** Generating an XML input file for BASTA ***")
         print(46 * "*", "\n")
-
-    # Definition of the path to BASTA, just in case you need it
-    BASTADIR = os.environ["BASTADIR"]
 
     # Define dictionaries for settings
     infodict_io = {}
@@ -724,7 +755,7 @@ if __name__ == "__main__":
         infodict_output,
         infodict_plots,
         infodict_intpol,
-    ) = define_input(
+    ) = define_user_input(
         define_io=infodict_io,
         define_fit=infodict_fit,
         define_output=infodict_output,
@@ -746,9 +777,10 @@ if __name__ == "__main__":
     # If no errors, convert info XML tags and write to file
     if errcode != 0:
         print(
-            "Done! Found {0} warning(s)! Will not create XML... Please fix!".format(
+            "Done! \n\n!!! Found {0} warning(s)! Will not create XML... ".format(
                 errcode
-            )
+            ),
+            "Please fix!!!",
         )
     else:
         print("Done!")
@@ -790,3 +822,9 @@ if __name__ == "__main__":
             )
         # Final words...!
         print("\n!!! To perform the fit, run the command: BASTArun {0}".format(xmlname))
+
+
+# RUN!
+if __name__ == "__main__":
+    # Process using the user defined input function above
+    make_input(define_user_input=define_input)
