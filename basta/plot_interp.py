@@ -1,6 +1,8 @@
 """
 Production of interpolation plots
 """
+import os
+import numpy as np
 import matplotlib.pyplot as plt
 
 import basta.constants as bc
@@ -159,3 +161,242 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
     fig.savefig(outbasename)
     plt.close()
     return True
+
+
+def across_debug(
+    grid, outfile, basepath, basevar, inttrack, envtracks, selmods, outname
+):
+    """
+    If run with the --debug option, this produces a plot for each interpolated
+    track, comparing the interpolated track to the enveloping tracks.
+
+    Parameters
+    ----------
+    grid : h5py file
+        Handle of original grid
+
+    outfile : h5py file
+        Handle of output grid
+
+    basepath : str
+        Base path to access tracks/isochrones in grid
+
+    basevar : str
+        Base parameter used for interpolation to map tracks/isochrones along
+
+    inttrack : str
+        Name (with path) of interpolated track/isochrone in outfile
+
+    envtracks : str
+        Name of enveloping tracks in grid used for interpolated track/isochrone
+
+    selmods : dict
+        Selectedmodels of enveloping tracks, to show what models were used for
+        interpolation
+
+    outname : str
+        Name and path of outputted plots
+
+    Returns
+    -------
+    """
+
+    # Set of colors for the enveloping tracks
+    cols = [
+        "#882E72",
+        "#1965B0",
+        "#5289C7",
+        "#7BAFDE",
+        "#4EB265",
+        "#CAE0AB",
+        "#F7F056",
+        "#F4A736",
+        "#E8601C",
+        "#DC050C",
+        "#72190E",
+    ]
+    # Pretty labels
+    _, labels, _, _ = bc.parameters.get_keys(["Teff", "logg", basevar])
+
+    # We use these mulitple times, so better to abbriviate them now
+    Teff = outfile[inttrack]["Teff"]
+    logg = outfile[inttrack]["logg"]
+    base = outfile[inttrack][basevar]
+
+    # Define figure and plot interpolated track
+    fig, ax = plt.subplots(2, 1, figsize=(12.8, 17.6))
+    ax[0].plot(Teff, logg, ".k", label=r"Interpolated", zorder=20, markersize=8)
+    ax[1].plot(Teff, base, ".k", zorder=20, markersize=8)
+
+    # Plot enveloping tracks
+    for i, track in enumerate(envtracks):
+        name = os.path.join(basepath, track)
+        if "track" in track:
+            lab = track.split("/")[-1]
+        else:
+            lab = track
+        ax[0].plot(
+            grid[name]["Teff"],
+            grid[name]["logg"],
+            ",",
+            color=cols[i],
+            zorder=5,
+            alpha=0.4,
+        )
+        ax[0].plot(
+            grid[name]["Teff"][selmods[i]],
+            grid[name]["logg"][selmods[i]],
+            ".",
+            color=cols[i],
+            label=lab,
+            zorder=5,
+            markersize=8,
+        )
+        ax[1].plot(
+            grid[name]["Teff"],
+            grid[name][basevar],
+            ",",
+            color=cols[i],
+            zorder=5,
+            alpha=0.4,
+        )
+        ax[1].plot(
+            grid[name]["Teff"][selmods[i]],
+            grid[name][basevar][selmods[i]],
+            ".",
+            color=cols[i],
+            zorder=5,
+            markersize=8,
+        )
+
+    # Set labels
+    ax[0].set_xlabel(labels[0])
+    ax[0].set_ylabel(labels[1])
+    ax[1].set_xlabel(labels[0])
+    ax[1].set_ylabel(r"Base parameter: " + labels[2])
+
+    # Invert axis for Kiel-diagram
+    ax[0].invert_xaxis()
+    ax[1].invert_xaxis()
+    ax[0].invert_yaxis()
+
+    # Check and produce inset if needed
+    xlim = ax[0].get_xlim()
+    ylim = ax[0].get_ylim()
+    blim = ax[1].get_ylim()
+    dx = np.amax(Teff) - np.amin(Teff)
+    dy = np.amax(logg) - np.amin(logg)
+    db = np.amax(base) - np.amin(base)
+    if abs(np.diff(xlim)) > 3 * dx or abs(np.diff(ylim)) > 3 * dy:
+        # Locate most empty quadrant
+        halfx = min(xlim) + 0.5 * abs(np.diff(xlim))
+        halfy = min(ylim) + 0.5 * abs(np.diff(ylim))
+        halfb = min(blim) + 0.5 * abs(np.diff(blim))
+
+        # Index juggling due to inverted axis
+        indexes = [[[0, 0], [0, 1], [1, 0], [1, 1]], [[0, 1], [1, 1], [0, 0], [1, 0]]]
+
+        # Take the different variables on the y-axis into account
+        yvars = ["logg", basevar]
+        halfs = [halfy, halfb]
+        indx = []
+        for j, yvar in enumerate(yvars):
+            sums = [0, 0, 0, 0]
+            for i, track in enumerate(envtracks):
+                name = os.path.join(basepath, track)
+
+                index = np.ones(len(grid[name]["Teff"][:]), dtype=bool)
+                index &= grid[name]["Teff"][:] > halfx
+                index &= grid[name][yvar][:] < halfs[j]
+                sums[0] += sum(index)
+
+                index = np.ones(len(grid[name]["Teff"][:]), dtype=bool)
+                index &= grid[name]["Teff"][:] < halfx
+                index &= grid[name][yvar][:] < halfs[j]
+                sums[1] += sum(index)
+
+                index = np.ones(len(grid[name]["Teff"][:]), dtype=bool)
+                index &= grid[name]["Teff"][:] > halfx
+                index &= grid[name][yvar][:] > halfs[j]
+                sums[2] += sum(index)
+
+                index = np.ones(len(grid[name]["Teff"][:]), dtype=bool)
+                index &= grid[name]["Teff"][:] < halfx
+                index &= grid[name][yvar][:] > halfs[j]
+                sums[3] += sum(index)
+
+            indx.append(indexes[j][np.argmin(sums)])
+
+        inset_place_and_size = [
+            [[0.03, 0.6, 0.37, 0.37], [0.6, 0.6, 0.37, 0.37]],
+            [[0.03, 0.05, 0.37, 0.37], [0.6, 0.05, 0.37, 0.37]],
+        ]
+
+        # Finally create the insets in the emptiest quadrant
+        axins0 = ax[0].inset_axes(inset_place_and_size[indx[0][1]][indx[0][0]])
+        axins1 = ax[1].inset_axes(inset_place_and_size[indx[1][1]][indx[1][0]])
+
+        # Move ytick labels correspondingly
+        if not indx[0][0]:
+            axins0.yaxis.set_ticks_position("right")
+        if not indx[1][0]:
+            axins1.yaxis.set_ticks_position("right")
+
+        # Don't set legend on top of inset
+        if not indx[0][1] and not indx[0][0]:
+            ax[0].legend(loc=4)
+        else:
+            ax[0].legend()
+
+        # Plot things again in inset
+        axins0.plot(Teff, logg, ".k", zorder=20, markersize=8)
+        axins1.plot(Teff, base, ".k", zorder=20, markersize=8)
+        for i, track in enumerate(envtracks):
+            name = os.path.join(basepath, track)
+            axins0.plot(
+                grid[name]["Teff"],
+                grid[name]["logg"],
+                ",",
+                color=cols[i],
+                zorder=5,
+                alpha=0.4,
+            )
+            axins0.plot(
+                grid[name]["Teff"][selmods[i]],
+                grid[name]["logg"][selmods[i]],
+                ".",
+                color=cols[i],
+                zorder=5,
+                markersize=8,
+            )
+            axins1.plot(
+                grid[name]["Teff"],
+                grid[name][basevar],
+                ",",
+                color=cols[i],
+                zorder=5,
+                alpha=0.4,
+            )
+            axins1.plot(
+                grid[name]["Teff"][selmods[i]],
+                grid[name][basevar][selmods[i]],
+                ".",
+                color=cols[i],
+                zorder=5,
+                markersize=8,
+            )
+
+            axins0.set_xlim([np.amin(Teff) - 0.3 * dx, np.amax(Teff) + 0.3 * dx])
+            axins0.set_ylim([np.amin(logg) - 0.3 * dy, np.amax(logg) + 0.3 * dy])
+            axins1.set_xlim([np.amin(Teff) - 0.3 * dx, np.amax(Teff) + 0.3 * dx])
+            axins1.set_ylim([np.amin(base) - 0.3 * db, np.amax(base) + 0.3 * db])
+
+            axins0.invert_xaxis()
+            axins1.invert_xaxis()
+            axins0.invert_yaxis()
+
+    else:
+        ax[0].legend()
+    fig.tight_layout()
+    fig.savefig(outname)
+    plt.close()

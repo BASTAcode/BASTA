@@ -371,6 +371,12 @@ def _interpolate_across(
     # List to sort out failed tracks/isochrones at the end
     success = np.ones(len(new_points[:, 0]), dtype=bool)
 
+    # Set up for debugging during run
+    if debug:
+        debugpath = "intpolout"
+        if not os.path.exists(debugpath):
+            os.mkdir(debugpath)
+
     #############
     # Main loop #
     #############
@@ -527,6 +533,36 @@ def _interpolate_across(
                     outfile[keypath]
                 except:
                     outfile[keypath] = np.ones(len(newbase[:, -1])) * const_vars[par]
+
+            if debug:
+                debugnum = str(int(newnum + tracknum)).zfill(numfmt)
+                plotpath = os.path.join(
+                    debugpath, "debug_kiel_{0}.png".format(debugnum)
+                )
+                if not os.path.exists(plotpath):
+                    try:
+                        tracks = [tracknames[i] for i in ind]
+                        selmods = [selectedmodels[t] for t in tracks]
+                        ip.across_debug(
+                            grid,
+                            outfile,
+                            basepath,
+                            along_var,
+                            libname,
+                            tracks,
+                            selmods,
+                            plotpath,
+                        )
+                        print(
+                            "Plotted debug Kiel for {0} {1}".format(modestr, debugnum)
+                        )
+                    except:
+                        print(
+                            "Debug plotting failed for {0} {1}".format(
+                                modestr, debugnum
+                            )
+                        )
+
         except KeyboardInterrupt:
             print("BASTA interpolation stopped manually. Goodbye!")
             sys.exit()
