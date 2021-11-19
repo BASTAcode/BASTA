@@ -36,8 +36,11 @@ def _check_sobol(grid, res):
         The scale value for across resolution if Sobol interpolation, False if not Sobol
 
     """
-    # Read gridtype from header
+    # Read gridtype from header | Allow for usage of both h5py 2.10.x and 3.x.x
+    # --> If things are encoded as bytes, they must be made into standard strings
     gridtype = grid["header/library_type"][()]
+    if isinstance(gridtype, bytes):
+        gridtype = gridtype.decode("utf-8")
 
     # Check type and inputted scale resolution
     if "sobol" in gridtype.lower():

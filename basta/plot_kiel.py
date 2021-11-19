@@ -99,6 +99,7 @@ def kiel(
     feh_interval,
     Teffout,
     loggout,
+    gridtype,
     debug=False,
     experimental=False,
     validationmode=False,
@@ -138,6 +139,9 @@ def kiel(
         Array with median, min, and max effective temperature.
     loggout : array
         Array with median, min, and max logg.
+    gridtype : str
+        Type of the grid (as read from the grid in bastamain) containing either 'tracks'
+        or 'isochrones'.
     debug : bool, optional
         Debug flag.
     experimental : bool, optional
@@ -188,7 +192,6 @@ def kiel(
                 new_fitpars[par] = fitparams[par]
         filters = new_filters
         fitparams = new_fitpars
-    gridtype = Grid["header/library_type"][()]
 
     # Save the tracks in selectedmodels with appropriate massini and FeH
     tracks = []

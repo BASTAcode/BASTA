@@ -110,6 +110,13 @@ def BASTA(
         gridtype = Grid["header/library_type"][()]
         gridver = Grid["header/version"][()]
         gridtime = Grid["header/buildtime"][()]
+
+        # Allow for usage of both h5py 2.10.x and 3.x.x
+        # --> If things are encoded as bytes, they must be made into standard strings
+        if isinstance(gridtype, bytes):
+            gridtype = gridtype.decode("utf-8")
+            gridver = gridver.decode("utf-8")
+            gridtime = gridtime.decode("utf-8")
     except KeyError:
         print("Error: Some information is missing in the header of the grid!")
         print(
@@ -738,11 +745,12 @@ def BASTA(
     # Generate posteriors of ascii- and plotparams and plot Kiels diagrams
     print("\nComputing posterior distributions...\n")
     process_output.compute_posterior(
-        starid,
-        selectedmodels,
-        Grid,
-        inputparams,
-        outfilename,
+        starid=starid,
+        selectedmodels=selectedmodels,
+        Grid=Grid,
+        inputparams=inputparams,
+        outfilename=outfilename,
+        gridtype=gridtype,
         debug=debug,
         experimental=experimental,
         validationmode=validationmode,

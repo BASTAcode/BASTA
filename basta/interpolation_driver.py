@@ -437,6 +437,11 @@ def perform_interpolation(
     Grid = h5py.File(grid, "r")
     try:
         gridtype = Grid["header/library_type"][()]
+
+        # Allow for usage of both h5py 2.10.x and 3.x.x
+        # --> If things are encoded as bytes, they must be made into standard strings
+        if isinstance(gridtype, bytes):
+            gridtype = gridtype.decode("utf-8")
     except KeyError:
         print("Error: Grid header missing 'library_type'!")
         Grid.close()
