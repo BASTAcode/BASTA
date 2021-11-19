@@ -241,10 +241,14 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     # The input values (given in muHz) are converted into solar units
     fitparams = inputparams.get("fitparams")
     outparams = inputparams.get("asciiparams")
-    scaling_input = [
+    limits = inputparams.get("limits")
+    fitpar_scaling = [
         par for par in fitparams if (par.startswith("dnu") or par.startswith("numax"))
     ]
-    for param in scaling_input:
+    limits_scaling = [
+        par for par in limits if (par.startswith("dnu") or par.startswith("numax"))
+    ]
+    for param in fitpar_scaling:
         # dnufit is given in muHz in the grid since it is not based on scaling relations
         if param in ["dnufit", "dnufitMos12"]:
             continue
@@ -266,6 +270,19 @@ def solar_scaling(Grid, inputparams, diffusion=None):
                 round(fitparams[param][0], 3), scale_factor
             )
         )
+
+    # Scaling of limits
+    for param in limits_scaling:
+        if param in ["dnufit", "dnufitMos12"]:
+            continue
+
+        # numax and any other dnu are scaled
+        if param.startswith("numax"):
+            scale_factor = numsun
+        else:
+            scale_factor = dnusun
+
+        limits[param] = [p / scale_factor for p in limits[param]]
 
     # Scale any input dnu's to the solar value of the grid
     dnu_scales = {}
