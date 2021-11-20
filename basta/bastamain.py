@@ -390,6 +390,10 @@ def BASTA(
         if "parallax" in distparams:
             print("  - Parallax: {0}".format(distparams["parallax"]))
 
+    # Fitting info: Phase
+    if "phase" in inputparams:
+        print("* Fitting evolutionary phase!")
+
     # Print additional info on given input
     print("\nAdditional input parameters and settings in alphabetical order:")
     noprint = [
