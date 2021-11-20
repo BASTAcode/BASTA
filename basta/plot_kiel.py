@@ -9,6 +9,7 @@ import matplotlib.collections
 from basta import stats
 from basta import fileio as fio
 from basta import utils_seismic as su
+from basta import utils_general as gu
 from basta.constants import parameters
 
 # Set the style of all plots
@@ -318,21 +319,21 @@ def kiel(
     for ax, tlim, glim in iteration:
         max_logPDF = selectedmodels[maxPDF_path].logPDF.max()
         for track in tracks:
+
+            # Make a copy to allow manipulation
+            xs = gu.h5py_to_array(Grid[track + "/Teff"])
+            ys = gu.h5py_to_array(Grid[track + "/logg"])
+
+            # Special treatment to plot points color-coded by likelihood
             if color_by_likelihood:
-                logpdf = np.zeros_like(Grid[track + "/Teff"]) + 0.1
+                # Extract pdf information
+                logpdf = np.zeros_like(xs) + 0.1
                 m = selectedmodels[track]
                 logpdf[m.index] = 0.2 + 0.5 * np.exp(m.logPDF - max_logPDF)
 
-                def h5py_to_array(xs):
-                    res = np.empty(shape=xs.shape, dtype=xs.dtype)
-                    res[:] = xs[:]
-                    return res
-
-                xs = h5py_to_array(Grid[track + "/Teff"])
-                ys = h5py_to_array(Grid[track + "/logg"])
+                # Make segments to colorcode
                 points = np.transpose([xs, ys]).reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                # cmap = matplotlib.colors.ListedColormap([0.8, 0.0])
                 lc = matplotlib.collections.LineCollection(segments, cmap="gray_r")
                 lc.set_array(logpdf)
                 lc.set_linewidth(1)
@@ -342,8 +343,8 @@ def kiel(
             # Plot as points for validation mode
             if validationmode:
                 ax.plot(
-                    Grid[track + "/Teff"],
-                    Grid[track + "/logg"],
+                    xs,
+                    ys,
                     ".",
                     zorder=1,
                     color="darkgrey",
@@ -352,8 +353,8 @@ def kiel(
                 )
             else:
                 ax.plot(
-                    Grid[track + "/Teff"],
-                    Grid[track + "/logg"],
+                    xs,
+                    ys,
                     zorder=1,
                     color="darkgrey",
                     alpha=0.8,

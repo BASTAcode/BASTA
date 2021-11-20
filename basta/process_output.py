@@ -563,7 +563,7 @@ def compute_posterior(
             fig = plot_kiel.kiel(
                 Grid=Grid,
                 selectedmodels=selectedmodels,
-                firparams=fitpar_kiel,
+                fitparams=fitpar_kiel,
                 inputparams=inputparams,
                 lp_interval=lp_interval,
                 feh_interval=feh_interval,
@@ -581,6 +581,7 @@ def compute_posterior(
             print("Saved Kiel diagram to " + kielfile + ".")
         except Exception as error:
             print("Kiel diagram failed with the error:", error)
+            raise
 
     if debug and len(inputparams["magnitudes"]) > 0:
         print("Make normalised distribution plot of terms in PDF computation")
