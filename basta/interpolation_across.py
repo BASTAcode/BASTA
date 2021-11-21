@@ -284,8 +284,11 @@ def _interpolate_across(
         "dif",
     ]
 
-    # Determine whether the grid is iscohrones or tracks
-    if "track" in grid["header/library_type"][()]:
+    # Determine whether the grid is iscohrones or tracks (convert to allow all h5py's)
+    gridtype = grid["header/library_type"][()]
+    if isinstance(gridtype, bytes):
+        gridtype = gridtype.decode("utf-8")
+    if "track" in gridtype:
         isomode = False
         modestr = "track"
         dname = "dage"
@@ -307,7 +310,7 @@ def _interpolate_across(
         headvars = list(np.unique(list(bpars) + list(const_vars)))
         sobol = _check_sobol(grid, resolution)
 
-    elif "isochrone" in grid["header/library_type"][()]:
+    elif "isochrone" in gridtype:
         isomode = True
         modestr = "isochrone"
         dname = "dmass"
