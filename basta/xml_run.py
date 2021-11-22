@@ -252,11 +252,21 @@ def _get_intpol(root, gridfile, freqpath=None):
         )
 
     # If interpolation in frequencies requested, extract limits
+    freqnames = ["freq", "freqs", "frequency", "frequencies", "osc"]
     if freqpath:
         freqminmax = {}
         for star in root.findall("star"):
             fmin, fmax = _get_freq_minmax(star, freqpath)
             freqminmax[star.get("starid")] = [fmin, fmax]
+    elif intpol["trackresolution"]["param"] in freqnames:
+        errmsg = (
+            "Interpolation along resolution in individual frequencies is requested, "
+        )
+        errmsg += (
+            "without requesting interpolation in individual frequencies. As this is "
+        )
+        errmsg += "extremely expensive, please use a different variable."
+        raise KeyError(errmsg)
 
     # If construct is encompass, only need to determine limits once
     limerrmsg = "Abstol or sigmacut of {0} requested in interpolation"

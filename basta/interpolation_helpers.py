@@ -452,7 +452,7 @@ def interpolate_frequencies(
 
     if not skipplots:
         pdf.close()
-    elif debug:
+    elif debug and along:
         print("    The plot '{0}' already exist! Skipping...".format(plotpath))
 
     #
