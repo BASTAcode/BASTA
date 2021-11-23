@@ -11,6 +11,9 @@ from basta import freq_fit
 from basta import fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
+import basta.supportGlitch as sg
+from basta.glitch_fq import fit_fq
+from basta.glitch_sd import fit_sd
 
 
 def combined_ratios(r02, r01, r10):
@@ -162,6 +165,218 @@ def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
     # icovR = np.linalg.pinv(covR, rcond=1e-8)
 
     return obsR, covR  # , icovR
+
+
+def glitch_and_cov(
+    freq,
+    dnudata,
+    grcomb="GR012",
+    nrealizations=10000,
+    method="FQ",
+    tol_grad=1e-3,
+    regu_param=7.0,
+    n_guess=200,
+    tauhe=None,
+    dtauhe=None,
+    taucz=None,
+    dtaucz=None,
+):
+    """
+    Routine to compute glitch parameters together with ratios of a given type and the
+    corresponding full covariance matrix
+
+    Parameters
+    ----------
+    freq : array
+        Harmonic degrees, radial orders, frequencies, uncertainties
+    dnudata : float
+        An estimate of large frequncy separation (muHz)
+    grcomb : str
+        Glitch-ratio combination (one of G, GR02, GR01, GR10, GR010, GR012, GR102)
+    nrealizations : integer, optional
+        Number of realizations used in covariance calculation
+    method : str
+        Fitting method ('FQ' or 'SD')
+    tol_grad : float
+        tolerance on gradients (typically between 1e-2 and 1e-5 depending on quality
+        of data and 'method' used)
+    regu_param : float
+        Regularization parameter (7 and 1000 generally work well for 'FQ' and
+        'SD', respectively)
+    n_guess : int
+        Number of initial guesses in search for the global minimum
+    tauhe : float, optional
+        Determines the range in acoustic depth (s) of He glitch for global minimum
+        search (tauhe - dtauhe, tauhe + dtauhe). If None, make a guess using acoustic
+        radius
+    dtauhe : float, optional
+        Determines the range in acoustic depth (s) of He glitch for global minimum
+        search (tauhe - dtauhe, tauhe + dtauhe). If None, make a guess using acoustic
+        radius
+    taucz : float, optional
+        Determines the range in acoustic depth (s) of CZ glitch for global minimum
+        search (taucz - dtaucz, taucz + dtaucz). If None, make a guess using acoustic
+        radius
+    dtaucz : float, optional
+        Determines the range in acoustic depth (s) of CZ glitch for global minimum
+        search (taucz - dtaucz, taucz + dtaucz). If None, make a guess using acoustic
+        radius
+
+    Returns
+    -------
+    obsGlh : array
+        ratios + helium glitch parameters (average amplitude, width and acoustic depth)
+    covGlh : array
+        corresponding full covariance matrix
+    """
+
+    # Convert 'freq' to an array of floats
+    frq = np.zeros((len(freq), 4))
+    frq[:, 0] = freq[:]["l"]
+    frq[:, 1] = freq[:]["n"]
+    frq[:, 2] = freq[:]["freq"]
+    frq[:, 3] = freq[:]["err"]
+
+    # Calculate the number of harmonic degrees (l), total number of modes, number
+    # of modes per l, and minimum and maximum values of frequency
+    num_of_l = freq[-1]["l"] + 1
+    num_of_mode = frq.shape[0]
+    num_of_n = np.zeros(num_of_l, dtype=int)
+    for i in range(num_of_l):
+        num_of_n[i] = len(frq[np.rint(frq[:, 0]) == i, 0])
+    vmin, vmax = np.amin(frq[:, 2]), np.amax(frq[:, 2])
+
+    # Compute second differences (if being fitted)
+    num_of_dif2, frqDif2, icov = None, None, None
+    if method.lower() == "sd":
+        num_of_dif2, frqDif2, icov = sg.compDif2(num_of_l, frq, num_of_mode, num_of_n)
+
+    # Compute observed ratios to get the length of the observable vector
+    obsR02, obsR01, obsR10 = freq_fit.ratios(freq)
+    obsR010, obsR012, obsR102 = combined_ratios(obsR02, obsR01, obsR10)
+    if grcomb == "G":
+        nr = 0
+    elif grcomb == "GR02":
+        nr = obsR02.shape[0]
+    elif grcomb == "GR01":
+        nr = obsR01.shape[0]
+    elif grcomb == "GR10":
+        nr = obsR10.shape[0]
+    elif grcomb == "GR010":
+        nr = obsR010.shape[0]
+    elif grcomb == "GR012":
+        nr = obsR012.shape[0]
+    elif grcomb == "GR102":
+        nr = obsR102.shape[0]
+    else:
+        raise ValueError("Invalid glitch-ratio combination!")
+
+    # Compute and store different realizations of ratios and glitch parameters
+    rln_data = np.zeros((nrealizations, nr + 3))
+    perturb_freq = deepcopy(freq)
+    nfailed = 0
+    n = 0
+    np.random.seed(1)
+    for i in range(nrealizations):
+        if not i % 100:
+            print("\n%d realizations completed..." % (i))
+
+        # Perturb frequency
+        perturb_freq[:]["freq"] = np.random.normal(freq[:]["freq"], freq[:]["err"])
+        frq[:, 2] = perturb_freq[:]["freq"]
+
+        # Compute glitch parameters
+        if method.lower() == "fq":
+            param, chi2, reg, ier = fit_fq(
+                frq,
+                num_of_n,
+                dnudata,
+                tol_grad_fq=tol_grad,
+                regu_param_fq=regu_param,
+                num_guess=n_guess,
+                tauhe=tauhe,
+                dtauhe=dtauhe,
+                taucz=taucz,
+                dtaucz=dtaucz,
+            )
+        elif method.lower() == "sd":
+            param, chi2, reg, ier = fit_sd(
+                frqDif2,
+                icov,
+                dnudata,
+                tol_grad_sd=tol_grad,
+                regu_param_sd=regu_param,
+                num_guess=n_guess,
+                tauhe=tauhe,
+                dtauhe=dtauhe,
+                taucz=taucz,
+                dtaucz=dtaucz,
+            )
+        else:
+            raise ValueError("Invalid glitch-fitting method!")
+
+        # Continue if failed
+        if ier != 0:
+            nfailed += 1
+            continue
+
+        # Compute average amplitude
+        Acz, Ahe = sg.averageAmplitudes(
+            param, vmin, vmax, delta_nu=dnudata, method=method
+        )
+        rln_data[n, -3] = Ahe
+        rln_data[n, -2] = param[-3]
+        rln_data[n, -1] = param[-2]
+
+        # Compute ratios
+        if grcomb != "G":
+            tmp_r02, tmp_r01, tmp_r10 = freq_fit.ratios(perturb_freq)
+            tmp_r010, tmp_r012, tmp_r102 = combined_ratios(tmp_r02, tmp_r01, tmp_r10)
+            if grcomb == "GR02":
+                rln_data[n, 0:nr] = tmp_r02[:, 1]
+            elif grcomb == "GR01":
+                rln_data[n, 0:nr] = tmp_r01[:, 1]
+            elif grcomb == "GR10":
+                rln_data[n, 0:nr] = tmp_r10[:, 1]
+            elif grcomb == "GR010":
+                rln_data[n, 0:nr] = tmp_r010[:, 1]
+            elif grcomb == "GR012":
+                rln_data[n, 0:nr] = tmp_r012[:, 1]
+            elif grcomb == "GR102":
+                rln_data[n, 0:nr] = tmp_r102[:, 1]
+
+        n += 1
+
+    rln_data = rln_data[0:n, :]
+    print("\nFailed %d out of %d realizations" % (nfailed, nrealizations))
+    if nfailed / nrealizations > 0.3:
+        print("\nWarning: More than 30% of the total realizations failed!")
+
+    # Compute the covariance matrix
+    j = int(round(n / 2))
+    cov = np.cov(rln_data[0:j, :], rowvar=False)
+    covGlh = np.cov(rln_data, rowvar=False)
+    print(cov)
+    print(covGlh)
+
+    # Test the convergence (elementwise change below the relative tolerance)
+    # fnorm = np.linalg.norm(covGlh - cov) / (nr+3) ** 2
+    # if fnorm > 1.0e-6:
+    #    print("\nFrobenius norm %e > 1.e-6" % (fnorm))
+    #    print("\nWarning: Covariance failed to converge!")
+    if not np.all(np.isclose(cov, covGlh, rtol=1e-1, atol=1e-14)):
+        print("\nWarning: Covariance failed to converge!")
+
+    # Compute the median values
+    obsGlh = np.zeros(nr + 3)
+    for i in range(nr + 3):
+        obsGlh[i] = np.median(rln_data[:, i])
+    # std = np.sqrt(np.diag(covGlh))
+
+    ## Compute inverse of the covariance matrix
+    ## icovGlh = np.linalg.pinv(covGlh, rcond=1e-8)
+
+    return obsGlh, covGlh  # , icovGlh
 
 
 def solar_scaling(Grid, inputparams, diffusion=None):

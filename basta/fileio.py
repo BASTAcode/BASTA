@@ -1312,10 +1312,37 @@ def read_rt(
             print("done!")
 
     # Glitch
-    if "glitches" in rt:
-        datosglh, covglh = read_glh(glhtxt)
+    datosglh, covglh = None, None
+    if r02 is None:
+        if any(x in freqtypes.glitches for x in rt):
+            print("WARNING: Missing radial orders! Skipping glitches fitting!")
     else:
-        datosglh, covglh = None, None
+        # datosglh, covglh = read_glh(glhtxt)
+        if datosglh is None and ("glitches" in rt):
+            print(
+                "* glitches unavailable in txt. Computing it ... ", end="", flush=True
+            )
+            datosglh, covglh = su.glitch_and_cov(
+                freq,
+                dnudata,
+                grcomb="G",
+                nrealizations=10000,
+                method="FQ",
+                tol_grad=1e-3,
+                regu_param=7.0,
+                n_guess=200,
+                tauhe=None,
+                dtauhe=None,
+                taucz=None,
+                dtaucz=None,
+            )
+            print("done!")
+
+    exit()
+    # if "glitches" in rt:
+    #    datosglh, covglh = read_glh(glhtxt)
+    # else:
+    #    datosglh, covglh = None, None
 
     datos = (datos010, datos02, datos_f, datos01, datos10, datos012, datos102, datosglh)
     cov = (cov010, cov02, cov_f, cov01, cov10, cov012, cov102, covglh)
