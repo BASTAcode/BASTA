@@ -6,6 +6,8 @@ from copy import deepcopy
 from distutils.util import strtobool
 
 import numpy as np
+import h5py
+from sklearn.covariance import MinCovDet
 
 from basta import freq_fit
 from basta import fileio as fio
@@ -279,7 +281,7 @@ def glitch_and_cov(
     np.random.seed(1)
     for i in range(nrealizations):
         if not i % 100:
-            print("\n%d realizations completed..." % (i))
+            print("%d realizations completed..." % (i))
 
         # Perturb frequency
         perturb_freq[:]["freq"] = np.random.normal(freq[:]["freq"], freq[:]["err"])
@@ -348,30 +350,31 @@ def glitch_and_cov(
         n += 1
 
     rln_data = rln_data[0:n, :]
-    print("\nFailed %d out of %d realizations" % (nfailed, nrealizations))
+
     if nfailed / nrealizations > 0.3:
-        print("\nWarning: More than 30% of the total realizations failed!")
+        print("Warning: More than 30% of the total realizations failed!")
+        print("Failed %d out of %d realizations" % (nfailed, nrealizations))
 
     # Compute the covariance matrix
     j = int(round(n / 2))
-    cov = np.cov(rln_data[0:j, :], rowvar=False)
-    covGlh = np.cov(rln_data, rowvar=False)
-    print(cov)
-    print(covGlh)
+    cov = MinCovDet().fit(rln_data[0:j, :]).covariance_
+    covGlh = MinCovDet().fit(rln_data).covariance_
 
     # Test the convergence (elementwise change below the relative tolerance)
-    # fnorm = np.linalg.norm(covGlh - cov) / (nr+3) ** 2
-    # if fnorm > 1.0e-6:
-    #    print("\nFrobenius norm %e > 1.e-6" % (fnorm))
-    #    print("\nWarning: Covariance failed to converge!")
     if not np.all(np.isclose(cov, covGlh, rtol=1e-1, atol=1e-14)):
-        print("\nWarning: Covariance failed to converge!")
+        print("Warning: Covariance failed to converge!")
+        mrd = np.amax(np.abs(np.divide(cov - covGlh, covGlh)))
+        print("Maximum relative difference = %.4e (>0.1)" % (mrd))
 
     # Compute the median values
     obsGlh = np.zeros(nr + 3)
     for i in range(nr + 3):
         obsGlh[i] = np.median(rln_data[:, i])
     # std = np.sqrt(np.diag(covGlh))
+    # with h5py.File("./data.hdf5", "w") as f:
+    #    f.create_dataset("rln_data", data=rln_data)
+    #    f.create_dataset("cov", data=cov)
+    #    f.create_dataset("covGlh", data=covGlh)
 
     ## Compute inverse of the covariance matrix
     ## icovGlh = np.linalg.pinv(covGlh, rcond=1e-8)
