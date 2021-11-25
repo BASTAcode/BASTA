@@ -11,8 +11,8 @@ Installation
 Obtaining the code and virtual environment
 ------------------------------------------
 
-**Important note:** BASTA is developed for Python 3.8, but Python 3.7 should work as well. **Python 3.9 is currently
-*not* supported due to problems with h5py.**
+*Important note: BASTA is developed for Python 3.9, but Python >= 3.7 should work as well.*
+
 
 Start out by obtaining a copy of BASTA; either by cloning the GitHub repository or downloadning a source code release. As a default, we recommend that you install basta in the folder ``~/BASTA``. If you have a user on GitHub and use an ssh-keypair, you can simply run:
 

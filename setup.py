@@ -8,13 +8,11 @@ import argparse
 from contextlib import contextmanager
 from subprocess import call, check_output, CalledProcessError
 
+from basta.downloader import get_grid
+
 # Import dusmaps configuration (the maps themselves are slow, import later)
 from dustmaps.config import config
-
 DUSTMAPFILE = "_dustpath.py"
-
-# Get the grid downloader from BASTA
-from basta.downloader import get_grid
 
 
 @contextmanager
@@ -33,8 +31,7 @@ def main():
     Run setup
     """
     # Make sure a supported version of Python is not used
-    assert sys.version_info >= (3, 7), "Your Python version is too old..."
-    assert sys.version_info < (3, 9), "Python 3.9 is not supported by BASTA yet!"
+    assert sys.version_info >= (3, 7), "Python version is too old! Please use > 3.7"
 
     # Set-up argument parser
     parser = argparse.ArgumentParser(
