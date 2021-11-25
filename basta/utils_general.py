@@ -7,6 +7,25 @@ from io import IOBase
 import numpy as np
 
 
+def h5py_to_array(xs):
+    """
+    Copy vector/dataset from an HDF5 file to a NumPy array
+
+    Parameters
+    ----------
+    xs : h5py_dataset
+       The input dataset read by h5py from an HDF5 object
+
+    Returns
+    -------
+    res : array_like
+        Copy of the dataset as NumPy array
+    """
+    res = np.empty(shape=xs.shape, dtype=xs.dtype)
+    res[:] = xs[:]
+    return res
+
+
 def prt_center(text, llen):
     """
     Prints a centered line

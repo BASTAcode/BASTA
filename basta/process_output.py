@@ -34,6 +34,7 @@ def compute_posterior(
     Grid,
     inputparams,
     outfilename,
+    gridtype,
     debug=False,
     experimental=False,
     validationmode=False,
@@ -52,8 +53,11 @@ def compute_posterior(
         The already loaded grid, containing the tracks/isochrones.
     inputparams : dict
         Dict containing input from xml-file.
-    outfilename : str, optional
+    outfilename : str
         Name of directory of where to put plots outputted if debug is True.
+    gridtype : str
+        Type of the grid (as read from the grid in bastamain) containing either 'tracks'
+        or 'isochrones'.
     debug : bool, optional
         Debug flag for developers.
     experimental : bool, optional
@@ -451,7 +455,6 @@ def compute_posterior(
             )
             if not len(kielplots):
                 print("DEBUG: make Kiel diagram due to warning")
-                gridtype = Grid["header/library_type"][()]
                 library_param = "massini" if "tracks" in gridtype.lower() else "age"
                 x = util.get_parameter_values(
                     library_param, Grid, selectedmodels, noofind
@@ -469,14 +472,15 @@ def compute_posterior(
 
                 try:
                     fig = plot_kiel.kiel(
-                        Grid,
-                        selectedmodels,
-                        fitpar_kiel,
-                        inputparams,
-                        lp_interval,
-                        feh_interval,
-                        Teffout,
-                        loggout,
+                        Grid=Grid,
+                        selectedmodels=selectedmodels,
+                        fitparams=fitpar_kiel,
+                        inputparams=inputparams,
+                        lp_interval=lp_interval,
+                        feh_interval=feh_interval,
+                        Teffout=Teffout,
+                        loggout=loggout,
+                        gridtype=gridtype,
                         debug=debug,
                         experimental=experimental,
                         validationmode=validationmode,
@@ -540,7 +544,6 @@ def compute_posterior(
     # Create Kiel diagram
     if len(kielplots):
         # Find quantiles of massini/age and FeH to determine what tracks to plot
-        gridtype = Grid["header/library_type"][()]
         library_param = "massini" if "tracks" in gridtype.lower() else "age"
         x = util.get_parameter_values(library_param, Grid, selectedmodels, noofind)
         lp_interval = np.quantile(x[nonzeroprop][sampled_indices], qs[1:])
@@ -558,14 +561,15 @@ def compute_posterior(
 
         try:
             fig = plot_kiel.kiel(
-                Grid,
-                selectedmodels,
-                fitpar_kiel,
-                inputparams,
-                lp_interval,
-                feh_interval,
-                Teffout,
-                loggout,
+                Grid=Grid,
+                selectedmodels=selectedmodels,
+                fitparams=fitpar_kiel,
+                inputparams=inputparams,
+                lp_interval=lp_interval,
+                feh_interval=feh_interval,
+                Teffout=Teffout,
+                loggout=loggout,
+                gridtype=gridtype,
                 debug=debug,
                 experimental=experimental,
                 validationmode=validationmode,
@@ -577,6 +581,7 @@ def compute_posterior(
             print("Saved Kiel diagram to " + kielfile + ".")
         except Exception as error:
             print("Kiel diagram failed with the error:", error)
+            raise
 
     if debug and len(inputparams["magnitudes"]) > 0:
         print("Make normalised distribution plot of terms in PDF computation")

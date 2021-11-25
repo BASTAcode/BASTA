@@ -54,7 +54,9 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> Only those relevant are included in the produced input file.
 
     # Example of the columns in the example file:
-    define_io["asciifile"] = os.path.join(BASTADIR, "examples/data", "Kepler_RGB.ascii")
+    define_io["asciifile"] = (
+        os.path.join(BASTADIR, "examples/data/") + "Kepler_RGB_change-phase-to-RC.ascii"
+    )
     define_io["params"] = (
         "starid",
         "RA",

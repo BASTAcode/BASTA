@@ -5,6 +5,7 @@ import os
 import numpy as np
 import matplotlib.pyplot as plt
 
+import basta.utils_general as gu
 import basta.constants as bc
 
 
@@ -219,9 +220,9 @@ def across_debug(
     _, labels, _, _ = bc.parameters.get_keys(["Teff", "logg", basevar])
 
     # We use these mulitple times, so better to abbriviate them now
-    Teff = outfile[inttrack]["Teff"]
-    logg = outfile[inttrack]["logg"]
-    base = outfile[inttrack][basevar]
+    Teff = gu.h5py_to_array(outfile[inttrack]["Teff"])
+    logg = gu.h5py_to_array(outfile[inttrack]["logg"])
+    base = gu.h5py_to_array(outfile[inttrack][basevar])
 
     # Define figure and plot interpolated track
     fig, ax = plt.subplots(2, 1, figsize=(12.8, 17.6))
@@ -235,17 +236,20 @@ def across_debug(
             lab = track.split("/")[-1]
         else:
             lab = track
+        pltTeff = gu.h5py_to_array(grid[name]["Teff"])
+        pltlogg = gu.h5py_to_array(grid[name]["logg"])
+        pltbase = gu.h5py_to_array(grid[name][basevar])
         ax[0].plot(
-            grid[name]["Teff"],
-            grid[name]["logg"],
+            pltTeff,
+            pltlogg,
             ",",
             color=cols[i],
             zorder=5,
             alpha=0.4,
         )
         ax[0].plot(
-            grid[name]["Teff"][selmods[i]],
-            grid[name]["logg"][selmods[i]],
+            pltTeff[selmods[i]],
+            pltlogg[selmods[i]],
             ".",
             color=cols[i],
             label=lab,
@@ -253,16 +257,16 @@ def across_debug(
             markersize=8,
         )
         ax[1].plot(
-            grid[name]["Teff"],
-            grid[name][basevar],
+            pltTeff,
+            pltbase,
             ",",
             color=cols[i],
             zorder=5,
             alpha=0.4,
         )
         ax[1].plot(
-            grid[name]["Teff"][selmods[i]],
-            grid[name][basevar][selmods[i]],
+            pltTeff[selmods[i]],
+            pltbase[selmods[i]],
             ".",
             color=cols[i],
             zorder=5,
@@ -353,33 +357,36 @@ def across_debug(
         axins1.plot(Teff, base, ".k", zorder=20, markersize=8)
         for i, track in enumerate(envtracks):
             name = os.path.join(basepath, track)
+            pltTeff = gu.h5py_to_array(grid[name]["Teff"])
+            pltlogg = gu.h5py_to_array(grid[name]["logg"])
+            pltbase = gu.h5py_to_array(grid[name][basevar])
             axins0.plot(
-                grid[name]["Teff"],
-                grid[name]["logg"],
+                pltTeff,
+                pltlogg,
                 ",",
                 color=cols[i],
                 zorder=5,
                 alpha=0.4,
             )
             axins0.plot(
-                grid[name]["Teff"][selmods[i]],
-                grid[name]["logg"][selmods[i]],
+                pltTeff[selmods[i]],
+                pltlogg[selmods[i]],
                 ".",
                 color=cols[i],
                 zorder=5,
                 markersize=8,
             )
             axins1.plot(
-                grid[name]["Teff"],
-                grid[name][basevar],
+                pltTeff,
+                pltbase,
                 ",",
                 color=cols[i],
                 zorder=5,
                 alpha=0.4,
             )
             axins1.plot(
-                grid[name]["Teff"][selmods[i]],
-                grid[name][basevar][selmods[i]],
+                pltTeff[selmods[i]],
+                pltbase[selmods[i]],
                 ".",
                 color=cols[i],
                 zorder=5,
