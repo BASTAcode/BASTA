@@ -273,7 +273,7 @@ def add_absolute_magnitudes(
     if "parallax" not in inputparams["fitparams"]:
         return inputparams
 
-    print("\nPreparing distance/magnitude input ...", flush=True)
+    print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
     qs = [0.158655, 0.5, 0.841345]
     fitparams = inputparams["fitparams"]

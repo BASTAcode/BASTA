@@ -128,10 +128,12 @@ def BASTA(
         sys.exit(1)
 
     # Verbose information on the grid file
-    print("\nFitting star id: {0}.".format(starid))
-    print("Using the grid '{0}' of type '{1}'.".format(gridfile, gridtype))
+    print("\nFitting star id: {0} .".format(starid))
+    print("* Using the grid '{0}' of type '{1}'.".format(gridfile, gridtype))
     print(
-        "Grid built with BASTA version {0}, timestamp: {1}.".format(gridver, gridtime)
+        "  - Grid built with BASTA version {0}, timestamp: {1}.".format(
+            gridver, gridtime
+        )
     )
 
     # Check type of grid (isochrones/tracks) and set default grid path
@@ -296,15 +298,19 @@ def BASTA(
 
     # Apply the cut on header parameters with a special treatment of diffusion
     if headerpath and gridcut:
+        print("\nCutting in grid based on sampling parameters ('gridcut'):")
         noofskips = [0, 0]
-        [print(c, gridcut[c]) if c != "dif" else None for c in gridcut]
+        for cpar in gridcut:
+            if cpar != "dif":
+                print("* {0}: {1}".format(cpar, gridcut[cpar]))
+
         # Diffusion switch printed in a more readable format
         if "dif" in gridcut:
             # As gridcut['dif'] is always either [-inf, 0.5] or [0.5, inf]
             # The location of 0.5 can be used as the switch
             switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
             print(
-                "Only considering tracks with diffusion turned",
+                "* Only considering tracks with diffusion turned",
                 "{:s}!".format(["on", "off"][switch]),
             )
 
@@ -719,12 +725,12 @@ def BASTA(
     pbar.close()
     print(
         "Done! Computed the likelihood of {0} models,".format(str(noofind)),
-        "found {0} models with non-zero likelihood!".format(str(noofposind)),
+        "found {0} models with non-zero likelihood!\n".format(str(noofposind)),
     )
 
     if shapewarn:
         print(
-            "\nWarning: Found models with fewer frequencies than observed!",
+            "Warning: Found models with fewer frequencies than observed!",
             "These were set to zero likelihood!",
         )
         if "intpol" in gridfile:
@@ -734,7 +740,11 @@ def BASTA(
             )
 
     if gridcut:
-        print("Skipped {0} out of {1} {2}".format(noofskips[0], noofskips[1], gridtype))
+        print(
+            "(Note: The use of 'gridcut' skipped {0} out of {1} {2})\n".format(
+                noofskips[0], noofskips[1], gridtype
+            )
+        )
 
     if noofposind == 0:
         fio.no_models(starid, inputparams, "No models found")
@@ -747,7 +757,7 @@ def BASTA(
     stats.get_lowest_chi2(Grid, selectedmodels, outparams)
 
     # Generate posteriors of ascii- and plotparams and plot Kiels diagrams
-    print("\nComputing posterior distributions...\n")
+    print("\n\nComputing posterior distributions ...\n")
     process_output.compute_posterior(
         starid=starid,
         selectedmodels=selectedmodels,

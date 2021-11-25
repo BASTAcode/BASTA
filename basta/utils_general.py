@@ -333,6 +333,24 @@ def get_parameter_values(parameter, Grid, selectedmodels, noofind):
 
 
 def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"):
+    """
+    Pretty-print of output parameter to log and console.
+
+    Parameters
+    ----------
+    param : str
+        Name of parameter
+    xmed : float
+        Centroid value (median or mean)
+    xstdm : float
+        Lower bound uncertainty, or symmetric unceartainty
+    xstdp : float
+        Upper bound uncertainty, if not symmetric. Unused if uncert is std.
+    uncert : str, optional
+        Type of reported uncertainty, "quantiles" or "std"
+    centroid : str, optional
+        Type of reported uncertainty, "median" or "mean"
+    """
     if uncert == "quantiles":
         print(centroid + " " + param + ":", xmed)
         print("stdm " + param + "  :", xmed - xstdm)

@@ -175,6 +175,8 @@ def compute_posterior(
                 M_all[nonzeroprop][sampled_indices], centroid, uncert
             )
 
+            if idm == 0:
+                print("-----------------------------------------------------")
             util.printparam(
                 "d(" + m + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
             )
@@ -291,9 +293,13 @@ def compute_posterior(
                     cornerfile = outfilename + "_distance_corner." + plottype
                     plt.savefig(cornerfile)
                     plt.close()
-                    print("Saved corner plot to " + cornerfile + ".")
+                    print("\nSaved distance corner plot to {0}.\n".format(cornerfile))
                 except Exception as error:
-                    print("Distance corner plot failed with the error:", error)
+                    print(
+                        "\nDistance corner plot failed with the error:{0}\n".format(
+                            error
+                        )
+                    )
 
                 # Plotting done: Remove keyword
                 cornerplots.remove("distance")
@@ -332,7 +338,7 @@ def compute_posterior(
     plotin = np.ones(2 * len(cornerplots)) * -9999
     plotout = np.zeros(3 * len(cornerplots))
     dnu_scales = inputparams.get("dnu_scales", {})
-    for param in params:
+    for numpar, param in enumerate(params):
         # Generate list of x values
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
 
@@ -363,6 +369,10 @@ def compute_posterior(
         xcen, xstdm, xstdp = stats.calc_key_stats(
             x[nonzeroprop][sampled_indices], centroid, uncert
         )
+
+        # Print info to log and console
+        if numpar == 0:
+            print("-----------------------------------------------------")
         util.printparam(param, xcen, xstdm, xstdp, uncert=uncert, centroid=centroid)
 
         if param in cornerplots:

@@ -413,20 +413,20 @@ def get_highest_likelihood(Grid, selectedmodels, outparams):
     print("\nHighest likelihood model:")
     maxPDF_path, maxPDF_ind = most_likely(selectedmodels)
     print(
-        "Weighted, non-normalized log-probability:",
+        "* Weighted, non-normalized log-probability:",
         np.max(selectedmodels[maxPDF_path].logPDF),
     )
-    print(maxPDF_path + "[" + str(maxPDF_ind) + "]")
+    print("* Grid-index: {0}[{1}], with parameters:".format(maxPDF_path, maxPDF_ind))
 
     # Print name if it exists
     if "name" in Grid[maxPDF_path]:
-        print("Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
+        print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
 
     # Print parameters
     for param in outparams:
         if param == "distance":
             continue
-        print(param + ":", Grid[maxPDF_path + "/" + param][maxPDF_ind])
+        print("  - {0}:".format(param), Grid[maxPDF_path + "/" + param][maxPDF_ind])
     return maxPDF_path, maxPDF_ind
 
 
@@ -452,18 +452,18 @@ def get_lowest_chi2(Grid, selectedmodels, outparams):
     """
     print("\nLowest chi2 model:")
     minchi2_path, minchi2_ind = lowest_chi2(selectedmodels)
-    print("chi2:", np.min(selectedmodels[minchi2_path].chi2))
-    print(minchi2_path + "[" + str(minchi2_ind) + "]")
+    print("* chi2:", np.min(selectedmodels[minchi2_path].chi2))
+    print("* Grid-index: {0}[{1}], with parameters:".format(minchi2_path, minchi2_ind))
 
     # Print name if it exists
     if "name" in Grid[minchi2_path]:
-        print("Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
+        print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
 
     # Print parameters
     for param in outparams:
         if param == "distance":
             continue
-        print(param + ":", Grid[minchi2_path + "/" + param][minchi2_ind])
+        print("  - {0}:".format(param), Grid[minchi2_path + "/" + param][minchi2_ind])
     return minchi2_path, minchi2_ind
 
 
