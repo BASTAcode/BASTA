@@ -426,7 +426,11 @@ def get_highest_likelihood(Grid, selectedmodels, outparams):
     for param in outparams:
         if param == "distance":
             continue
-        print("  - {0}:".format(param), Grid[maxPDF_path + "/" + param][maxPDF_ind])
+        print(
+            "  - {0:10}: {1:12.6f}".format(
+                param, Grid[maxPDF_path + "/" + param][maxPDF_ind]
+            )
+        )
     return maxPDF_path, maxPDF_ind
 
 
@@ -463,7 +467,11 @@ def get_lowest_chi2(Grid, selectedmodels, outparams):
     for param in outparams:
         if param == "distance":
             continue
-        print("  - {0}:".format(param), Grid[minchi2_path + "/" + param][minchi2_ind])
+        print(
+            "  - {0:10}: {1:12.6f}".format(
+                param, Grid[minchi2_path + "/" + param][minchi2_ind]
+            )
+        )
     return minchi2_path, minchi2_ind
 
 

@@ -727,7 +727,14 @@ def BASTA(
         "Done! Computed the likelihood of {0} models,".format(str(noofind)),
         "found {0} models with non-zero likelihood!\n".format(str(noofposind)),
     )
+    if gridcut:
+        print(
+            "(Note: The use of 'gridcut' skipped {0} out of {1} {2})\n".format(
+                noofskips[0], noofskips[1], gridtype
+            )
+        )
 
+    # Raise possible warnings
     if shapewarn:
         print(
             "Warning: Found models with fewer frequencies than observed!",
@@ -738,17 +745,16 @@ def BASTA(
                 "This is probably due to the interpolation scheme. Lookup",
                 "`interpolate_frequencies` for more details.",
             )
-
-    if gridcut:
-        print(
-            "(Note: The use of 'gridcut' skipped {0} out of {1} {2})\n".format(
-                noofskips[0], noofskips[1], gridtype
-            )
-        )
-
     if noofposind == 0:
         fio.no_models(starid, inputparams, "No models found")
         return
+
+    # Print a header to signal the start of the output section in the log
+    print("\n*****************************************")
+    print("**                                     **")
+    print("**   Output and results from the fit   **")
+    print("**                                     **")
+    print("*****************************************\n")
 
     # Find and print highest likelihood model info
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(
@@ -756,8 +762,12 @@ def BASTA(
     )
     stats.get_lowest_chi2(Grid, selectedmodels, outparams)
 
-    # Generate posteriors of ascii- and plotparams and plot Kiels diagrams
-    print("\n\nComputing posterior distributions ...\n")
+    # Generate posteriors of ascii- and plotparams
+    # --> Print posteriors to console and log
+    # --> Generate corner plots
+    # --> Generate Kiel diagrams
+    print("\n\nComputing posterior distributions for the requested output parameters!")
+    print("==> Summary statistics printed below ...\n")
     process_output.compute_posterior(
         starid=starid,
         selectedmodels=selectedmodels,

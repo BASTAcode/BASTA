@@ -350,13 +350,16 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
         Type of reported uncertainty, "quantiles" or "std"
     centroid : str, optional
         Type of reported uncertainty, "median" or "mean"
+
+    Returns
+    -------
+    None
     """
+    # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
+    print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
     if uncert == "quantiles":
-        print(centroid + " " + param + ":", xmed)
-        print("stdm " + param + "  :", xmed - xstdm)
-        print("stdp " + param + "  :", xstdp - xmed)
-        print("-----------------------------------------------------")
+        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
+        print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
     else:
-        print(centroid + " " + param + ":", xmed)
-        print("std " + param + "  :", xstdm)
-        print("-----------------------------------------------------")
+        print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
+    print("-----------------------------------------------------")

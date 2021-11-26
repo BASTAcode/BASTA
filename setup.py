@@ -12,6 +12,7 @@ from basta.downloader import get_grid
 
 # Import dusmaps configuration (the maps themselves are slow, import later)
 from dustmaps.config import config
+
 DUSTMAPFILE = "_dustpath.py"
 
 
