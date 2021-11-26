@@ -23,7 +23,7 @@ following input:
 
 .. code-block:: python
 
-    define_input["gridfile"] = "${BASTADIR}/grids/Garstec_16CygA.hdf5"
+    define_input["gridfile"] = os.path.join(os.environ["BASTADIR"], "grids/Garstec_16CygA.hdf5")
 
     define_input["construction"] = "bystar"
 
@@ -130,7 +130,7 @@ set in both cases to central density.
 Running the ``create_inputfile_interp_MS.py`` script produces the input file "input_interp_MS.xml". Once BASTA begins
 the interpolation you might see messages such as:
 
-.. code-block:: bash
+.. code-block:: text
 
     Warning: Interpolating track 270 was aborted due to no overlap in rhocen of the enveloping track!
 
@@ -138,7 +138,7 @@ These are normal and can be safely ignored, as the strict cuts applied in effect
 in some tracks having central density values outside the vertices of the interpolation and are therefore ignored. Also,
 messages like the following can be safely ignored:
 
-.. code-block:: bash
+.. code-block:: text
 
     Stopped interpolation along track467 as the number of points would decrease from 24 to 22
 

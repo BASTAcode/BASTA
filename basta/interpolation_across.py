@@ -36,8 +36,11 @@ def _check_sobol(grid, res):
         The scale value for across resolution if Sobol interpolation, False if not Sobol
 
     """
-    # Read gridtype from header
+    # Read gridtype from header | Allow for usage of both h5py 2.10.x and 3.x.x
+    # --> If things are encoded as bytes, they must be made into standard strings
     gridtype = grid["header/library_type"][()]
+    if isinstance(gridtype, bytes):
+        gridtype = gridtype.decode("utf-8")
 
     # Check type and inputted scale resolution
     if "sobol" in gridtype.lower():
@@ -281,8 +284,11 @@ def _interpolate_across(
         "dif",
     ]
 
-    # Determine whether the grid is iscohrones or tracks
-    if "track" in grid["header/library_type"][()]:
+    # Determine whether the grid is iscohrones or tracks (convert to allow all h5py's)
+    gridtype = grid["header/library_type"][()]
+    if isinstance(gridtype, bytes):
+        gridtype = gridtype.decode("utf-8")
+    if "track" in gridtype:
         isomode = False
         modestr = "track"
         dname = "dage"
@@ -304,7 +310,7 @@ def _interpolate_across(
         headvars = list(np.unique(list(bpars) + list(const_vars)))
         sobol = _check_sobol(grid, resolution)
 
-    elif "isochrone" in grid["header/library_type"][()]:
+    elif "isochrone" in gridtype:
         isomode = True
         modestr = "isochrone"
         dname = "dmass"
@@ -370,6 +376,12 @@ def _interpolate_across(
     tracknames = list(selectedmodels)
     # List to sort out failed tracks/isochrones at the end
     success = np.ones(len(new_points[:, 0]), dtype=bool)
+
+    # Set up for debugging during run
+    if debug:
+        debugpath = "intpolout"
+        if not os.path.exists(debugpath):
+            os.mkdir(debugpath)
 
     #############
     # Main loop #
@@ -527,6 +539,36 @@ def _interpolate_across(
                     outfile[keypath]
                 except:
                     outfile[keypath] = np.ones(len(newbase[:, -1])) * const_vars[par]
+
+            if debug:
+                debugnum = str(int(newnum + tracknum)).zfill(numfmt)
+                plotpath = os.path.join(
+                    debugpath, "debug_kiel_{0}.png".format(debugnum)
+                )
+                if not os.path.exists(plotpath):
+                    try:
+                        tracks = [tracknames[i] for i in ind]
+                        selmods = [selectedmodels[t] for t in tracks]
+                        ip.across_debug(
+                            grid,
+                            outfile,
+                            basepath,
+                            along_var,
+                            libname,
+                            tracks,
+                            selmods,
+                            plotpath,
+                        )
+                        print(
+                            "Plotted debug Kiel for {0} {1}".format(modestr, debugnum)
+                        )
+                    except:
+                        print(
+                            "Debug plotting failed for {0} {1}".format(
+                                modestr, debugnum
+                            )
+                        )
+
         except KeyboardInterrupt:
             print("BASTA interpolation stopped manually. Goodbye!")
             sys.exit()
@@ -556,7 +598,7 @@ def _interpolate_across(
         baseparams, base, new_points[success], triangulation, sobol, outbasename
     )
     if plotted:
-        print("Across interpolation base has been plotted in", "figure", outbasename)
+        print("Across interpolation base has been plotted in figure", outbasename)
 
     # Remove all previous tracks, to conserve sobol homogeniety
     if grid == outfile and sobol:

@@ -200,9 +200,9 @@ evolutionary phases as follows:
 * ``agb``: models [1950,2100], from *Key Point* 18 to *Key Point* 19
 
 In order to see the effects, we recommend you modify the ``phase`` column in
-``${BASTADIR}/examples/data/Kepler_RGB.ascii`` by replacing ``rgb`` by ``clump``.  The file
+``${BASTADIR}/examples/data/Kepler_RGB.ascii`` by replacing ``rgb`` by ``clump`` -- or just use the file ``Kepler_RGB_change-phase-to-RC.ascii`` where that change has been applied. The file
 ``${BASTADIR}/examples/xmlinput/create_inputfile_phase.py`` contains the settings for an example of this fitting
-procedure. The only difference is the inclusion of ``phase`` in ``fitparams``:
+procedure. The only difference (except for reading the pre-modified data file) is the inclusion of ``phase`` in ``fitparams``:
 
 .. code-block:: python
 

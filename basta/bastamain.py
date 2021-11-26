@@ -110,6 +110,13 @@ def BASTA(
         gridtype = Grid["header/library_type"][()]
         gridver = Grid["header/version"][()]
         gridtime = Grid["header/buildtime"][()]
+
+        # Allow for usage of both h5py 2.10.x and 3.x.x
+        # --> If things are encoded as bytes, they must be made into standard strings
+        if isinstance(gridtype, bytes):
+            gridtype = gridtype.decode("utf-8")
+            gridver = gridver.decode("utf-8")
+            gridtime = gridtime.decode("utf-8")
     except KeyError:
         print("Error: Some information is missing in the header of the grid!")
         print(
@@ -121,10 +128,12 @@ def BASTA(
         sys.exit(1)
 
     # Verbose information on the grid file
-    print("\nFitting star id: {0}.".format(starid))
-    print("Using the grid '{0}' of type '{1}'.".format(gridfile, gridtype))
+    print("\nFitting star id: {0} .".format(starid))
+    print("* Using the grid '{0}' of type '{1}'.".format(gridfile, gridtype))
     print(
-        "Grid built with BASTA version {0}, timestamp: {1}.".format(gridver, gridtime)
+        "  - Grid built with BASTA version {0}, timestamp: {1}.".format(
+            gridver, gridtime
+        )
     )
 
     # Check type of grid (isochrones/tracks) and set default grid path
@@ -289,15 +298,19 @@ def BASTA(
 
     # Apply the cut on header parameters with a special treatment of diffusion
     if headerpath and gridcut:
+        print("\nCutting in grid based on sampling parameters ('gridcut'):")
         noofskips = [0, 0]
-        [print(c, gridcut[c]) if c != "dif" else None for c in gridcut]
+        for cpar in gridcut:
+            if cpar != "dif":
+                print("* {0}: {1}".format(cpar, gridcut[cpar]))
+
         # Diffusion switch printed in a more readable format
         if "dif" in gridcut:
             # As gridcut['dif'] is always either [-inf, 0.5] or [0.5, inf]
             # The location of 0.5 can be used as the switch
             switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
             print(
-                "Only considering tracks with diffusion turned",
+                "* Only considering tracks with diffusion turned",
                 "{:s}!".format(["on", "off"][switch]),
             )
 
@@ -382,6 +395,10 @@ def BASTA(
 
         if "parallax" in distparams:
             print("  - Parallax: {0}".format(distparams["parallax"]))
+
+    # Fitting info: Phase
+    if "phase" in inputparams:
+        print("* Fitting evolutionary phase!")
 
     # Print additional info on given input
     print("\nAdditional input parameters and settings in alphabetical order:")
@@ -708,12 +725,19 @@ def BASTA(
     pbar.close()
     print(
         "Done! Computed the likelihood of {0} models,".format(str(noofind)),
-        "found {0} models with non-zero likelihood!".format(str(noofposind)),
+        "found {0} models with non-zero likelihood!\n".format(str(noofposind)),
     )
+    if gridcut:
+        print(
+            "(Note: The use of 'gridcut' skipped {0} out of {1} {2})\n".format(
+                noofskips[0], noofskips[1], gridtype
+            )
+        )
 
+    # Raise possible warnings
     if shapewarn:
         print(
-            "\nWarning: Found models with fewer frequencies than observed!",
+            "Warning: Found models with fewer frequencies than observed!",
             "These were set to zero likelihood!",
         )
         if "intpol" in gridfile:
@@ -721,13 +745,16 @@ def BASTA(
                 "This is probably due to the interpolation scheme. Lookup",
                 "`interpolate_frequencies` for more details.",
             )
-
-    if gridcut:
-        print("Skipped {0} out of {1} {2}".format(noofskips[0], noofskips[1], gridtype))
-
     if noofposind == 0:
         fio.no_models(starid, inputparams, "No models found")
         return
+
+    # Print a header to signal the start of the output section in the log
+    print("\n*****************************************")
+    print("**                                     **")
+    print("**   Output and results from the fit   **")
+    print("**                                     **")
+    print("*****************************************\n")
 
     # Find and print highest likelihood model info
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(
@@ -735,14 +762,19 @@ def BASTA(
     )
     stats.get_lowest_chi2(Grid, selectedmodels, outparams)
 
-    # Generate posteriors of ascii- and plotparams and plot Kiels diagrams
-    print("\nComputing posterior distributions...\n")
+    # Generate posteriors of ascii- and plotparams
+    # --> Print posteriors to console and log
+    # --> Generate corner plots
+    # --> Generate Kiel diagrams
+    print("\n\nComputing posterior distributions for the requested output parameters!")
+    print("==> Summary statistics printed below ...\n")
     process_output.compute_posterior(
-        starid,
-        selectedmodels,
-        Grid,
-        inputparams,
-        outfilename,
+        starid=starid,
+        selectedmodels=selectedmodels,
+        Grid=Grid,
+        inputparams=inputparams,
+        outfilename=outfilename,
+        gridtype=gridtype,
         debug=debug,
         experimental=experimental,
         validationmode=validationmode,

@@ -280,6 +280,7 @@ def interpolate_frequencies(
     # Check if any lvalues can be omitted
     bad = []
     for ll in available_lvalues:
+        lkey = "l={0}".format(ll)
         if not any([len(arr) for arr in nvals[lkey]]):
             bad.append(ll)
     for ll in bad:
@@ -451,7 +452,7 @@ def interpolate_frequencies(
 
     if not skipplots:
         pdf.close()
-    elif debug:
+    elif debug and along:
         print("    The plot '{0}' already exist! Skipping...".format(plotpath))
 
     #

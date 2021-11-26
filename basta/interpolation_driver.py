@@ -388,7 +388,12 @@ def interpolate_grid(
                 keypath = os.path.join(libname, key)
                 if type(outfile[keypath][()]) != np.ndarray:
                     continue
-                vec = outfile[keypath][index]
+                # If osc or osckey, transform to 2D index array
+                elif key in ["osc", "osckey"]:
+                    index2d = np.array(np.transpose([index, index]))
+                    vec = outfile[keypath][index2d].reshape((-1, 2))
+                else:
+                    vec = outfile[keypath][index]
                 del outfile[keypath]
                 outfile[keypath] = vec
 
@@ -432,6 +437,11 @@ def perform_interpolation(
     Grid = h5py.File(grid, "r")
     try:
         gridtype = Grid["header/library_type"][()]
+
+        # Allow for usage of both h5py 2.10.x and 3.x.x
+        # --> If things are encoded as bytes, they must be made into standard strings
+        if isinstance(gridtype, bytes):
+            gridtype = gridtype.decode("utf-8")
     except KeyError:
         print("Error: Grid header missing 'library_type'!")
         Grid.close()
@@ -503,10 +513,10 @@ def perform_interpolation(
     if any([x in allparams for x in ["distance", "parallax"]]):
         allparams += inputparams["distanceparams"]["filters"]
     intpolparams = list(np.unique(allparams))
-    if "distance" in allparams:
-        allparams.remove("distance")
-    if "parallax" in allparams:
-        allparams.remove("parallax")
+    if "distance" in intpolparams:
+        intpolparams.remove("distance")
+    if "parallax" in intpolparams:
+        intpolparams.remove("parallax")
     mask = [True if par in parameters.names else False for par in intpolparams]
     intpolparams = list(np.asarray(intpolparams)[mask])
     if inputparams.get("fitfreqs", False):

@@ -18,7 +18,14 @@ from basta.constants import freqtypes
 from basta.fileio import no_models, read_freqs_xml
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import unique_unsort
-from basta import interpolation_driver as idriver
+
+# Interpolation requires the external Fortran modules
+try:
+    from basta import interpolation_driver as idriver
+except ImportError:
+    INTPOL_AVAIL = False
+else:
+    INTPOL_AVAIL = True
 
 
 def _find_get(root, path, value, defa=False):
@@ -245,11 +252,21 @@ def _get_intpol(root, gridfile, freqpath=None):
         )
 
     # If interpolation in frequencies requested, extract limits
+    freqnames = ["freq", "freqs", "frequency", "frequencies", "osc"]
     if freqpath:
         freqminmax = {}
         for star in root.findall("star"):
             fmin, fmax = _get_freq_minmax(star, freqpath)
             freqminmax[star.get("starid")] = [fmin, fmax]
+    elif intpol["trackresolution"]["param"] in freqnames:
+        errmsg = (
+            "Interpolation along resolution in individual frequencies is requested, "
+        )
+        errmsg += (
+            "without requesting interpolation in individual frequencies. As this is "
+        )
+        errmsg += "extremely expensive, please use a different variable."
+        raise KeyError(errmsg)
 
     # If construct is encompass, only need to determine limits once
     limerrmsg = "Abstol or sigmacut of {0} requested in interpolation"
@@ -533,13 +550,19 @@ def run_xml(
         else:
             usepriors.append(param.tag)
 
-    # Get interpolation
-    if root.find("default/interpolation") and fitfreqs:
-        allintpol = _get_intpol(root, grid, freqpath)
-    elif root.find("default/interpolation"):
-        allintpol = _get_intpol(root, grid)
+    # Get interpolation if requested (and if available!), otherwise empty dictionary
+    if root.find("default/interpolation"):
+        if not INTPOL_AVAIL:
+            print(
+                "Warning: Interpolation requested, but it is not available! Did you",
+                "compile the external modules? Aborting...",
+            )
+            sys.exit(1)
+        elif fitfreqs:
+            allintpol = _get_intpol(root, grid, freqpath)
+        else:
+            allintpol = _get_intpol(root, grid)
     else:
-        # If nothing set, make empty dictionary
         allintpol = {}
 
     # Path to ascii output file
@@ -593,7 +616,10 @@ def run_xml(
             # Get fitparameters for the given star
             for param in fitparams:
                 # Entry of parameter for the star
-                kid = star.find(param)
+                if "dnu" in param:
+                    kid = star.find("dnu")
+                else:
+                    kid = star.find(param)
 
                 # Skip reading for special fitting keys, dealt with later
                 if param in [*overwriteparams, *freqtypes.alltypes]:
@@ -619,7 +645,7 @@ def run_xml(
 
                 # Handle general parameters
                 elif kid.get("value") is not None:
-                    starfitparams[kid.tag] = [
+                    starfitparams[param] = [
                         float(kid.get("value")),
                         float(kid.get("error")),
                     ]

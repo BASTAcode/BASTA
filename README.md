@@ -5,9 +5,9 @@
 [![Documentation Status](https://readthedocs.org/projects/basta/badge/?version=latest)](https://basta.readthedocs.io/en/latest/?badge=latest)
 [![arXiv](https://img.shields.io/badge/arXiv-2109.14622-b31b1b.svg)](https://arxiv.org/abs/2109.14622)
 
-Current stable version: v1.0
+Current stable version: v1.1
 
-**Important note:** BASTA is developed for Python 3.8, but Python 3.7 should work as well. **Python 3.9 is currently *not* supported due to problems with h5py.**
+**Important note:** BASTA is developed for Python 3.9, but Python >= 3.7 should work as well.
 
 
 ## Before you begin

@@ -3,22 +3,34 @@
 Installation
 ================
 
-**Please read all subsections on this page carefully to make sure all aspects of
-the installation are performed correctly!**
+**Please read all subsections on this page carefully to make sure all aspects of the installation are performed correctly!**
+
 
 .. _ref_code:
 
 Obtaining the code and virtual environment
 ------------------------------------------
 
-**Important note:** BASTA is developed for Python 3.8, but Python 3.7 should work as well. **Python 3.9 is currently
-*not* supported due to problems with h5py.**
+*Important note: BASTA is developed for Python 3.9, but Python >= 3.7 should work as well.*
 
-To obtain the repository and setup the virtual environment, run in a bash shell:
+
+Start out by obtaining a copy of BASTA; either by cloning the GitHub repository or downloadning a source code release. As a default, we recommend that you install basta in the folder ``~/BASTA``. If you have a user on GitHub and use an ssh-keypair, you can simply run:
 
 .. code-block:: bash
 
     git clone git@github.com:BASTAcode/BASTA.git
+
+If you prefer to enter username and password instead of a key-pair run:
+
+.. code-block:: bash
+
+    git clone https://github.com/BASTAcode/BASTA.git
+
+
+Now, assuming you have downloaded the code, run the following to setup the virtual environment:
+
+.. code-block:: bash
+
     cd BASTA
     python3 -m venv venv
     source venv/bin/activate
@@ -30,7 +42,8 @@ To obtain the repository and setup the virtual environment, run in a bash shell:
     deactivate
 
 It is important to deactivate and re-activate the virtual environment after upgrading ``pip`` to ensure the proper
-installation of packages afterwards.
+installation of packages afterwards, and likewise to install ``wheel`` prior to the other requirements.
+
 
 .. _ref_shell:
 
@@ -45,10 +58,10 @@ Add the following to your ``~/.bashrc`` (or equivalent) and run ``source ~/.bash
     export PYTHONPATH=${PYTHONPATH}:${BASTADIR}
     export PATH=${PATH}:${BASTADIR}/bin
 
-.. _ref_f2py:
+If your installation of BASTA is in a folder different than the default ``~/BASTA`` please update the path in the first line accordingly!
 
-If your installation of BASTA is in a folder different than ``${HOME}/BASTA`` please update the path in the first line
-accordingly.
+
+.. _ref_f2py:
 
 Consistent f2py
 ---------------
@@ -72,22 +85,19 @@ first in the search path:
     # My own bin first!
     export PATH=${HOME}/bin:${PATH}
 
-Please note, that now it is only possible to use the ``f2py3`` tool when the
-virtual environment is activated. You can check that the symlink works and the
-location is correct, by running
+Please note, that now it is only possible to use the ``f2py3`` tool when the virtual environment is activated. You can check that the symlink works and the location is correct, by running
 
 .. code-block:: bash
 
     which f2py3
+
 
 .. _ref_dust:
 
 External routines and dustmaps
 ------------------------------
 
-To automatically compile the external routines with ``f2py3`` (described above)
-and setup the dustmaps, use the installation file shipped with BASTA (please
-deactivate and re-activate the venv, if you just installed it):
+To automatically compile the external routines with ``f2py3`` (described above) and setup the dustmaps, use the installation file shipped with BASTA (please deactivate and re-activate the venv, if you just installed it):
 
 .. code-block:: bash
 
@@ -96,18 +106,11 @@ deactivate and re-activate the venv, if you just installed it):
     source venv/bin/activate
     python setup.py CASE
 
-Here ``CASE`` can be either ``grendel`` (if installing on the Grendel-S cluster), ``light`` if installing in a Mac M1
-or M2 machine, or ``personal`` if installing on any other system. Setting ``grendel`` makes BASTA use the dustmaps from
-our shared project folder on Grendel, otherwise these will be downloaded as part of the installation.
+Here ``CASE`` should be ``personal`` unless you are running BASTA natively on a M1/M1X Mac, in which case it should be ``light``. Setting the latter will disable the functionality to fit glitches and to use grid interpolation. Support for the new Mac systems are currently work-in-progress. Internally on AU, it is also possible to use the case ``grendel`` on the Grendel-S cluster, in which case BASTA will use the dustmaps from our shared project folder.
 
-Please note that quite a lot of output might be produced, including some
-warnings. However, these warnings (e.g. the deprecated NumPy API) are harmless
-and cannot be avoided until the Scipy-people update ``f2py``. Unless the
-compilation fails, just ignore the warnings.
+Please note that quite a lot of output might be produced, including some warnings. However, these warnings (e.g. the deprecated NumPy API) are harmless and cannot be avoided until the Scipy-people update ``f2py``. Unless the compilation fails, just ignore the warnings.
 
-The path to ``f2py3`` is printed by the script -- make sure this is correctly
-pointing to the BASTA virtual environment! The script will try to import the
-compiled modules to check the compiled files.
+The path to ``f2py3`` is printed by the script -- make sure this is correctly pointing to the BASTA virtual environment! The script will try to import the compiled modules to check the compiled files.
 
 
 .. _ref_hooks:
@@ -115,7 +118,7 @@ compiled modules to check the compiled files.
 Git hooks
 ---------
 
-*If you don't want to contribute to BASTA, you can skip this section!*
+*If you don't want to contribute to BASTA, you can safely skip this section!*
 
 BASTA uses ``pre-commit`` to manage git hooks, and the final setup task is to
 activate them:

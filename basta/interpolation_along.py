@@ -9,6 +9,7 @@ import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt
 
+from basta import utils_general as gu
 from basta import utils_seismic as su
 from basta import interpolation_helpers as ih
 
@@ -338,10 +339,11 @@ def _interpolate_along(
                     break
 
             if verbose:
-                ax1.plot(libitem["Teff"], libitem["logg"], color="darkgrey", alpha=0.2)
-                ax3.plot(
-                    libitem[baseparam], libitem["Teff"], color="darkgrey", alpha=0.2
-                )
+                pltTeff = gu.h5py_to_array(libitem["Teff"])
+                pltlogg = gu.h5py_to_array(libitem["logg"])
+                pltbase = gu.h5py_to_array(libitem[baseparam])
+                ax1.plot(pltTeff, pltlogg, color="darkgrey", alpha=0.2)
+                ax3.plot(pltbase, pltTeff, color="darkgrey", alpha=0.2)
 
             #
             # *** BLOCK 1: Obtain reduced tracks ***
@@ -487,24 +489,27 @@ def _interpolate_along(
 
             # Add information to the diagnostic plots
             if verbose and False:
+                pltTeff = gu.h5py_to_array(libitem["Teff"])
+                pltlogg = gu.h5py_to_array(libitem["logg"])
+                pltbase = gu.h5py_to_array(libitem[baseparam])
                 ax1.plot(
-                    libitem["Teff"][index],
-                    libitem["logg"][index],
+                    pltTeff[index],
+                    pltlogg[index],
                     color="#482F76",
                     lw=4,
                     alpha=0.8,
                     zorder=2.5,
                 )
                 ax2.plot(
-                    libitem["Teff"][index],
-                    libitem["logg"][index],
+                    pltTeff[index],
+                    pltlogg[index],
                     "x",
                     color="#482F76",
                     alpha=0.4,
                 )
                 ax3.plot(
-                    libitem[baseparam][index],
-                    libitem["Teff"][index],
+                    pltbase[index],
+                    pltTeff[index],
                     color="#482F76",
                     lw=4,
                     alpha=0.8,

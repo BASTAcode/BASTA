@@ -7,6 +7,25 @@ from io import IOBase
 import numpy as np
 
 
+def h5py_to_array(xs):
+    """
+    Copy vector/dataset from an HDF5 file to a NumPy array
+
+    Parameters
+    ----------
+    xs : h5py_dataset
+       The input dataset read by h5py from an HDF5 object
+
+    Returns
+    -------
+    res : array_like
+        Copy of the dataset as NumPy array
+    """
+    res = np.empty(shape=xs.shape, dtype=xs.dtype)
+    res[:] = xs[:]
+    return res
+
+
 def prt_center(text, llen):
     """
     Prints a centered line
@@ -314,12 +333,33 @@ def get_parameter_values(parameter, Grid, selectedmodels, noofind):
 
 
 def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"):
+    """
+    Pretty-print of output parameter to log and console.
+
+    Parameters
+    ----------
+    param : str
+        Name of parameter
+    xmed : float
+        Centroid value (median or mean)
+    xstdm : float
+        Lower bound uncertainty, or symmetric unceartainty
+    xstdp : float
+        Upper bound uncertainty, if not symmetric. Unused if uncert is std.
+    uncert : str, optional
+        Type of reported uncertainty, "quantiles" or "std"
+    centroid : str, optional
+        Type of reported uncertainty, "median" or "mean"
+
+    Returns
+    -------
+    None
+    """
+    # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
+    print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
     if uncert == "quantiles":
-        print(centroid + " " + param + ":", xmed)
-        print("stdm " + param + "  :", xmed - xstdm)
-        print("stdp " + param + "  :", xstdp - xmed)
-        print("-----------------------------------------------------")
+        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
+        print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
     else:
-        print(centroid + " " + param + ":", xmed)
-        print("std " + param + "  :", xstdm)
-        print("-----------------------------------------------------")
+        print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
+    print("-----------------------------------------------------")

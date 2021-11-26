@@ -1,7 +1,7 @@
 """
 Preview the change in resolution and final distribution of tracks/isochrones
 for running BASTA with interpolation.
- """
+"""
 
 
 def define_preview(define_input, define_along, define_across):
@@ -15,7 +15,7 @@ def define_preview(define_input, define_along, define_across):
     # BLOCK 1: Grid and limits for subgrid
     # ==================================================================================
     # The path to the grid to be used by BASTA
-    define_input["gridfile"] = "grids/grid.hdf5"
+    define_input["gridfile"] = os.path.join(os.environ["BASTADIR"], "grids/grid.hdf5")
 
     # If the inputted grid is BaSTI isochrones, specify the science case. See
     # `create_inputfile.py` block 2c for available cases by standard

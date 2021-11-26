@@ -34,6 +34,7 @@ def compute_posterior(
     Grid,
     inputparams,
     outfilename,
+    gridtype,
     debug=False,
     experimental=False,
     validationmode=False,
@@ -52,8 +53,11 @@ def compute_posterior(
         The already loaded grid, containing the tracks/isochrones.
     inputparams : dict
         Dict containing input from xml-file.
-    outfilename : str, optional
+    outfilename : str
         Name of directory of where to put plots outputted if debug is True.
+    gridtype : str
+        Type of the grid (as read from the grid in bastamain) containing either 'tracks'
+        or 'isochrones'.
     debug : bool, optional
         Debug flag for developers.
     experimental : bool, optional
@@ -171,6 +175,8 @@ def compute_posterior(
                 M_all[nonzeroprop][sampled_indices], centroid, uncert
             )
 
+            if idm == 0:
+                print("-----------------------------------------------------")
             util.printparam(
                 "d(" + m + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
             )
@@ -287,9 +293,13 @@ def compute_posterior(
                     cornerfile = outfilename + "_distance_corner." + plottype
                     plt.savefig(cornerfile)
                     plt.close()
-                    print("Saved corner plot to " + cornerfile + ".")
+                    print("\nSaved distance corner plot to {0}.\n".format(cornerfile))
                 except Exception as error:
-                    print("Distance corner plot failed with the error:", error)
+                    print(
+                        "\nDistance corner plot failed with the error:{0}\n".format(
+                            error
+                        )
+                    )
 
                 # Plotting done: Remove keyword
                 cornerplots.remove("distance")
@@ -328,7 +338,7 @@ def compute_posterior(
     plotin = np.ones(2 * len(cornerplots)) * -9999
     plotout = np.zeros(3 * len(cornerplots))
     dnu_scales = inputparams.get("dnu_scales", {})
-    for param in params:
+    for numpar, param in enumerate(params):
         # Generate list of x values
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
 
@@ -359,6 +369,10 @@ def compute_posterior(
         xcen, xstdm, xstdp = stats.calc_key_stats(
             x[nonzeroprop][sampled_indices], centroid, uncert
         )
+
+        # Print info to log and console
+        if numpar == 0:
+            print("-----------------------------------------------------")
         util.printparam(param, xcen, xstdm, xstdp, uncert=uncert, centroid=centroid)
 
         if param in cornerplots:
@@ -451,7 +465,6 @@ def compute_posterior(
             )
             if not len(kielplots):
                 print("DEBUG: make Kiel diagram due to warning")
-                gridtype = Grid["header/library_type"][()]
                 library_param = "massini" if "tracks" in gridtype.lower() else "age"
                 x = util.get_parameter_values(
                     library_param, Grid, selectedmodels, noofind
@@ -469,14 +482,15 @@ def compute_posterior(
 
                 try:
                     fig = plot_kiel.kiel(
-                        Grid,
-                        selectedmodels,
-                        fitpar_kiel,
-                        inputparams,
-                        lp_interval,
-                        feh_interval,
-                        Teffout,
-                        loggout,
+                        Grid=Grid,
+                        selectedmodels=selectedmodels,
+                        fitparams=fitpar_kiel,
+                        inputparams=inputparams,
+                        lp_interval=lp_interval,
+                        feh_interval=feh_interval,
+                        Teffout=Teffout,
+                        loggout=loggout,
+                        gridtype=gridtype,
                         debug=debug,
                         experimental=experimental,
                         validationmode=validationmode,
@@ -540,7 +554,6 @@ def compute_posterior(
     # Create Kiel diagram
     if len(kielplots):
         # Find quantiles of massini/age and FeH to determine what tracks to plot
-        gridtype = Grid["header/library_type"][()]
         library_param = "massini" if "tracks" in gridtype.lower() else "age"
         x = util.get_parameter_values(library_param, Grid, selectedmodels, noofind)
         lp_interval = np.quantile(x[nonzeroprop][sampled_indices], qs[1:])
@@ -558,14 +571,15 @@ def compute_posterior(
 
         try:
             fig = plot_kiel.kiel(
-                Grid,
-                selectedmodels,
-                fitpar_kiel,
-                inputparams,
-                lp_interval,
-                feh_interval,
-                Teffout,
-                loggout,
+                Grid=Grid,
+                selectedmodels=selectedmodels,
+                fitparams=fitpar_kiel,
+                inputparams=inputparams,
+                lp_interval=lp_interval,
+                feh_interval=feh_interval,
+                Teffout=Teffout,
+                loggout=loggout,
+                gridtype=gridtype,
                 debug=debug,
                 experimental=experimental,
                 validationmode=validationmode,
@@ -577,6 +591,7 @@ def compute_posterior(
             print("Saved Kiel diagram to " + kielfile + ".")
         except Exception as error:
             print("Kiel diagram failed with the error:", error)
+            raise
 
     if debug and len(inputparams["magnitudes"]) > 0:
         print("Make normalised distribution plot of terms in PDF computation")
