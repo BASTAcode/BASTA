@@ -406,7 +406,6 @@ def BASTA(
         "asciioutput",
         "asciioutput_dist",
         "distanceparams",
-        "dnu_scales",
         "dnufit",
         "dnufrac",
         "erroutput",
