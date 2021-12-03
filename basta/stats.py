@@ -12,10 +12,13 @@ from scipy.ndimage.filters import gaussian_filter1d
 from basta import freq_fit, glitch
 from basta import utils_seismic as su
 from basta.constants import freqtypes
+import basta.supportGlitch as sg
 
 # Define named tuple used in selectedmodels
-Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
-priorlogPDF = collections.namedtuple("Trackstats", "index logPDF chi2 bayw magw IMFw")
+Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2 glhparams")
+priorlogPDF = collections.namedtuple(
+    "Trackstats", "index logPDF chi2 bayw magw IMFw glhparams"
+)
 
 
 def _weight(N, seisw):
@@ -64,7 +67,14 @@ def chi2_astero(
     obsintervals,
     dnudata,
     dnudata_err,
-    tau0=3500.0,
+    method="FQ",
+    num_of_n=None,
+    vmin=None,
+    vmax=None,
+    icov_sd=None,
+    tol_grad=1e-3,
+    regu_param=7.0,
+    n_guess=200,
     tauhe=800.0,
     taubcz=2200.0,
     useint=False,
@@ -72,7 +82,7 @@ def chi2_astero(
     bfit=None,
     fcor="BG14",
     seisw={},
-    dnufit_in_ratios=True,
+    dnufit_in_ratios=False,
     warnings=True,
     shapewarn=False,
     debug=False,
@@ -100,7 +110,7 @@ def chi2_astero(
         `tipo` can be:
         * 'freqs' for fitting individual frequencies.
         * 'rn' for fitting n ratio sequence (e.g. 012, 01)
-        * 'glitches' for fitting glitches
+        * 'grn' for fitting n glitch-ratio combination
     covinv : array
         Covariances between individual frequencies and frequency ratios read
         from the observational input files.
@@ -115,8 +125,25 @@ def chi2_astero(
         frequencies (like dnufit, but for the data). Used for fitting ratios.
     dnudata_err : float
         Uncertainty on dnudata
-    tau0 : float, optional
-        Total acoustic radius of the star.
+    method : str
+        Fitting method ('FQ' or 'SD')
+    num_of_n : array of int
+        Number of modes for each l
+    vmin : float
+        Minimum value of the observed frequency (muHz)
+    vmax : float
+        Maximum value of the observed frequency (muHz)
+    icov_sd : array
+        Inverse covariance matrix for second differences
+        used only for method='SD'
+    tol_grad : float
+        tolerance on gradients (typically between 1e-2 and 1e-5 depending on quality
+        of data and 'method' used)
+    regu_param : float
+        Regularization parameter (7 and 1000 generally work well for 'FQ' and
+        'SD', respectively)
+    n_guess : int
+        Number of initial guesses in search for the global minimum
     tauhe : float, optional
         Acoustic depth of the He II ionization zone.
     taubcz : float, optional
@@ -151,7 +178,11 @@ def chi2_astero(
         If the calculated value is less than zero, chi2rut will be np.inf.
     warnings : bool
         See 'warnings' above.
+    glhparams: tuple
+        Helium glitch parameters (average amplitude, width and depth)
     """
+    glhparams = np.zeros(3)
+
     # If more observed modes than model modes are in one bin, move on
     joins = freq_fit.calc_join(
         mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
@@ -179,41 +210,52 @@ def chi2_astero(
             print('ERROR: fcor must be either "None", "HK08" or "BG14" or "cubicBG14"')
             return
 
-    # Add the chi-square terms for ratios
+    # --> Add the chi-square terms for ratios and/or glitches and/or glitch-ratio
+    # combinations
     chi2rut = 0.0
-    if any(x in freqtypes.rtypes for x in tipo):
+    tmp = [*freqtypes.rtypes, *freqtypes.glitches, *freqtypes.grtypes]
+    if any(x in tmp for x in tipo):
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
             return chi2rut, warnings, shapewarn
 
-        # Add large frequency separation term (using corrected frequencies!)
-        # --> Equivalent to 'dnufit', but using the frequencies *after*
-        #     applying the surface correction.
-        # --> Compared to the observed value, which is 'dnudata'.
-        if dnufit_in_ratios:
-            FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-            yfitdnu = corjoin[0, joinkeys[0, :] == 0]
-            xfitdnu = np.arange(0, len(yfitdnu))
-            wfitdnu = np.exp(
-                -1.0
-                * np.power(yfitdnu - numax, 2)
-                / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-            )
-            fitcoef = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu))
-            dnusurf = fitcoef[0]
-            chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+        # Compute large frequency separation
+        FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+        yfitdnu = corjoin[0, joinkeys[0, :] == 0]
+        xfitdnu = joinkeys[1, joinkeys[0, :] == 0]  # np.arange(0, len(yfitdnu))
+        wfitdnu = np.exp(
+            -1.0
+            * np.power(yfitdnu - numax, 2)
+            / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+        )
+        fitcoef = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu))
+        dnusurf = fitcoef[0]
 
-        # Add frequency ratios terms
-        names = ["l", "n", "freq", "err"]  # 'err' is redundant here
-        fmts = [int, int, float, float]
-        freq = np.zeros(nmodes, dtype={"names": names, "formats": fmts})
-        freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
-        freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
-        freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-        r02, r01, r10 = freq_fit.ratios(freq)
+        # Define 'frq' to be used in ratio- and glitch-related calculations
+        frq = np.zeros((nmodes, 4))
+        frq[:, 0] = joinkeys[0, joinkeys[0, :] < 3]
+        frq[:, 1] = joinkeys[1, joinkeys[0, :] < 3]
+        frq[:, 2] = join[0, joinkeys[0, :] < 3]
+        frq[:, 3] = join[3, joinkeys[0, :] < 3]
+
+        # Compute r02, r01 and r10
+        r02, r01, r10 = freq_fit.ratios(frq)
+
         if r02 is not None:
-            if any([x in tipo for x in ["r010", "r012", "r102"]]):
+
+            # Add large frequency separation term (using corrected frequencies!)
+            # --> Equivalent to 'dnufit', but using the frequencies *after*
+            #     applying the surface correction.
+            # --> Compared to the observed value, which is 'dnudata'.
+            if dnufit_in_ratios:
+                chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+
+            # Compute r010, r012 and r102, if needed
+            tmp = ["r010", "r012", "r102", "gr010", "gr012", "gr102"]
+            if any([x in tipo for x in tmp]):
                 r010, r012, r102 = su.combined_ratios(r02, r01, r10)
+
+            # R010
             if "r010" in tipo:
                 x = inpdata[0][0, :] - r010[:, 1]
                 w = _weight(len(x), seisw)
@@ -222,6 +264,8 @@ def chi2_astero(
                 else:
                     shapewarn = True
                     chi2rut = np.inf
+
+            # R02
             if "r02" in tipo:
                 x = inpdata[1][0, :] - r02[:, 1]
                 w = _weight(len(x), seisw)
@@ -230,6 +274,8 @@ def chi2_astero(
                 else:
                     shapewarn = True
                     chi2rut = np.inf
+
+            # R01
             if "r01" in tipo:
                 x = inpdata[3][0, :] - r01[:, 1]
                 w = _weight(len(x), seisw)
@@ -237,6 +283,8 @@ def chi2_astero(
                     chi2rut += (x.T.dot(covinv[3]).dot(x)) / w
                 else:
                     chi2rut = np.inf
+
+            # R10
             if "r10" in tipo:
                 x = inpdata[4][0, :] - r10[:, 1]
                 w = _weight(len(x), seisw)
@@ -245,6 +293,8 @@ def chi2_astero(
                 else:
                     shapewarn = True
                     chi2rut = np.inf
+
+            # R012
             if "r012" in tipo:
                 x = inpdata[5][0, :] - r012[:, 1]
                 w = _weight(len(x), seisw)
@@ -253,6 +303,8 @@ def chi2_astero(
                 else:
                     shapewarn = True
                     chi2rut = np.inf
+
+            # R102
             if "r102" in tipo:
                 x = inpdata[6][0, :] - r102[:, 1]
                 w = _weight(len(x), seisw)
@@ -261,6 +313,341 @@ def chi2_astero(
                 else:
                     shapewarn = True
                     chi2rut = np.inf
+
+            # GR010
+            if "gr010" in tipo:
+                num_sd, frq_sd = None, None
+                if method.lower() == "sd":
+                    num_sd = icov_sd.shape[0]
+                    frq_sd = sd(frq, num_of_n, num_sd)
+                param, chi2, reg, ier = sg.fit(
+                    frq,
+                    num_of_n,
+                    dnusurf,
+                    num_of_dif2=num_sd,
+                    freqDif2=frq_sd,
+                    icov=icov_sd,
+                    method=method,
+                    n_rln=0,
+                    tol_grad=tol_grad,
+                    regu_param=regu_param,
+                    n_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=100.0,
+                    taucz=taubcz,
+                    dtaucz=200.0,
+                )
+                if ier != 0:
+                    chi2rut = np.inf
+                else:
+                    nr010 = r010.shape[0]
+                    gr010 = np.zeros(nr010 + 3)
+                    gr010[0:nr010] = r010[:, 1]
+                    Acz, Ahe = sg.averageAmplitudes(
+                        param[0, :], vmin, vmax, delta_nu=dnusurf, method=method
+                    )
+                    gr010[-3] = Ahe
+                    gr010[-2] = param[0, -3]
+                    gr010[-1] = param[0, -2]
+                    glhparams[0], glhparams[1], glhparams[2] = (
+                        gr010[-3],
+                        gr010[-2],
+                        gr010[-1],
+                    )
+                    x = inpdata[8][0, :] - gr010[:]
+                    w = _weight(len(x), seisw)
+                    if x.shape[0] == covinv[8].shape[0]:
+                        chi2rut += (x.T.dot(covinv[8]).dot(x)) / w
+                    else:
+                        shapewarn = True
+                        chi2rut = np.inf
+
+            # GR02
+            if "gr02" in tipo:
+                num_sd, frq_sd = None, None
+                if method.lower() == "sd":
+                    num_sd = icov_sd.shape[0]
+                    frq_sd = sd(frq, num_of_n, num_sd)
+                param, chi2, reg, ier = sg.fit(
+                    frq,
+                    num_of_n,
+                    dnusurf,
+                    num_of_dif2=num_sd,
+                    freqDif2=frq_sd,
+                    icov=icov_sd,
+                    method=method,
+                    n_rln=0,
+                    tol_grad=tol_grad,
+                    regu_param=regu_param,
+                    n_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=100.0,
+                    taucz=taubcz,
+                    dtaucz=200.0,
+                )
+                if ier != 0:
+                    chi2rut = np.inf
+                else:
+                    nr02 = r02.shape[0]
+                    gr02 = np.zeros(nr02 + 3)
+                    gr02[0:nr02] = r02[:, 1]
+                    Acz, Ahe = sg.averageAmplitudes(
+                        param[0, :], vmin, vmax, delta_nu=dnusurf, method=method
+                    )
+                    gr02[-3] = Ahe
+                    gr02[-2] = param[0, -3]
+                    gr02[-1] = param[0, -2]
+                    glhparams[0], glhparams[1], glhparams[2] = (
+                        gr02[-3],
+                        gr02[-2],
+                        gr02[-1],
+                    )
+                    x = inpdata[9][0, :] - gr02[:]
+                    w = _weight(len(x), seisw)
+                    if x.shape[0] == covinv[9].shape[0]:
+                        chi2rut += (x.T.dot(covinv[9]).dot(x)) / w
+                    else:
+                        shapewarn = True
+                        chi2rut = np.inf
+
+            # GR01
+            if "gr01" in tipo:
+                num_sd, frq_sd = None, None
+                if method.lower() == "sd":
+                    num_sd = icov_sd.shape[0]
+                    frq_sd = sd(frq, num_of_n, num_sd)
+                param, chi2, reg, ier = sg.fit(
+                    frq,
+                    num_of_n,
+                    dnusurf,
+                    num_of_dif2=num_sd,
+                    freqDif2=frq_sd,
+                    icov=icov_sd,
+                    method=method,
+                    n_rln=0,
+                    tol_grad=tol_grad,
+                    regu_param=regu_param,
+                    n_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=100.0,
+                    taucz=taubcz,
+                    dtaucz=200.0,
+                )
+                if ier != 0:
+                    chi2rut = np.inf
+                else:
+                    nr01 = r01.shape[0]
+                    gr01 = np.zeros(nr01 + 3)
+                    gr01[0:nr01] = r01[:, 1]
+                    Acz, Ahe = sg.averageAmplitudes(
+                        param[0, :], vmin, vmax, delta_nu=dnusurf, method=method
+                    )
+                    gr01[-3] = Ahe
+                    gr01[-2] = param[0, -3]
+                    gr01[-1] = param[0, -2]
+                    glhparams[0], glhparams[1], glhparams[2] = (
+                        gr01[-3],
+                        gr01[-2],
+                        gr01[-1],
+                    )
+                    x = inpdata[10][0, :] - gr01[:]
+                    w = _weight(len(x), seisw)
+                    if x.shape[0] == covinv[10].shape[0]:
+                        chi2rut += (x.T.dot(covinv[10]).dot(x)) / w
+                    else:
+                        shapewarn = True
+                        chi2rut = np.inf
+
+            # GR10
+            if "gr10" in tipo:
+                num_sd, frq_sd = None, None
+                if method.lower() == "sd":
+                    num_sd = icov_sd.shape[0]
+                    frq_sd = sd(frq, num_of_n, num_sd)
+                param, chi2, reg, ier = sg.fit(
+                    frq,
+                    num_of_n,
+                    dnusurf,
+                    num_of_dif2=num_sd,
+                    freqDif2=frq_sd,
+                    icov=icov_sd,
+                    method=method,
+                    n_rln=0,
+                    tol_grad=tol_grad,
+                    regu_param=regu_param,
+                    n_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=100.0,
+                    taucz=taubcz,
+                    dtaucz=200.0,
+                )
+                if ier != 0:
+                    chi2rut = np.inf
+                else:
+                    nr10 = r10.shape[0]
+                    gr10 = np.zeros(nr10 + 3)
+                    gr10[0:nr10] = r10[:, 1]
+                    Acz, Ahe = sg.averageAmplitudes(
+                        param[0, :], vmin, vmax, delta_nu=dnusurf, method=method
+                    )
+                    gr10[-3] = Ahe
+                    gr10[-2] = param[0, -3]
+                    gr10[-1] = param[0, -2]
+                    glhparams[0], glhparams[1], glhparams[2] = (
+                        gr10[-3],
+                        gr10[-2],
+                        gr10[-1],
+                    )
+                    x = inpdata[11][0, :] - gr10[:]
+                    w = _weight(len(x), seisw)
+                    if x.shape[0] == covinv[11].shape[0]:
+                        chi2rut += (x.T.dot(covinv[11]).dot(x)) / w
+                    else:
+                        shapewarn = True
+                        chi2rut = np.inf
+
+            # GR012
+            if "gr012" in tipo:
+                num_sd, frq_sd = None, None
+                if method.lower() == "sd":
+                    num_sd = icov_sd.shape[0]
+                    frq_sd = sd(frq, num_of_n, num_sd)
+                param, chi2, reg, ier = sg.fit(
+                    frq,
+                    num_of_n,
+                    dnusurf,
+                    num_of_dif2=num_sd,
+                    freqDif2=frq_sd,
+                    icov=icov_sd,
+                    method=method,
+                    n_rln=0,
+                    tol_grad=tol_grad,
+                    regu_param=regu_param,
+                    n_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=100.0,
+                    taucz=taubcz,
+                    dtaucz=200.0,
+                )
+                if ier != 0:
+                    chi2rut = np.inf
+                else:
+                    nr012 = r012.shape[0]
+                    gr012 = np.zeros(nr012 + 3)
+                    gr012[0:nr012] = r012[:, 1]
+                    Acz, Ahe = sg.averageAmplitudes(
+                        param[0, :], vmin, vmax, delta_nu=dnusurf, method=method
+                    )
+                    gr012[-3] = Ahe
+                    gr012[-2] = param[0, -3]
+                    gr012[-1] = param[0, -2]
+                    glhparams[0], glhparams[1], glhparams[2] = (
+                        gr012[-3],
+                        gr012[-2],
+                        gr012[-1],
+                    )
+                    x = inpdata[12][0, :] - gr012[:]
+                    w = _weight(len(x), seisw)
+                    if x.shape[0] == covinv[12].shape[0]:
+                        chi2rut += (x.T.dot(covinv[12]).dot(x)) / w
+                    else:
+                        shapewarn = True
+                        chi2rut = np.inf
+
+            # GR102
+            if "gr102" in tipo:
+                num_sd, frq_sd = None, None
+                if method.lower() == "sd":
+                    num_sd = icov_sd.shape[0]
+                    frq_sd = sd(frq, num_of_n, num_sd)
+                param, chi2, reg, ier = sg.fit(
+                    frq,
+                    num_of_n,
+                    dnusurf,
+                    num_of_dif2=num_sd,
+                    freqDif2=frq_sd,
+                    icov=icov_sd,
+                    method=method,
+                    n_rln=0,
+                    tol_grad=tol_grad,
+                    regu_param=regu_param,
+                    n_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=100.0,
+                    taucz=taubcz,
+                    dtaucz=200.0,
+                )
+                if ier != 0:
+                    chi2rut = np.inf
+                else:
+                    nr102 = r102.shape[0]
+                    gr102 = np.zeros(nr102 + 3)
+                    gr102[0:nr102] = r102[:, 1]
+                    Acz, Ahe = sg.averageAmplitudes(
+                        param[0, :], vmin, vmax, delta_nu=dnusurf, method=method
+                    )
+                    gr102[-3] = Ahe
+                    gr102[-2] = param[0, -3]
+                    gr102[-1] = param[0, -2]
+                    glhparams[0], glhparams[1], glhparams[2] = (
+                        gr102[-3],
+                        gr102[-2],
+                        gr102[-1],
+                    )
+                    x = inpdata[13][0, :] - gr102[:]
+                    w = _weight(len(x), seisw)
+                    if x.shape[0] == covinv[13].shape[0]:
+                        chi2rut += (x.T.dot(covinv[13]).dot(x)) / w
+                    else:
+                        shapewarn = True
+                        chi2rut = np.inf
+
+        # Add the chi-square terms for glitch parameters
+        if r02 is not None or (method.lower() == "fq"):
+            if "glitches" in tipo:
+                num_sd, frq_sd = None, None
+                if method.lower() == "sd":
+                    num_sd = icov_sd.shape[0]
+                    frq_sd = sd(frq, num_of_n, num_sd)
+                param, chi2, reg, ier = sg.fit(
+                    frq,
+                    num_of_n,
+                    dnusurf,
+                    num_of_dif2=num_sd,
+                    freqDif2=frq_sd,
+                    icov=icov_sd,
+                    method=method,
+                    n_rln=0,
+                    tol_grad=tol_grad,
+                    regu_param=regu_param,
+                    n_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=100.0,
+                    taucz=taubcz,
+                    dtaucz=200.0,
+                )
+                if ier != 0:
+                    chi2rut = np.inf
+                else:
+                    glh = np.zeros(3)
+                    Acz, Ahe = sg.averageAmplitudes(
+                        param[0, :], vmin, vmax, delta_nu=dnusurf, method=method
+                    )
+                    glh[-3] = Ahe
+                    glh[-2] = param[0, -3]
+                    glh[-1] = param[0, -2]
+                    glhparams[0], glhparams[1], glhparams[2] = (
+                        glh[-3],
+                        glh[-2],
+                        glh[-1],
+                    )
+                    x = inpdata[7][0, :] - glh[:]
+                    w = _weight(len(x), seisw)
+                    if x.shape[0] == covinv[7].shape[0]:
+                        chi2rut += (x.T.dot(covinv[7]).dot(x)) / w
+                    else:
+                        shapewarn = True
+                        chi2rut = np.inf
 
     if "freqs" in tipo:
         # The frequency correction moved up before the ratios fitting!
@@ -282,35 +669,7 @@ def chi2_astero(
             if debug and verbose:
                 print("DEBUG: chi2 less than zero, setting chi2 to inf")
 
-    if "glitches" in tipo:
-        if nmodes > 200:
-            raise NotImplementedError("> 200 modes to fit!")
-        freq = np.zeros((200, 4), dtype=float)
-
-        # l and n
-        freq[0:nmodes, 0] = joinkeys[0, joinkeys[0, :] < 3]
-        freq[0:nmodes, 1] = joinkeys[1, joinkeys[0, :] < 3]
-
-        # Model frequency and observational uncertainty used for weighing
-        freq[0:nmodes, 2] = join[0, joinkeys[0, :] < 3]
-        freq[0:nmodes, 3] = join[3, joinkeys[0, :] < 3]
-        nu1 = np.amin(join[2, joinkeys[0, :] < 3])
-        nu2 = np.amax(join[2, joinkeys[0, :] < 3])
-
-        glhParams, nerr = glitch.glh_params(freq, nmodes, nu1, nu2, tau0, tauhe, taubcz)
-        if nerr == 0:
-            x = inpdata[7] - glhParams
-            w = _weight(len(x), seisw)
-            if x.shape[0] == covinv[7].shape[0]:
-                chi2rut += (x.T.dot(covinv[7]).dot(x)) / w
-            else:
-                shapewarn = True
-                chirut = np.inf
-        else:
-            chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
-
-    return chi2rut, warnings, shapewarn
+    return chi2rut, warnings, shapewarn, glhparams
 
 
 def most_likely(selectedmodels):

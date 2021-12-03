@@ -533,14 +533,11 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
         datos10 = datos[4]
 
     # Best fit model ratios
-    names = ["l", "n", "freq", "err"]  # 'err' is redundant here!
-    fmts = [int, int, float, float]
-    nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
-    freq = np.zeros(nmodes, dtype={"names": names, "formats": fmts})
-    freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
-    freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
-    freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-    r02, r01, r10 = freq_fit.ratios(freq)
+    frq = np.zeros((joinkeys[:, joinkeys[0, :] < 3].shape[1], 4))
+    frq[:, 0] = joinkeys[0, joinkeys[0, :] < 3]
+    frq[:, 1] = joinkeys[1, joinkeys[0, :] < 3]
+    frq[:, 2] = join[0, joinkeys[0, :] < 3]
+    r02, r01, r10 = freq_fit.ratios(frq)
 
     if r02 is None:
         print("WARNING: missing radial orders! Skipping ratios plot.")
@@ -578,6 +575,236 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
             plt.legend(frameon=False)
             plt.xlabel(r"Frequency ($\mu$Hz)")
             plt.ylabel('Ratio type "{0}"'.format(ratio_type[1:]))
+
+            if output is not None:
+                pp.savefig(bbox_inches="tight")
+
+        if output is not None:
+            print("Saved figure to " + output)
+            pp.close()
+
+
+def glitchplot(glhhdf, datos, rt, selectedmodels, output=None, nonewfig=False):
+    """
+    Plot glitch parameters.
+
+    Parameters
+    ----------
+    glhhdf : str
+        Name of file containing observed glitch parameters
+    datos : array
+        Individual frequencies, uncertainties, and combinations read
+        directly from the observational input files
+    rt : list
+        Type of fits available for individual frequencies
+    selectedmodels : dict
+        Contains information on all models with a non-zero likelihood.
+    output : str or None, optional
+        Filename for saving the plot. MUST BE PDF!
+    nonewfig : bool, optional
+        If True, this creates a new canvas. Otherwise, the plot is added
+        to the existing canvas.
+    """
+    # Load input glitch parameters (not implemented yet)
+    # datosg, covg = read_glh(glhhdf)
+    if "glitches" in rt:
+        obs_amp, obs_width, obs_depth = (
+            datos[7][0, -3],
+            datos[7][0, -2],
+            datos[7][0, -1],
+        )
+        err_amp, err_width, err_depth = (
+            datos[7][2, -3],
+            datos[7][2, -2],
+            datos[7][2, -1],
+        )
+    if "gr010" in rt:
+        obs_amp, obs_width, obs_depth = (
+            datos[8][0, -3],
+            datos[8][0, -2],
+            datos[8][0, -1],
+        )
+        err_amp, err_width, err_depth = (
+            datos[8][2, -3],
+            datos[8][2, -2],
+            datos[8][2, -1],
+        )
+    if "gr02" in rt:
+        obs_amp, obs_width, obs_depth = (
+            datos[9][0, -3],
+            datos[9][0, -2],
+            datos[9][0, -1],
+        )
+        err_amp, err_width, err_depth = (
+            datos[9][2, -3],
+            datos[9][2, -2],
+            datos[9][2, -1],
+        )
+    if "gr01" in rt:
+        obs_amp, obs_width, obs_depth = (
+            datos[10][0, -3],
+            datos[10][0, -2],
+            datos[10][0, -1],
+        )
+        err_amp, err_width, err_depth = (
+            datos[10][2, -3],
+            datos[10][2, -2],
+            datos[10][2, -1],
+        )
+    if "gr10" in rt:
+        obs_amp, obs_width, obs_depth = (
+            datos[11][0, -3],
+            datos[11][0, -2],
+            datos[11][0, -1],
+        )
+        err_amp, err_width, err_depth = (
+            datos[11][2, -3],
+            datos[11][2, -2],
+            datos[11][2, -1],
+        )
+    if "gr012" in rt:
+        obs_amp, obs_width, obs_depth = (
+            datos[12][0, -3],
+            datos[12][0, -2],
+            datos[12][0, -1],
+        )
+        err_amp, err_width, err_depth = (
+            datos[12][2, -3],
+            datos[12][2, -2],
+            datos[12][2, -1],
+        )
+    if "gr102" in rt:
+        obs_amp, obs_width, obs_depth = (
+            datos[13][0, -3],
+            datos[13][0, -2],
+            datos[13][0, -1],
+        )
+        err_amp, err_width, err_depth = (
+            datos[13][2, -3],
+            datos[13][2, -2],
+            datos[13][2, -1],
+        )
+
+    # Highest probability (or best-fit) model parameters
+    # maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
+    maxPDF = -np.inf
+    for path, trackstats in selectedmodels.items():
+        i = np.argmax(trackstats.logPDF)
+        if trackstats.logPDF[i] > maxPDF:
+            maxPDF = trackstats.logPDF[i]
+            best_amp, best_width, best_depth = trackstats.glhparams[i, :]
+    if maxPDF == -np.inf:
+        print("Warning: The logPDF are all -np.inf! Skipping glitches plot.")
+    else:
+        # Plotting...
+        if output is not None:
+            pp = PdfPages(output)
+
+        for i in range(3):
+
+            # Open figure and set style
+            if nonewfig is False:
+                plt.figure()
+
+            if i == 0:
+                for path, trackstats in selectedmodels.items():
+                    plt.plot(
+                        trackstats.glhparams[:, 1],
+                        trackstats.glhparams[:, 0],
+                        ".",
+                        ms=5,
+                        color="grey",
+                        zorder=0,
+                    )
+                plt.errorbar(
+                    obs_width,
+                    obs_amp,
+                    xerr=err_width,
+                    yerr=err_amp,
+                    marker="o",
+                    linestyle="None",
+                    color="#D55E00",
+                    zorder=1,
+                    label="Measured",
+                )
+                plt.plot(
+                    best_width,
+                    best_amp,
+                    "*",
+                    ms=20,
+                    color="#56B4E9",
+                    zorder=2,
+                    label="Best fit",
+                )
+                plt.legend(frameon=False)
+                plt.xlabel(r"Acoustic width (s)")
+                plt.ylabel(r"Average amplitude ($\mu$Hz)")
+            elif i == 1:
+                for path, trackstats in selectedmodels.items():
+                    plt.plot(
+                        trackstats.glhparams[:, 2],
+                        trackstats.glhparams[:, 0],
+                        ".",
+                        ms=5,
+                        color="grey",
+                        zorder=0,
+                    )
+                plt.errorbar(
+                    obs_depth,
+                    obs_amp,
+                    xerr=err_depth,
+                    yerr=err_amp,
+                    marker="o",
+                    linestyle="None",
+                    color="#D55E00",
+                    zorder=1,
+                    label="Measured",
+                )
+                plt.plot(
+                    best_depth,
+                    best_amp,
+                    "*",
+                    ms=20,
+                    color="#56B4E9",
+                    zorder=2,
+                    label="Best fit",
+                )
+                plt.legend(frameon=False)
+                plt.xlabel(r"Acoustic depth (s)")
+                plt.ylabel(r"Average amplitude ($\mu$Hz)")
+            elif i == 2:
+                for path, trackstats in selectedmodels.items():
+                    plt.plot(
+                        trackstats.glhparams[:, 2],
+                        trackstats.glhparams[:, 1],
+                        ".",
+                        ms=5,
+                        color="grey",
+                        zorder=0,
+                    )
+                plt.errorbar(
+                    obs_depth,
+                    obs_width,
+                    xerr=err_depth,
+                    yerr=err_width,
+                    marker="o",
+                    linestyle="None",
+                    color="#D55E00",
+                    zorder=1,
+                    label="Measured",
+                )
+                plt.plot(
+                    best_depth,
+                    best_width,
+                    "*",
+                    ms=20,
+                    color="#56B4E9",
+                    zorder=2,
+                    label="Best fit",
+                )
+                plt.legend(frameon=False)
+                plt.xlabel(r"Acoustic depth (s)")
+                plt.ylabel(r"Acoustic width (s)")
 
             if output is not None:
                 pp.savefig(bbox_inches="tight")

@@ -17,6 +17,7 @@ from basta import stats, freq_fit
 from basta import utils_seismic as su
 from basta import utils_general as util
 from basta.constants import freqtypes
+import basta.supportGlitch as sg
 
 
 def _export_selectedmodels(selectedmodels):
@@ -1146,8 +1147,9 @@ def read_glh(filename):
 
 
 def read_rt(
+    inputparams,
     filename,
-    glhtxt,
+    glhhdf,
     rt,
     numax,
     plotratios,
@@ -1161,9 +1163,11 @@ def read_rt(
 
     Parameters
     ----------
+    inputparams : dict
+        Dictionary of all controls and input.
     filename : string
         Name of file to read
-    glhtxt : str
+    glhhdf : str
         Name of file containing glitch parameters and covariances.
     rt : list
         Type of fits available for individual frequencies
@@ -1196,21 +1200,64 @@ def read_rt(
         theoretical frequencies in the grid of models
     dnudata_err : scalar
         Uncertainty on dnudata
+    frq_sd : array
+        Second differences (l, n, v(muHz), err(muHz), dif2(muHz), err(muHz))
+    icov_sd : array
+        Inverse covariance matrix for second differences
+    vmin : float
+        Minimum value of the observed frequency (muHz)
+    vmax : float
+        Maximum value of the observed frequency (muHz)
+    num_of_n : array of int
+        Number of modes for each l
     """
     # Observed frequencies
     obskey, obs, covf = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
     datos_f, cov_f = obs, covf
 
-    # Observed ratios and covariances
-    names = ["l", "n", "freq", "err"]
-    fmts = [int, int, float, float]
-    freq = np.zeros(obskey.shape[1], dtype={"names": names, "formats": fmts})
-    freq[:]["l"] = obskey[0, obskey[0, :] < 3]
-    freq[:]["n"] = obskey[1, obskey[0, :] < 3]
-    freq[:]["freq"] = obs[0, obskey[0, :] < 3]
-    freq[:]["err"] = obs[1, obskey[0, :] < 3]
+    # Ratios and glitches (observables and corresponding covariances)
+    # ---------------------------------------------------------------
+    # --> Fit ratios only, choose from {"r010", "r02", "r01", "r10", "r012", "r102"};
+    # fit glitches only, choose "glitches";
+    # fit both, choose from {"gr010", "gr02", "gr01", "gr10", "gr012", "gr102"}.
 
-    # Ratios and covariances
+    # Define 'frq' to be used in ratio- and glitch-related calculations
+    frq = np.zeros((len(obskey[0, obskey[0, :] < 3]), 4))
+    frq[:, 0] = obskey[0, obskey[0, :] < 3]
+    frq[:, 1] = obskey[1, obskey[0, :] < 3]
+    frq[:, 2] = obs[0, obskey[0, :] < 3]
+    frq[:, 3] = obs[1, obskey[0, :] < 3]
+
+    # --> Calculate the following to be used in glitch-related calculations:
+    # number of harmonic degrees (l), total number of modes,
+    # number of modes per l, and minimum and maximum values of frequency
+    num_of_l = np.rint(frq[-1, 0] + 1).astype(int)
+    nmodes = frq.shape[0]
+    num_of_n = np.zeros(num_of_l, dtype=int)
+    for i in range(num_of_l):
+        num_of_n[i] = len(frq[np.rint(frq[:, 0]).astype(int) == i, 0])
+    vmin, vmax = np.amin(frq[:, 2]), np.amax(frq[:, 2])
+
+    # Compute second differences, if necessary
+    num_sd, frq_sd, icov_sd = None, None, None
+    if any(x in [*freqtypes.glitches, *freqtypes.grtypes] for x in rt) and (
+        inputparams["method"].lower() == "sd"
+    ):
+        num_sd, frq_sd, icov_sd = sg.compDif2(num_of_l, frq, nmodes, num_of_n)
+
+    # Compute large frequency separation (the same way as dnufit)
+    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+    yfitdnu = frq[np.rint(frq[:, 0]).astype(int) == 0, 2]
+    xfitdnu = frq[np.rint(frq[:, 0]).astype(int) == 0, 1]  # np.arange(0, len(yfitdnu))
+    wfitdnu = np.exp(
+        -1.0
+        * np.power(yfitdnu - numax, 2)
+        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+    )
+    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
+    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+
+    # Initialize ratios and corresponding covariance matrices
     datos010, datos02, datos01, datos10, datos012, datos102 = (
         None,
         None,
@@ -1220,24 +1267,33 @@ def read_rt(
         None,
     )
     cov010, cov02, cov01, cov10, cov012, cov102 = (None, None, None, None, None, None)
-    dnudata, dnudata_err = None, None
-    r02, r01, r10 = freq_fit.ratios(freq)
-    if r02 is None:
-        if any(x in freqtypes.rtypes for x in rt):
-            print("WARNING: Missing radial orders! Skipping ratios fitting!")
-    else:
-        # Compute large frequency separation (the same way as dnufit)
-        FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-        yfitdnu = freq[freq["l"] == 0]["freq"]
-        xfitdnu = np.arange(0, len(yfitdnu))
-        wfitdnu = np.exp(
-            -1.0
-            * np.power(yfitdnu - numax, 2)
-            / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-        )
-        fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-        dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
 
+    # Initialize glitch-ratio combinations and corresponding covariance matrices
+    datosg010, datosg02, datosg01, datosg10, datosg012, datosg102 = (
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+    covg010, covg02, covg01, covg10, covg012, covg102 = (
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    )
+
+    r02, r01, r10 = freq_fit.ratios(frq)
+    if r02 is None:
+        if any(x in [*freqtypes.rtypes, *freqtypes.grtypes] for x in rt):
+            print(
+                "WARNING: Missing radial orders!"
+                " Skipping ratio(-glitch combinations) fitting!"
+            )
+    else:
         # Ratios and their covariances
         r010, r012, r102 = su.combined_ratios(r02, r01, r10)
         rrange = (
@@ -1253,101 +1309,436 @@ def read_rt(
         datos010, cov010 = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
         if datos010 is None and "r010" in rt:
             print("* r010 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov010 = su.ratio_and_cov(freq, rtype="R010")
-            datos010 = np.zeros((3, len(rat[:, 0])))
-            datos010[0, :] = rat[:, 1]
-            datos010[1, :] = rat[:, 3]
-            datos010[2, :] = rat[:, 2]
+            nr = r010.shape[0]
+            rto, cov010 = su.glitch_and_ratio(
+                frq,
+                nr,
+                grtype="r010",
+                num_of_n=None,
+                vmin=None,
+                vmax=None,
+                delta_nu=None,
+                icov_sd=None,
+                nrealizations=inputparams["nrealizations"],
+                method=None,
+                tol_grad=None,
+                regu_param=None,
+                n_guess=None,
+                tauhe=None,
+                dtauhe=None,
+                taucz=None,
+                dtaucz=None,
+            )
+            datos010 = np.zeros((3, nr))
+            datos010[0, :] = rto[:]
+            datos010[1, :] = r010[:, 3]
+            datos010[2, :] = np.sqrt(np.diag(cov010))
             print("done!")
 
         # R02
         datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
         if datos02 is None and ("r02" in rt or plotratios):
             print("* r02 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov02 = su.ratio_and_cov(freq, rtype="R02")
-            datos02 = np.zeros((3, len(rat[:, 0])))
-            datos02[0, :] = rat[:, 1]
-            datos02[1, :] = rat[:, 3]
-            datos02[2, :] = rat[:, 2]
-            print("done!")
-
-        # R01
-        if datos01 is None and ("r01" in rt or plotratios):
-            print("* r01 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov01 = su.ratio_and_cov(freq, rtype="R01")
-            datos01 = np.zeros((3, len(rat[:, 0])))
-            datos01[0, :] = rat[:, 1]
-            datos01[1, :] = rat[:, 3]
-            datos01[2, :] = rat[:, 2]
-            print("done!")
-
-        # R10
-        if datos10 is None and ("r10" in rt or plotratios):
-            print("* r10 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov10 = su.ratio_and_cov(freq, rtype="R10")
-            datos10 = np.zeros((3, len(rat[:, 0])))
-            datos10[0, :] = rat[:, 1]
-            datos10[1, :] = rat[:, 3]
-            datos10[2, :] = rat[:, 2]
-            print("done!")
-
-        # R012
-        if datos012 is None and "r012" in rt:
-            print("* r012 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov012 = su.ratio_and_cov(freq, rtype="R012")
-            datos012 = np.zeros((3, len(rat[:, 0])))
-            datos012[0, :] = rat[:, 1]
-            datos012[1, :] = rat[:, 3]
-            datos012[2, :] = rat[:, 2]
-            print("done!")
-
-        # R102
-        if datos102 is None and "r102" in rt:
-            print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov102 = su.ratio_and_cov(freq, rtype="R102")
-            datos102 = np.zeros((3, len(rat[:, 0])))
-            datos102[0, :] = rat[:, 1]
-            datos102[1, :] = rat[:, 3]
-            datos102[2, :] = rat[:, 2]
-            print("done!")
-
-    # Glitch
-    datosglh, covglh = None, None
-    if r02 is None:
-        if any(x in freqtypes.glitches for x in rt):
-            print("WARNING: Missing radial orders! Skipping glitches fitting!")
-    else:
-        # datosglh, covglh = read_glh(glhtxt)
-        if datosglh is None and ("glitches" in rt):
-            print(
-                "* glitches unavailable in txt. Computing it ... ", end="", flush=True
-            )
-            datosglh, covglh = su.glitch_and_cov(
-                freq,
-                dnudata,
-                grcomb="G",
-                nrealizations=10000,
-                method="FQ",
-                tol_grad=1e-3,
-                regu_param=7.0,
-                n_guess=200,
+            nr = r02.shape[0]
+            rto, cov02 = su.glitch_and_ratio(
+                frq,
+                nr,
+                grtype="r02",
+                num_of_n=None,
+                vmin=None,
+                vmax=None,
+                delta_nu=None,
+                icov_sd=None,
+                nrealizations=inputparams["nrealizations"],
+                method=None,
+                tol_grad=None,
+                regu_param=None,
+                n_guess=None,
                 tauhe=None,
                 dtauhe=None,
                 taucz=None,
                 dtaucz=None,
             )
+            datos02 = np.zeros((3, nr))
+            datos02[0, :] = rto[:]
+            datos02[1, :] = r02[:, 3]
+            datos02[2, :] = np.sqrt(np.diag(cov02))
             print("done!")
 
-    exit()
-    # if "glitches" in rt:
-    #    datosglh, covglh = read_glh(glhtxt)
-    # else:
-    #    datosglh, covglh = None, None
+        # R01
+        if datos01 is None and ("r01" in rt or plotratios):
+            print("* r01 unavailable in xml. Computing it ... ", end="", flush=True)
+            nr = r01.shape[0]
+            rto, cov01 = su.glitch_and_ratio(
+                frq,
+                nr,
+                grtype="r01",
+                num_of_n=None,
+                vmin=None,
+                vmax=None,
+                delta_nu=None,
+                icov_sd=None,
+                nrealizations=inputparams["nrealizations"],
+                method=None,
+                tol_grad=None,
+                regu_param=None,
+                n_guess=None,
+                tauhe=None,
+                dtauhe=None,
+                taucz=None,
+                dtaucz=None,
+            )
+            datos01 = np.zeros((3, nr))
+            datos01[0, :] = rto[:]
+            datos01[1, :] = r01[:, 3]
+            datos01[2, :] = np.sqrt(np.diag(cov01))
+            print("done!")
 
-    datos = (datos010, datos02, datos_f, datos01, datos10, datos012, datos102, datosglh)
-    cov = (cov010, cov02, cov_f, cov01, cov10, cov012, cov102, covglh)
+        # R10
+        if datos10 is None and ("r10" in rt or plotratios):
+            print("* r10 unavailable in xml. Computing it ... ", end="", flush=True)
+            nr = r10.shape[0]
+            rto, cov10 = su.glitch_and_ratio(
+                frq,
+                nr,
+                grtype="r10",
+                num_of_n=None,
+                vmin=None,
+                vmax=None,
+                delta_nu=None,
+                icov_sd=None,
+                nrealizations=inputparams["nrealizations"],
+                method=None,
+                tol_grad=None,
+                regu_param=None,
+                n_guess=None,
+                tauhe=None,
+                dtauhe=None,
+                taucz=None,
+                dtaucz=None,
+            )
+            datos10 = np.zeros((3, nr))
+            datos10[0, :] = rto[:]
+            datos10[1, :] = r10[:, 3]
+            datos10[2, :] = np.sqrt(np.diag(cov10))
+            print("done!")
 
-    return datos, cov, obskey, obs, dnudata, dnudata_err
+        # R012
+        if datos012 is None and "r012" in rt:
+            print("* r012 unavailable in xml. Computing it ... ", end="", flush=True)
+            nr = r012.shape[0]
+            rto, cov012 = su.glitch_and_ratio(
+                frq,
+                nr,
+                grtype="r012",
+                num_of_n=None,
+                vmin=None,
+                vmax=None,
+                delta_nu=None,
+                icov_sd=None,
+                nrealizations=inputparams["nrealizations"],
+                method=None,
+                tol_grad=None,
+                regu_param=None,
+                n_guess=None,
+                tauhe=None,
+                dtauhe=None,
+                taucz=None,
+                dtaucz=None,
+            )
+            datos012 = np.zeros((3, nr))
+            datos012[0, :] = rto[:]
+            datos012[1, :] = r012[:, 3]
+            datos012[2, :] = np.sqrt(np.diag(cov012))
+            print("done!")
+
+        # R102
+        if datos102 is None and "r102" in rt:
+            print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
+            nr = r102.shape[0]
+            rto, cov102 = su.glitch_and_ratio(
+                frq,
+                nr,
+                grtype="r102",
+                num_of_n=None,
+                vmin=None,
+                vmax=None,
+                delta_nu=None,
+                icov_sd=None,
+                nrealizations=inputparams["nrealizations"],
+                method=None,
+                tol_grad=None,
+                regu_param=None,
+                n_guess=None,
+                tauhe=None,
+                dtauhe=None,
+                taucz=None,
+                dtaucz=None,
+            )
+            datos102 = np.zeros((3, nr))
+            datos102[0, :] = rto[:]
+            datos102[1, :] = r102[:, 3]
+            datos102[2, :] = np.sqrt(np.diag(cov102))
+            print("done!")
+
+        # --> Glitch-ratio combinations and their covariances
+        # GR010
+        if datosg010 is None and "gr010" in rt:
+            print("* gr010 unavailable in xml. Computing it ... ", end="", flush=True)
+            ngr = r010.shape[0] + 3
+            glhrto, covg010 = su.glitch_and_ratio(
+                frq,
+                ngr,
+                grtype="gr010",
+                num_of_n=num_of_n,
+                vmin=vmin,
+                vmax=vmax,
+                delta_nu=dnudata,
+                icov_sd=icov_sd,
+                nrealizations=inputparams["nrealizations"],
+                method=inputparams["method"],
+                tol_grad=inputparams["atol"],
+                regu_param=inputparams["lamda"],
+                n_guess=inputparams["nguesses"],
+                tauhe=inputparams["tauhe"],
+                dtauhe=inputparams["dtauhe"],
+                taucz=inputparams["taucz"],
+                dtaucz=inputparams["dtaucz"],
+            )
+            datosg010 = np.zeros((3, ngr))
+            datosg010[0, :] = glhrto[:]
+            datosg010[1, 0 : ngr - 3] = r010[:, 3]
+            datosg010[2, :] = np.sqrt(np.diag(covg010))
+            print("done!")
+
+        # GR02
+        if datosg02 is None and "gr02" in rt:
+            print("* gr02 unavailable in xml. Computing it ... ", end="", flush=True)
+            ngr = r02.shape[0] + 3
+            glhrto, covg02 = su.glitch_and_ratio(
+                frq,
+                ngr,
+                grtype="gr02",
+                num_of_n=num_of_n,
+                vmin=vmin,
+                vmax=vmax,
+                delta_nu=dnudata,
+                icov_sd=icov_sd,
+                nrealizations=inputparams["nrealizations"],
+                method=inputparams["method"],
+                tol_grad=inputparams["atol"],
+                regu_param=inputparams["lamda"],
+                n_guess=inputparams["nguesses"],
+                tauhe=inputparams["tauhe"],
+                dtauhe=inputparams["dtauhe"],
+                taucz=inputparams["taucz"],
+                dtaucz=inputparams["dtaucz"],
+            )
+            datosg02 = np.zeros((3, ngr))
+            datosg02[0, :] = glhrto[:]
+            datosg02[1, 0 : ngr - 3] = r02[:, 3]
+            datosg02[2, :] = np.sqrt(np.diag(covg02))
+            print("done!")
+
+        # GR01
+        if datosg01 is None and "gr01" in rt:
+            print("* gr01 unavailable in xml. Computing it ... ", end="", flush=True)
+            ngr = r01.shape[0] + 3
+            glhrto, covg01 = su.glitch_and_ratio(
+                frq,
+                ngr,
+                grtype="gr01",
+                num_of_n=num_of_n,
+                vmin=vmin,
+                vmax=vmax,
+                delta_nu=dnudata,
+                icov_sd=icov_sd,
+                nrealizations=inputparams["nrealizations"],
+                method=inputparams["method"],
+                tol_grad=inputparams["atol"],
+                regu_param=inputparams["lamda"],
+                n_guess=inputparams["nguesses"],
+                tauhe=inputparams["tauhe"],
+                dtauhe=inputparams["dtauhe"],
+                taucz=inputparams["taucz"],
+                dtaucz=inputparams["dtaucz"],
+            )
+            datosg01 = np.zeros((3, ngr))
+            datosg01[0, :] = glhrto[:]
+            datosg01[1, 0 : ngr - 3] = r01[:, 3]
+            datosg01[2, :] = np.sqrt(np.diag(covg01))
+            print("done!")
+
+        # GR10
+        if datosg10 is None and "gr10" in rt:
+            print("* gr10 unavailable in xml. Computing it ... ", end="", flush=True)
+            ngr = r10.shape[0] + 3
+            glhrto, covg10 = su.glitch_and_ratio(
+                frq,
+                ngr,
+                grtype="gr10",
+                num_of_n=num_of_n,
+                vmin=vmin,
+                vmax=vmax,
+                delta_nu=dnudata,
+                icov_sd=icov_sd,
+                nrealizations=inputparams["nrealizations"],
+                method=inputparams["method"],
+                tol_grad=inputparams["atol"],
+                regu_param=inputparams["lamda"],
+                n_guess=inputparams["nguesses"],
+                tauhe=inputparams["tauhe"],
+                dtauhe=inputparams["dtauhe"],
+                taucz=inputparams["taucz"],
+                dtaucz=inputparams["dtaucz"],
+            )
+            datosg10 = np.zeros((3, ngr))
+            datosg10[0, :] = glhrto[:]
+            datosg10[1, 0 : ngr - 3] = r10[:, 3]
+            datosg10[2, :] = np.sqrt(np.diag(covg10))
+            print("done!")
+
+        # GR012
+        if datosg012 is None and "gr012" in rt:
+            print("* gr012 unavailable in xml. Computing it ... ", end="", flush=True)
+            ngr = r012.shape[0] + 3
+            glhrto, covg012 = su.glitch_and_ratio(
+                frq,
+                ngr,
+                grtype="gr012",
+                num_of_n=num_of_n,
+                vmin=vmin,
+                vmax=vmax,
+                delta_nu=dnudata,
+                icov_sd=icov_sd,
+                nrealizations=inputparams["nrealizations"],
+                method=inputparams["method"],
+                tol_grad=inputparams["atol"],
+                regu_param=inputparams["lamda"],
+                n_guess=inputparams["nguesses"],
+                tauhe=inputparams["tauhe"],
+                dtauhe=inputparams["dtauhe"],
+                taucz=inputparams["taucz"],
+                dtaucz=inputparams["dtaucz"],
+            )
+            datosg012 = np.zeros((3, ngr))
+            datosg012[0, :] = glhrto[:]
+            datosg012[1, 0 : ngr - 3] = r012[:, 3]
+            datosg012[2, :] = np.sqrt(np.diag(covg012))
+            print("done!")
+
+        # GR102
+        if datosg102 is None and "gr102" in rt:
+            print("* gr102 unavailable in xml. Computing it ... ", end="", flush=True)
+            ngr = r102.shape[0] + 3
+            glhrto, covg102 = su.glitch_and_ratio(
+                frq,
+                ngr,
+                grtype="gr102",
+                num_of_n=num_of_n,
+                vmin=vmin,
+                vmax=vmax,
+                delta_nu=dnudata,
+                icov_sd=icov_sd,
+                nrealizations=inputparams["nrealizations"],
+                method=inputparams["method"],
+                tol_grad=inputparams["atol"],
+                regu_param=inputparams["lamda"],
+                n_guess=inputparams["nguesses"],
+                tauhe=inputparams["tauhe"],
+                dtauhe=inputparams["dtauhe"],
+                taucz=inputparams["taucz"],
+                dtaucz=inputparams["dtaucz"],
+            )
+            datosg102 = np.zeros((3, ngr))
+            datosg102[0, :] = glhrto[:]
+            datosg102[1, 0 : ngr - 3] = r102[:, 3]
+            datosg102[2, :] = np.sqrt(np.diag(covg102))
+            print("done!")
+
+    # Glitch parameters and the corresponding covariance matrix
+    datosg, covg = None, None
+    if r02 is None and (inputparams["method"].lower() == "sd"):
+        if "glitches" in rt:
+            # Glitch fitting also requires continuous radial order for SDs
+            print("WARNING: Missing radial orders! Skipping glitch fitting!")
+    else:
+        # datosg, covg = read_glh(glhhdf)
+        if datosg is None and "glitches" in rt:
+            print(
+                "* glitches unavailable in xml. Computing it ... ", end="", flush=True
+            )
+            ng = 3
+            glh, covg = su.glitch_and_ratio(
+                frq,
+                ng,
+                grtype="glitches",
+                num_of_n=num_of_n,
+                vmin=vmin,
+                vmax=vmax,
+                delta_nu=dnudata,
+                icov_sd=icov_sd,
+                nrealizations=inputparams["nrealizations"],
+                method=inputparams["method"],
+                tol_grad=inputparams["atol"],
+                regu_param=inputparams["lamda"],
+                n_guess=inputparams["nguesses"],
+                tauhe=inputparams["tauhe"],
+                dtauhe=inputparams["dtauhe"],
+                taucz=inputparams["taucz"],
+                dtaucz=inputparams["dtaucz"],
+            )
+            datosg = np.zeros((3, ng))
+            datosg[0, :] = glh[:]
+            datosg[2, :] = np.sqrt(np.diag(covg))
+            print("done!")
+
+    datos = (
+        datos010,
+        datos02,
+        datos_f,
+        datos01,
+        datos10,
+        datos012,
+        datos102,
+        datosg,
+        datosg010,
+        datosg02,
+        datosg01,
+        datosg10,
+        datosg012,
+        datosg102,
+    )
+    cov = (
+        cov010,
+        cov02,
+        cov_f,
+        cov01,
+        cov10,
+        cov012,
+        cov102,
+        covg,
+        covg010,
+        covg02,
+        covg01,
+        covg10,
+        covg012,
+        covg102,
+    )
+
+    return (
+        datos,
+        cov,
+        obskey,
+        obs,
+        dnudata,
+        dnudata_err,
+        frq_sd,
+        icov_sd,
+        vmin,
+        vmax,
+        num_of_n,
+    )
 
 
 def get_freq_ranges(filename):

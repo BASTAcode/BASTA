@@ -483,7 +483,7 @@ def run_xml(
         dof = _find_get(root, "default/freqparams/dof", "value", None)
         N = _find_get(root, "default/freqparams/N", "value", None)
         allowed_sweights = ["1/N", "1/1", "1/N-dof"]
-        seisw = _find_get(root, "default/freqparams/seismicweight", "value", "1/N")
+        seisw = _find_get(root, "default/freqparams/seismicweight", "value")
         if seisw not in allowed_sweights:
             errmsg = "Tag 'seismicweight' defined as '{0}', but must be either '{1}'!"
             raise KeyError(errmsg.format(seisw, ", ".join(allowed_sweights)))
@@ -491,6 +491,32 @@ def run_xml(
         # Fill weight related things into one dict  to not spam other routines with
         # redundant input
         seismicweights = {"weight": seisw, "dof": dof, "N": N}
+
+        # Glitch- and ratio-related parameters
+        nrealizations = int(
+            _find_get(root, "default/glhrtoparams/nrealizations", "value")
+        )
+        inputparams["nrealizations"] = nrealizations
+        method = _find_get(root, "default/glhrtoparams/method", "value")
+        dnufit_in_ratios = strtobool(
+            _find_get(root, "default/glhrtoparams/dnufit_in_ratios", "value")
+        )
+        inputparams["dnufit_in_ratios"] = dnufit_in_ratios
+        inputparams["method"] = method
+        atol = float(_find_get(root, "default/glhrtoparams/atol", "value"))
+        inputparams["atol"] = atol
+        lamda = float(_find_get(root, "default/glhrtoparams/lamda", "value"))
+        inputparams["lamda"] = lamda
+        nguesses = int(_find_get(root, "default/glhrtoparams/nguesses", "value"))
+        inputparams["nguesses"] = nguesses
+        tauhe = float(_find_get(root, "default/glhrtoparams/tauhe", "value"))
+        inputparams["tauhe"] = tauhe
+        dtauhe = float(_find_get(root, "default/glhrtoparams/dtauhe", "value"))
+        inputparams["dtauhe"] = dtauhe
+        taucz = float(_find_get(root, "default/glhrtoparams/taucz", "value"))
+        inputparams["taucz"] = taucz
+        dtaucz = float(_find_get(root, "default/glhrtoparams/dtaucz", "value"))
+        inputparams["dtaucz"] = dtaucz
 
     # Get bayesian weights
     # --> If not provided by the user, assume them to be active

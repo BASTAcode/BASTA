@@ -146,8 +146,8 @@ def fit(
 
     # Fit oscillation frequencies
     if method.lower() == "fq":
-        print()
-        print("Fitting oscillation frequencies...")
+        # print()
+        # print("Fitting oscillation frequencies...")
 
         # Original
         tmp, chi2[-1], reg[-1], ier[-1] = fit_fq(
@@ -167,10 +167,10 @@ def fit(
         Acz, Ahe = averageAmplitudes(
             param[-1, :], vmin, vmax, delta_nu=delta_nu, method=method
         )
-        print(
-            "Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f "
-            "%6d" % (ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2])
-        )
+        # print(
+        #    "Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f "
+        #    "%6d" % (ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2])
+        # )
 
         # Fit realizations
         if n_rln > 0:
@@ -209,8 +209,8 @@ def fit(
 
     # Fit second differences
     elif method.lower() == "sd":
-        print()
-        print("Fitting second differences...")
+        # print()
+        # print("Fitting second differences...")
         if not all(x is not None for x in [num_of_dif2, freqDif2, icov]):
             print("num_of_dif2, freqDif2, icov cannot be None. Terminating the run...")
             sys.exit(1)
@@ -233,10 +233,10 @@ def fit(
         Acz, Ahe = averageAmplitudes(
             param[-1, :], vmin, vmax, delta_nu=delta_nu, method=method
         )
-        print(
-            "Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f "
-            "%6d" % (ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2])
-        )
+        # print(
+        #    "Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f "
+        #    "%6d" % (ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2])
+        # )
 
         # Fit realizations
         if n_rln > 0:

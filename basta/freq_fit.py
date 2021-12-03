@@ -9,14 +9,14 @@ from scipy.optimize import minimize
 from basta import utils_seismic as su
 
 
-def ratios(freq):
+def ratios(frq):
     """
     Routine to compute the ratios (r02, r01 and r10) from oscillation
     frequencies
 
     Parameters
     ----------
-    freq : array
+    frq : array
         Harmonic degrees, radial orders, frequencies
 
     Returns
@@ -31,6 +31,15 @@ def ratios(freq):
         radial orders, r10 ratios,
         scratch for uncertainties (to be calculated), frequencies
     """
+
+    names = ["l", "n", "freq", "err"]
+    fmts = [int, int, float, float]
+    freq = np.zeros(frq.shape[0], dtype={"names": names, "formats": fmts})
+    freq[:]["l"] = np.rint(frq[:, 0]).astype(int)
+    freq[:]["n"] = np.rint(frq[:, 1]).astype(int)
+    freq[:]["freq"] = frq[:, 2]
+    freq[:]["err"] = frq[:, 3]
+
     # Isolate l = 0 modes
     f0 = freq[freq[:]["l"] == 0]
     if (len(f0) == 0) or (len(f0) != f0[-1]["n"] - f0[0]["n"] + 1):

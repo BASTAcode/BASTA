@@ -16,6 +16,7 @@ from basta.constants import freqtypes
 import basta.supportGlitch as sg
 from basta.glitch_fq import fit_fq
 from basta.glitch_sd import fit_sd
+from basta.sd import sd
 
 
 def combined_ratios(r02, r01, r10):
@@ -169,10 +170,15 @@ def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
     return obsR, covR  # , icovR
 
 
-def glitch_and_cov(
-    freq,
-    dnudata,
-    grcomb="GR012",
+def glitch_and_ratio(
+    frq,
+    ngr,
+    grtype="r012",
+    num_of_n=None,
+    vmin=None,
+    vmax=None,
+    delta_nu=None,
+    icov_sd=None,
     nrealizations=10000,
     method="FQ",
     tol_grad=1e-3,
@@ -184,17 +190,29 @@ def glitch_and_cov(
     dtaucz=None,
 ):
     """
-    Routine to compute glitch parameters together with ratios of a given type and the
+    Routine to compute glitch-ratio combination of a given type together with the
     corresponding full covariance matrix
 
     Parameters
     ----------
-    freq : array
+    frq : array
         Harmonic degrees, radial orders, frequencies, uncertainties
-    dnudata : float
+    ngr : integer
+        Total number of ratios and glitch parameters
+    grtype : str
+        Glitch-ratio combination (one of r02, r01, r10, r010, r012, r102, glitches,
+        gr02, gr01, gr10, gr010, gr012, gr102)
+    num_of_n : array of int
+        Number of modes for each l
+    vmin : float
+        Minimum value of the observed frequency (muHz)
+    vmax : float
+        Maximum value of the observed frequency (muHz)
+    delta_nu : float
         An estimate of large frequncy separation (muHz)
-    grcomb : str
-        Glitch-ratio combination (one of G, GR02, GR01, GR10, GR010, GR012, GR102)
+    icov_sd : array
+        Inverse covariance matrix for second differences
+        used only for method='SD'
     nrealizations : integer, optional
         Number of realizations used in covariance calculation
     method : str
@@ -226,126 +244,112 @@ def glitch_and_cov(
 
     Returns
     -------
-    obsGlh : array
+    med : array
         ratios + helium glitch parameters (average amplitude, width and acoustic depth)
-    covGlh : array
+    cov : array
         corresponding full covariance matrix
     """
 
-    # Convert 'freq' to an array of floats
-    frq = np.zeros((len(freq), 4))
-    frq[:, 0] = freq[:]["l"]
-    frq[:, 1] = freq[:]["n"]
-    frq[:, 2] = freq[:]["freq"]
-    frq[:, 3] = freq[:]["err"]
-
-    # Calculate the number of harmonic degrees (l), total number of modes, number
-    # of modes per l, and minimum and maximum values of frequency
-    num_of_l = freq[-1]["l"] + 1
-    num_of_mode = frq.shape[0]
-    num_of_n = np.zeros(num_of_l, dtype=int)
-    for i in range(num_of_l):
-        num_of_n[i] = len(frq[np.rint(frq[:, 0]) == i, 0])
-    vmin, vmax = np.amin(frq[:, 2]), np.amax(frq[:, 2])
-
-    # Compute second differences (if being fitted)
-    num_of_dif2, frqDif2, icov = None, None, None
-    if method.lower() == "sd":
-        num_of_dif2, frqDif2, icov = sg.compDif2(num_of_l, frq, num_of_mode, num_of_n)
-
-    # Compute observed ratios to get the length of the observable vector
-    obsR02, obsR01, obsR10 = freq_fit.ratios(freq)
-    obsR010, obsR012, obsR102 = combined_ratios(obsR02, obsR01, obsR10)
-    if grcomb == "G":
-        nr = 0
-    elif grcomb == "GR02":
-        nr = obsR02.shape[0]
-    elif grcomb == "GR01":
-        nr = obsR01.shape[0]
-    elif grcomb == "GR10":
-        nr = obsR10.shape[0]
-    elif grcomb == "GR010":
-        nr = obsR010.shape[0]
-    elif grcomb == "GR012":
-        nr = obsR012.shape[0]
-    elif grcomb == "GR102":
-        nr = obsR102.shape[0]
-    else:
-        raise ValueError("Invalid glitch-ratio combination!")
-
     # Compute and store different realizations of ratios and glitch parameters
-    rln_data = np.zeros((nrealizations, nr + 3))
-    perturb_freq = deepcopy(freq)
-    nfailed = 0
+    rln_data = np.zeros((nrealizations, ngr))
+    perturb_frq = deepcopy(frq)
     n = 0
+    nfailed = 0
     np.random.seed(1)
     for i in range(nrealizations):
-        if not i % 100:
-            print("%d realizations completed..." % (i))
 
         # Perturb frequency
-        perturb_freq[:]["freq"] = np.random.normal(freq[:]["freq"], freq[:]["err"])
-        frq[:, 2] = perturb_freq[:]["freq"]
+        perturb_frq[:, 2] = np.random.normal(frq[:, 2], frq[:, 3])
 
-        # Compute glitch parameters
-        if method.lower() == "fq":
-            param, chi2, reg, ier = fit_fq(
-                frq,
-                num_of_n,
-                dnudata,
-                tol_grad_fq=tol_grad,
-                regu_param_fq=regu_param,
-                num_guess=n_guess,
-                tauhe=tauhe,
-                dtauhe=dtauhe,
-                taucz=taucz,
-                dtaucz=dtaucz,
+        # Compute glitch parameters, if necessary
+        if grtype in [*freqtypes.glitches, *freqtypes.grtypes]:
+
+            if not i % 100:
+                print("%d realizations completed..." % (i))
+
+            if method.lower() == "fq":
+                param, chi2, reg, ier = fit_fq(
+                    perturb_frq,
+                    num_of_n,
+                    delta_nu,
+                    tol_grad_fq=tol_grad,
+                    regu_param_fq=regu_param,
+                    num_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=dtauhe,
+                    taucz=taucz,
+                    dtaucz=dtaucz,
+                )
+            elif method.lower() == "sd":
+                frq_sd = sd(perturb_frq, num_of_n, icov_sd.shape[0])
+                param, chi2, reg, ier = fit_sd(
+                    frq_sd,
+                    icov_sd,
+                    delta_nu,
+                    tol_grad_sd=tol_grad,
+                    regu_param_sd=regu_param,
+                    num_guess=n_guess,
+                    tauhe=tauhe,
+                    dtauhe=dtauhe,
+                    taucz=taucz,
+                    dtaucz=dtaucz,
+                )
+            else:
+                raise ValueError("Invalid glitch-fitting method!")
+
+            # Continue if failed
+            if ier != 0:
+                nfailed += 1
+                continue
+
+            # Compute average amplitude
+            Acz, Ahe = sg.averageAmplitudes(
+                param, vmin, vmax, delta_nu=delta_nu, method=method
             )
-        elif method.lower() == "sd":
-            param, chi2, reg, ier = fit_sd(
-                frqDif2,
-                icov,
-                dnudata,
-                tol_grad_sd=tol_grad,
-                regu_param_sd=regu_param,
-                num_guess=n_guess,
-                tauhe=tauhe,
-                dtauhe=dtauhe,
-                taucz=taucz,
-                dtaucz=dtaucz,
-            )
-        else:
-            raise ValueError("Invalid glitch-fitting method!")
+            rln_data[n, -3] = Ahe
+            rln_data[n, -2] = param[-3]
+            rln_data[n, -1] = param[-2]
 
-        # Continue if failed
-        if ier != 0:
-            nfailed += 1
-            continue
-
-        # Compute average amplitude
-        Acz, Ahe = sg.averageAmplitudes(
-            param, vmin, vmax, delta_nu=dnudata, method=method
-        )
-        rln_data[n, -3] = Ahe
-        rln_data[n, -2] = param[-3]
-        rln_data[n, -1] = param[-2]
-
-        # Compute ratios
-        if grcomb != "G":
-            tmp_r02, tmp_r01, tmp_r10 = freq_fit.ratios(perturb_freq)
+        # Compute ratios, if necessary
+        if grtype in [*freqtypes.rtypes, *freqtypes.grtypes]:
+            tmp_r02, tmp_r01, tmp_r10 = freq_fit.ratios(perturb_frq)
             tmp_r010, tmp_r012, tmp_r102 = combined_ratios(tmp_r02, tmp_r01, tmp_r10)
-            if grcomb == "GR02":
-                rln_data[n, 0:nr] = tmp_r02[:, 1]
-            elif grcomb == "GR01":
-                rln_data[n, 0:nr] = tmp_r01[:, 1]
-            elif grcomb == "GR10":
-                rln_data[n, 0:nr] = tmp_r10[:, 1]
-            elif grcomb == "GR010":
-                rln_data[n, 0:nr] = tmp_r010[:, 1]
-            elif grcomb == "GR012":
-                rln_data[n, 0:nr] = tmp_r012[:, 1]
-            elif grcomb == "GR102":
-                rln_data[n, 0:nr] = tmp_r102[:, 1]
+
+            # 02
+            if grtype == "gr02":
+                rln_data[n, 0 : ngr - 3] = tmp_r02[:, 1]
+            elif grtype == "r02":
+                rln_data[n, :] = tmp_r02[:, 1]
+
+            # 01
+            if grtype == "gr01":
+                rln_data[n, 0 : ngr - 3] = tmp_r01[:, 1]
+            elif grtype == "r01":
+                rln_data[n, :] = tmp_r01[:, 1]
+
+            # 10
+            if grtype == "gr10":
+                rln_data[n, 0 : ngr - 3] = tmp_r10[:, 1]
+            elif grtype == "r10":
+                rln_data[n, :] = tmp_r10[:, 1]
+
+            # 010
+            if grtype == "gr010":
+                rln_data[n, 0 : ngr - 3] = tmp_r010[:, 1]
+            elif grtype == "r010":
+                rln_data[n, :] = tmp_r010[:, 1]
+
+            # 012
+            if grtype == "gr012":
+                rln_data[n, 0 : ngr - 3] = tmp_r012[:, 1]
+            elif grtype == "r012":
+                rln_data[n, :] = tmp_r012[:, 1]
+
+            # 102
+            if grtype == "gr102":
+                rln_data[n, 0 : ngr - 3] = tmp_r102[:, 1]
+            elif grtype == "r102":
+                rln_data[n, :] = tmp_r102[:, 1]
 
         n += 1
 
@@ -357,29 +361,33 @@ def glitch_and_cov(
 
     # Compute the covariance matrix
     j = int(round(n / 2))
-    cov = MinCovDet().fit(rln_data[0:j, :]).covariance_
-    covGlh = MinCovDet().fit(rln_data).covariance_
+    covtmp = MinCovDet().fit(rln_data[0:j, :]).covariance_
+    cov = MinCovDet().fit(rln_data).covariance_
 
-    # Test the convergence (elementwise change below the relative tolerance)
-    if not np.all(np.isclose(cov, covGlh, rtol=1e-1, atol=1e-14)):
+    # Test the convergence (change in standard deviations below a relative tolerance)
+    rdif = np.amax(
+        np.abs(
+            np.divide(
+                np.sqrt(np.diag(covtmp)) - np.sqrt(np.diag(cov)), np.sqrt(np.diag(cov))
+            )
+        )
+    )
+    if rdif > 0.1:
         print("Warning: Covariance failed to converge!")
-        mrd = np.amax(np.abs(np.divide(cov - covGlh, covGlh)))
-        print("Maximum relative difference = %.4e (>0.1)" % (mrd))
+        print("Maximum relative difference = %.2e (>0.1)" % (rdif))
 
     # Compute the median values
-    obsGlh = np.zeros(nr + 3)
-    for i in range(nr + 3):
-        obsGlh[i] = np.median(rln_data[:, i])
-    # std = np.sqrt(np.diag(covGlh))
+    med = np.zeros(ngr)
+    for i in range(ngr):
+        med[i] = np.median(rln_data[:, i])
+
+    # Write data to a hdf5 file
     # with h5py.File("./data.hdf5", "w") as f:
     #    f.create_dataset("rln_data", data=rln_data)
+    #    f.create_dataset("covtmp", data=covtmp)
     #    f.create_dataset("cov", data=cov)
-    #    f.create_dataset("covGlh", data=covGlh)
 
-    ## Compute inverse of the covariance matrix
-    ## icovGlh = np.linalg.pinv(covGlh, rcond=1e-8)
-
-    return obsGlh, covGlh  # , icovGlh
+    return med, cov
 
 
 def solar_scaling(Grid, inputparams, diffusion=None):
@@ -562,11 +570,21 @@ def prepare_obs(inputparams, verbose=False):
         frequencies (like dnufit, but for the data). Used for fitting ratios.
     dnudata_err : float
         Uncertainty on dnudata
+    frq_sd : array
+        Second differences (l, n, v(muHz), err(muHz), dif2(muHz), err(muHz))
+    icov_sd : array
+        Inverse covariance matrix for second differences
+    vmin : float
+        Minimum value of the observed frequency (muHz)
+    vmax : float
+        Maximum value of the observed frequency (muHz)
+    num_of_n : array of int
+        Number of modes for each l
     """
     print("\nPreparing asteroseismic input ...")
 
     fitfreqs = inputparams.get("fitfreqs")
-    (freqxml, glhtxt, correlations, bexp, rt, seisw) = fitfreqs
+    (freqxml, glhhdf, correlations, bexp, rt, seisw) = fitfreqs
 
     # Get frequency correction method
     fcor = inputparams.get("fcor", "BG14")
@@ -602,7 +620,7 @@ def prepare_obs(inputparams, verbose=False):
     # Check if it is unnecesarry to compute ratios
     getratios = False
     freqplots = inputparams.get("freqplots")
-    if any(x in freqtypes.rtypes for x in rt):
+    if any(x in [*freqtypes.rtypes, *freqtypes.grtypes] for x in rt):
         getratios = True
     elif len(freqplots):
         if any([freqplots[0] == True, "ratios" in freqplots]):
@@ -615,10 +633,23 @@ def prepare_obs(inputparams, verbose=False):
         )
 
     # Load or calculate ratios (requires numax)
-    # --> datos and cov are 3-tuples with 010, 02 and freqs
-    datos, cov, obskey, obs, dnudata, dnudata_err = fio.read_rt(
+    # --> datos and cov are 14-tuples
+    (
+        datos,
+        cov,
+        obskey,
+        obs,
+        dnudata,
+        dnudata_err,
+        frq_sd,
+        icov_sd,
+        vmin,
+        vmax,
+        num_of_n,
+    ) = fio.read_rt(
+        inputparams,
         freqxml,
-        glhtxt,
+        glhhdf,
         rt,
         numax,
         getratios,
@@ -627,11 +658,8 @@ def prepare_obs(inputparams, verbose=False):
         verbose=verbose,
     )
 
-    if not correlations and "freqs" in rt:
-        cov = list(cov)
-        cov[2] = np.identity(cov[2].shape[0]) * np.diagonal(cov[2])
-        cov = tuple(cov)
-    elif not correlations and any(x in freqtypes.rtypes for x in rt):
+    # If correlations = False, ignore correlations
+    if not correlations:
         cov = list(cov)
         for i in range(len(cov)):
             if cov[i] is None:
@@ -640,8 +668,25 @@ def prepare_obs(inputparams, verbose=False):
         cov = tuple(cov)
 
     # Computing inverse of covariance matrices...
-    covinv = [None, None, None, None, None, None, None, None]
-    for i in range(8):
+    # ***Why 15 elements instead of 14 inverse covariance matrix-KV***
+    covinv = [
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+        None,
+    ]
+    for i in range(14):
         if cov[i] is not None:
             covinv[i] = np.linalg.pinv(cov[i], rcond=1e-8)
 
@@ -666,6 +711,11 @@ def prepare_obs(inputparams, verbose=False):
         obsintervals,
         dnudata,
         dnudata_err,
+        frq_sd,
+        icov_sd,
+        vmin,
+        vmax,
+        num_of_n,
     )
 
 

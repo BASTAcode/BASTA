@@ -238,7 +238,7 @@ def BASTA(
 
     # Prepare asteroseismic quantities if required
     if fitfreqs:
-        (freqxml, glhtxt, correlations, bexp, rt, seisw) = fitfreqs
+        (freqxml, glhhdf, correlations, bexp, rt, seisw) = fitfreqs
         if not all(x in freqtypes.alltypes for x in rt):
             raise ValueError("Unrecognized fitting parameters!")
 
@@ -254,6 +254,11 @@ def BASTA(
             obsintervals,
             dnudata,
             dnudata_err,
+            frq_sd,
+            icov_sd,
+            vmin,
+            vmax,
+            num_of_n,
         ) = su.prepare_obs(inputparams, verbose=verbose)
 
     # Check if grid is interpolated
@@ -315,11 +320,15 @@ def BASTA(
     if fitfreqs:
         if "glitches" in rt:
             print("* Fitting of frequency glitches activated!")
-        elif "freqs" in rt:
+        if "freqs" in rt:
             print("* Fitting of individual frequencies activated!")
-        else:
+        if any(x in freqtypes.rtypes for x in rt):
+            print("* Fitting of ratios {{{0}}} activated!".format(", ".join(rt)))
+        if any(x in freqtypes.grtypes for x in rt):
             print(
-                "* Fitting of frequency ratios {{{0}}} activated!".format(", ".join(rt))
+                "* Fitting of glitch-ratio combinations {{{0}}} activated!".format(
+                    ", ".join(rt)
+                )
             )
 
         if bexp is not None:
@@ -458,6 +467,7 @@ def BASTA(
     selectedmodels = {}
     noofind = 0
     noofposind = 0
+    glhparams = None
     print(
         "\n\nComputing likelihood of models in the grid ({0} {1}) ...".format(
             trackcounter, entryname
@@ -597,6 +607,7 @@ def BASTA(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if fitfreqs:
+                    gpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
                         rawmod = libitem["osc"][ind]
                         rawmodkey = libitem["osckey"][ind]
@@ -605,7 +616,7 @@ def BASTA(
                         tau0 = libitem["tau0"][ind]
                         tauhe = libitem["tauhe"][ind]
                         taubcz = libitem["taubcz"][ind]
-                        chi2_freq, warn, shapewarn = stats.chi2_astero(
+                        chi2_freq, warn, shapewarn, gpar[indd, :] = stats.chi2_astero(
                             modkey,
                             mod,
                             obskey,
@@ -616,7 +627,14 @@ def BASTA(
                             obsintervals,
                             dnudata,
                             dnudata_err,
-                            tau0=tau0,
+                            method=inputparams["method"],
+                            num_of_n=num_of_n,
+                            vmin=vmin,
+                            vmax=vmax,
+                            icov_sd=icov_sd,
+                            tol_grad=inputparams["atol"],
+                            regu_param=inputparams["lamda"],
+                            n_guess=inputparams["nguesses"],
                             tauhe=tauhe,
                             taubcz=taubcz,
                             useint=False,
@@ -624,6 +642,7 @@ def BASTA(
                             bfit=bexp,
                             fcor=fcor,
                             seisw=seisw,
+                            dnufit_in_ratios=inputparams["dnufit_in_ratios"],
                             shapewarn=shapewarn,
                             warnings=warn,
                             debug=debug,
@@ -686,13 +705,15 @@ def BASTA(
                             group_name + name, ~np.isinf(logPDF)
                         )
                     )
+                if any(x in [*freqtypes.glitches, *freqtypes.grtypes] for x in rt):
+                    glhparams = gpar
                 if debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
-                        index, logPDF, chi2, bayw, magw, IMFw
+                        index, logPDF, chi2, bayw, magw, IMFw, glhparams
                     )
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
-                        index, logPDF, chi2
+                        index, logPDF, chi2, glhparams
                     )
             else:
                 if debug and verbose:
@@ -761,6 +782,7 @@ def BASTA(
         plotfmt = inputparams["plotfmt"]
         plotfname = outfilename + "_{0}." + plotfmt
         ratioplotname = outfilename + "_ratios.pdf"
+        glitchplotname = outfilename + "_glitches.pdf"
 
         rawmaxmod = Grid[maxPDF_path + "/osc"][maxPDF_ind]
         rawmaxmodkey = Grid[maxPDF_path + "/osckey"][maxPDF_ind]
@@ -855,6 +877,14 @@ def BASTA(
                 maxjoinkeys,
                 maxjoin,
                 output=ratioplotname,
+            )
+        if allfplots or "glitches" in freqplots:
+            plot_seismic.glitchplot(
+                glhhdf,
+                datos,
+                rt,
+                selectedmodels,
+                output=glitchplotname,
             )
     else:
         print(
