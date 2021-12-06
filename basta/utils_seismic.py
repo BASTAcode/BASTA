@@ -255,7 +255,10 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     # ------------------------------
     # TASK 2.1: Get dnu of solar model
     # ------------------------------
-    avail_models = list(Grid["solar_models"])
+    try:
+        avail_models = list(Grid["solar_models"])
+    except KeyError:
+        avail_models = []
 
     # Read the user-set flag: Should the scaling be activated?
     try:
