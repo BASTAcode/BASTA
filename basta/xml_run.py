@@ -692,8 +692,9 @@ def run_xml(
             # Collect by-star frequency fit information
             if fitfreqs:
                 glhfile = None
-                if "glitches" in freqfittypes:
-                    glhfile = os.path.join(freqpath, starid + ".glh")
+                tmp_types = [*freqtypes.glitches, *freqtypes.grtypes]
+                if any(x in tmp_types for x in freqfittypes):
+                    glhfile = os.path.join(freqpath, starid + ".hdf5")
 
                 freqfile = os.path.join(freqpath, starid + ".xml")
                 freqinput = (

@@ -11,6 +11,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 
 import numpy as np
+import h5py
 from sklearn.covariance import MinCovDet
 
 from basta import stats, freq_fit
@@ -1112,7 +1113,7 @@ def read_r02(filename, rrange, nottrustedfile):
     return r02var, covar02
 
 
-def read_glh(filename):
+def read_glh(filename, grtype="glitches"):
     """
     Read glitch parameters.
 
@@ -1120,30 +1121,74 @@ def read_glh(filename):
     ----------
     filename : str
         Name of file to read
+    grtype : str
+        Glitch-ratio combination (one of glitches, gr02, gr01,
+        gr10, gr010, gr012, gr102)
 
     Returns
     -------
-    glhParams : array
+    glhrto : array
         Array of median glitch parameters
-    glhCov : array
+    covgr : array
         Covariance matrix
     """
-    # Extract glitch parameters
-    glhFit = np.genfromtxt(filename, skip_header=3)
-    glhParams = np.zeros(3)
-    glhParams[0] = np.median(glhFit[:, 8])
-    glhParams[1] = np.median(glhFit[:, 4])
-    glhParams[2] = np.median(glhFit[:, 5])
+    glhrto, covgr = None, None
+    if filename is not None:
+        if os.path.isfile(filename):
+            with h5py.File(filename, "r") as data:
+                if grtype == "glitches":
+                    try:
+                        glhrto = data["medglh"][()]
+                        covgr = data["covglh"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
 
-    # Compute covariance matrix
-    tmpFit = np.zeros((len(glhFit[:, 0]), 3))
-    tmpFit[:, 0] = glhFit[:, 8]
-    tmpFit[:, 1] = glhFit[:, 4]
-    tmpFit[:, 2] = glhFit[:, 5]
-    glhCov = MinCovDet().fit(tmpFit).covariance_
-    # iglhCov = np.linalg.pinv(glhCov, rcond=1e-8)
+                elif grtype == "gr02":
+                    try:
+                        glhrto = data["medg02"][()]
+                        covgr = data["covg02"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
 
-    return glhParams, glhCov
+                elif grtype == "gr01":
+                    try:
+                        glhrto = data["medg01"][()]
+                        covgr = data["covg01"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
+
+                elif grtype == "gr10":
+                    try:
+                        glhrto = data["medg10"][()]
+                        covgr = data["covg10"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
+
+                elif grtype == "gr010":
+                    try:
+                        glhrto = data["medg010"][()]
+                        covgr = data["covg010"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
+
+                elif grtype == "gr012":
+                    try:
+                        glhrto = data["medg012"][()]
+                        covgr = data["covg012"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
+
+                elif grtype == "gr102":
+                    try:
+                        glhrto = data["medg102"][()]
+                        covgr = data["covg102"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
+
+                else:
+                    raise ValueError("Unrecognized glitch-ratio type!")
+
+    return glhrto, covgr
 
 
 def read_rt(
@@ -1483,9 +1528,16 @@ def read_rt(
 
         # --> Glitch-ratio combinations and their covariances
         # GR010
+        ngr = r010.shape[0] + 3
+        glhrto, covg010 = read_glh(glhhdf, grtype="gr010")
+        if glhrto is not None:
+            datosg010 = np.zeros((3, ngr))
+            datosg010[0, :] = glhrto[:]
+            datosg010[1, 0 : ngr - 3] = r010[:, 3]
+            datosg010[2, :] = np.sqrt(np.diag(covg010))
+
         if datosg010 is None and "gr010" in rt:
             print("* gr010 unavailable in xml. Computing it ... ", end="", flush=True)
-            ngr = r010.shape[0] + 3
             glhrto, covg010 = su.glitch_and_ratio(
                 frq,
                 ngr,
@@ -1512,9 +1564,16 @@ def read_rt(
             print("done!")
 
         # GR02
+        ngr = r02.shape[0] + 3
+        glhrto, covg02 = read_glh(glhhdf, grtype="gr02")
+        if glhrto is not None:
+            datosg02 = np.zeros((3, ngr))
+            datosg02[0, :] = glhrto[:]
+            datosg02[1, 0 : ngr - 3] = r02[:, 3]
+            datosg02[2, :] = np.sqrt(np.diag(covg02))
+
         if datosg02 is None and "gr02" in rt:
             print("* gr02 unavailable in xml. Computing it ... ", end="", flush=True)
-            ngr = r02.shape[0] + 3
             glhrto, covg02 = su.glitch_and_ratio(
                 frq,
                 ngr,
@@ -1541,9 +1600,16 @@ def read_rt(
             print("done!")
 
         # GR01
+        ngr = r01.shape[0] + 3
+        glhrto, covg01 = read_glh(glhhdf, grtype="gr01")
+        if glhrto is not None:
+            datosg01 = np.zeros((3, ngr))
+            datosg01[0, :] = glhrto[:]
+            datosg01[1, 0 : ngr - 3] = r01[:, 3]
+            datosg01[2, :] = np.sqrt(np.diag(covg01))
+
         if datosg01 is None and "gr01" in rt:
             print("* gr01 unavailable in xml. Computing it ... ", end="", flush=True)
-            ngr = r01.shape[0] + 3
             glhrto, covg01 = su.glitch_and_ratio(
                 frq,
                 ngr,
@@ -1570,9 +1636,16 @@ def read_rt(
             print("done!")
 
         # GR10
+        ngr = r10.shape[0] + 3
+        glhrto, covg10 = read_glh(glhhdf, grtype="gr10")
+        if glhrto is not None:
+            datosg10 = np.zeros((3, ngr))
+            datosg10[0, :] = glhrto[:]
+            datosg10[1, 0 : ngr - 3] = r10[:, 3]
+            datosg10[2, :] = np.sqrt(np.diag(covg10))
+
         if datosg10 is None and "gr10" in rt:
             print("* gr10 unavailable in xml. Computing it ... ", end="", flush=True)
-            ngr = r10.shape[0] + 3
             glhrto, covg10 = su.glitch_and_ratio(
                 frq,
                 ngr,
@@ -1599,9 +1672,16 @@ def read_rt(
             print("done!")
 
         # GR012
+        ngr = r012.shape[0] + 3
+        glhrto, covg012 = read_glh(glhhdf, grtype="gr012")
+        if glhrto is not None:
+            datosg012 = np.zeros((3, ngr))
+            datosg012[0, :] = glhrto[:]
+            datosg012[1, 0 : ngr - 3] = r012[:, 3]
+            datosg012[2, :] = np.sqrt(np.diag(covg012))
+
         if datosg012 is None and "gr012" in rt:
             print("* gr012 unavailable in xml. Computing it ... ", end="", flush=True)
-            ngr = r012.shape[0] + 3
             glhrto, covg012 = su.glitch_and_ratio(
                 frq,
                 ngr,
@@ -1628,9 +1708,16 @@ def read_rt(
             print("done!")
 
         # GR102
+        ngr = r102.shape[0] + 3
+        glhrto, covg102 = read_glh(glhhdf, grtype="gr102")
+        if glhrto is not None:
+            datosg102 = np.zeros((3, ngr))
+            datosg102[0, :] = glhrto[:]
+            datosg102[1, 0 : ngr - 3] = r102[:, 3]
+            datosg102[2, :] = np.sqrt(np.diag(covg102))
+
         if datosg102 is None and "gr102" in rt:
             print("* gr102 unavailable in xml. Computing it ... ", end="", flush=True)
-            ngr = r102.shape[0] + 3
             glhrto, covg102 = su.glitch_and_ratio(
                 frq,
                 ngr,
@@ -1663,12 +1750,17 @@ def read_rt(
             # Glitch fitting also requires continuous radial order for SDs
             print("WARNING: Missing radial orders! Skipping glitch fitting!")
     else:
-        # datosg, covg = read_glh(glhhdf)
+        ng = 3
+        glh, covg = read_glh(glhhdf, grtype="glitches")
+        if glh is not None:
+            datosg = np.zeros((3, ng))
+            datosg[0, :] = glh[:]
+            datosg[2, :] = np.sqrt(np.diag(covg))
+
         if datosg is None and "glitches" in rt:
             print(
                 "* glitches unavailable in xml. Computing it ... ", end="", flush=True
             )
-            ng = 3
             glh, covg = su.glitch_and_ratio(
                 frq,
                 ng,

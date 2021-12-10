@@ -880,7 +880,6 @@ def BASTA(
             )
         if allfplots or "glitches" in freqplots:
             plot_seismic.glitchplot(
-                glhhdf,
                 datos,
                 rt,
                 selectedmodels,

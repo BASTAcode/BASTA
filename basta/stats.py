@@ -189,7 +189,7 @@ def chi2_astero(
     )
     if joins is None:
         chi2rut = np.inf
-        return chi2rut, warnings, shapewarn
+        return chi2rut, warnings, shapewarn, glhparams
     else:
         joinkeys, join = joins
         nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
@@ -217,7 +217,7 @@ def chi2_astero(
     if any(x in tmp for x in tipo):
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
+            return chi2rut, warnings, shapewarn, glhparams
 
         # Compute large frequency separation
         FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))

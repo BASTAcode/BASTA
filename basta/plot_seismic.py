@@ -561,10 +561,11 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
             if nonewfig is False:
                 plt.figure()
 
-            plt.plot(
+            ax1 = plt.subplot(2, 1, 1)
+            ax1.plot(
                 modratio[:, 3], modratio[:, 1], "*", markersize=20, label="Best fit"
             )
-            plt.errorbar(
+            ax1.errorbar(
                 obsratio[1, :],
                 obsratio[0, :],
                 yerr=obsratio[2, :],
@@ -572,9 +573,21 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
                 linestyle="None",
                 label="Measured",
             )
-            plt.legend(frameon=False)
-            plt.xlabel(r"Frequency ($\mu$Hz)")
-            plt.ylabel('Ratio type "{0}"'.format(ratio_type[1:]))
+            ax1.legend(frameon=False)
+            ax1.set_ylabel('Ratio type "{0}"'.format(ratio_type[1:]))
+            ax1.tick_params(axis="x", labelbottom=False)
+
+            ax2 = plt.subplot(2, 1, 2, sharex=ax1)
+            ax2.axhline(y=0.0, color="black", linestyle=":")
+            ax2.plot(
+                obsratio[1, :],
+                (obsratio[0, :] - modratio[:, 1]) / obsratio[2, :],
+                "d",
+                color="black",
+                markersize=10,
+            )
+            ax2.set_xlabel(r"Frequency ($\mu$Hz)")
+            ax2.set_ylabel(r"N.D.")
 
             if output is not None:
                 pp.savefig(bbox_inches="tight")
@@ -584,14 +597,12 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
             pp.close()
 
 
-def glitchplot(glhhdf, datos, rt, selectedmodels, output=None, nonewfig=False):
+def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
     """
     Plot glitch parameters.
 
     Parameters
     ----------
-    glhhdf : str
-        Name of file containing observed glitch parameters
     datos : array
         Individual frequencies, uncertainties, and combinations read
         directly from the observational input files
@@ -605,8 +616,6 @@ def glitchplot(glhhdf, datos, rt, selectedmodels, output=None, nonewfig=False):
         If True, this creates a new canvas. Otherwise, the plot is added
         to the existing canvas.
     """
-    # Load input glitch parameters (not implemented yet)
-    # datosg, covg = read_glh(glhhdf)
     if "glitches" in rt:
         obs_amp, obs_width, obs_depth = (
             datos[7][0, -3],
@@ -708,9 +717,11 @@ def glitchplot(glhhdf, datos, rt, selectedmodels, output=None, nonewfig=False):
 
             if i == 0:
                 for path, trackstats in selectedmodels.items():
+                    glhparams = trackstats.glhparams
+                    glhparams = glhparams[glhparams[:, 0] > 1e-14, :]
                     plt.plot(
-                        trackstats.glhparams[:, 1],
-                        trackstats.glhparams[:, 0],
+                        glhparams[:, 1],
+                        glhparams[:, 0],
                         ".",
                         ms=5,
                         color="grey",
@@ -741,9 +752,11 @@ def glitchplot(glhhdf, datos, rt, selectedmodels, output=None, nonewfig=False):
                 plt.ylabel(r"Average amplitude ($\mu$Hz)")
             elif i == 1:
                 for path, trackstats in selectedmodels.items():
+                    glhparams = trackstats.glhparams
+                    glhparams = glhparams[glhparams[:, 0] > 1e-14, :]
                     plt.plot(
-                        trackstats.glhparams[:, 2],
-                        trackstats.glhparams[:, 0],
+                        glhparams[:, 2],
+                        glhparams[:, 0],
                         ".",
                         ms=5,
                         color="grey",
@@ -774,9 +787,11 @@ def glitchplot(glhhdf, datos, rt, selectedmodels, output=None, nonewfig=False):
                 plt.ylabel(r"Average amplitude ($\mu$Hz)")
             elif i == 2:
                 for path, trackstats in selectedmodels.items():
+                    glhparams = trackstats.glhparams
+                    glhparams = glhparams[glhparams[:, 0] > 1e-14, :]
                     plt.plot(
-                        trackstats.glhparams[:, 2],
-                        trackstats.glhparams[:, 1],
+                        glhparams[:, 2],
+                        glhparams[:, 1],
                         ".",
                         ms=5,
                         color="grey",

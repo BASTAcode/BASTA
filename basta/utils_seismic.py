@@ -382,10 +382,9 @@ def glitch_and_ratio(
         med[i] = np.median(rln_data[:, i])
 
     # Write data to a hdf5 file
-    # with h5py.File("./data.hdf5", "w") as f:
-    #    f.create_dataset("rln_data", data=rln_data)
-    #    f.create_dataset("covtmp", data=covtmp)
-    #    f.create_dataset("cov", data=cov)
+    # with h5py.File("./16CygA.hdf5", "w") as f:
+    #    f.create_dataset("medg012", data=med)
+    #    f.create_dataset("covg012", data=cov)
 
     return med, cov
 
@@ -688,7 +687,7 @@ def prepare_obs(inputparams, verbose=False):
     ]
     for i in range(14):
         if cov[i] is not None:
-            covinv[i] = np.linalg.pinv(cov[i], rcond=1e-8)
+            covinv[i] = np.linalg.pinv(cov[i], rcond=1e-12)
 
     # Compute the intervals used in frequency fitting
     if "freqs" in rt:
