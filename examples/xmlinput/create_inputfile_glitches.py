@@ -109,7 +109,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     (dnu). The one provided must match the one you add to fitting parameters in
     #     the next block. If present in the grid, "dnufit" is the most reliable one.
     #     The full list is available in REMEMBER TO ADD LINK !
-    define_fit["fitparams"] = ("Teff", "FeH", "glitches")
+    define_fit["fitparams"] = ("Teff", "FeH", "gr012")
 
     # ------------------------------------------------------------
     # BLOCK 2a: Fitting control, priors
@@ -128,7 +128,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> Another option is to specify "min" and/or "max" of a parameter. This can be
     #     done for all grid parameters. Remember that this range should encompass all
     #     stars! An example of this is to restrict the mass for isochrones.
-    define_fit["priors"] = {"Teff": {"sigmacut": "3"}, "FeH": {"abstol": "0.5"}}
+    define_fit["priors"] = {"Teff": {"sigmacut": "5"}, "FeH": {"abstol": "0.5"}}
 
     # If using asteroseismic data, it can be an advantage to apply a cut on dnu, as it
     # significantly reduces computation time.
@@ -225,8 +225,21 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     define_fit["freqparams"] = {
         "freqpath": os.path.join(BASTADIR, "examples/data/freqs"),
         "fcor": "BG14",
-        "correlations": False,
+        "correlations": True,
         "dnufrac": 0.15,
+        "seismicweight": "1/1",
+    }
+    define_fit["glhrtoparams"] = {
+        "nrealizations": 10000,
+        "dnufit_in_ratios": False,
+        "method": "FQ",
+        "atol": 1e-3,
+        "lamda": 7.0,
+        "nguesses": 200,
+        "tauhe": -1.0,
+        "dtauhe": -1.0,
+        "taucz": -1.0,
+        "dtaucz": -1.0,
     }
 
     # An example of manually forcing the weights with "N", and an example of using "dof"
@@ -314,8 +327,8 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # will skip the plot of ratios, which might be useful to save time when fitting
     # individual frequencies (as ratios can take a while to compute)
     # --> All possible options: ("echelle", "dupechelle", "pairechelle", "ratios",
-    #                            True, False)
-    define_plots["freqplots"] = "echelle"
+    #                            "glitches", True, False)
+    define_plots["freqplots"] = ("echelle", "ratios", "glitches")
 
     # By default BASTA will save plots in png format, as they are much faster to
     # produce. This can be changed to pdf to obtain higher quality plots at the cost of
