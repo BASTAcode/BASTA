@@ -9,7 +9,7 @@ from numpy.lib.histograms import _hist_bin_fd
 from scipy.interpolate import interp1d
 from scipy.ndimage.filters import gaussian_filter1d
 
-from basta import freq_fit, glitch
+from basta import freq_fit
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 import basta.supportGlitch as sg

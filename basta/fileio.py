@@ -12,7 +12,6 @@ from xml.dom import minidom
 
 import numpy as np
 import h5py
-from sklearn.covariance import MinCovDet
 
 from basta import stats, freq_fit
 from basta import utils_seismic as su
