@@ -509,14 +509,26 @@ def run_xml(
         inputparams["lamda"] = lamda
         nguesses = int(_find_get(root, "default/glhrtoparams/nguesses", "value"))
         inputparams["nguesses"] = nguesses
-        tauhe = float(_find_get(root, "default/glhrtoparams/tauhe", "value"))
-        inputparams["tauhe"] = tauhe
-        dtauhe = float(_find_get(root, "default/glhrtoparams/dtauhe", "value"))
-        inputparams["dtauhe"] = dtauhe
-        taucz = float(_find_get(root, "default/glhrtoparams/taucz", "value"))
-        inputparams["taucz"] = taucz
-        dtaucz = float(_find_get(root, "default/glhrtoparams/dtaucz", "value"))
-        inputparams["dtaucz"] = dtaucz
+        tauhe = _find_get(root, "default/glhrtoparams/tauhe", "value", None)
+        if tauhe is None:
+            inputparams["tauhe"] = tauhe
+        else:
+            inputparams["tauhe"] = float(tauhe)
+        dtauhe = _find_get(root, "default/glhrtoparams/dtauhe", "value", None)
+        if dtauhe is None:
+            inputparams["dtauhe"] = dtauhe
+        else:
+            inputparams["dtauhe"] = float(dtauhe)
+        taucz = _find_get(root, "default/glhrtoparams/taucz", "value", None)
+        if taucz is None:
+            inputparams["taucz"] = taucz
+        else:
+            inputparams["taucz"] = float(taucz)
+        dtaucz = _find_get(root, "default/glhrtoparams/dtaucz", "value", None)
+        if dtaucz is None:
+            inputparams["dtaucz"] = dtaucz
+        else:
+            inputparams["dtaucz"] = float(dtaucz)
 
     # Get bayesian weights
     # --> If not provided by the user, assume them to be active

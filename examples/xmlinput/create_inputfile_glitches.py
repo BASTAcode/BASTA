@@ -236,10 +236,6 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         "atol": 1e-3,
         "lamda": 7.0,
         "nguesses": 200,
-        "tauhe": -1.0,
-        "dtauhe": -1.0,
-        "taucz": -1.0,
-        "dtaucz": -1.0,
     }
 
     # An example of manually forcing the weights with "N", and an example of using "dof"

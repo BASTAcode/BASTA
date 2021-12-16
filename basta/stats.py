@@ -13,6 +13,7 @@ from basta import freq_fit
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 import basta.supportGlitch as sg
+from basta.sd import sd
 
 # Define named tuple used in selectedmodels
 Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2 glhparams")

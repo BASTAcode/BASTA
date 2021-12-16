@@ -141,20 +141,20 @@ def glitch_and_ratio(
         Number of initial guesses in search for the global minimum
     tauhe : float, optional
         Determines the range in acoustic depth (s) of He glitch for global minimum
-        search (tauhe - dtauhe, tauhe + dtauhe). If None, make a guess using acoustic
-        radius
+        search (tauhe - dtauhe, tauhe + dtauhe).
+        If tauhe = None, tauhe = 0.16 * acousticRadius + 48
     dtauhe : float, optional
         Determines the range in acoustic depth (s) of He glitch for global minimum
-        search (tauhe - dtauhe, tauhe + dtauhe). If None, make a guess using acoustic
-        radius
+        search (tauhe - dtauhe, tauhe + dtauhe).
+        If dtauhe = None, dtauhe = 0.05 * acousticRadius
     taucz : float, optional
         Determines the range in acoustic depth (s) of CZ glitch for global minimum
-        search (taucz - dtaucz, taucz + dtaucz). If None, make a guess using acoustic
-        radius
+        search (taucz - dtaucz, taucz + dtaucz).
+        If taucz = None, taucz = 0.37 * acousticRadius + 900
     dtaucz : float, optional
         Determines the range in acoustic depth (s) of CZ glitch for global minimum
-        search (taucz - dtaucz, taucz + dtaucz). If None, make a guess using acoustic
-        radius
+        search (taucz - dtaucz, taucz + dtaucz).
+        If dtaucz = None, dtaucz = 0.10 * acousticRadius
 
     Returns
     -------
@@ -163,6 +163,18 @@ def glitch_and_ratio(
     cov : array
         corresponding full covariance matrix
     """
+
+    # Initialize acoutic depths (if they are None)
+    if grtype in [*freqtypes.glitches, *freqtypes.grtypes]:
+        acousticRadius = 5.0e5 / delta_nu
+        if tauhe is None:
+            tauhe = 0.16 * acousticRadius + 48.0
+        if dtauhe is None:
+            dtauhe = 0.05 * acousticRadius
+        if taucz is None:
+            taucz = 0.37 * acousticRadius + 900.0
+        if dtaucz is None:
+            dtaucz = 0.10 * acousticRadius
 
     # Compute and store different realizations of ratios and glitch parameters
     rln_data = np.zeros((nrealizations, ngr))
@@ -185,28 +197,28 @@ def glitch_and_ratio(
                 param, chi2, reg, ier = fit_fq(
                     perturb_frq,
                     num_of_n,
-                    delta_nu,
+                    acousticRadius,
+                    tauhe,
+                    dtauhe,
+                    taucz,
+                    dtaucz,
                     tol_grad_fq=tol_grad,
                     regu_param_fq=regu_param,
                     num_guess=n_guess,
-                    tauhe=tauhe,
-                    dtauhe=dtauhe,
-                    taucz=taucz,
-                    dtaucz=dtaucz,
                 )
             elif method.lower() == "sd":
                 frq_sd = sd(perturb_frq, num_of_n, icov_sd.shape[0])
                 param, chi2, reg, ier = fit_sd(
                     frq_sd,
                     icov_sd,
-                    delta_nu,
+                    acousticRadius,
+                    tauhe,
+                    dtauhe,
+                    taucz,
+                    dtaucz,
                     tol_grad_sd=tol_grad,
                     regu_param_sd=regu_param,
                     num_guess=n_guess,
-                    tauhe=tauhe,
-                    dtauhe=dtauhe,
-                    taucz=taucz,
-                    dtaucz=dtaucz,
                 )
             else:
                 raise ValueError("Invalid glitch-fitting method!")

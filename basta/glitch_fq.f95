@@ -7,15 +7,23 @@
 !     AUTHOR NAME     : KULDEEP VERMA
 !     EMAIL ADDRESSES : verma@ice.csic.es, kuldeep@phys.au.dk,
 !                       kuldeepv89@gmail.com
-!     LAST MODIFIED   : 17/11/2021
+!     LAST MODIFIED   : 16/12/2021
 !
 !*******************************************************************************
 !
 !     freq : (input) Input oscillation frequencies - l, n, nu(muHz), err(muHz)
 !     num_of_n : (input) Array containing the number of modes for each degree
-!     delta_nu : (input) An estimate of large frequency separation (in muHz)
 !     num_of_l : (input) Number of harmonic degree
 !     num_of_mode : (input) Number of modes
+!     acoustic_radius : (input) An estimate of acoustic radius (in s)
+!     tauHe : (input) A guess for the acoustic depth of the helium ionization
+!             zone (in s)
+!     dtauHe : (input) Defines the range of search for tauHe,
+!              range - (tauHe - dtauHe, tauHe + dtauHe)
+!     tauCZ : (input) A guess for the acoustic depth of the convection zone
+!             base (in s)
+!     dtauCZ : (input) Defines the range of search for tauCZ,
+!              range - (tauCZ - dtauCZ, tauCZ + dtauCZ)
 !     npoly_fq : (optional) Degree of the polynomial used + 1
 !     total_num_of_param_fq : (optional) Total number of fitting parameter
 !     num_guess : (optional) Number of initial guesses used in the global
@@ -23,14 +31,6 @@
 !     nderiv_fq : (optional) Derivative order used in the regularization
 !     tol_grad_fq : (optional) Tolerance on the gradient of the cost function
 !     regu_param_fq : (optional) Regularization parameter
-!     tauHe : (optional) A guess for the acoustic depth of the helium ionization
-!             zone (in s)
-!     dtauHe : (optional) Defines the range of search for tauHe,
-!              range - (tauHe - dtauHe, tauHe + dtauHe)
-!     tauCZ : (optional) A guess for the acoustic depth of the convection zone
-!             base (in s)
-!     dtauCZ : (optional) Defines the range of search for tauCZ,
-!              range - (tauCZ - dtauCZ, tauCZ + dtauCZ)
 !     param : (output) Array containing the fitted parameters
 !     chi2 : (output) Chi-square of the fit
 !     reg : (output) Regularization term
@@ -39,10 +39,10 @@
 !
 !*******************************************************************************
 
-      SUBROUTINE FIT_FQ(freq,num_of_n,delta_nu,num_of_l,num_of_mode,&
-            npoly_fq,total_num_of_param_fq,num_guess,nderiv_fq,&
-            tol_grad_fq,regu_param_fq,tauHe,dtauHe,tauCZ,dtauCZ,param,&
-            chi2,reg,ier)
+      SUBROUTINE FIT_FQ(freq,num_of_n,num_of_l,num_of_mode,&
+            acoustic_radius,tauHe,dtauHe,tauCZ,dtauCZ,npoly_fq,&
+            total_num_of_param_fq,num_guess,nderiv_fq,tol_grad_fq,&
+            regu_param_fq,param,chi2,reg,ier)
       IMPLICIT NONE
 
       REAL*8, PARAMETER :: MU = 1.d-6, PI = 3.141592653589793d0
@@ -57,7 +57,7 @@
       INTEGER, ALLOCATABLE :: seed(:)
 
       REAL*8 :: freq(num_of_mode,4)
-      REAL*8 :: delta_nu, acoustic_radius
+      REAL*8 :: acoustic_radius
       REAL*8 :: tauHe, tauCZ, dtauHe, dtauCZ
       REAL*8 :: chi2_total, chi2, reg, chi2_total_new, chi2_new, reg_new
       REAL*8 :: tol_grad_fq, regu_param_fq
@@ -69,12 +69,12 @@
       REAL*8 :: grad(total_num_of_param_fq)
       REAL*8 :: hess(total_num_of_param_fq,total_num_of_param_fq)
       REAL*8 :: scratch(3*total_num_of_param_fq)
-!f2py intent(in)  :: num_of_l, num_of_mode, freq, num_of_n, delta_nu
+!f2py intent(in)  :: num_of_l, num_of_mode, freq, num_of_n
+!f2py intent(in)  :: acoustic_radius, tauHe, dtauHe, tauCZ, dtauCZ
 !f2py intent(out) :: param, chi2, reg, ier
 !f2py INTEGER :: npoly_fq = 5, total_num_of_param_fq = 22
 !f2py INTEGER :: nderiv_fq = 3, num_guess = 200
 !f2py REAL*8  :: tol_grad_fq = 1.e-3, regu_param_fq = 7.0
-!f2py REAL*8  :: tauHe = -1.0, dtauHe = -1.0, tauCZ = -1.0, dtauCZ = -1.0
 
 
       ! Check for inconsistencies in the input parameters
@@ -90,8 +90,7 @@
       call RANDOM_SEED(put=seed)
 
       ! Estimate the parameter ranges to find the global minimum
-      acoustic_radius = 5.d5 / delta_nu
-      CALL SEARCH_SPACE_FQ(acoustic_radius,dparam)
+      CALL SEARCH_SPACE_FQ(dparam)
 
       chi2_total = 1.d99
       chi2 = 1.d99
@@ -170,19 +169,17 @@
       !TO INITIALIZE THE PARAMETER SPACE TO SEARCH FOR GLOBAL MINIMUM
       !*************************************************************************
       !
-      !acoustic_radius : (input) An estimate of acoustic radius (in s)
       !dparam : (output) Array containing the parameter space to look for the
       !         global minimum
       !
       !*************************************************************************
 
-      SUBROUTINE SEARCH_SPACE_FQ(acoustic_radius,dparam)
+      SUBROUTINE SEARCH_SPACE_FQ(dparam)
       IMPLICIT NONE
 
       INTEGER :: i, j, k, ns
 
       REAL*8 :: dparam(total_num_of_param_fq,2)
-      REAL*8 :: acoustic_radius
       REAL*8 :: tmp1, tmp2, dtmp1, dtmp2, chi2
 
 
@@ -209,8 +206,6 @@
       ENDDO
 
       ! parameters associated with CZ signature
-      if (tauCZ .LE. 0.d0) tauCZ = 0.50d0 * acoustic_radius
-      if (dtauCZ .LE. 0.d0) dtauCZ = 0.20d0 * acoustic_radius
       ns = total_num_of_param_fq - 7
       dparam(ns+1,1) = 1.d4
       dparam(ns+1,2) = 1.d7
@@ -220,8 +215,6 @@
       dparam(ns+3,2) = 6.28d0
 
       ! parameters associated with He signature
-      if (tauHe .LE. 0.d0) tauHe = 0.15d0 * acoustic_radius
-      if (dtauHe .LE. 0.d0) dtauHe = 0.10d0 * acoustic_radius
       dparam(ns+4,1) = 1d-5
       dparam(ns+4,2) = 1.d-1
       dparam(ns+5,1) = 20.d0

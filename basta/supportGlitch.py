@@ -99,20 +99,20 @@ def fit(
         Number of initial guesses in search for the global minimum
     tauhe : float, optional
         Determines the range in acoustic depth (s) of He glitch for global minimum
-        search (tauhe - dtauhe, tauhe + dtauhe). If None, make a guess using acoustic
-        radius
+        search (tauhe - dtauhe, tauhe + dtauhe).
+        If tauhe = None, tauhe = 0.16 * acousticRadius + 48
     dtauhe : float, optional
         Determines the range in acoustic depth (s) of He glitch for global minimum
-        search (tauhe - dtauhe, tauhe + dtauhe). If None, make a guess using acoustic
-        radius
+        search (tauhe - dtauhe, tauhe + dtauhe).
+        If dtauhe = None, dtauhe = 0.05 * acousticRadius
     taucz : float, optional
         Determines the range in acoustic depth (s) of CZ glitch for global minimum
-        search (taucz - dtaucz, taucz + dtaucz). If None, make a guess using acoustic
-        radius
+        search (taucz - dtaucz, taucz + dtaucz).
+        If taucz = None, taucz = 0.37 * acousticRadius + 900
     dtaucz : float, optional
         Determines the range in acoustic depth (s) of CZ glitch for global minimum
-        search (taucz - dtaucz, taucz + dtaucz). If None, make a guess using acoustic
-        radius
+        search (taucz - dtaucz, taucz + dtaucz).
+        If dtaucz = None, dtaucz = 0.10 * acousticRadius
 
     Return
     ------
@@ -127,16 +127,18 @@ def fit(
     """
     # -----------------------------------------------------------------------------------------
 
+    # Initialize acoutic depths (if they are None)
+    acousticRadius = 5.0e5 / delta_nu
     if tauhe is None:
-        tauhe = -1.0
+        tauhe = 0.16 * acousticRadius + 48.0
     if dtauhe is None:
-        dtauhe = -1.0
+        dtauhe = 0.05 * acousticRadius
     if taucz is None:
-        taucz = -1.0
+        taucz = 0.37 * acousticRadius + 900.0
     if dtaucz is None:
-        dtaucz = -1.0
+        dtaucz = 0.10 * acousticRadius
 
-    # np.random.seed(1)
+    np.random.seed(1)
 
     vmin, vmax = np.amin(freq[:, 2]), np.amax(freq[:, 2])
 
@@ -146,31 +148,29 @@ def fit(
 
     # Fit oscillation frequencies
     if method.lower() == "fq":
-        # print()
-        # print("Fitting oscillation frequencies...")
+        # print ()
+        # print ('Fitting oscillation frequencies...')
 
         # Original
         tmp, chi2[-1], reg[-1], ier[-1] = fit_fq(
             freq,
             num_of_n,
-            delta_nu,
+            acousticRadius,
+            tauhe,
+            dtauhe,
+            taucz,
+            dtaucz,
             tol_grad_fq=tol_grad,
             regu_param_fq=regu_param,
             num_guess=n_guess,
-            tauhe=tauhe,
-            dtauhe=dtauhe,
-            taucz=taucz,
-            dtaucz=dtaucz,
         )
         param = np.zeros((n_rln + 1, len(tmp)), dtype=float)
         param[-1, :] = tmp
         Acz, Ahe = averageAmplitudes(
             param[-1, :], vmin, vmax, delta_nu=delta_nu, method=method
         )
-        # print(
-        #    "Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f "
-        #    "%6d" % (ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2])
-        # )
+        # print ('Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f '
+        #    '%6d' %(ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2]))
 
         # Fit realizations
         if n_rln > 0:
@@ -180,37 +180,26 @@ def fit(
                 param[i, :], chi2[i], reg[i], ier[i] = fit_fq(
                     freq_rln,
                     num_of_n,
-                    delta_nu,
+                    acousticRadius,
+                    tauhe,
+                    dtauhe,
+                    taucz,
+                    dtaucz,
                     tol_grad_fq=tol_grad,
                     regu_param_fq=regu_param,
                     num_guess=n_guess,
-                    tauhe=tauhe,
-                    dtauhe=dtauhe,
-                    taucz=taucz,
-                    dtaucz=dtaucz,
                 )
                 Acz, Ahe = averageAmplitudes(
                     param[i, :], vmin, vmax, delta_nu=delta_nu, method=method
                 )
-                print(
-                    "N_rln  Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %5d %12.4f %8.4f "
-                    "%12.4f %6d %12.4f %6d"
-                    % (
-                        i + 1,
-                        ier[i],
-                        chi2[i],
-                        reg[i],
-                        Acz,
-                        param[i, -6],
-                        Ahe,
-                        param[i, -2],
-                    )
-                )
+                # print ('N_rln  Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %5d %12.4f %8.4f '
+                #    '%12.4f %6d %12.4f %6d' %(i+1, ier[i], chi2[i], reg[i], Acz,
+                #    param[i, -6], Ahe, param[i, -2]))
 
     # Fit second differences
     elif method.lower() == "sd":
-        # print()
-        # print("Fitting second differences...")
+        # print ()
+        # print ('Fitting second differences...')
         if not all(x is not None for x in [num_of_dif2, freqDif2, icov]):
             print("num_of_dif2, freqDif2, icov cannot be None. Terminating the run...")
             sys.exit(1)
@@ -219,24 +208,22 @@ def fit(
         tmp, chi2[-1], reg[-1], ier[-1] = fit_sd(
             freqDif2,
             icov,
-            delta_nu,
+            acousticRadius,
+            tauhe,
+            dtauhe,
+            taucz,
+            dtaucz,
             tol_grad_sd=tol_grad,
             regu_param_sd=regu_param,
             num_guess=n_guess,
-            tauhe=tauhe,
-            dtauhe=dtauhe,
-            taucz=taucz,
-            dtaucz=dtaucz,
         )
         param = np.zeros((n_rln + 1, len(tmp)), dtype=float)
         param[-1, :] = tmp
         Acz, Ahe = averageAmplitudes(
             param[-1, :], vmin, vmax, delta_nu=delta_nu, method=method
         )
-        # print(
-        #    "Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f "
-        #    "%6d" % (ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2])
-        # )
+        # print ('Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %12.4f %8.4f %12.4f %6d %12.4f '
+        #    '%6d' %(ier[-1], chi2[-1], reg[-1], Acz, param[-1, -6], Ahe, param[-1, -2]))
 
         # Fit realizations
         if n_rln > 0:
@@ -247,32 +234,21 @@ def fit(
                 param[i, :], chi2[i], reg[i], ier[i] = fit_sd(
                     dif2_rln,
                     icov,
-                    delta_nu,
+                    acousticRadius,
+                    tauhe,
+                    dtauhe,
+                    taucz,
+                    dtaucz,
                     tol_grad_sd=tol_grad,
                     regu_param_sd=regu_param,
                     num_guess=n_guess,
-                    tauhe=tauhe,
-                    dtauhe=dtauhe,
-                    taucz=taucz,
-                    dtaucz=dtaucz,
                 )
                 Acz, Ahe = averageAmplitudes(
                     param[i, :], vmin, vmax, delta_nu=delta_nu, method=method
                 )
-                print(
-                    "N_rln  Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %5d %12.4f %8.4f "
-                    "%12.4f %6d %12.4f %6d"
-                    % (
-                        i + 1,
-                        ier[i],
-                        chi2[i],
-                        reg[i],
-                        Acz,
-                        param[i, -6],
-                        Ahe,
-                        param[i, -2],
-                    )
-                )
+                # print ('N_rln  Ier  Chi2  Reg  Acz  Tcz  Ahe  The = %5d %5d %12.4f %8.4f '
+                #    '%12.4f %6d %12.4f %6d' %(i+1, ier[i], chi2[i], reg[i], Acz,
+                #    param[i, -6], Ahe, param[i, -2]))
 
     else:
         print("Fitting method is not recognized. Terminating the run...")
