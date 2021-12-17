@@ -109,10 +109,10 @@ if __name__ == "__main__":
     # Extract a given parameter and corresponding statistics
     param = "massini"
     infile = os.path.join("output", "json", "16CygA.json")
-    gridfile = os.path.join(os.environ["BASTADIR"], "grids", "Garstec_16CygA.hdf5")
+    gridf = os.path.join(os.environ["BASTADIR"], "grids", "Garstec_16CygA.hdf5")
     try:
         paramvals, loglike, _ = extract_from_json(
-            jsonfile=infile, gridfile=gridfile, parameter=param
+            jsonfile=infile, gridfile=gridf, parameter=param
         )
     except FileNotFoundError:
         print(
