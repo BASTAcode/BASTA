@@ -339,11 +339,11 @@ def corner(
                 y0 = np.array(list(zip(n, n))).flatten()
             else:
                 try:
-                    kernel = gaussian_kde(x)
+                    kernel = gaussian_kde(x, bw_method="silverman")
                 except np.linalg.LinAlgError:
                     print("WARNING! Unable to create KDE. Skipping plot...")
                     raise
-                x0 = np.linspace(np.amin(x), np.amax(x))
+                x0 = np.linspace(np.amin(x), np.amax(x), num=250)
                 y0 = kernel(x0)
                 y0 /= np.amax(y0)
                 n = gaussian_filter(n, 1)

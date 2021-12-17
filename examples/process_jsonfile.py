@@ -1,11 +1,15 @@
 """
 An example of how to extract information from a BASTA .json file
 """
+import os
+import sys
+
 import h5py
 import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import gaussian_kde
 from scipy.ndimage import gaussian_filter
+
 import basta.fileio as fio
 
 
@@ -96,43 +100,66 @@ def sample_posterior(vals, logys):
 
 
 if __name__ == "__main__":
+    # Init
     plt.close("all")
+    outdir = os.path.join("output", "json-analysis")
+    if not os.path.exists(outdir):
+        os.makedirs(outdir)
 
-    # Extract a given parameter and
+    # Extract a given parameter and corresponding statistics
     param = "massini"
-    paramvals, loglike, _ = extract_from_json(
-        jsonfile="output/1.json", gridfile="grids/grid.hdf5", parameter=param
-    )
+    infile = os.path.join("output", "json", "16CygA.json")
+    gridfile = os.path.join(os.environ["BASTADIR"], "grids", "Garstec_16CygA.hdf5")
+    try:
+        paramvals, loglike, _ = extract_from_json(
+            jsonfile=infile, gridfile=gridfile, parameter=param
+        )
+    except FileNotFoundError:
+        print(
+            "Cannot read '{0}'! Did you run 'xmlinput/input_json.xml'?".format(infile)
+        )
+        sys.exit(1)
 
     # The extracted information can then be used to, e.g., sample the posterior
     samples = sample_posterior(vals=paramvals, logys=paramvals)
 
     # ... which can then be plotted in a simple, smoothed histogram
     _, ax = plt.subplots()
-    counts, bins = np.histogram(a=samples, bins=100)
-    counts = gaussian_filter(input=counts, sigma=1)
+    counts, bins = np.histogram(a=samples, bins=100)  # Fixed bins
+    counts = gaussian_filter(input=counts, sigma=2)  # Slightly smoothed
     x0 = np.array(list(zip(bins[:-1], bins[1:]))).flatten()
     y0 = np.array(list(zip(counts, counts))).flatten()
-    ax.plot(x0, y0)
+    ax.plot(x0, y0, label="Smoothed posterior histogram (100 bins)")
     ax.set_xlabel(param)
-    plt.savefig("posterior_{0}_simple.pdf".format(param), bbox_inches="tight")
+    ax.set_ylabel("Counts")
+    ax.legend(loc="best", facecolor="none", edgecolor="none", fontsize="small")
+    plt.savefig(
+        os.path.join(outdir, f"posterior_{param}_simple.pdf"), bbox_inches="tight"
+    )
 
     # ... or in a KDE smoothed version, like the BASTA cornerplots
-    histargs = {"color": "#000000", "alpha": 0.7}
-    histargs_kde = {"color": "darkgrey", "alpha": 0.15}
+    histargs = {"color": "tab:cyan", "alpha": 0.17}
+    histargs_line = {"color": "tab:orange", "alpha": 0.7}
+    histargs_fill = {"color": "tab:orange", "alpha": 0.1}
     _, ax = plt.subplots()
     counts, bins = np.histogram(a=samples, bins="auto")
     counts = gaussian_filter(input=counts, sigma=1)
-    kernel = gaussian_kde(samples)
-    x0 = np.linspace(np.amin(samples), np.amax(samples))
+    kernel = gaussian_kde(samples, bw_method="silverman")
+    x0 = np.linspace(np.amin(samples), np.amax(samples), num=500)
     y0 = kernel(x0)
     y0 /= np.amax(y0)
     x0_hist = np.array(list(zip(bins[:-1], bins[1:]))).flatten()
     y0_hist = np.array(list(zip(counts, counts))).flatten() / np.amax(counts)
-    ax.fill_between(x0_hist, y0_hist, interpolate=True, **histargs_kde)
-    ax.plot(x0, y0, label="BASTA: Posterior", **histargs)
-    ax.fill_between(x0, y0, interpolate=True, **histargs_kde)
+    ax.fill_between(
+        x0_hist, y0_hist, interpolate=True, label="Posterior histogram", **histargs
+    )
+    ax.plot(x0, y0, label="Posterior KDE", **histargs_line)
+    ax.fill_between(x0, y0, interpolate=True, **histargs_fill)
     ax.set_xlabel(param)
+    ax.set_ylabel("Density")
     ax.legend(loc="best", facecolor="none", edgecolor="none", fontsize="small")
     ax.get_yaxis().set_ticks([])
-    plt.savefig("posterior_{0}.pdf".format(param), bbox_inches="tight")
+    plt.savefig(os.path.join(outdir, f"posterior_{param}.pdf"), bbox_inches="tight")
+
+    # Done!
+    print(f"Plots saved to '{outdir}'!")
