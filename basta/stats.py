@@ -321,7 +321,7 @@ def chi2_astero(
                 if method.lower() == "sd":
                     num_sd = icov_sd.shape[0]
                     frq_sd = sd(frq, num_of_n, num_sd)
-                param, chi2, reg, ier = sg.fit(
+                param, chi2, reg, ier, _ = sg.fit(
                     frq,
                     num_of_n,
                     dnusurf,
@@ -369,7 +369,7 @@ def chi2_astero(
                 if method.lower() == "sd":
                     num_sd = icov_sd.shape[0]
                     frq_sd = sd(frq, num_of_n, num_sd)
-                param, chi2, reg, ier = sg.fit(
+                param, chi2, reg, ier, _ = sg.fit(
                     frq,
                     num_of_n,
                     dnusurf,
@@ -417,7 +417,7 @@ def chi2_astero(
                 if method.lower() == "sd":
                     num_sd = icov_sd.shape[0]
                     frq_sd = sd(frq, num_of_n, num_sd)
-                param, chi2, reg, ier = sg.fit(
+                param, chi2, reg, ier, _ = sg.fit(
                     frq,
                     num_of_n,
                     dnusurf,
@@ -465,7 +465,7 @@ def chi2_astero(
                 if method.lower() == "sd":
                     num_sd = icov_sd.shape[0]
                     frq_sd = sd(frq, num_of_n, num_sd)
-                param, chi2, reg, ier = sg.fit(
+                param, chi2, reg, ier, _ = sg.fit(
                     frq,
                     num_of_n,
                     dnusurf,
@@ -513,7 +513,7 @@ def chi2_astero(
                 if method.lower() == "sd":
                     num_sd = icov_sd.shape[0]
                     frq_sd = sd(frq, num_of_n, num_sd)
-                param, chi2, reg, ier = sg.fit(
+                param, chi2, reg, ier, _ = sg.fit(
                     frq,
                     num_of_n,
                     dnusurf,
@@ -561,7 +561,7 @@ def chi2_astero(
                 if method.lower() == "sd":
                     num_sd = icov_sd.shape[0]
                     frq_sd = sd(frq, num_of_n, num_sd)
-                param, chi2, reg, ier = sg.fit(
+                param, chi2, reg, ier, _ = sg.fit(
                     frq,
                     num_of_n,
                     dnusurf,
@@ -610,7 +610,7 @@ def chi2_astero(
                 if method.lower() == "sd":
                     num_sd = icov_sd.shape[0]
                     frq_sd = sd(frq, num_of_n, num_sd)
-                param, chi2, reg, ier = sg.fit(
+                param, chi2, reg, ier, _ = sg.fit(
                     frq,
                     num_of_n,
                     dnusurf,

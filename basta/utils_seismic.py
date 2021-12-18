@@ -84,6 +84,58 @@ def combined_ratios(r02, r01, r10):
     return r010, r012, r102
 
 
+def specific_ratio(frq, rtype="r012"):
+    """
+    Routine to compute specific type of ratios from oscillation
+    frequencies
+
+    Parameters
+    ----------
+    frq : array
+        Harmonic degrees, radial orders, frequencies
+    rtype : str
+        Ratio type (one of ["r01", "r10", "r02", "r010", "r012", "r102"])
+
+    Returns
+    -------
+    ratio : array
+        Ratio values
+    """
+
+    # Compute ratios
+    r02, r01, r10 = freq_fit.ratios(frq)
+    if r02 is None:
+        raise ValueError("Error: Missing radial orders!")
+
+    # Compute combined ratios (if necessary)
+    if rtype in ["r010", "r012", "r102"]:
+        r010, r012, r102 = combined_ratios(r02, r01, r10)
+
+    # Return the ratio type of "rtype"
+    if rtype == "r01":
+        ratio = np.zeros(r01.shape[0])
+        ratio = r01[:, 1]
+    elif rtype == "r10":
+        ratio = np.zeros(r10.shape[0])
+        ratio = r10[:, 1]
+    elif rtype == "r02":
+        ratio = np.zeros(r02.shape[0])
+        ratio = r02[:, 1]
+    elif rtype == "r010":
+        ratio = np.zeros(r010.shape[0])
+        ratio = r010[:, 1]
+    elif rtype == "r012":
+        ratio = np.zeros(r012.shape[0])
+        ratio = r012[:, 1]
+    elif rtype == "r102":
+        ratio = np.zeros(r102.shape[0])
+        ratio = r102[:, 1]
+    else:
+        raise ValueError("ERROR: Unrecognized ratio-type %s!" % (rtype))
+
+    return ratio
+
+
 def glitch_and_ratio(
     frq,
     ngr,
