@@ -15,7 +15,9 @@ def define_preview(define_input, define_along, define_across):
     # BLOCK 1: Grid and limits for subgrid
     # ==================================================================================
     # The path to the grid to be used by BASTA
-    define_input["gridfile"] = os.path.join(os.environ["BASTADIR"], "grids/grid.hdf5")
+    define_input["gridfile"] = os.path.join(
+        os.environ["BASTADIR"], "grids", "Garstec_16CygA.hdf5"
+    )
 
     # If the inputted grid is BaSTI isochrones, specify the science case. See
     # `create_inputfile.py` block 2c for available cases by standard
@@ -30,37 +32,32 @@ def define_preview(define_input, define_along, define_across):
     # Primarely to avoid spending a large amount of time interpolating in regions that
     # are not close to the fitted star(s).
     define_input["limits"] = {
-        "Teff": {"abstol": 400},
-        "FeH": {"sigmacut": 3, "max": 0.5},
+        "Teff": {"abstol": 150},
+        "FeH": {"abstol": 0.2},
         "dnufit": {"abstol": 10},
     }
 
     # Take ascii-file input in order to do "abstol" and "sigmacut" in limits
     # If no limits are given in terms of "abstol" or "sigmacut" this can be ignored
-    define_input["asciifile"] = "data/testdata.ascii"
+    define_input["asciifile"] = os.path.join("data", "16CygA.ascii")
     define_input["params"] = (
         "starid",
+        "RA",
+        "DEC",
+        "numax",
+        "numax_err",
+        "dnu",
+        "dnu_err",
         "Teff",
         "Teff_err",
         "FeH",
         "FeH_err",
         "logg",
         "logg_err",
-        "dnu",
-        "dnu_err",
-        "numax",
-        "numax_err",
-        "RA",
-        "DEC",
-        "parallax",
-        "parallax_err",
-        "Mj_2MASS",
-        "Mj_2MASS_err",
-        "Mh_2MASS",
-        "Mh_2MASS_err",
-        "Mk_2MASS",
-        "Mk_2MASS_err",
     )
+
+    # Output-path
+    outpath = os.path.join("output", "preview_interp_MS")
 
     # ==================================================================================
     # BLOCK 2: Controls for along interpolation
@@ -73,14 +70,16 @@ def define_preview(define_input, define_along, define_across):
         # Input any list of parameters, "freqs" for viewing the spacing in the l=0 modes
         # in the models. Compares to the inputted value.
         define_along["resolution"] = {
-            "freqs": 1,
-            "dnufit": 0.04,
-            "age": 20,
+            "freqs": 1.0,
+            # "dnufit": 0.04,
+            # "age": 20,
         }
 
         # Location, name and format of the outputted figure (histogram)
         # Use either .png (fast) or .pdf (high resolution) format, .png by default
-        define_along["figurename"] = "previews/along_resolution.png"
+        define_along["figurename"] = os.path.join(
+            outpath, "interp_preview_along_resolution.pdf"
+        )
 
     # ==================================================================================
     # BLOCK 3: Controls for across interpolation
@@ -93,12 +92,14 @@ def define_preview(define_input, define_along, define_across):
         # Cartesian sampling, define the increase in number of tracks between current
         # points, e.g. "FeHini": 2 will result three times the number of tracks
         define_across["resolution"] = {
-            "Scale": 3,
+            "Scale": 5,
         }
 
         # Location, name and format of the outputted figure (histogram)
         # Use either .png (fast) or .pdf (high resolution) format, .png by default
-        define_across["figurename"] = "previews/across_resolution.png"
+        define_across["figurename"] = os.path.join(
+            outpath, "interp_preview_across_resolution.pdf"
+        )
 
     # Done! Nothing more to specify.
     return define_input, define_along, define_across
