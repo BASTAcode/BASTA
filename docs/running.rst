@@ -14,15 +14,14 @@ designed to fit any input given without ensuring that the solution is physically
 the user to correctly interpret the results of any fit done with the code.
 
 The input to the code is given using an ``.xml`` file containing all the relevant information to perform the fit. A
-python routine to produce these ``.xml`` files in a semi-automatic way is included in the code repository and can be
-found in ``${BASTADIR}/examples/create_inputfile.py``. The basic procedure to run BASTA is reduced to the following
-steps.
+Python routine to produce such ``.xml`` files in a semi-automatic way is included in the code repository and can be
+found in ``${BASTADIR}/examples/create_inputfile.py``. This is meant as a basic version just to check that the code is running. It also serves as a template with all options documented. For examples of 'real' fits, have a look at the examples sections in this tutorial (:ref:`examples`).
+
+The basic procedure to run BASTA can be  reduced to the following steps:
 
     * **Create the input file**
 
-    The following commands will create a file named ``input-example.xml`` in the directory ``${BASTADIR}/examples/``.
-    The user can modify the name of the file and output directory at will in the
-    :py:meth:`create_inputfile.define_input` routine of the example ``create_inputfile.py`` file provided with the code.
+    The following commands will create a file named ``input_myfit.xml`` in the directory ``${BASTADIR}/examples/``.
 
     .. code-block:: bash
 
@@ -33,41 +32,46 @@ steps.
 
     * **Run BASTA**
 
-    Once the ``input-example.xml`` has been correctly created, BASTA is simply run as follows (with the virtual
+    Once the ``input_myfit.xml`` has been correctly created, BASTA is simply run as follows (with the virtual
     environment activated):
 
     .. code-block:: bash
 
-        BASTArun input-example.xml
+        BASTArun input_myfit.xml
 
-The output of the fit is located in ``${BASTADIR}/examples/output/`` and we encourage the user to inspect it and ensure
-that BASTA is correctly running while getting familiar with the type of output and figures produced.
+The output of the fit is located in ``${BASTADIR}/examples/output/myfit`` and we encourage the user to inspect it and ensure that BASTA is correctly running while getting familiar with the type of output and figures produced.
+
 
 Common blocks
 -------------
 
 Regardless of the type of fit, a standard I/O block must be specified containing the name of the ``.xml`` file to be
-created, the grid of models to be used, and the output directory for the results. This comprises Block 1 of
-:py:meth:`create_inputfile.define_input`:
+created, the grid of models to be used, and the output directory for the results. Additionally, an ascii file with the parameters of the star(s) to be fitted must be given (more details in the full file). The following comprises (most of) Block 1 of :py:meth:`create_inputfile.define_input` (note that some comments have been removed compared to the full file):
 
 .. code-block:: python
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==================================================================================
     # BLOCK 1: I/O
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==================================================================================
     # Name of the XML input file to produce
     xmlfilename = "input_myfit.xml"
 
     # The path to the grid to be used by BASTA for the fitting.
-    define_io["gridfile"] = "grids/mygrid.hdf5"
+    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = "output"
+    define_io["outputpath"] = os.path.join("output", "myfit")
 
     # Location of the input file with the star(s) to be fitted and the columns included
-    define_io["asciifile"] = "data/myfile.ascii"
+    define_io["asciifile"] = os.path.join("data", "16CygA.ascii")
     define_io["params"] = (
         "starid",
+        "RA",
+        "DEC",
+        "numax",
+        "numax_err",
+        "dnu",
+        "dnu_err",
         "Teff",
         "Teff_err",
         "FeH",
@@ -77,20 +81,24 @@ created, the grid of models to be used, and the output directory for the results
     )
 
 Note that BASTA uses the `numpy.genfromtxt <https://numpy.org/doc/stable/reference/generated/numpy.genfromtxt.html>`_
-function to read the input ascii file ``myfile.ascii``, allowing the presence of additional columns that will not be
-used by the code as long as the appropriate number of entries is giving in ``define_io["params"]``.
+function to read the input ascii file, allowing the presence of additional columns that will not be
+used by the code as long as the appropriate number of entries is given in ``define_io["params"]``.
 
-The other common blocks to all fits are the ones corresponding to the output and plotting controls, which includes the
-following features:
+The other common blocks to all fits are the ones corresponding to the fitting, output, and plotting controls. The main components (again some comments and auxiliary things are removed compared to the file):
 
 .. code-block:: python
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==================================================================================
+    # BLOCK 2: Fitting control
+    # ==================================================================================
+    # A list of the parameters to fit must be given to BASTA in a tuple.
+    define_fit["fitparams"] = ("Teff", "FeH", "logg")
+
+    # ==================================================================================
     # BLOCK 3: Output control
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # A list of quantities to output. Will be printed to the log of each individual star
-    # and stored in the output/results file(s).
-    define_output["outparams"] = ("Teff", "FeH", "radPhot", "massfin", "age")
+    # ==================================================================================
+    # A list of quantities to output.
+    define_output["outparams"] = ("Teff", "FeH", "logg", "radPhot", "massfin", "age")
 
     # Name of the output file containing the results of the fit in ascii format.
     define_output["outputfile"] = "results.ascii"
@@ -99,9 +107,9 @@ following features:
     # to a .json file.
     define_output["optionaloutputs"] = True
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==================================================================================
     # BLOCK 4: Plotting control
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==================================================================================
     # Corner plots of posteriors. Specify a list of parameters to plot.
     define_plots["cornerplots"] = define_output["outparams"]
 
@@ -110,11 +118,10 @@ following features:
     # parameters and their uncertainties/constraints.
     define_plots["kielplots"] = True
 
-Note that the final entry in Block 4 ``define_plots["freqplots"] = echelle`` has been omitted as it is only relevant
-when fitting :ref:`example_freqs`. In the above example, the same quantities being output to ``results.ascii`` are
-included in the corner plot, but these can be specified independently.
 
-**Important** The summary statistics for all stars included in ``myfile.ascii`` will be written to ``results.ascii``,
+Please note that Block 2 contains five sub-blocks with different controls depending on the specific type of fit. Also note that  in the above example, the same quantities being output to ``results.ascii`` are included in the corner plot, but these can be specified independently. Finally, some options have been omitted for clarity, e.g., the entry ``define_plots["freqplots"]`` in Block 4 as it is only relevant when fitting :ref:`example_freqs`.
+
+**Important** The summary statistics for all stars included in the input ascii will be written to ``results.ascii``,
 while figures and details of the run for each individual target will be stored as., ``starid_XXX.png`` and
 ``starid.json``. If another run is made for the same stars varying some of the fit parameters, it **must** be stored
 in a different folder otherwise BASTA will overwrite the previous output.
