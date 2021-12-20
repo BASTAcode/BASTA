@@ -1,2 +1,2 @@
-# starid    RA      DEC     numax   enumax  dnu     ednu    teff    eteff   feh     efeh
-16CygA      295.45  50.53   2188.5  20.0    103.3   0.50    5825    50      0.10    0.026
+# starid    RA      DEC     numax   enumax  dnu     ednu    teff    eteff   feh     efeh    logg   elogg
+16CygA      295.45  50.53   2188.5  20.0    103.3   0.50    5825    50      0.10    0.026   4.33   0.07

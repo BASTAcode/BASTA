@@ -1,5 +1,5 @@
 """
-Make an input file for BASTA in XML format.
+Make an input file for BASTA in XML format. Template version.
 """
 import os
 
@@ -21,16 +21,16 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # BLOCK 1: I/O
     # ==================================================================================
     # Name of the XML input file to produce
-    # --> Use as input: BASTArun input-example.xml
-    xmlfilename = "input-example.xml"
+    # --> Use as input: BASTArun input_myfit.xml
+    xmlfilename = "input_myfit.xml"
 
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
     # --> If you need the location of BASTA, it is in BASTADIR
-    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "grid.hdf5")
+    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = "output"
+    define_io["outputpath"] = os.path.join("output", "myfit")
 
     # BASTA is designed to fit multiple stars in the same run. To generate the input
     # file, a table in plain ascii with the observed stellar parameters must be
@@ -51,30 +51,22 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # Also note that the file can contain more columns than required for the fit!
     # --> Only those relevant are included in the produced input file.
 
-    # Example of the columns in the example file:
-    define_io["asciifile"] = "data/testdata.ascii"
+    # Location of the input file with the star(s) to be fitted and the columns included
+    define_io["asciifile"] = os.path.join("data", "16CygA.ascii")
     define_io["params"] = (
         "starid",
+        "RA",
+        "DEC",
+        "numax",
+        "numax_err",
+        "dnu",
+        "dnu_err",
         "Teff",
         "Teff_err",
         "FeH",
         "FeH_err",
         "logg",
         "logg_err",
-        "dnu",
-        "dnu_err",
-        "numax",
-        "numax_err",
-        "RA",
-        "DEC",
-        "parallax",
-        "parallax_err",
-        "Mj_2MASS",
-        "Mj_2MASS_err",
-        "Mh_2MASS",
-        "Mh_2MASS_err",
-        "Mk_2MASS",
-        "Mk_2MASS_err",
     )
 
     # Special option: Change the assumed delimiter for the ascii table
@@ -118,7 +110,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     (dnu). The one provided must match the one you add to fitting parameters in
     #     the next block. If present in the grid, "dnufit" is the most reliable one.
     #     The full list is available in REMEMBER TO ADD LINK !
-    define_fit["fitparams"] = ("Teff", "FeH", "dnufit", "numax")
+    define_fit["fitparams"] = ("Teff", "FeH", "logg")
 
     # ------------------------------------------------------------
     # BLOCK 2a: Fitting control, priors
@@ -141,11 +133,11 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # If using asteroseismic data, it can be an advantage to apply a cut on dnu, as it
     # significantly reduces computation time.
-    define_fit["priors"] = {**define_fit["priors"], "dnufit": {"sigmacut": "3"}}
+    # define_fit["priors"] = {**define_fit["priors"], "dnufit": {"sigmacut": "3"}}
 
     # A different class of priors is to use an initial mass function (IMF). The full
     # list of available IMF's can be seen in basta/priors.py
-    define_fit["priors"] = {**define_fit["priors"], "IMF": "salpeter1955"}
+    # define_fit["priors"] = {**define_fit["priors"], "IMF": "salpeter1955"}
 
     # A key functionality of BASTA is to use so-called Bayesian weights, which take the
     # sampling of the grid into account. These will also accommodate the different
@@ -164,12 +156,12 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # The dnu of the solar model is automatically extracted from the grid. If set to
     # False, the scaling functionality is switched off (not recommended unless testing).
-    define_fit["solarmodel"] = True
+    # define_fit["solarmodel"] = True
 
     # To perform the scaling, the observed values of dnu and numax for the Sun must be
     # assumed. By default BASTA uses the values from the SYD pipeline.
-    define_fit["sundnu"] = 135.1
-    define_fit["sunnumax"] = 3090.0
+    # define_fit["sundnu"] = 135.1
+    # define_fit["sunnumax"] = 3090.0
 
     # ------------------------------------------------------------
     # BLOCK 2c: Fitting control, isochrones
@@ -276,7 +268,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> The names must match entries in the parameter list (basta/constants.py)
     # --> A reasonable choice is to (as a minimum) output the parameters used in the fit
     # --> If you want to predict distance, add the special keyword "distance".
-    define_output["outparams"] = ("Teff", "FeH", "dnufit", "numax", "massfin", "age")
+    define_output["outparams"] = ("Teff", "FeH", "logg", "radPhot", "massfin", "age")
 
     # Name of the output file containing the results of the fit in ascii format.
     # --> A version in xml-format will be automatically created
@@ -323,7 +315,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # individual frequencies (as ratios can take a while to compute)
     # --> All possible options: ("echelle", "dupechelle", "pairechelle", "ratios",
     #                            True, False)
-    define_plots["freqplots"] = "echelle"
+    define_plots["freqplots"] = False
 
     # By default BASTA will save plots in png format, as they are much faster to
     # produce. This can be changed to pdf to obtain higher quality plots at the cost of
