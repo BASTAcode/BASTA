@@ -7,14 +7,13 @@ This example describes the fitting of what we call global parameters of the grid
 asteroseismology for illustration purposes. As a general recommendation, the user should explore the
 :py:meth:`constants.parameters` (in ``${BASTADIR}/basta/constants.py``) function for a complete list of available fitting parameters.
 
-Block 2 of :py:meth:`create_inputfile.define_input` (in ``${BASTADIR}/examples/create_inputfile.py``) defines the fitting parameters. For this example it looks as
-follows:
+Block 2 of :py:meth:`create_inputfile.define_input` (in ``${BASTADIR}/examples/create_inputfile.py``) defines the fitting parameters. For this example it looks as follows:
 
 .. code-block:: python
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==================================================================================
     # BLOCK 2: Fitting control
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ==================================================================================
     define_fit["fitparams"] = ("Teff", "FeH", "dnufit", "numax")
 
 
@@ -28,23 +27,23 @@ names can be found in :py:meth:`constants.parameters`.
 
 The next block to be modified is 2a, where priors to the fit can be selected. We will apply a Salpeter IMF and flat
 priors in :math:`T_\mathrm{eff}` and metallicity, where the likelihoods will be calculated only for models within a
-certain tolerance from the observed values of each star.
+certain tolerance from the observed values of each star:
 
 .. code-block:: python
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ------------------------------------------------------------
     # BLOCK 2a: Fitting control, priors
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ------------------------------------------------------------
     define_fit["priors"] = {"Teff": {"sigmacut": "5"}, "FeH": {"abstol": "0.5"}}
     define_fit["priors"] = {**define_fit["priors"], "IMF": "salpeter1955"}
 
-Finally, we define a reference solar model and solar values to be used in the scaling relations
+Finally, we define a reference solar model and the assumed solar values:
 
 .. code-block:: python
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ------------------------------------------------------------
     # BLOCK 2b: Fitting control, solar scaling
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # ------------------------------------------------------------
     define_fit["solarmodel"] = True
     define_fit["sundnu"] = 135.1
     define_fit["sunnumax"] = 3090.0
@@ -52,8 +51,7 @@ Finally, we define a reference solar model and solar values to be used in the sc
 Note that, in the present example, the solar model is used to scale the grid values of ``dnufit`` as described in
 Section 4.1.1 of `The BASTA paper II <https://arxiv.org/abs/2109.14622>`_.
 
-In the folder ``${BASTADIR}/examples/xmlinput/`` you can find a file called ``create_inputfile_global.py`` that has been
-prepared following the above instructions to make a fit of the Kepler target 16 Cyg A to the example grid shipped with
+In the folder ``${BASTADIR}/examples/xmlinput/`` you can find a file called ``create_inputfile_global.py`` that has been prepared following the above instructions to make a fit of the Kepler target 16 Cyg A to the example grid shipped with
 the code. Simply run the following commands on your terminal:
 
 .. code-block:: bash
@@ -111,11 +109,9 @@ look like the following:
 
    Kiel diagram of the 16 Cyg A fit using global asteroseismic quantities.
 
-This figure is **only** a visual aid to understand the results, as it depicts the position of the found median and best
-fit model within the grid. It also highlights in different colours which parts of the grid agree within the
+This figure is **only** a visual aid to understand the results, as it depicts the position of the found median and best fit model within the grid. It also highlights in different colours which parts of the grid agree within the
 uncertainties of the inputted ``fitparams``. Note that the number of tracks plotted are selected to lie within the 16
-and 84 percentiles mass and metallicity output of the solution, and are **not** the only tracks present in the grid nor
-the only tracks used for the likelihood calculation.
+and 84 percentiles mass and metallicity output of the solution, and are **not** the only tracks present in the grid nor the only tracks used for the likelihood calculation.
 
 Finally, a corner plot of the parameters included in ``cornerplots`` is also part of the output:
 
@@ -124,7 +120,8 @@ Finally, a corner plot of the parameters included in ``cornerplots`` is also par
 
    Corner plot of the 16 Cyg A fit using global asteroseismic quantities.
 
-Note that the distributions are spiky, a reflection of the resolution of the grid. If you consider this to be an issue
-for your purposes, don't forget to check our section on :ref:`example_interp`.
+Please note that you might get distributions and numbers with tiny variations compared to what is shown above. This is because BASTA is using using a random sampling scheme to obtain the posterior distibutions. If you want to get exactly the same as in the reference examples, add ``--seed 42`` to ``BASTArun``
+
+Finally it should be noted that the distributions are spiky, which are a reflection of the resolution of the grid (and the small uncertainties on asteroseismic parameters). If you consider this to be an issue for your purposes, don't forget to check our section on :ref:`example_interp`.
 
 **Congratulations! You just completed your first fit using BASTA. Easy-peasy, right?**
