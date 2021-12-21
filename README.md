@@ -1,15 +1,17 @@
 # BASTA: BAyesian STellar Algorithm
 
 [![Code style: black](https://img.shields.io/badge/code%20style-black-000000.svg)](https://github.com/psf/black)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+[![License: MIT](https://img.shields.io/badge/license-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Documentation Status](https://readthedocs.org/projects/basta/badge/?version=latest)](https://basta.readthedocs.io/en/latest/?badge=latest)
 [![arXiv](https://img.shields.io/badge/arXiv-2109.14622-b31b1b.svg)](https://arxiv.org/abs/2109.14622)
+[![ADS](https://img.shields.io/badge/ads-2022MNRAS.509.4344A-blue.svg)](https://ui.adsabs.harvard.edu/abs/2022MNRAS.509.4344A/abstract)
+[![DOI](https://img.shields.io/badge/doi-10.1093/mnras/stab2911-orange.svg)](https://doi.org/10.1093/mnras/stab2911)
 
 Current stable version: v1.1.1
 
 **Important note:** BASTA is developed for Python 3.9, but Python >= 3.7 should work as well.
 
-
+https://ui.adsabs.harvard.edu/link_gateway/2022MNRAS.509.4344A/doi:10.1093/mnras/stab2911
 ## Before you begin
 
 *Please follow the repository here on GitHub to get notifications on new
@@ -34,10 +36,10 @@ There are two papers containing the rationale, main features, and capabilities
 of the code:
 
 * [The BASTA paper I](https://ui.adsabs.harvard.edu/abs/2015MNRAS.452.2127S/abstract).
-* [The BASTA paper II](https://arxiv.org/abs/2109.14622).
+* [The BASTA paper II](https://ui.adsabs.harvard.edu/abs/2022MNRAS.509.4344A/abstract).
 
-Please consider citing these references if you use BASTA in your work, and
-include the link to the code's repository `https://github.com/BASTAcode/BASTA`.
+Please cite these references if you use BASTA in your work, and include the link
+to the code's repository `https://github.com/BASTAcode/BASTA`.
 
 Due to its versatility, BASTA is used in a large variety of studies requiring
 robust determination of fundamental stellar properties. We have compiled a
