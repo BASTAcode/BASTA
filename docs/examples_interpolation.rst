@@ -33,10 +33,10 @@ Before running the interpolation, we always recommend to check what the original
     define_input["limits"] = {
         "Teff": {"abstol": 150},
         "FeH": {"abstol": 0.2},
-        "dnufit": {"abstol": 10},
+        "dnufit": {"abstol": 8},
     }
 
-Here we have defined the region of the grid where the interpolation will be carried out. In this case we select models within 150 K in effective temperature, 0.2 dex in [Fe/H], and 10 :math:`\mu \mathrm{Hz}` in large frequency separation of the observed values of 16 Cyg. We also define that the ranges are applied ``bystar``, which is not strictly relevant here as we are only fitting one star, but it is important if more than one target is interpolated at the same time. In that case ``bystar`` produces one interpolated grid per target using the limits defined in ``["limits"]`` for each target, while the ``encompass`` option produces one larger interpolated grid encompassing all targets in the list within the limits set in ``["limits"]``.
+Here we have defined the region of the grid where the interpolation will be carried out. In this case we select models within 150 K in effective temperature, 0.2 dex in [Fe/H], and 8 :math:`\mu \mathrm{Hz}` in large frequency separation of the observed values of 16 Cyg. We also define that the ranges are applied ``bystar``, which is not strictly relevant here as we are only fitting one star, but it is important if more than one target is interpolated at the same time. In that case ``bystar`` produces one interpolated grid per target using the limits defined in ``["limits"]`` for each target, while the ``encompass`` option produces one larger interpolated grid encompassing all targets in the list within the limits set in ``["limits"]``.
 
 The next blocks define the desired resolution along and across tracks/isochrones:
 
@@ -46,15 +46,15 @@ The next blocks define the desired resolution along and across tracks/isochrones
     along_interpolation = True
     if along_interpolation:
         define_along["resolution"] = {
-            "freqs": 1.0,
+            "freqs": 0.5,
         }
         define_along["figurename"] = os.path.join(
             outpath, "interp_preview_along_resolution.pdf"
         )
 
-The parameters in ``["resolution"]`` define the resolution `along` a given track. In this case we set a value of 1.0
+The parameters in ``["resolution"]`` define the resolution `along` a given track. In this case we set a value of 0.5
 :math:`\mu \mathrm{Hz}` in the individual oscillation frequencies, and what BASTA does is interpolating along a track
-such that the lowest observed l=0 mode has the required resolution of 1.0 :math:`\mu \mathrm{Hz}`. All other modes are interpolated accordingly.
+such that the lowest observed l=0 mode has the required resolution of 0.5 :math:`\mu \mathrm{Hz}`. All other modes are interpolated accordingly.
 
 Finally, we define the settings for the interpolation `across/between` tracks:
 
@@ -63,14 +63,14 @@ Finally, we define the settings for the interpolation `across/between` tracks:
     across_interpolation = True
     if across_interpolation:
         define_across["resolution"] = {
-            "scale": 5
+            "scale": 6
         }
         define_across["figurename"] = os.path.join(
             outpath, "interp_preview_across_resolution.pdf"
         )
 
 Since the input grid we are using has been constructed using Sobol sampling, we define a ``scale`` parameter of 5 in
-``["resolution"]``, which increases the number of tracks with respect to the original by a factor of 5. The following figures shows the new sampling, and compares the desired resolution to the `current` distributions of parameter values in the grid:
+``["resolution"]``, which increases the number of tracks with respect to the original by a factor of 6. The following figures shows the new sampling, and compares the desired resolution to the `current` distributions of parameter values in the grid:
 
 .. figure:: ../examples/reference/preview_interp_MS/16CygA_interp_preview_across_resolution.pdf
    :alt: Distribution in mass and metallicity of the current grid and desired interpolated grid.
