@@ -358,7 +358,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         define_intpol["intpolparams"]["limits"] = {
             "Teff": {"abstol": 150},
             "FeH": {"abstol": 0.2},
-            "dnufit": {"abstol": 10},
+            "dnufit": {"abstol": 8},
         }
 
         # The method for interpolation. Possible options:
@@ -401,7 +401,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         #                          content "xcen".
         #                * isochrones: Using final mass "massfin" is recommended.
         define_intpol["intpolparams"]["gridresolution"] = {
-            "scale": 5,
+            "scale": 6,
             "baseparam": "rhocen",
         }
 
@@ -421,7 +421,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         #                * isochrones: Using final mass "massfin" is recommended.
         define_intpol["intpolparams"]["trackresolution"] = {
             "param": "freqs",
-            "value": 1.0,
+            "value": 0.5,
             "baseparam": "rhocen",
         }
         # END OF INTERPOLATION
