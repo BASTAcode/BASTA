@@ -24,14 +24,15 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # ==================================================================================
     # Name of the XML input file to produce
     # --> Use as input: BASTArun input-example.xml
-    xmlfilename = "input_glitches.xml"
+    xmlfilename = "input_json.xml"
 
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
+    # --> If you need the location of BASTA, it is in BASTADIR
     define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = os.path.join(BASTADIR, "examples", "output/glitches")
+    define_io["outputpath"] = os.path.join(BASTADIR, "examples", "output/json")
 
     # BASTA is designed to fit multiple stars in the same run. To generate the input
     # file, a table in plain ascii with the observed stellar parameters must be
@@ -111,7 +112,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     (dnu). The one provided must match the one you add to fitting parameters in
     #     the next block. If present in the grid, "dnufit" is the most reliable one.
     #     The full list is available in REMEMBER TO ADD LINK !
-    define_fit["fitparams"] = ("Teff", "FeH", "glitches")
+    define_fit["fitparams"] = ("Teff", "FeH", "dnufit", "numax")
 
     # ------------------------------------------------------------
     # BLOCK 2a: Fitting control, priors
@@ -224,12 +225,11 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # Example of typical settings for a frequency fit (with default seismic weights):
     # define_fit["freqparams"] = {
-    define_fit["freqparams"] = {
-        "freqpath": os.path.join(BASTADIR, "examples/data/freqs"),
-        "fcor": "BG14",
-        "correlations": False,
-        "dnufrac": 0.15,
-    }
+    #     "freqpath": "data/freqs",
+    #     "fcor": "BG14",
+    #     "correlations": False,
+    #     "dnufrac": 0.15,
+    # }
 
     # An example of manually forcing the weights with "N", and an example of using "dof"
     # define_fit["freqparams"] = {
@@ -279,7 +279,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # A dump of the statistics (chi2, logPDF) for all models in the grids can be saved
     # to a .json file. One file is produced per star.
-    define_output["optionaloutputs"] = False
+    define_output["optionaloutputs"] = True
 
     # BASTA is designed to work with the median and corresponding Bayesian credibility
     # intervals or quantiles (16th and 84th percentile). Thus, by default BASTA will
@@ -317,7 +317,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # individual frequencies (as ratios can take a while to compute)
     # --> All possible options: ("echelle", "dupechelle", "pairechelle", "ratios",
     #                            True, False)
-    define_plots["freqplots"] = "echelle"
+    define_plots["freqplots"] = False
 
     # By default BASTA will save plots in png format, as they are much faster to
     # produce. This can be changed to pdf to obtain higher quality plots at the cost of

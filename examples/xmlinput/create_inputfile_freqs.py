@@ -66,6 +66,8 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         "Teff_err",
         "FeH",
         "FeH_err",
+        "logg",
+        "logg_err",
     )
 
     # Special option: Change the assumed delimiter for the ascii table

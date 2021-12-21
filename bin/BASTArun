@@ -44,7 +44,7 @@ def main():
     parser.add_argument(
         "--seed",
         type=int,
-        help="Set random seed to ensure " + "deterministic behavior for debugging",
+        help="Set random seed to ensure deterministic behavior for debugging",
     )
 
     # Parse the arguments
