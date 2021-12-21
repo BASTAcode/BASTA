@@ -11,7 +11,7 @@ Current stable version: v1.1.2
 
 **Important note:** BASTA is developed for Python 3.9, but Python >= 3.7 should work as well.
 
-https://ui.adsabs.harvard.edu/link_gateway/2022MNRAS.509.4344A/doi:10.1093/mnras/stab2911
+
 ## Before you begin
 
 *Please follow the repository here on GitHub to get notifications on new
