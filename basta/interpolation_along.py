@@ -433,8 +433,10 @@ def _interpolate_along(
 
                 # Bayesian weight along track
                 par = "massfin" if dname == "dmass" else "age"
-                parpath = os.path.join(libname, par)
-                keypath = os.path.join(libname, dname)
+                parpath = os.path.join(libitem.name, par)
+                keypath = os.path.join(libitem.name, dname)
+                if overwrite:
+                    del outfile[keypath]
                 outfile[keypath] = ih.bay_weights(outfile[parpath])
 
                 #
