@@ -572,20 +572,25 @@ def BASTA(
                     # then [0, 0] is the lowest l=0 mode
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     cl0 = modl0[0, same_n]
-                    if len(cl0) > 1:
+                    if len(cl0) >= 1:
                         cl0 = cl0[0]
 
                     # Note to self: This code is pretty hard to read...
-                    if (
-                        cl0
-                        >= (
-                            obs[0, 0]
-                            - min(
-                                (dnufrac / 2 * inputparams["dnufit"]), (3 * obs[1, 0])
+                    if "freqs" in rt:
+                        if (
+                            cl0
+                            >= (
+                                obs[0, 0]
+                                - min(
+                                    (dnufrac / 2 * inputparams["dnufit"]),
+                                    (3 * obs[1, 0]),
+                                )
                             )
-                        )
-                    ) and (cl0 - obs[0, 0]) <= (dnufrac * inputparams["dnufit"]):
-                        indexf[ind] = True
+                        ) and (cl0 - obs[0, 0]) <= (dnufrac * inputparams["dnufit"]):
+                            indexf[ind] = True
+                    else:
+                        if abs(cl0 - obs[0, 0]) <= dnufrac * inputparams["dnufit"]:
+                            indexf[ind] = True
                 index &= indexf
 
             # If any models are within tolerances, calculate statistics
