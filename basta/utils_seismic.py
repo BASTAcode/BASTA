@@ -98,6 +98,10 @@ def specific_ratio(frq, rtype="r012"):
 
     Returns
     -------
+    norder : array
+        Radial order values
+    frequency : array
+        Frequency values (in muHz)
     ratio : array
         Ratio values
     """
@@ -113,27 +117,33 @@ def specific_ratio(frq, rtype="r012"):
 
     # Return the ratio type of "rtype"
     if rtype == "r01":
-        ratio = np.zeros(r01.shape[0])
+        norder = r01[:, 0]
+        frequency = r01[:, 3]
         ratio = r01[:, 1]
     elif rtype == "r10":
-        ratio = np.zeros(r10.shape[0])
+        norder = r10[:, 0]
+        frequency = r10[:, 3]
         ratio = r10[:, 1]
     elif rtype == "r02":
-        ratio = np.zeros(r02.shape[0])
+        norder = r02[:, 0]
+        frequency = r02[:, 3]
         ratio = r02[:, 1]
     elif rtype == "r010":
-        ratio = np.zeros(r010.shape[0])
+        norder = r010[:, 0]
+        frequency = r010[:, 3]
         ratio = r010[:, 1]
     elif rtype == "r012":
-        ratio = np.zeros(r012.shape[0])
+        norder = r012[:, 0]
+        frequency = r012[:, 3]
         ratio = r012[:, 1]
     elif rtype == "r102":
-        ratio = np.zeros(r102.shape[0])
+        norder = r102[:, 0]
+        frequency = r102[:, 3]
         ratio = r102[:, 1]
     else:
-        raise ValueError("ERROR: Unrecognized ratio-type %s!" % (rtype))
+        raise ValueError("Unrecognized ratio-type %s!" % (rtype))
 
-    return ratio
+    return (norder, frequency, ratio)
 
 
 def glitch_and_ratio(

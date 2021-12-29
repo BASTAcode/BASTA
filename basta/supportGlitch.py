@@ -136,7 +136,7 @@ def fit(
         param[-1, :] = tmp
         # --> Ratios
         if rtype is not None:
-            tmp = su.specific_ratio(freq, rtype=rtype)
+            _, _, tmp = su.specific_ratio(freq, rtype=rtype)
             ratio = np.zeros((n_rln + 1, len(tmp)), dtype=float)
             ratio[-1, :] = tmp
         else:
@@ -162,7 +162,7 @@ def fit(
                 )
                 # --> Ratios
                 if rtype is not None:
-                    ratio[i, :] = su.specific_ratio(freq_rln, rtype=rtype)
+                    _, _, ratio[i, :] = su.specific_ratio(freq_rln, rtype=rtype)
 
     # Fit second differences
     elif method.lower() == "sd":
@@ -187,7 +187,7 @@ def fit(
         param[-1, :] = tmp
         # --> Ratios
         if rtype is not None:
-            tmp = su.specific_ratio(freq, rtype=rtype)
+            _, _, tmp = su.specific_ratio(freq, rtype=rtype)
             ratio = np.zeros((n_rln + 1, len(tmp)), dtype=float)
             ratio[-1, :] = tmp
         else:
@@ -214,7 +214,7 @@ def fit(
                 )
                 # --> Ratios
                 if rtype is not None:
-                    ratio[i, :] = su.specific_ratio(freq_rln, rtype=rtype)
+                    _, _, ratio[i, :] = su.specific_ratio(freq_rln, rtype=rtype)
 
     else:
         raise ValueError("Unrecognized fitting method %s!" % (method))
