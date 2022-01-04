@@ -269,11 +269,10 @@ def interpolate_grid(
     # Nicknames for resolution in frequency
     freqres = ["freq", "freqs", "frequency", "frequencies", "osc"]
     intpol_freqs = False
-    dname = "dage" if "grid" in basepath else "dmass"
 
     # Check that necessary parameters are in intpolparams
     # First is standard for tracks/isochrones, mostly for Kiel-diagram
-    intpolparams += [dname, "Teff", "logg", "massini", "age", "FeH"]
+    intpolparams += ["Teff", "logg", "massini", "age", "FeH"]
     if "freqs" in intpolparams:
         intpolparams.remove("freqs")
         intpolparams += ["tau0", "tauhe", "taubcz", "dnufit"]

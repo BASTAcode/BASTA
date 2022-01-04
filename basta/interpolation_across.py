@@ -461,8 +461,6 @@ def _interpolate_across(
                     outfile[keypath] = 1.0
                 elif key == along_var:
                     outfile[keypath] = newbase[:, -1]
-                elif key == dname:
-                    outfile[keypath] = ih.bay_weights(newbase[:, -1])
                 elif "name" in key:
                     outfile[keypath] = len(newbase[:, -1]) * [b"interpolated-entry"]
                 elif ("osc" in key) or (key in const_vars):
@@ -539,6 +537,12 @@ def _interpolate_across(
                     outfile[keypath]
                 except:
                     outfile[keypath] = np.ones(len(newbase[:, -1])) * const_vars[par]
+
+            # Bayesian weight along track
+            par = "massfin" if dname == "dmass" else "age"
+            parpath = os.path.join(libname, par)
+            keypath = os.path.join(libname, dname)
+            outfile[keypath] = ih.bay_weights(outfile[parpath])
 
             if debug:
                 debugnum = str(int(newnum + tracknum)).zfill(numfmt)
