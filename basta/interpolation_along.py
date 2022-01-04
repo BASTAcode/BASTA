@@ -409,8 +409,6 @@ def _interpolate_along(
                     keypath = os.path.join(libitem.name, key)
                     if "_weight" in key:
                         newparam = libitem[key][()]
-                    elif key == dname:
-                        newparam = ih.bay_weights(intpolmesh)
                     elif "name" in key:
                         newparam = len(intpolmesh) * [b"interpolated-entry"]
                     elif "osc" in key:
@@ -432,6 +430,14 @@ def _interpolate_along(
                     # Storage for plotting the Kiel diagram
                     if key in ["Teff", "logg", "age", "massfin"]:
                         tmpparam[key] = newparam
+
+                # Bayesian weight along track
+                par = "massfin" if dname == "dmass" else "age"
+                parpath = os.path.join(libitem.name, par)
+                keypath = os.path.join(libitem.name, dname)
+                if overwrite:
+                    del outfile[keypath]
+                outfile[keypath] = ih.bay_weights(outfile[parpath])
 
                 #
                 # *** BLOCK 4: Interpolate in frequencies ***
