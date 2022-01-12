@@ -256,9 +256,9 @@ def add_out(hout, out, par, x, xm, xp, uncert):
     x : float
         Centroid value
     xm : float
-        Lower bound uncertainty, or symmetric unceartainty
+        Lower bound uncertainty, or symmetric uncertainty
     xp : float, None
-        Upper bound uncertainty, if not symmetric
+        Upper bound uncertainty if not symmetric uncertainty (None for symmetric)
     uncert : str
         Type of reported uncertainty, "quantiles" or "std"
 
@@ -270,7 +270,7 @@ def add_out(hout, out, par, x, xm, xp, uncert):
         Parameter list with added entries
     """
     if uncert == "quantiles":
-        hout += [par, par + "_errm", par + "_errp"]
+        hout += [par, par + "_errp", par + "_errm"]
         out += [x, xp - x, x - xm]
     else:
         hout += [par, par + "_err"]
@@ -358,8 +358,8 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
     print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
     if uncert == "quantiles":
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
         print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
+        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
     else:
         print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
     print("-----------------------------------------------------")
