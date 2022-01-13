@@ -233,8 +233,10 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         "nrealizations": 10000,
         "dnufit_in_ratios": False,
         "method": "FQ",
-        "atol": 1e-3,
+        "npoly_params": 5,
+        "nderiv": 3,
         "lamda": 7.0,
+        "atol": 1e-3,
         "nguesses": 200,
     }
 

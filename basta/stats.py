@@ -73,6 +73,8 @@ def chi2_astero(
     vmin=None,
     vmax=None,
     icov_sd=None,
+    npoly_params=5,
+    nderiv=3,
     tol_grad=1e-3,
     regu_param=7.0,
     n_guess=200,
@@ -137,6 +139,12 @@ def chi2_astero(
     icov_sd : array
         Inverse covariance matrix for second differences
         used only for method='SD'
+    npoly_params : int
+        Number of parameters in the smooth component (5 and 3 generally work well for 'FQ'
+        and 'SD', respectively)
+    nderiv : int
+        Order of derivative used in the regularization (3 and 1 generally work well for
+        'FQ' and 'SD', respectively)
     tol_grad : float
         tolerance on gradients (typically between 1e-2 and 1e-5 depending on quality
         of data and 'method' used)
@@ -330,6 +338,8 @@ def chi2_astero(
                     icov=icov_sd,
                     method=method,
                     n_rln=0,
+                    npoly_params=npoly_params,
+                    nderiv=nderiv,
                     tol_grad=tol_grad,
                     regu_param=regu_param,
                     n_guess=n_guess,
@@ -378,6 +388,8 @@ def chi2_astero(
                     icov=icov_sd,
                     method=method,
                     n_rln=0,
+                    npoly_params=npoly_params,
+                    nderiv=nderiv,
                     tol_grad=tol_grad,
                     regu_param=regu_param,
                     n_guess=n_guess,
@@ -426,6 +438,8 @@ def chi2_astero(
                     icov=icov_sd,
                     method=method,
                     n_rln=0,
+                    npoly_params=npoly_params,
+                    nderiv=nderiv,
                     tol_grad=tol_grad,
                     regu_param=regu_param,
                     n_guess=n_guess,
@@ -474,6 +488,8 @@ def chi2_astero(
                     icov=icov_sd,
                     method=method,
                     n_rln=0,
+                    npoly_params=npoly_params,
+                    nderiv=nderiv,
                     tol_grad=tol_grad,
                     regu_param=regu_param,
                     n_guess=n_guess,
@@ -522,6 +538,8 @@ def chi2_astero(
                     icov=icov_sd,
                     method=method,
                     n_rln=0,
+                    npoly_params=npoly_params,
+                    nderiv=nderiv,
                     tol_grad=tol_grad,
                     regu_param=regu_param,
                     n_guess=n_guess,
@@ -570,6 +588,8 @@ def chi2_astero(
                     icov=icov_sd,
                     method=method,
                     n_rln=0,
+                    npoly_params=npoly_params,
+                    nderiv=nderiv,
                     tol_grad=tol_grad,
                     regu_param=regu_param,
                     n_guess=n_guess,
@@ -619,6 +639,8 @@ def chi2_astero(
                     icov=icov_sd,
                     method=method,
                     n_rln=0,
+                    npoly_params=npoly_params,
+                    nderiv=nderiv,
                     tol_grad=tol_grad,
                     regu_param=regu_param,
                     n_guess=n_guess,

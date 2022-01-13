@@ -6,7 +6,7 @@
 !     AUTHOR NAME     : KULDEEP VERMA
 !     EMAIL ADDRESSES : verma@ice.csic.es, kuldeep@phys.au.dk,
 !                       kuldeepv89@gmail.com
-!     LAST MODIFIED   : 17/11/2021
+!     LAST MODIFIED   : 12/01/2022
 !
 !*******************************************************************************
 !
@@ -38,6 +38,7 @@
       k = 0
       l = 0
       DO i = 1, num_of_l
+        IF (num_of_n(i) .EQ. 0) CYCLE
         DO j = 1, num_of_n(i)-2
           k = k + 1
           l = l + 1

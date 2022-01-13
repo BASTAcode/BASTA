@@ -406,32 +406,26 @@ def HK08(joinkeys, join, nuref, bcor):
     """
     # Unpacking for readability
     # If we do not have many modes but many mixed modes: only use l=0
-    _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
+    joinkeysl0, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
     f_modell0 = joinl0[0, :]
-    e_modell0 = joinl0[1, :]
+    n_modell0 = joinkeysl0[1, :]
     f_obsl0 = joinl0[2, :]
-
-    f_model = join[0, :]
-    e_model = join[1, :]
-    f_obs = join[2, :]
-    e_obs = join[3, :]
-
-    # Interpolate inertia to l=0 inertia at same frequency
-    interp_inertia = np.interp(f_model, f_modell0, e_modell0)
-
-    # Calculate Q's
-    q_nl = e_model / interp_inertia
+    n_obsl0 = joinkeysl0[2, :]
 
     # Compute quantities used in the Kjelden et al. 2008 paper
-    dnuavD = np.mean(np.diff(f_obsl0))
-    dnuavM = np.mean(np.diff(f_modell0))
-
-    rpar = (bcor - 1) / (bcor * (np.mean(f_model) / np.mean(f_obs)) - dnuavM / dnuavD)
-    acor = (
-        len(f_obs)
-        * (np.mean(f_obs) - rpar * np.mean(f_model))
-        / np.sum(((f_obs / nuref) ** bcor) / q_nl)
+    avg_f_obsl0 = np.mean(f_obsl0)
+    avg_n_obsl0 = np.mean(n_obsl0)
+    avg_f_modell0 = np.mean(f_modell0)
+    avg_n_modell0 = np.mean(n_modell0)
+    dnuavD = np.sum((f_obsl0 - avg_f_obsl0) * (n_obsl0 - avg_n_obsl0)) / np.sum(
+        (n_obsl0 - avg_n_obsl0) ** 2
     )
+    dnuavM = np.sum((f_modell0 - avg_f_modell0) * (n_modell0 - avg_n_modell0)) / np.sum(
+        (n_modell0 - avg_n_modell0) ** 2
+    )
+
+    rpar = (bcor - 1) / (bcor * avg_f_modell0 / avg_f_obsl0 - dnuavM / dnuavD)
+    acor = (avg_f_obsl0 - rpar * avg_f_modell0) / np.mean((f_obsl0 / nuref) ** bcor)
     coeffs = [rpar, acor, bcor]
 
     # Apply the frequency correction
@@ -477,8 +471,8 @@ def apply_HK08(modkey, mod, coeffs, scalnu):
     # Calculate Q's
     q_nl = e_model / interp_inertia
 
-    corosc = (f_model / coeffs[0]) + (coeffs[1] / (coeffs[0] * q_nl)) * (
-        (f_model / scalnu) ** coeffs[2]
+    corosc = (
+        f_model + (coeffs[1] / (coeffs[0] * q_nl)) * (f_model / scalnu) ** coeffs[2]
     )
     return corosc
 

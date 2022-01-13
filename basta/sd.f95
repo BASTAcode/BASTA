@@ -6,7 +6,7 @@
 !     AUTHOR NAME     : KULDEEP VERMA
 !     EMAIL ADDRESSES : verma@ice.csic.es, kuldeep@phys.au.dk,
 !                       kuldeepv89@gmail.com
-!     LAST MODIFIED   : 17/11/2021
+!     LAST MODIFIED   : 12/01/2022
 !
 !*******************************************************************************
 !
@@ -36,6 +36,7 @@
       !Check for missing radial order
       k = 0
       DO i = 1, num_of_l
+        IF (num_of_n(i) .EQ. 0) CYCLE
         k = k + num_of_n(i)
         j = NINT(freq(k,2) - freq(k-num_of_n(i)+1,2) + 1)
         IF (j .NE. num_of_n(i)) THEN
@@ -50,6 +51,7 @@
       k = 0       !run over # of modes
       l = 0       !run over # of second differences
       DO i = 1, num_of_l
+        IF (num_of_n(i) .EQ. 0) CYCLE
         DO j = 1, num_of_n(i)
           IF (j .EQ. 1 .OR. j .EQ. num_of_n(i)) THEN
             k = k + 1

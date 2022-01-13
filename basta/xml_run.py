@@ -503,6 +503,12 @@ def run_xml(
         )
         inputparams["dnufit_in_ratios"] = dnufit_in_ratios
         inputparams["method"] = method
+        npoly_params = int(
+            _find_get(root, "default/glhrtoparams/npoly_params", "value")
+        )
+        inputparams["npoly_params"] = npoly_params
+        nderiv = int(_find_get(root, "default/glhrtoparams/nderiv", "value"))
+        inputparams["nderiv"] = nderiv
         atol = float(_find_get(root, "default/glhrtoparams/atol", "value"))
         inputparams["atol"] = atol
         lamda = float(_find_get(root, "default/glhrtoparams/lamda", "value"))

@@ -2,7 +2,6 @@
 Auxiliary functions for glitch fitting
 """
 import numpy as np
-import sys
 from basta.sd import sd
 from basta.icov_sd import icov_sd
 from basta.glitch_fq import fit_fq
@@ -21,6 +20,8 @@ def fit(
     icov=None,
     method="FQ",
     n_rln=1000,
+    npoly_params=5,
+    nderiv=3,
     tol_grad=1e-3,
     regu_param=7.0,
     n_guess=200,
@@ -54,6 +55,12 @@ def fit(
         Fitting method ('FQ' or 'SD')
     n_rln : int
         Number of realizations. If n_rln = 0, just fit the original frequencies/differences
+    npoly_params : int
+        Number of parameters in the smooth component (5 and 3 generally work well for 'FQ'
+        and 'SD', respectively)
+    nderiv : int
+        Order of derivative used in the regularization (3 and 1 generally work well for
+        'FQ' and 'SD', respectively)
     tol_grad : float
         tolerance on gradients (typically between 1e-2 and 1e-5 depending on quality
         of data and 'method' used)
@@ -65,7 +72,7 @@ def fit(
     tauhe : float, optional
         Determines the range in acoustic depth (s) of He glitch for global minimum
         search (tauhe - dtauhe, tauhe + dtauhe).
-        If tauhe = None, tauhe = 0.16 * acousticRadius + 48
+        If tauhe = None, tauhe = 0.17 * acousticRadius + 18
     dtauhe : float, optional
         Determines the range in acoustic depth (s) of He glitch for global minimum
         search (tauhe - dtauhe, tauhe + dtauhe).
@@ -73,7 +80,7 @@ def fit(
     taucz : float, optional
         Determines the range in acoustic depth (s) of CZ glitch for global minimum
         search (taucz - dtaucz, taucz + dtaucz).
-        If taucz = None, taucz = 0.37 * acousticRadius + 900
+        If taucz = None, taucz = 0.34 * acousticRadius + 929
     dtaucz : float, optional
         Determines the range in acoustic depth (s) of CZ glitch for global minimum
         search (taucz - dtaucz, taucz + dtaucz).
@@ -102,11 +109,11 @@ def fit(
     # Initialize acoutic depths (if they are None)
     acousticRadius = 5.0e5 / delta_nu
     if tauhe is None:
-        tauhe = 0.16 * acousticRadius + 48.0
+        tauhe = 0.17 * acousticRadius + 18.0
     if dtauhe is None:
         dtauhe = 0.05 * acousticRadius
     if taucz is None:
-        taucz = 0.37 * acousticRadius + 900.0
+        taucz = 0.34 * acousticRadius + 929.0
     if dtaucz is None:
         dtaucz = 0.10 * acousticRadius
 
@@ -118,6 +125,9 @@ def fit(
     # Fit oscillation frequencies
     if method.lower() == "fq":
 
+        # Total number of fitting parameters
+        nparams = len(num_of_n[num_of_n > 0]) * npoly_params + 7
+
         # Fit original data
         # --> Glitches
         tmp, chi2[-1], reg[-1], ier[-1] = fit_fq(
@@ -128,6 +138,9 @@ def fit(
             dtauhe,
             taucz,
             dtaucz,
+            npoly_fq=npoly_params,
+            total_num_of_param_fq=nparams,
+            nderiv_fq=nderiv,
             tol_grad_fq=tol_grad,
             regu_param_fq=regu_param,
             num_guess=n_guess,
@@ -156,6 +169,9 @@ def fit(
                     dtauhe,
                     taucz,
                     dtaucz,
+                    npoly_fq=npoly_params,
+                    total_num_of_param_fq=nparams,
+                    nderiv_fq=nderiv,
                     tol_grad_fq=tol_grad,
                     regu_param_fq=regu_param,
                     num_guess=n_guess,
@@ -169,6 +185,9 @@ def fit(
         if not all(x is not None for x in [num_of_dif2, freqDif2, icov]):
             raise ValueError("num_of_dif2, freqDif2, icov cannot be None for SD!")
 
+        # Total number of fitting parameters
+        nparams = npoly_params + 7
+
         # Fit original data
         # --> Glitches
         tmp, chi2[-1], reg[-1], ier[-1] = fit_sd(
@@ -179,6 +198,9 @@ def fit(
             dtauhe,
             taucz,
             dtaucz,
+            npoly_sd=npoly_params,
+            total_num_of_param_sd=nparams,
+            nderiv_sd=nderiv,
             tol_grad_sd=tol_grad,
             regu_param_sd=regu_param,
             num_guess=n_guess,
@@ -208,6 +230,9 @@ def fit(
                     dtauhe,
                     taucz,
                     dtaucz,
+                    npoly_sd=npoly_params,
+                    total_num_of_param_sd=nparams,
+                    nderiv_sd=nderiv,
                     tol_grad_sd=tol_grad,
                     regu_param_sd=regu_param,
                     num_guess=n_guess,
@@ -250,7 +275,7 @@ def compDif2(num_of_l, freq, num_of_mode, num_of_n):
     # -----------------------------------------------------------------------------------------
 
     # Compute second differences of oscillation frequencies
-    num_of_dif2 = num_of_mode - 2 * num_of_l
+    num_of_dif2 = num_of_mode - 2 * len(num_of_n[num_of_n > 0])
     freqDif2 = sd(freq, num_of_n, num_of_dif2)
 
     # Compute inverse covariance matrix for second differences
@@ -337,7 +362,9 @@ def totalGlitchSignal(nu, param):
 
 
 # -----------------------------------------------------------------------------------------
-def smoothComponent(param, nu=None, l=None, n=None, num_of_l=None, method="FQ"):
+def smoothComponent(
+    param, l=None, n=None, nu=None, num_of_n=None, npoly_params=None, method="FQ"
+):
     """
     Compute smooth component for frequency/second-difference fit
 
@@ -345,18 +372,20 @@ def smoothComponent(param, nu=None, l=None, n=None, num_of_l=None, method="FQ"):
     ----------
     param : array
         Fitted Parameters
-    nu : float
-        Frequency of the mode (muHz)
-        used only for method='SD'
     l : int
         Harmonic degree of the mode
         used only for method='FQ'
     n : int
         Radial order of the mode
         used only for method='FQ'
-    num_of_l : int
-        Number of harmonic degree used in the fit
+    nu : float
+        Frequency of the mode (muHz)
+        used only for method='SD'
+    num_of_n : array of int
+        Number of modes for each l
         used only for method='FQ'
+    npoly_params : int
+        Number of parameters in the smooth component
     method : str
         Fitting method ('FQ' or 'SD')
 
@@ -372,21 +401,20 @@ def smoothComponent(param, nu=None, l=None, n=None, num_of_l=None, method="FQ"):
 
     # Smooth component for frequency fit
     if method.lower() == "fq":
-        if not all(x is not None for x in [l, n, num_of_l]):
-            raise ValueError("l, n, num_of_l cannot be None for FQ!")
+        if not all(x is not None for x in [l, n, num_of_n, npoly_params]):
+            raise ValueError("l, n, num_of_n, npoly_params cannot be None for FQ!")
 
-        npoly = (len(param) - 7) // num_of_l
-        n0 = npoly * l
-        for i in range(npoly - 1, -1, -1):
+        ntmp = num_of_n[0 : l + 1]
+        n0 = npoly_params * (len(ntmp[ntmp > 0]) - 1)
+        for i in range(npoly_params - 1, -1, -1):
             smooth = smooth * n + param[n0 + i]
 
     # Smooth component for frequency fit
     elif method.lower() == "sd":
-        if nu is None:
-            raise ValueError("nu cannot be None for SD!")
+        if not all(x is not None for x in [nu, npoly_params]):
+            raise ValueError("nu, npoly_params cannot be None for SD!")
 
-        npoly = len(param) - 7
-        for i in range(npoly - 1, -1, -1):
+        for i in range(npoly_params - 1, -1, -1):
             smooth = smooth * nu + param[i]
 
     else:
@@ -448,32 +476,3 @@ def averageAmplitudes(param, vmin, vmax, delta_nu=None, method="FQ"):
         Ahe /= (2.0 * np.sin(2.0 * np.pi * delta_nu * 1.0e-6 * param[n0 + 5])) ** 2
 
     return Acz, Ahe
-
-
-# -----------------------------------------------------------------------------------------
-def medianAndErrors(param_rln):
-    """
-    Compute the median and (negative and positive) uncertainties from the realizations
-
-    Parameters
-    ----------
-    param_rln : array
-        Parameter values for different realizations
-
-    Return
-    ------
-    med : float
-        Median value
-    nerr : float
-        Negative error
-    perr : float
-        Positive error
-    """
-    # -----------------------------------------------------------------------------------------
-
-    per16 = np.percentile(param_rln, 16)
-    per50 = np.percentile(param_rln, 50)
-    per84 = np.percentile(param_rln, 84)
-    med, nerr, perr = per50, per50 - per16, per84 - per50
-
-    return med, nerr, perr

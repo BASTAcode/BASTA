@@ -157,6 +157,8 @@ def glitch_and_ratio(
     icov_sd=None,
     nrealizations=10000,
     method="FQ",
+    npoly_params=5,
+    nderiv=3,
     tol_grad=1e-3,
     regu_param=7.0,
     n_guess=200,
@@ -193,6 +195,12 @@ def glitch_and_ratio(
         Number of realizations used in covariance calculation
     method : str
         Fitting method ('FQ' or 'SD')
+    npoly_params : int
+        Number of parameters in the smooth component (5 and 3 generally work well for 'FQ'
+        and 'SD', respectively)
+    nderiv : int
+        Order of derivative used in the regularization (3 and 1 generally work well for
+        'FQ' and 'SD', respectively)
     tol_grad : float
         tolerance on gradients (typically between 1e-2 and 1e-5 depending on quality
         of data and 'method' used)
@@ -230,11 +238,11 @@ def glitch_and_ratio(
     if grtype in [*freqtypes.glitches, *freqtypes.grtypes]:
         acousticRadius = 5.0e5 / delta_nu
         if tauhe is None:
-            tauhe = 0.16 * acousticRadius + 48.0
+            tauhe = 0.17 * acousticRadius + 18.0
         if dtauhe is None:
             dtauhe = 0.05 * acousticRadius
         if taucz is None:
-            taucz = 0.37 * acousticRadius + 900.0
+            taucz = 0.34 * acousticRadius + 929.0
         if dtaucz is None:
             dtaucz = 0.10 * acousticRadius
 
@@ -256,6 +264,7 @@ def glitch_and_ratio(
                 print("%d realizations completed..." % (i))
 
             if method.lower() == "fq":
+                nparams = len(num_of_n) * npoly_params + 7
                 param, chi2, reg, ier = fit_fq(
                     perturb_frq,
                     num_of_n,
@@ -264,12 +273,16 @@ def glitch_and_ratio(
                     dtauhe,
                     taucz,
                     dtaucz,
+                    npoly_fq=npoly_params,
+                    total_num_of_param_fq=nparams,
+                    nderiv_fq=nderiv,
                     tol_grad_fq=tol_grad,
                     regu_param_fq=regu_param,
                     num_guess=n_guess,
                 )
             elif method.lower() == "sd":
                 frq_sd = sd(perturb_frq, num_of_n, icov_sd.shape[0])
+                nparams = npoly_params + 7
                 param, chi2, reg, ier = fit_sd(
                     frq_sd,
                     icov_sd,
@@ -278,6 +291,9 @@ def glitch_and_ratio(
                     dtauhe,
                     taucz,
                     dtaucz,
+                    npoly_sd=npoly_params,
+                    total_num_of_param_sd=nparams,
+                    nderiv_sd=nderiv,
                     tol_grad_sd=tol_grad,
                     regu_param_sd=regu_param,
                     num_guess=n_guess,
@@ -368,11 +384,6 @@ def glitch_and_ratio(
     med = np.zeros(ngr)
     for i in range(ngr):
         med[i] = np.median(rln_data[:, i])
-
-    # Write data to a hdf5 file
-    # with h5py.File("./16CygA.hdf5", "w") as f:
-    #    f.create_dataset("medg012", data=med)
-    #    f.create_dataset("covg012", data=cov)
 
     return med, cov
 

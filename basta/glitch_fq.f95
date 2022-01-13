@@ -7,7 +7,7 @@
 !     AUTHOR NAME     : KULDEEP VERMA
 !     EMAIL ADDRESSES : verma@ice.csic.es, kuldeep@phys.au.dk,
 !                       kuldeepv89@gmail.com
-!     LAST MODIFIED   : 16/12/2021
+!     LAST MODIFIED   : 12/01/2022
 !
 !*******************************************************************************
 !
@@ -76,12 +76,6 @@
 !f2py INTEGER :: nderiv_fq = 3, num_guess = 200
 !f2py REAL*8  :: tol_grad_fq = 1.e-3, regu_param_fq = 7.0
 
-
-      ! Check for inconsistencies in the input parameters
-      IF (total_num_of_param_fq .ne. npoly_fq * num_of_l + 7) THEN
-        WRITE(*,'(A50)') 'ERROR: inconsistent argument for glitch fit!'
-        STOP
-      ENDIF
 
       ! Set the seed for the random number generator
       CALL RANDOM_SEED(size=iseed)
@@ -188,6 +182,7 @@
       j = 0
       k = 0
       DO i = 1, num_of_l
+        IF (num_of_n(i) .EQ. 0) CYCLE
         CALL LLFIT(num_of_n(i),freq(j+1:j+num_of_n(i),2),&
              freq(j+1:j+num_of_n(i),3),freq(j+1:j+num_of_n(i),4),&
              tmp1,tmp2,dtmp1,dtmp2,chi2)
@@ -647,7 +642,12 @@
 
         ! Gradient
         factor = -2.d0 * (freq(i,3) - fit_func)/freq(i,4)**2
-        j0 = npoly_fq * l
+        j0 = 0
+        DO j = 1, l
+          IF (num_of_n(j) .GT. 0) THEN
+            j0 = j0 + npoly_fq
+          ENDIF
+        ENDDO
         DO j = 1, npoly_fq
           g(j0+j) = g(j0+j) + factor * freq(i,2)**(j-1)
         ENDDO
@@ -707,7 +707,12 @@
 
       ! Smooth term
       FIT_FUNC_FQ = 0.d0
-      i0 = npoly_fq * l
+      i0 = 0
+      DO i = 1, l
+        IF (num_of_n(i) .GT. 0) THEN
+          i0 = i0 + npoly_fq
+        ENDIF
+      ENDDO
       DO i = npoly_fq, 1, -1
         FIT_FUNC_FQ = FIT_FUNC_FQ * n + param(i0+i)
       ENDDO
@@ -754,7 +759,12 @@
       ENDIF
 
       ! Derivative
-      i0 = npoly_fq * l
+      i0 = 0
+      DO i = 1, l
+        IF (num_of_n(i) .GT. 0) THEN
+          i0 = i0 + npoly_fq
+        ENDIF
+      ENDDO
       DO i = npoly_fq-nderiv_fq, 1, -1
         tmp = 1.d0
         DO j = 1, nderiv_fq
