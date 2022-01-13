@@ -265,13 +265,20 @@ def chi2_astero(
     if "freqs" in tipo:
         # The frequency correction moved up before the ratios fitting!
         # --> If fitting frequencies, just add the already calculated things
-        x = corjoin[0, :] - corjoin[2, :]
-        w = _weight(len(corjoin[0, :]), seisw)
-        if x.shape[0] == covinv[2].shape[0]:
-            chi2rut += (x.T.dot(covinv[2]).dot(x)) / w
-        else:
-            shapewarn = True
-            chi2rut = np.inf
+
+        # NEW CODE. Temp removed for testing
+        # x = corjoin[0, :] - corjoin[2, :]
+        # w = _weight(len(corjoin[0, :]), seisw)
+        # if x.shape[0] == covinv[2].shape[0]:
+        #     chi2rut += (x.T.dot(covinv[2]).dot(x)) / w
+        # else:
+        #     shapewarn = True
+        #     chi2rut = np.inf
+
+        # OLD CODE. Re-introduced for testing
+        chi2rut += (
+            np.sum(((corjoin[0, :] - corjoin[2, :]) ** 2) / (corjoin[3, :] ** 2))
+        ) / len(corjoin[0, :])
 
         if ~np.isfinite(chi2rut):
             chi2rut = np.inf
