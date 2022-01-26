@@ -152,6 +152,10 @@ def chi2_astero(
     warnings : bool
         See 'warnings' above.
     """
+    # START DEBUG (first)
+    print("\n=== START DEBUG ===")
+    # END DEBUG
+
     # If more observed modes than model modes are in one bin, move on
     joins = freq_fit.calc_join(
         mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
@@ -267,11 +271,23 @@ def chi2_astero(
         # --> If fitting frequencies, just add the already calculated things
         x = corjoin[0, :] - corjoin[2, :]
         w = _weight(len(corjoin[0, :]), seisw)
+
+        # START DEBUG
+        print("DEBUG (stats/chi2_astero): x.shape[0] =", x.shape[0])
+        print("DEBUG (stats/chi2_astero): covinv[2].shape[0] =", covinv[2].shape[0])
+        # END DEBUG
+
         if x.shape[0] == covinv[2].shape[0]:
             chi2rut += (x.T.dot(covinv[2]).dot(x)) / w
         else:
             shapewarn = True
             chi2rut = np.inf
+
+        # START DEBUG
+        if shapewarn:
+            print("DEBUG (stats/chi2_astero): shapewarn =", shapewarn)
+        print("=== END DEBUG ===")
+        # END DEBUG (final)
 
         if ~np.isfinite(chi2rut):
             chi2rut = np.inf

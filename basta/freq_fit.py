@@ -251,6 +251,10 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
         obsintervals = make_intervals(osc=obs, osckey=obskey, dnu=dnu)
     modintervals = make_intervals(osc=mod, osckey=modkey)
 
+    # START DEBUG
+    # print("DEBUG (freq_fit/calc_join): len(obsintervals) = {0}, len(modintervals) = {1}".format(len(obsintervals), len(modintervals)))
+    # END DEBUG
+
     # Initialise
     join = []
     joinkeys = []
@@ -319,6 +323,12 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
                     mfilter = np.zeros(len(mfilter), dtype=bool)
                     mfilter[solution] = True
                 elif msum < osum:
+
+                    # START DEBUG
+                    print("DEBUG (freq_fit/calc_join): msum < osum ! Returning None !")
+                    print("=== END DEBUG ===")
+                    # END DEBUG (final, if triggered)
+
                     # If more observed modes than model, move on to next model
                     return None
 
