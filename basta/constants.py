@@ -62,7 +62,7 @@ class parameters:
               ('MeHini', r'dex', r'[M/H]$_\mathrm{ini}$ (dex)', r'Initial metallicity', pcol),
               ('MeH', r'dex', r'[M/H] (dex)', r'Metallicity', '#A778B4'),
               ('FeH', r'dex', r'[Fe/H] (dex)', r'Iron abundance', '#6F4C98'),
-              ('alphaFe', None, r'[$\alpha$/Fe] (dex)', r'Alpha enhancement', '#60AB9E'),
+              ('alphaFe', r'dex', r'[$\alpha$/Fe] (dex)', r'Alpha enhancement', '#60AB9E'),
               ('xsur', None, r'X$_\mathrm{sur}$', r'Surface hydrogen fraction', '#77B77D'),
               ('ysur', None, r'Y$_\mathrm{sur}$', r'Surface helium fraction', '#A6BE54'),
               ('zsur', None, r'Z$_\mathrm{sur}$', r'Surface heavy elements fraction', '#D18541'),
