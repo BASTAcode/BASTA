@@ -587,7 +587,7 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
                 markersize=10,
             )
             ax2.set_xlabel(r"Frequency ($\mu$Hz)")
-            ax2.set_ylabel(r"N.D.")
+            ax2.set_ylabel(r"Standardized residuals")
 
             if output is not None:
                 pp.savefig(bbox_inches="tight")

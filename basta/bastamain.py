@@ -470,6 +470,7 @@ def BASTA(
     noofind = 0
     noofposind = 0
     glhparams = None
+    dnufit = None
     print(
         "\n\nComputing likelihood of models in the grid ({0} {1}) ...".format(
             trackcounter, entryname
@@ -617,16 +618,22 @@ def BASTA(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if fitfreqs:
+                    dnu = np.zeros(index.sum())
                     gpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
                         rawmod = libitem["osc"][ind]
                         rawmodkey = libitem["osckey"][ind]
                         mod = su.transform_obj_array(rawmod)
                         modkey = su.transform_obj_array(rawmodkey)
-                        tau0 = libitem["tau0"][ind]
                         tauhe = libitem["tauhe"][ind]
                         taubcz = libitem["taubcz"][ind]
-                        chi2_freq, warn, shapewarn, gpar[indd, :] = stats.chi2_astero(
+                        (
+                            chi2_freq,
+                            warn,
+                            shapewarn,
+                            dnu[indd],
+                            gpar[indd, :],
+                        ) = stats.chi2_astero(
                             modkey,
                             mod,
                             obskey,
@@ -642,6 +649,8 @@ def BASTA(
                             vmin=vmin,
                             vmax=vmax,
                             icov_sd=icov_sd,
+                            npoly_params=inputparams["npoly_params"],
+                            nderiv=inputparams["nderiv"],
                             tol_grad=inputparams["atol"],
                             regu_param=inputparams["lamda"],
                             n_guess=inputparams["nguesses"],
@@ -715,15 +724,19 @@ def BASTA(
                             group_name + name, ~np.isinf(logPDF)
                         )
                     )
+                if inputparams["dnufit_in_ratios"] and any(
+                    x in [*freqtypes.rtypes, *freqtypes.grtypes] for x in rt
+                ):
+                    dnufit = dnu
                 if any(x in [*freqtypes.glitches, *freqtypes.grtypes] for x in rt):
                     glhparams = gpar
                 if debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
-                        index, logPDF, chi2, bayw, magw, IMFw, glhparams
+                        index, logPDF, chi2, bayw, magw, IMFw, dnufit, glhparams
                     )
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
-                        index, logPDF, chi2, glhparams
+                        index, logPDF, chi2, dnufit, glhparams
                     )
             else:
                 if debug and verbose:
@@ -769,7 +782,7 @@ def BASTA(
     print("Bad models: %d/%d" % (num_of_bad_models, num_of_models))
     for path, trackstats in selectedmodels.items():
         for i in range(len(trackstats.chi2)):
-            if trackstats.chi2[i] < 40.0:
+            if trackstats.chi2[i] < 75.0:
                 print(path, trackstats.chi2[i], trackstats.logPDF[i])
     # Generate posteriors of ascii- and plotparams and plot Kiels diagrams
     print("\nComputing posterior distributions...\n")

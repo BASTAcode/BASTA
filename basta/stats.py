@@ -16,9 +16,9 @@ import basta.supportGlitch as sg
 from basta.sd import sd
 
 # Define named tuple used in selectedmodels
-Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2 glhparams")
+Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2 dnufit glhparams")
 priorlogPDF = collections.namedtuple(
-    "Trackstats", "index logPDF chi2 bayw magw IMFw glhparams"
+    "Trackstats", "index logPDF chi2 bayw magw IMFw dnufit glhparams"
 )
 
 
@@ -187,9 +187,12 @@ def chi2_astero(
         If the calculated value is less than zero, chi2rut will be np.inf.
     warnings : bool
         See 'warnings' above.
-    glhparams: tuple
+    dnusurf: float
+        Large frequency separation
+    glhparams: array
         Helium glitch parameters (average amplitude, width and depth)
     """
+    dnusurf = 0.0
     glhparams = np.zeros(3)
 
     # If more observed modes than model modes are in one bin, move on
@@ -198,7 +201,7 @@ def chi2_astero(
     )
     if joins is None:
         chi2rut = np.inf
-        return chi2rut, warnings, shapewarn, glhparams
+        return chi2rut, warnings, shapewarn, dnusurf, glhparams
     else:
         joinkeys, join = joins
         nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
@@ -224,14 +227,16 @@ def chi2_astero(
     chi2rut = 0.0
     tmp = [*freqtypes.rtypes, *freqtypes.glitches, *freqtypes.grtypes]
     if any(x in tmp for x in tipo):
-        if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
+        if (nmodes != obskey.shape[1]) or not all(
+            joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]
+        ):
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn, glhparams
+            return chi2rut, warnings, shapewarn, dnusurf, glhparams
 
         # Compute large frequency separation
         FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
         yfitdnu = corjoin[0, joinkeys[0, :] == 0]
-        xfitdnu = joinkeys[1, joinkeys[0, :] == 0]  # np.arange(0, len(yfitdnu))
+        xfitdnu = joinkeys[1, joinkeys[0, :] == 0]
         wfitdnu = np.exp(
             -1.0
             * np.power(yfitdnu - numax, 2)
@@ -692,7 +697,7 @@ def chi2_astero(
             if debug and verbose:
                 print("DEBUG: chi2 less than zero, setting chi2 to inf")
 
-    return chi2rut, warnings, shapewarn, glhparams
+    return chi2rut, warnings, shapewarn, dnusurf, glhparams
 
 
 def most_likely(selectedmodels):

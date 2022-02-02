@@ -29,6 +29,8 @@ def _export_selectedmodels(selectedmodels):
             "index": index,
             "n": len(ts.index),
             "logPDF": ts.logPDF.tolist(),
+            "dnufit": ts.dnufit.tolist(),
+            "glhparams": ts.glhparams.tolist(),
         }
 
     return res
@@ -40,7 +42,11 @@ def _import_selectedmodels(data):
         index = np.zeros(ts["n"], dtype=np.bool)
         index[ts["index"]] = True
         res[trackno] = stats.Trackstats(
-            chi2=np.asarray(ts["chi2"]), index=index, logPDF=np.asarray(ts["logPDF"])
+            chi2=np.asarray(ts["chi2"]),
+            index=index,
+            logPDF=np.asarray(ts["logPDF"]),
+            dnufit=np.asarray(ts["dnufit"]),
+            glhparams=np.asarray(ts["glhparams"]),
         )
 
     return res
@@ -1301,6 +1307,7 @@ def read_rt(
     fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
     dnudata = fitcoef[0]
     dnudata_err = max(0.50, np.sqrt(fitcov[0, 0]))
+    print("dnudata, dnudata_err: %.4f %.4f" % (dnudata, dnudata_err))
 
     # Initialize ratios and corresponding covariance matrices
     datos010, datos02, datos01, datos10, datos012, datos102 = (
