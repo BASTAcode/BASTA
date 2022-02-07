@@ -29,9 +29,11 @@ def _export_selectedmodels(selectedmodels):
             "index": index,
             "n": len(ts.index),
             "logPDF": ts.logPDF.tolist(),
-            "dnufit": ts.dnufit.tolist(),
-            "glhparams": ts.glhparams.tolist(),
         }
+        if ts.dnufit is not None:
+            res[trackno]["dnufit"] = ts.dnufit.tolist()
+        if ts.glhparams is not None:
+            res[trackno]["glhparams"] = ts.glhparams.tolist()
 
     return res
 
@@ -1306,7 +1308,7 @@ def read_rt(
     )
     fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
     dnudata = fitcoef[0]
-    dnudata_err = max(0.50, np.sqrt(fitcov[0, 0]))
+    dnudata_err = max(0.2, np.sqrt(fitcov[0, 0]))
     print("dnudata, dnudata_err: %.4f %.4f" % (dnudata, dnudata_err))
 
     # Initialize ratios and corresponding covariance matrices

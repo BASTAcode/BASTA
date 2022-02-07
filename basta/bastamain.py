@@ -782,7 +782,7 @@ def BASTA(
     print("Bad models: %d/%d" % (num_of_bad_models, num_of_models))
     for path, trackstats in selectedmodels.items():
         for i in range(len(trackstats.chi2)):
-            if trackstats.chi2[i] < 75.0:
+            if trackstats.chi2[i] < 40.0:
                 print(path, trackstats.chi2[i], trackstats.logPDF[i])
     # Generate posteriors of ascii- and plotparams and plot Kiels diagrams
     print("\nComputing posterior distributions...\n")
