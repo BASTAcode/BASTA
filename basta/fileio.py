@@ -1307,9 +1307,8 @@ def read_rt(
         / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
     )
     fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-    dnudata = fitcoef[0]
-    dnudata_err = max(0.2, np.sqrt(fitcov[0, 0]))
-    print("dnudata, dnudata_err: %.4f %.4f" % (dnudata, dnudata_err))
+    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+    print("dnudata, dnudata_err: {:.2f}, {:.2f}".format(dnudata, dnudata_err))
 
     # Initialize ratios and corresponding covariance matrices
     datos010, datos02, datos01, datos10, datos012, datos102 = (

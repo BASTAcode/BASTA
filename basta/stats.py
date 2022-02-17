@@ -262,7 +262,9 @@ def chi2_astero(
             #     applying the surface correction.
             # --> Compared to the observed value, which is 'dnudata'.
             if dnufit_in_ratios:
-                chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+                chi2rut += (
+                    (dnudata - dnusurf) / np.sqrt(dnudata_err ** 2 + 0.3 ** 2)
+                ) ** 2
 
             # Compute r010, r012 and r102, if needed
             tmp = ["r010", "r012", "r102", "gr010", "gr012", "gr102"]
