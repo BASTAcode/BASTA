@@ -64,3 +64,12 @@ development of various parts and modules of BASTA. We welcome further
 contributions from the community as well as issues reporting. Please look at the
 [contribution section](https://basta.readthedocs.io/en/latest/contributing.html)
 in the documentation for further details.
+
+
+## Listings
+
+In addition to the shields/icons in the top, BASTA can be found in the following
+software listings/catalogues:
+
+* Astrophysics Source Code Library / [ASCL](https://ascl.net/2110.010)
+* Exoplanet Modeling and Analysis Center / [EMAC](https://emac.gsfc.nasa.gov#bbcded4b-27d8-49f5-be4d-76e1fec748eb)
