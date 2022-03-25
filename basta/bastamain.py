@@ -462,8 +462,6 @@ def BASTA(
         trackcounter += len(group.items())
 
     # Prepare the main loop
-    num_of_models = 0
-    num_of_bad_models = 0
     shapewarn = False
     warn = True
     selectedmodels = {}
@@ -574,9 +572,6 @@ def BASTA(
                     # As mod is ordered (stacked in increasing n and l),
                     # then [0, 0] is the lowest l=0 mode
                     same_n = modkeyl0[1, :] == obskey[1, 0]
-                    num_of_models += 1
-                    if not np.any(same_n):
-                        num_of_bad_models += 1
                     cl0 = modl0[0, same_n]
                     if len(cl0) >= 1:
                         cl0 = cl0[0]
@@ -779,11 +774,6 @@ def BASTA(
     )
     stats.get_lowest_chi2(Grid, selectedmodels, outparams)
 
-    print("Bad models: %d/%d" % (num_of_bad_models, num_of_models))
-    for path, trackstats in selectedmodels.items():
-        for i in range(len(trackstats.chi2)):
-            if trackstats.chi2[i] < 40.0:
-                print(path, trackstats.chi2[i], trackstats.logPDF[i])
     # Generate posteriors of ascii- and plotparams and plot Kiels diagrams
     print("\nComputing posterior distributions...\n")
     process_output.compute_posterior(
