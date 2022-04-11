@@ -263,8 +263,16 @@ def chi2_astero(
             # --> Compared to the observed value, which is 'dnudata'.
             if dnufit_in_ratios:
                 chi2rut += (
-                    (dnudata - dnusurf) / np.sqrt(dnudata_err ** 2 + 0.3 ** 2)
+                    (dnudata - dnusurf) / np.sqrt(dnudata_err ** 2 + 0.2 ** 2)
                 ) ** 2
+
+            # Interpolate model ratios at the observed frequencies
+            tmp02 = np.interp(inpdata[1][1, :], r02[:, 3], r02[:, 1])
+            r02[:, 1] = tmp02[:]
+            tmp01 = np.interp(inpdata[3][1, :], r01[:, 3], r01[:, 1])
+            r01[:, 1] = tmp01[:]
+            tmp10 = np.interp(inpdata[4][1, :], r10[:, 3], r10[:, 1])
+            r10[:, 1] = tmp10[:]
 
             # Compute r010, r012 and r102, if needed
             tmp = ["r010", "r012", "r102", "gr010", "gr012", "gr102"]

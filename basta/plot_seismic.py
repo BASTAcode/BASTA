@@ -542,6 +542,14 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
     if r02 is None:
         print("WARNING: missing radial orders! Skipping ratios plot.")
     else:
+        # Interpolate model ratios at the observed frequencies
+        tmp02 = np.interp(datos02[1, :], r02[:, 3], r02[:, 1])
+        r02[:, 1] = tmp02[:]
+        tmp01 = np.interp(datos01[1, :], r01[:, 3], r01[:, 1])
+        r01[:, 1] = tmp01[:]
+        tmp10 = np.interp(datos10[1, :], r10[:, 3], r10[:, 1])
+        r10[:, 1] = tmp10[:]
+
         # Plotting...
         if output is not None:
             pp = PdfPages(output)
@@ -563,7 +571,7 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
 
             ax1 = plt.subplot(2, 1, 1)
             ax1.plot(
-                modratio[:, 3], modratio[:, 1], "*", markersize=20, label="Best fit"
+                obsratio[1, :], modratio[:, 1], "*", markersize=20, label="Best fit"
             )
             ax1.errorbar(
                 obsratio[1, :],
