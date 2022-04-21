@@ -554,7 +554,7 @@ def cubicBG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
     def l2(params, data, labels):
         prediction = np.dot(data, params.reshape(-1, 1))
         dist = prediction - labels
-        return (dist ** 2).sum()
+        return (dist**2).sum()
 
     if method == "ransac":
         np.random.seed(5)
@@ -694,7 +694,7 @@ def BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
     def l2(params, data, labels):
         prediction = np.dot(data, params.reshape(-1, 1))
         dist = prediction - labels
-        return (dist ** 2).sum()
+        return (dist**2).sum()
 
     if method == "ransac":
         np.random.seed(5)

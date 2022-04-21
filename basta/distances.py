@@ -298,7 +298,7 @@ def add_absolute_magnitudes(
 
     # Sample distances more densely around the mode of the distance distribution
     # See Bailer-Jones 2015, Eq 19
-    coeffs = [1 / L, -2, plxobs / (plxobs_err ** 2), -1 / (plxobs_err ** 2)]
+    coeffs = [1 / L, -2, plxobs / (plxobs_err**2), -1 / (plxobs_err**2)]
     roots = np.roots(coeffs)
     if np.sum((np.isreal(roots))) == 1:
         (mode,) = np.real(roots[np.isreal(roots)])

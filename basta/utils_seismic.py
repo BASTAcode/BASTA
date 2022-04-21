@@ -150,7 +150,7 @@ def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
     n = int(round(nrealizations / 2))
     cov = np.cov(ratio[0:n, :], rowvar=False)
     covR = np.cov(ratio, rowvar=False)
-    fnorm = np.linalg.norm(covR - cov) / nr ** 2
+    fnorm = np.linalg.norm(covR - cov) / nr**2
     if fnorm > 1.0e-6:
         print("Frobenius norm %e > 1.e-6" % (fnorm))
         print("Warning: covariance failed to converge!")

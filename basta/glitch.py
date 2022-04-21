@@ -56,8 +56,8 @@ def glh_params(freq, nmodes, nu1, nu2, tau0, tauhe, taubcz, verbose=False):
     # Extract the average amplitude, width and acoustic depth
     glhParams = np.zeros(3)
     glhParams[0] = params[-4] / (4.0e-6 * np.pi * params[-3]) ** 2
-    tmp = -8.0e-12 * np.pi ** 2 * params[-3] ** 2
-    glhParams[0] *= (np.exp(tmp * nu1 ** 2) - np.exp(tmp * nu2 ** 2)) / (nu2 - nu1)
+    tmp = -8.0e-12 * np.pi**2 * params[-3] ** 2
+    glhParams[0] *= (np.exp(tmp * nu1**2) - np.exp(tmp * nu2**2)) / (nu2 - nu1)
     glhParams[1] = params[-3]
     glhParams[2] = params[-2]
 
