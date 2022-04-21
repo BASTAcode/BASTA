@@ -1153,6 +1153,7 @@ def read_rt(
     plotratios,
     getfreqcovar=False,
     nottrustedfile=None,
+    threepoint=False,
     verbose=False,
 ):
     """
@@ -1176,6 +1177,9 @@ def read_rt(
     nottrustedfile : str or None.
         Name of file containing the (l, n) values of frequencies to be
         omitted in the fit. If None, no modes will be excluded.
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios
+        instead of default five point definition.
     verbose : bool, optional
         If True, extra text will be printed to log (for developers).
 
@@ -1253,7 +1257,7 @@ def read_rt(
         datos010, cov010 = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
         if datos010 is None and "r010" in rt:
             print("* r010 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov010 = su.ratio_and_cov(freq, rtype="R010")
+            rat, cov010 = su.ratio_and_cov(freq, rtype="R010", threepoint=threepoint)
             datos010 = np.zeros((3, len(rat[:, 0])))
             datos010[0, :] = rat[:, 1]
             datos010[1, :] = rat[:, 3]
@@ -1264,7 +1268,7 @@ def read_rt(
         datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
         if datos02 is None and ("r02" in rt or plotratios):
             print("* r02 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov02 = su.ratio_and_cov(freq, rtype="R02")
+            rat, cov02 = su.ratio_and_cov(freq, rtype="R02", threepoint=threepoint)
             datos02 = np.zeros((3, len(rat[:, 0])))
             datos02[0, :] = rat[:, 1]
             datos02[1, :] = rat[:, 3]
@@ -1274,7 +1278,7 @@ def read_rt(
         # R01
         if datos01 is None and ("r01" in rt or plotratios):
             print("* r01 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov01 = su.ratio_and_cov(freq, rtype="R01")
+            rat, cov01 = su.ratio_and_cov(freq, rtype="R01", threepoint=threepoint)
             datos01 = np.zeros((3, len(rat[:, 0])))
             datos01[0, :] = rat[:, 1]
             datos01[1, :] = rat[:, 3]
@@ -1284,7 +1288,7 @@ def read_rt(
         # R10
         if datos10 is None and ("r10" in rt or plotratios):
             print("* r10 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov10 = su.ratio_and_cov(freq, rtype="R10")
+            rat, cov10 = su.ratio_and_cov(freq, rtype="R10", threepoint=threepoint)
             datos10 = np.zeros((3, len(rat[:, 0])))
             datos10[0, :] = rat[:, 1]
             datos10[1, :] = rat[:, 3]
@@ -1294,7 +1298,7 @@ def read_rt(
         # R012
         if datos012 is None and "r012" in rt:
             print("* r012 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov012 = su.ratio_and_cov(freq, rtype="R012")
+            rat, cov012 = su.ratio_and_cov(freq, rtype="R012", threepoint=threepoint)
             datos012 = np.zeros((3, len(rat[:, 0])))
             datos012[0, :] = rat[:, 1]
             datos012[1, :] = rat[:, 3]
@@ -1304,7 +1308,7 @@ def read_rt(
         # R102
         if datos102 is None and "r102" in rt:
             print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov102 = su.ratio_and_cov(freq, rtype="R102")
+            rat, cov102 = su.ratio_and_cov(freq, rtype="R102", threepoint=threepoint)
             datos102 = np.zeros((3, len(rat[:, 0])))
             datos102[0, :] = rat[:, 1]
             datos102[1, :] = rat[:, 3]

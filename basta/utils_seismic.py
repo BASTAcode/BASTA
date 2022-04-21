@@ -78,7 +78,7 @@ def combined_ratios(r02, r01, r10):
     return r010, r012, r102
 
 
-def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
+def ratio_and_cov(freq, rtype="R012", nrealizations=10000, threepoint=False):
     """
     Routine to compute ratios of a given type and the corresponding covariance
     matrix
@@ -91,6 +91,9 @@ def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
         Ratio type (one of R02, R01, R10, R010, R012, R102)
     nrealizations : integer, optional
         Number of realizations used in covariance calculation
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios instead
+        of default five point definition.
 
     Returns
     -------
@@ -101,7 +104,7 @@ def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
     """
 
     # Observed ratios
-    obsR02, obsR01, obsR10 = freq_fit.ratios(freq)
+    obsR02, obsR01, obsR10 = freq_fit.ratios(freq, threepoint=threepoint)
     obsR010, obsR012, obsR102 = combined_ratios(obsR02, obsR01, obsR10)
 
     # Number of ratios of type 'rtype'
@@ -131,7 +134,7 @@ def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
     perturb_freq = deepcopy(freq)
     for i in range(nrealizations):
         perturb_freq[:]["freq"] = np.random.normal(freq[:]["freq"], freq[:]["err"])
-        tmp_r02, tmp_r01, tmp_r10 = freq_fit.ratios(perturb_freq)
+        tmp_r02, tmp_r01, tmp_r10 = freq_fit.ratios(perturb_freq, threepoint=threepoint)
         tmp_r010, tmp_r012, tmp_r102 = combined_ratios(tmp_r02, tmp_r01, tmp_r10)
         if rtype == "R02":
             ratio[i, :] = tmp_r02[:, 1]
@@ -150,7 +153,7 @@ def ratio_and_cov(freq, rtype="R012", nrealizations=10000):
     n = int(round(nrealizations / 2))
     cov = np.cov(ratio[0:n, :], rowvar=False)
     covR = np.cov(ratio, rowvar=False)
-    fnorm = np.linalg.norm(covR - cov) / nr ** 2
+    fnorm = np.linalg.norm(covR - cov) / nr**2
     if fnorm > 1.0e-6:
         print("Frobenius norm %e > 1.e-6" % (fnorm))
         print("Warning: covariance failed to converge!")
@@ -390,7 +393,7 @@ def prepare_obs(inputparams, verbose=False):
     print("\nPreparing asteroseismic input ...")
 
     fitfreqs = inputparams.get("fitfreqs")
-    (freqxml, glhtxt, correlations, bexp, rt, seisw) = fitfreqs
+    (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint) = fitfreqs
 
     # Get frequency correction method
     fcor = inputparams.get("fcor", "BG14")
@@ -447,6 +450,7 @@ def prepare_obs(inputparams, verbose=False):
         numax,
         getratios,
         getfreqcovar,
+        threepoint=threepoint,
         nottrustedfile=nottrustedfile,
         verbose=verbose,
     )

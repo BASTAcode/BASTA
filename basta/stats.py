@@ -73,6 +73,7 @@ def chi2_astero(
     fcor="BG14",
     seisw={},
     dnufit_in_ratios=True,
+    threepoint=False,
     warnings=True,
     shapewarn=False,
     debug=False,
@@ -137,6 +138,9 @@ def chi2_astero(
         Flag determining whether to add a large frequency separation term
         using corrected frequencies after surface correction in the ratios
         computation.
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios, instead
+        of default five point definition.
     warnings : bool
         If True, print something when it fails.
     debug : str
@@ -210,7 +214,7 @@ def chi2_astero(
         freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
         freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
         freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-        r02, r01, r10 = freq_fit.ratios(freq)
+        r02, r01, r10 = freq_fit.ratios(freq, threepoint=threepoint)
         if r02 is not None:
             if any([x in tipo for x in ["r010", "r012", "r102"]]):
                 r010, r012, r102 = su.combined_ratios(r02, r01, r10)
