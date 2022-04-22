@@ -72,7 +72,7 @@ def chi2_astero(
     bfit=None,
     fcor="BG14",
     seisw={},
-    dnufit_in_ratios=True,
+    dnufit_in_ratios=False,
     threepoint=False,
     warnings=True,
     shapewarn=False,
