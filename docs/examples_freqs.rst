@@ -130,6 +130,10 @@ as follows:
 
    Frequency ratios of the best fit model to 16 Cyg A in the grid.
 
+BASTA uses by default the five-point small frequency separation formulation for computing the ratios, which is the
+recommended option. If the user should want to use the three-point formulation instead, this can be done by adding
+``"threepoint": True`` in the ``define_fit["freqparams"]`` dictionary.
+
 Frequency glitches
 ------------------
 

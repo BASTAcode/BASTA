@@ -218,6 +218,10 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #                    * "1/N-dof": Normalisation by number of frequencies minus the
     #                                 (user-specified) degrees of freedom. This option
     #                                 must be supplemented by a specification of "dof".
+    # - "threepoint": Set 'True' to change to the three-point small frequency separation
+    #                 formulation for the frequency ratios, instead of the five-point
+    #                 small frequency separation. The default, if not set or set as
+    #                 'False', is to use the five-point formulation.
 
     # Example of typical settings for a frequency fit (with default seismic weights):
     # define_fit["freqparams"] = {
