@@ -87,6 +87,7 @@ intersphinx_mapping = {"https://docs.python.org/3/": None}
 # the sub-modules:
 autodoc_mock_imports = [
     "astropy",
+    "bottleneck",
     "dustmaps",
     "h5py",
     "healpy",
