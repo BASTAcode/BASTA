@@ -467,7 +467,9 @@ def duplicateechelle(
         print("Saved figure to " + output)
 
 
-def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
+def ratioplot(
+    freqfile, datos, joinkeys, join, output=None, nonewfig=False, threepoint=False
+):
     """
     Plot frequency ratios.
 
@@ -488,6 +490,9 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
     nonewfig : bool, optional
         If True, this creates a new canvas. Otherwise, the plot is added
         to the existing canvas.
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios instead
+        of default five point definition.
     """
     # Load input ratios
     orders, ratio, ratio_types, errors, errors_m, errors_p = fio.read_ratios_xml(
@@ -540,7 +545,7 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
     freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
     freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
     freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-    r02, r01, r10 = freq_fit.ratios(freq)
+    r02, r01, r10 = freq_fit.ratios(freq, threepoint=threepoint)
 
     if r02 is None:
         print("WARNING: missing radial orders! Skipping ratios plot.")

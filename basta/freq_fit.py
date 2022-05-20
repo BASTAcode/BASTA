@@ -9,7 +9,7 @@ from scipy.optimize import minimize
 from basta import utils_seismic as su
 
 
-def ratios(freq):
+def ratios(freq, threepoint=False):
     """
     Routine to compute the ratios (r02, r01 and r10) from oscillation
     frequencies
@@ -18,6 +18,9 @@ def ratios(freq):
     ----------
     freq : array
         Harmonic degrees, radial orders, frequencies
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios
+        instead of default five point definition.
 
     Returns
     -------
@@ -89,63 +92,118 @@ def ratios(freq):
         r02[i, 1] = f0[i00 + i]["freq"] - f2[i02 + i]["freq"]
         r02[i, 1] /= f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"]
 
-    # Five-point frequency ratio (R01)
-    # ---------------------------------
-    # Find lowest indices for l = 0, 1, and 2
-    if f0[0]["n"] >= f1[0]["n"]:
-        i00 = 0
-        i01 = f0[0]["n"] - f1[0]["n"]
-    else:
-        i00 = f1[0]["n"] - f0[0]["n"]
-        i01 = 0
+    if not threepoint:
+        # Five-point frequency ratio R01
+        # ---------------------------------
+        # Find lowest indices for l = 0 and 1
+        if f0[0]["n"] >= f1[0]["n"]:
+            i00 = 0
+            i01 = f0[0]["n"] - f1[0]["n"]
+        else:
+            i00 = f1[0]["n"] - f0[0]["n"]
+            i01 = 0
 
-    # Number of r01s
-    if f0[-1]["n"] - 1 >= f1[-1]["n"]:
-        nr01 = f1[-1]["n"] - f1[i01]["n"]
-    else:
-        nr01 = f0[-1]["n"] - f0[i00]["n"] - 1
+        # Number of r01s
+        if f0[-1]["n"] - 1 >= f1[-1]["n"]:
+            nr01 = f1[-1]["n"] - f1[i01]["n"]
+        else:
+            nr01 = f0[-1]["n"] - f0[i00]["n"] - 1
 
-    # R01
-    r01 = np.zeros((nr01, 4))
-    for i in range(nr01):
-        r01[i, 0] = f0[i00 + i + 1]["n"]
-        r01[i, 3] = f0[i00 + i + 1]["freq"]
-        r01[i, 1] = (
-            f0[i00 + i]["freq"]
-            + 6.0 * f0[i00 + i + 1]["freq"]
-            + f0[i00 + i + 2]["freq"]
-        )
-        r01[i, 1] -= 4.0 * (f1[i01 + i + 1]["freq"] + f1[i01 + i]["freq"])
-        r01[i, 1] /= 8.0 * (f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"])
+        # R01
+        r01 = np.zeros((nr01, 4))
+        for i in range(nr01):
+            r01[i, 0] = f0[i00 + i + 1]["n"]
+            r01[i, 3] = f0[i00 + i + 1]["freq"]
+            r01[i, 1] = (
+                f0[i00 + i]["freq"]
+                + 6.0 * f0[i00 + i + 1]["freq"]
+                + f0[i00 + i + 2]["freq"]
+            )
+            r01[i, 1] -= 4.0 * (f1[i01 + i + 1]["freq"] + f1[i01 + i]["freq"])
+            r01[i, 1] /= 8.0 * (f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"])
 
-    # Five-point frequency ratio (R10)
-    # ---------------------------------
-    # Find lowest indices for l = 0, 1, and 2
-    if f0[0]["n"] - 1 >= f1[0]["n"]:
-        i00 = 0
-        i01 = f0[0]["n"] - f1[0]["n"] - 1
-    else:
-        i00 = f1[0]["n"] - f0[0]["n"] + 1
-        i01 = 0
+    elif threepoint:
+        # Five-point frequency ratio R01
+        # ---------------------------------
+        # Find lowest indices for l = 0 and 1
+        # i01 point to one n-value lower than i00
+        if f0[0]["n"] - 1 >= f1[0]["n"]:
+            i00 = 0
+            i01 = f0[0]["n"] - f1[0]["n"] - 1
+        else:
+            i00 = f1[0]["n"] - f0[0]["n"] + 1
+            i01 = 0
 
-    # Number of r10s
-    if f0[-1]["n"] >= f1[-1]["n"]:
-        nr10 = f1[-1]["n"] - f1[i01]["n"] - 1
-    else:
-        nr10 = f0[-1]["n"] - f0[i00]["n"]
+        # Number of r01s
+        if f0[-1]["n"] >= f1[-1]["n"]:
+            nr01 = f1[-1]["n"] - f1[i01]["n"]
+        else:
+            nr01 = f0[-1]["n"] - f0[i00]["n"] + 1
 
-    # R10
-    r10 = np.zeros((nr10, 4))
-    for i in range(nr10):
-        r10[i, 0] = f1[i01 + i + 1]["n"]
-        r10[i, 3] = f1[i01 + i + 1]["freq"]
-        r10[i, 1] = (
-            f1[i01 + i]["freq"]
-            + 6.0 * f1[i01 + i + 1]["freq"]
-            + f1[i01 + i + 2]["freq"]
-        )
-        r10[i, 1] -= 4.0 * (f0[i00 + i + 1]["freq"] + f0[i00 + i]["freq"])
-        r10[i, 1] /= -8.0 * (f0[i00 + i + 1]["freq"] - f0[i00 + i]["freq"])
+        # R01
+        r01 = np.zeros((nr01, 4))
+        for i in range(nr01):
+            r01[i, 0] = f0[i00 + i]["n"]
+            r01[i, 3] = f0[i00 + i]["freq"]
+            r01[i, 1] = f0[i00 + i]["freq"]
+            r01[i, 1] -= (f1[i01 + i + 1]["freq"] + f1[i01 + i]["freq"]) / 2.0
+            r01[i, 1] /= f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"]
+
+    if not threepoint:
+        # Five point frequency ratio R10
+        # ---------------------------------
+        # Find lowest indices for l = 0 and 1
+        if f0[0]["n"] - 1 >= f1[0]["n"]:
+            i00 = 0
+            i01 = f0[0]["n"] - f1[0]["n"] - 1
+        else:
+            i00 = f1[0]["n"] - f0[0]["n"] + 1
+            i01 = 0
+
+        # Number of r10s
+        if f0[-1]["n"] >= f1[-1]["n"]:
+            nr10 = f1[-1]["n"] - f1[i01]["n"] - 1
+        else:
+            nr10 = f0[-1]["n"] - f0[i00]["n"]
+
+        # R10
+        r10 = np.zeros((nr10, 4))
+        for i in range(nr10):
+            r10[i, 0] = f1[i01 + i + 1]["n"]
+            r10[i, 3] = f1[i01 + i + 1]["freq"]
+            r10[i, 1] = (
+                f1[i01 + i]["freq"]
+                + 6.0 * f1[i01 + i + 1]["freq"]
+                + f1[i01 + i + 2]["freq"]
+            )
+            r10[i, 1] -= 4.0 * (f0[i00 + i + 1]["freq"] + f0[i00 + i]["freq"])
+            r10[i, 1] /= -8.0 * (f0[i00 + i + 1]["freq"] - f0[i00 + i]["freq"])
+
+    elif threepoint:
+        # Three point frequency ratio R10
+        # ---------------------------------
+        # Find lowest indices for l = 0 and 1
+        if f0[0]["n"] >= f1[0]["n"]:
+            i00 = 0
+            i01 = f0[0]["n"] - f1[0]["n"]
+        else:
+            i00 = f1[0]["n"] - f0[0]["n"]
+            i01 = 0
+
+        # Number of r10s
+        if f0[-1]["n"] >= f1[-1]["n"]:
+            nr10 = f1[-1]["n"] - f1[i01]["n"]
+        else:
+            nr10 = f0[-1]["n"] - f0[i00]["n"]
+
+        # R10
+        r10 = np.zeros((nr10, 4))
+        for i in range(nr10):
+            r10[i, 0] = f1[i01 + i]["n"]
+            r10[i, 3] = f1[i01 + i]["freq"]
+            r10[i, 1] = f1[i01 + i]["freq"]
+            r10[i, 1] -= (f0[i00 + i]["freq"] + f0[i00 + i + 1]["freq"]) / 2.0
+            r10[i, 1] /= f0[i00 + i]["freq"] - f0[i00 + i + 1]["freq"]
 
     return r02, r01, r10
 
