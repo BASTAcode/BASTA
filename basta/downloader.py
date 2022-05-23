@@ -38,12 +38,13 @@ def get_grid(case):
         "Garstec_16CygA.hdf5": "dSw3y5adCPMBMJb",
         "Garstec_validation.hdf5": "FMJBbAwxpYjzBsd",
         "BaSTI_iso2018.hdf5": "rtjB4owrgcEN4cg",
+        "Garstec_16CygA_v1.hdf5": "yLQBDrAJeinFAMN",
     }
 
     # Resolve grid name and location
     if case == "iso":
         gridname = "BaSTI_iso2018.hdf5"
-    elif case in ["16CygA", "validation"]:
+    elif case in ["16CygA", "validation", "16CygA_v1"]:
         gridname = "Garstec_{0}.hdf5".format(case)
     else:
         raise ValueError("Unknown grid!")
