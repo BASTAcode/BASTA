@@ -247,7 +247,7 @@ def BASTA(
 
     # Prepare asteroseismic quantities if required
     if fitfreqs:
-        (freqxml, glhtxt, correlations, bexp, rt, seisw) = fitfreqs
+        (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint) = fitfreqs
         if not all(x in freqtypes.alltypes for x in rt):
             raise ValueError("Unrecognized fitting parameters!")
 
@@ -644,6 +644,7 @@ def BASTA(
                             warnings=warn,
                             debug=debug,
                             verbose=verbose,
+                            threepoint=threepoint,
                         )
                         chi2[indd] += chi2_freq
 
@@ -886,6 +887,7 @@ def BASTA(
                 maxjoinkeys,
                 maxjoin,
                 output=ratioplotname,
+                threepoint=threepoint,
             )
     else:
         print(

@@ -176,7 +176,7 @@ def compare_output_to_input(
                 outerr = (out[idx + 1] + out[idx + 2]) / 2
             else:
                 outerr = out[idx + 1]
-            serr = np.sqrt(outerr ** 2 + xinerr ** 2)
+            serr = np.sqrt(outerr**2 + xinerr**2)
             sigma = np.abs(out[idx] - xin) / serr
             bigdiff = sigma >= sigmacut
             if bigdiff:
@@ -196,7 +196,7 @@ def compare_output_to_input(
                     outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
                 else:
                     outerr = out_dist[idx + 1]
-                serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr ** 2)
+                serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
                 sigma = np.abs(out_dist[idx] - priorM) / serr
                 bigdiff = sigma >= sigmacut
                 if bigdiff:
@@ -213,7 +213,7 @@ def compare_output_to_input(
                 outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
             else:
                 outerr = out_dist[idx + 1]
-            serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr ** 2)
+            serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
             sigma = np.abs(out_dist[idx] - priordistqs[1]) / serr
             bigdiff = sigma >= sigmacut
             if bigdiff:

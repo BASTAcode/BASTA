@@ -328,12 +328,17 @@ class extinction:
             ("Mj_2MASS", 0.7927 / Conv_Bayestar, 0.7927 / Conv_Bayestar, 0, 0, 0),
             ("Mh_2MASS", 0.4690 / Conv_Bayestar, 0.4690 / Conv_Bayestar, 0, 0, 0),
             ("Mk_2MASS", 0.3026 / Conv_Bayestar, 0.3026 / Conv_Bayestar, 0, 0, 0),
-            # Gaia photometric system (SD18)
-            ("BP_GAIA", 3.046, 3.046, 0, 0, 0),
-            ("G_GAIA", 2.294, 2.294, 0, 0, 0),
-            ("RP_GAIA", 1.737, 1.737, 0, 0, 0),
-            ("RVS_GAIA", 1.393, 1.393, 0, 0, 0),
-            # # Gaia photometric system (CV18)
+            # Gaia photometric system eDR3, following the description of CV18 and using Fitzpatrick renormalized as
+            # per Schlafly (they should be consistent with Schlafy & Finkbeiner 2011)
+            ("G_GAIA", 2.312, 1.132, 2.700, -1.271, -0.010),
+            ("BP_GAIA", 2.884, 1.684, 3.098, -1.879, -0.020),
+            ("RP_GAIA", 1.633, 1.471, 0.369, -0.167, 0.002),
+            # Gaia photometric system DR2 (SD18)
+            # ("BP_GAIA", 3.046, 3.046, 0, 0, 0),
+            # ("G_GAIA", 2.294, 2.294, 0, 0, 0),
+            # ("RP_GAIA", 1.737, 1.737, 0, 0, 0),
+            # ("RVS_GAIA", 1.393, 1.393, 0, 0, 0),
+            # # Gaia photometric system DR2 (CV18)
             # ('G_GAIA', 2.740, 1.4013, 3.1406, -1.5626, -0.0101),
             # ('BP_GAIA', 3.374, 1.7895, 4.2355, -2.7071, -0.0253),
             # ('RP_GAIA', 2.035, 1.8593, 0.3985, -0.1771, 0.0026),
