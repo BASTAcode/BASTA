@@ -29,7 +29,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
     # --> If you need the location of BASTA, it is in BASTADIR
-    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
+    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA_v1.hdf5")
 
     # Where to store the output of the BASTA run
     define_io["outputpath"] = os.path.join(BASTADIR, "examples", "output/interp_MS")
