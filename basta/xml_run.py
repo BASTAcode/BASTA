@@ -486,7 +486,7 @@ def run_xml(
             _find_get(root, "default/freqparams/correlations", "value")
         )
         threepoint = strtobool(
-            _find_get(root, "default/freqparams/threepoint", "value", defa=False)
+            _find_get(root, "default/freqparams/threepoint", "value", defa="False")
         )
         dnufrac = float(_find_get(root, "default/freqparams/dnufrac", "value"))
         inputparams["fcor"] = fcor
