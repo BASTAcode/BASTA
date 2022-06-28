@@ -12,7 +12,13 @@ def main():
     parser = argparse.ArgumentParser(description=helptext)
 
     # Only grids are supported!
-    allowed_grids = ["16CygA", "validation", "iso", "16CygA_v1"]
+    allowed_grids = [
+        "16CygA",
+        "validation",
+        "iso",
+        "16CygA_v1",
+        "validation_new-weights",
+    ]
     parser.add_argument(
         "grid", help="The grid to download. Allowed cases: {0}".format(allowed_grids)
     )
