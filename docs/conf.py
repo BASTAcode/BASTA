@@ -13,9 +13,14 @@
 import os
 import sys
 
+# Make the modules importable
 sys.path.insert(0, os.path.abspath(".."))
 sys.path.insert(0, os.path.abspath("../basta"))
 sys.path.insert(0, os.path.abspath("../examples"))
+
+# Add required environment variable
+if not "BASTADIR" in os.environ:
+    os.environ["BASTADIR"] = os.path.abspath("../basta")
 
 
 # -- Project information -----------------------------------------------------
