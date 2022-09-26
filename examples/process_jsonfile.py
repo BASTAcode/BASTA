@@ -132,7 +132,7 @@ def main():
     print(f"Using statistics from '{infile}' with grid from '{gridf}'!\n")
     print("Loading stats and grid ... ", end="", flush=True)
     try:
-        paramvals, _, _ = extract_from_json(
+        paramvals, loglike, _ = extract_from_json(
             jsonfile=infile, gridfile=gridf, parameter=param
         )
     except FileNotFoundError:
@@ -140,7 +140,7 @@ def main():
         infile = os.path.join("output", "myfit", "16CygA.json")
         print(f"Trying '{infile}' instead ... ", end="", flush=True)
         try:
-            paramvals, _, _ = extract_from_json(
+            paramvals, loglike, _ = extract_from_json(
                 jsonfile=infile, gridfile=gridf, parameter=param
             )
         except FileNotFoundError:
@@ -150,7 +150,7 @@ def main():
 
     # The extracted information can then be used to, e.g., sample the posterior
     print("Sampling the posterior ... ", end="", flush=True)
-    samples = sample_posterior(vals=paramvals, logys=paramvals)
+    samples = sample_posterior(vals=paramvals, logys=loglike)
     print("Done!", flush=True)
 
     # ... which can then be plotted in a simple, smoothed histogram
