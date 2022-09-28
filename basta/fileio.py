@@ -1151,6 +1151,7 @@ def read_rt(
     rt,
     numax,
     plotratios,
+    plotepsdiff,
     getfreqcovar=False,
     nottrustedfile=None,
     threepoint=False,
@@ -1223,6 +1224,9 @@ def read_rt(
         None,
         None,
     )
+
+    datosepsdiff, covepsdiff = None, None
+
     cov010, cov02, cov01, cov10, cov012, cov102 = (None, None, None, None, None, None)
     dnudata, dnudata_err = None, None
     r02, r01, r10 = freq_fit.ratios(freq)
@@ -1315,14 +1319,48 @@ def read_rt(
             datos102[2, :] = rat[:, 2]
             print("done!")
 
+        if datosepsdiff is None and any([x in freqtypes.epsdiff for x in rt]):
+            inp = np.asarray(rt)
+            inpseq = inp[list(x in freqtypes.epsdiff for x in list(rt))]
+            try:
+                assert len(inpseq) < 2
+            except AssertionError:
+                print("For fitting multiple epsilon difference sequences", end="")
+                print("please provide the single combined key (e.g. e012)")
+                raise KeyError
+            seq = inpseq[0]
+            print(
+                "* Computing epsilon differences sequance {0}...".format(seq),
+                end="",
+                flush=True,
+            )
+            datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
+                obskey, obs, None, dnudata, seq=seq
+            )
+            print("done!")
+        elif datosepsdiff is None and plotepsdiff:
+            datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
+                obskey, obs, None, dnudata
+            )
+
     # Glitch
     if "glitches" in rt:
         datosglh, covglh = read_glh(glhtxt)
     else:
         datosglh, covglh = None, None
 
-    datos = (datos010, datos02, datos_f, datos01, datos10, datos012, datos102, datosglh)
-    cov = (cov010, cov02, cov_f, cov01, cov10, cov012, cov102, covglh)
+    datos = (
+        datos010,
+        datos02,
+        datos_f,
+        datos01,
+        datos10,
+        datos012,
+        datos102,
+        datosglh,
+        datosepsdiff,
+    )
+    cov = (cov010, cov02, cov_f, cov01, cov10, cov012, cov102, covglh, covepsdiff)
 
     return datos, cov, obskey, obs, dnudata, dnudata_err
 

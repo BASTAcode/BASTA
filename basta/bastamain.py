@@ -566,7 +566,7 @@ def BASTA(
                     index &= libitem["phase"][:] == iphase
 
             # Check which models have l=0, lowest n within tolerance
-            if fitfreqs:
+            if fitfreqs and dnufrac != -9999.0:
                 indexf = np.zeros(len(index), dtype=bool)
                 for ind in np.where(index)[0]:
                     rawmod = libitem["osc"][ind]
@@ -618,6 +618,7 @@ def BASTA(
                         rawmodkey = libitem["osckey"][ind]
                         mod = su.transform_obj_array(rawmod)
                         modkey = su.transform_obj_array(rawmodkey)
+                        moddnu = libitem["dnufit"][ind]
                         tau0 = libitem["tau0"][ind]
                         tauhe = libitem["tauhe"][ind]
                         taubcz = libitem["taubcz"][ind]
@@ -632,6 +633,7 @@ def BASTA(
                             obsintervals,
                             dnudata,
                             dnudata_err,
+                            moddnu,
                             tau0=tau0,
                             tauhe=tauhe,
                             taubcz=taubcz,
@@ -808,6 +810,8 @@ def BASTA(
             obsintervals=obsintervals,
         )
         maxjoinkeys, maxjoin = maxjoins
+        maxmoddnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
+
         if allfplots or "pairechelle" in freqplots:
             plot_seismic.pairechelle(
                 selectedmodels,
@@ -888,6 +892,27 @@ def BASTA(
                 maxjoin,
                 output=ratioplotname,
                 threepoint=threepoint,
+            )
+        if allfplots or "epsdiff" in freqplots:
+            plot_seismic.epsilon_difference_diagram(
+                mod=maxmod,
+                modkey=maxmodkey,
+                moddnu=maxmoddnu,
+                obsepsdiff=datos[8],
+                covinv=covinv[8],
+                output=plotfname.format("epsilon_differences"),
+            )
+        if allfplots or "allepsdiff" in freqplots:
+            plot_seismic.epsilon_difference_all_diagram(
+                mod=maxmod,
+                modkey=maxmodkey,
+                moddnu=maxmoddnu,
+                obsepsdiff=datos[8],
+                covinv=covinv[8],
+                obs=obs,
+                obskey=obskey,
+                obsdnu=dnudata,
+                output=plotfname.format("epsilon_differences_all"),
             )
     else:
         print(

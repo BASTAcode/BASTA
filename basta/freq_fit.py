@@ -5,6 +5,7 @@ import numpy as np
 import itertools
 from sklearn import linear_model
 from scipy.optimize import minimize
+from scipy.interpolate import CubicSpline
 
 from basta import utils_seismic as su
 
@@ -815,3 +816,99 @@ def apply_BG14(modkey, mod, coeffs, scalnu):
         corosc.append(mod[0, lmask] + df)
     corosc = np.asarray(np.concatenate(corosc))
     return corosc
+
+
+def compute_epsilon_diff(
+    osckey,
+    osc,
+    avgdnu,
+    seq="e012",
+    nsorting=False,
+):
+    """
+    Computed epsilon differences, based on Roxburgh 2016 (eq. 1 and 4)
+
+    Epsilons E of frequency v with order n and degree l is determined as:
+    E(n,l) = E(v(n,l)) = v(n,l)/dnu - n - l/2
+
+    From this, an epsilon is determined for each original frequncy. These
+    are not independent on the surface layers, but their differences
+    between different degrees are, if evaluated at the same frequency.
+    Therefore, the epsilon differences dE of e.g. E(n,l=0) and E(n,l=2),
+    dE(02) is determined from interpolating/splining the l=0 epsilon sequence
+    SE0 and evaluating it at v(n,l=2), and subtracting the corresponding
+    E(n,l=2). Therefore, the epsilon difference can be summarised as
+    dE(0l) = SE0(v(n,l)) - E(n,l)
+
+    Parameters
+    ----------
+    osckey : array
+        Array containing the angular degrees and radial orders of the modes
+    osc : array
+        Array containing the modes (and inertias)
+    avgdnu : float
+        Average large frequency separation
+    seq : str
+        Similar to ratios, what sequence of epsilon differences to be computed.
+        Can be 01, 02 or 012 for a combination of the two first.
+    nsorting : bool
+        Whether to sort the modes according to n before l (True).
+        l before n (False) is default.
+
+    Returns
+    -------
+    deps : array
+        Array containing epsilon differences (0), and the according frequencies (1),
+        l different from 0 (2) and n (3).
+    """
+
+    if seq == "e012":
+        l_used = [1, 2]
+    elif seq == "e02":
+        l_used = [2]
+    elif seq == "e01":
+        l_used = [1]
+    else:
+        raise KeyError("Undefined epsilon difference sequence requested!")
+
+    Nmodes = sum([sum(osckey[0] == ll) for ll in l_used])
+
+    # Epsilon is computed analytically from the frequency information
+    epsilon = np.zeros(osc.shape[1])
+
+    for i, freq in enumerate(osc[0, :]):
+        ll, nn = osckey[:, i]
+        epsilon[i] = freq / avgdnu - nn - ll / 2
+
+    # Setup essential l=0 interpolater
+    nu0 = osc[0, osckey[0, :] == 0]
+    eps0 = epsilon[osckey[0, :] == 0]
+    eps0_intpol = CubicSpline(nu0, eps0)
+
+    # Collection array
+    deps = np.zeros((4, Nmodes))
+    Niter = 0
+    for ll in l_used:
+        # Extract freq and epsilon for l=ll modes
+        nul = osc[0, osckey[0] == ll]
+        epsl = epsilon[osckey[0] == ll]
+
+        # Evaluate epsilon(l=0) at nu(l=ll)
+        eps0_at_nul = eps0_intpol(nul)
+
+        # Difference
+        diff_eps0l = eps0_at_nul - epsl
+
+        # Store 0: difference, 1: freq, 2: l, 3: n
+        deps[0, Niter : Niter + len(diff_eps0l)] = diff_eps0l
+        deps[1, Niter : Niter + len(diff_eps0l)] = nul
+        deps[2, Niter : Niter + len(diff_eps0l)] = ll
+        deps[3, Niter : Niter + len(diff_eps0l)] = osckey[1][osckey[0] == ll]
+
+        Niter += len(diff_eps0l)
+
+    # Sort according to n if flagged
+    if nsorting:
+        mask = np.argsort(deps[3, :] + deps[2, :] * 0.1)
+        deps = deps[:, mask]
+    return deps

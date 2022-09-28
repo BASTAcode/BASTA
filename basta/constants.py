@@ -24,7 +24,8 @@ class freqtypes:
     rtypes = ["r010", "r02", "r01", "r10", "r012", "r102"]
     freqs = ["freqs"]
     glitches = ["glitches"]
-    alltypes = [*freqs, *glitches, *rtypes]
+    epsdiff = ["e01", "e02", "e012"]
+    alltypes = [*freqs, *glitches, *rtypes, *epsdiff]
 
 
 @dataclass

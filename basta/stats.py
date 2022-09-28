@@ -6,7 +6,7 @@ import collections
 
 import numpy as np
 from numpy.lib.histograms import _hist_bin_fd
-from scipy.interpolate import interp1d
+from scipy.interpolate import interp1d, CubicSpline
 from scipy.ndimage.filters import gaussian_filter1d
 
 from basta import freq_fit, glitch
@@ -64,6 +64,7 @@ def chi2_astero(
     obsintervals,
     dnudata,
     dnudata_err,
+    moddnu,
     tau0=3500.0,
     tauhe=800.0,
     taubcz=2200.0,
@@ -313,6 +314,39 @@ def chi2_astero(
         else:
             chi2rut = np.inf
             return chi2rut, warnings, shapewarn
+
+    if any([x in freqtypes.epsdiff for x in tipo]):
+        obsepsdiff = inpdata[8]
+        # Purge model freqs of unused modes
+        l_available = [int(ll) for ll in obsepsdiff[2]]
+        index = np.zeros(mod.shape[1], dtype=bool)
+        for ll in [0, *l_available]:
+            index |= modkey[0] == ll
+        mod = mod[:, index]
+        modkey = modkey[:, index]
+
+        # 0: deps, 1: nu, 2: l, 3: n
+        modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnu)
+
+        # Spline model epsdiff to nu of observations
+        evalepsdiff = np.zeros(obsepsdiff.shape[1])
+        for ll in l_available:
+            indobs = obsepsdiff[2] == ll
+            indmod = modepsdiff[2] == ll
+            spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
+            evalepsdiff[indobs] = spline(obsepsdiff[1][indobs])
+
+        # Compute chi**2 of epsilon contribution
+        chi2rut = 0.0
+        x = obsepsdiff[0] - evalepsdiff
+        w = _weight(len(evalepsdiff), seisw)
+        chi2rut += (x.T.dot(covinv[8]).dot(x)) / w
+
+        # Check extreme values
+        if ~np.isfinite(chi2rut):
+            chi2rut = np.inf
+        elif chi2rut < 0:
+            chi2rut = np.inf
 
     return chi2rut, warnings, shapewarn
 

@@ -5,6 +5,8 @@ import os
 import numpy as np
 import matplotlib
 
+from scipy.interpolate import CubicSpline
+
 import basta.fileio as fio
 from basta import utils_seismic as su
 from basta import stats, freq_fit
@@ -893,3 +895,509 @@ def pairechelle(
     if output is not None:
         plt.savefig(output, bbox_inches="tight")
         print("Saved figure to " + output)
+
+
+def epsilon_difference_diagram(
+    mod,
+    modkey,
+    moddnu,
+    obsepsdiff,
+    covinv,
+    output,
+):
+    """
+    Full comparison figure of observed and best-fit model epsilon
+    differences, with individual epsilons and correlation map.
+
+    Parameters
+    ----------
+    mod : array
+        Array of frequency modes in best-fit model.
+    modkey : array
+        Array of mode identification of modes in the best-fit model.
+    moddnu : float
+        Average large frequency separation (dnufit) of best-fit model.
+    obsepsdiff : array
+        Array of computed observed epsilon differences, with mode
+        identification and related frequency.
+    covinv : array
+        Inverse covariance matrix of the observed epsilon differences.
+    output : str
+        Name and path of output plotfile.
+    """
+
+    # Labels and markers
+    delab = r"$\delta\epsilon^{%s}_{0%d}$"
+    fmt = [".", "^", "s"]
+    fmtev = [".", "1", "2"]
+
+    # Extract l degrees available and apply restriction to model
+    l_available = [int(ll) for ll in set(obsepsdiff[2])]
+    index = np.zeros(mod.shape[1], dtype=bool)
+    for ll in [0, *l_available]:
+        index |= modkey[0] == ll
+    mod = mod[:, index]
+    modkey = modkey[:, index]
+
+    # Get model epsilon differences
+    modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnu)
+
+    # Uncertainty from inverse covariance
+    uncert = np.sqrt(np.diag(np.linalg.pinv(covinv, rcond=1e-12)))
+
+    # Start of figure
+    fig, ax = plt.subplots(1, 1)
+    handles, legends = [], []
+    for ll in l_available:
+        indobs = obsepsdiff[2] == ll
+        indmod = modepsdiff[2] == ll
+        indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
+        indmod &= modepsdiff[1] < max(obsepsdiff[1]) + 3 * moddnu
+        spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
+        fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100)
+
+        # Model with spline
+        (moddot,) = ax.plot(
+            modepsdiff[1][indmod],
+            modepsdiff[0][indmod],
+            fmt[0],
+            color=colors["l%d" % ll],
+        )
+        ax.plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
+
+        # Model at observed
+        (modobs,) = ax.plot(
+            obsepsdiff[1][indobs],
+            spline(obsepsdiff[1][indobs]),
+            fmtev[ll],
+            color="k",
+            markeredgewidth=2,
+            alpha=0.7,
+        )
+
+        # Observed with uncertainties
+        obsdot = ax.errorbar(
+            obsepsdiff[1][indobs],
+            obsepsdiff[0][indobs],
+            yerr=uncert[indobs],
+            fmt=fmt[ll],
+            color=colors["l%d" % ll],
+            markeredgewidth=0.5,
+            markeredgecolor="k",
+        )
+
+        handles.extend([moddot, obsdot, modobs])
+        legends.extend(
+            [
+                delab % ("mod", ll),
+                delab % ("obs", ll),
+                delab % ("mod", ll) + r"$(\nu^{obs})$",
+            ]
+        )
+
+    # To get the right order of entries in the legend
+    h, l = [], []
+    for i in range(3):
+        h.extend(handles[i::3])
+        l.extend(legends[i::3])
+    ax.legend(h, l, fontsize=16, loc=2, bbox_to_anchor=(1.02, 1))
+    # Labels
+    ax.set_xlabel(r"$\nu\,(\mu {\rm Hz})$")
+    ax.set_ylabel(r"$\delta\epsilon_{0\ell}$")
+
+    fig.tight_layout()
+    fig.savefig(output)
+    print("Saved figure to " + output)
+
+
+def epsilon_difference_all_diagram(
+    mod,
+    modkey,
+    moddnu,
+    obsepsdiff,
+    covinv,
+    obs,
+    obskey,
+    obsdnu,
+    output,
+):
+    """
+    Full comparison figure of observed and best-fit model epsilon
+    differences, with individual epsilons and correlation map.
+
+    Parameters
+    ----------
+    mod : array
+        Array of frequency modes in best-fit model.
+    modkey : array
+        Array of mode identification of modes in the best-fit model.
+    moddnu : float
+        Average large frequency separation (dnufit) of best-fit model.
+    obsepsdiff : array
+        Array of computed observed epsilon differences, with mode
+        identification and related frequency.
+    covinv : array
+        Inverse covariance matrix of the observed epsilon differences.
+    obs : array
+        Array of observed frequency modes.
+    obskey : array
+        Array of mode identification of observed frequency modes.
+    obsdnu : float
+        Inputted average large frequency separation (dnu) of observations.
+    output : str
+        Name and path of output plotfile.
+    """
+
+    # Prepared labels and markers
+    delab = r"$\delta\epsilon^{%s}_{0%d}$"
+    elab = r"$\epsilon_{%d}$"
+    colab = r"$\delta\epsilon_{0%d}(%d)$"
+    fmt = [".", "^", "s"]
+    fmtev = [".", "1", "2"]
+
+    # Extract l degrees available, and only work with these
+    l_available = [int(ll) for ll in set(obsepsdiff[2])]
+    index = np.zeros(mod.shape[1], dtype=bool)
+    for ll in [0, *l_available]:
+        index |= modkey[0] == ll
+    mod = mod[:, index]
+    modkey = modkey[:, index]
+
+    # Determine model epsilon differences
+    modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnu)
+
+    # Recompute to determine if possible but extrapolated modes
+    edextrapol = freq_fit.compute_epsilon_diff(obskey, obs, obsdnu)
+    nu12 = edextrapol[1][edextrapol[2] > 0]
+    nu0 = obs[0][obskey[0] == 0]
+    expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
+
+    # All parameters needed from inverse covariance
+    cov = np.linalg.pinv(covinv, rcond=1e-12)
+    uncert = np.sqrt(np.diag(cov))
+    Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
+    cor = Dinv @ cov @ Dinv
+
+    # Definition of figure
+    figsize = np.array([11.69, 11.69]) * 1.5
+    fig, ax = plt.subplots(
+        3,
+        3,
+        figsize=figsize,
+        gridspec_kw={"width_ratios": [1, 1, 0.05], "height_ratios": [2, 1, 1]},
+    )
+    fig.delaxes(ax[1, 2])
+    fig.delaxes(ax[2, 2])
+
+    # Epsilon differences
+    handles, legends = [], []
+    for ll in l_available:
+        legends.extend(
+            [
+                delab % ("mod", ll),
+                delab % ("obs", ll),
+                delab % ("mod", ll) + r"$(\nu^{obs})$",
+            ]
+        )
+
+        indobs = obsepsdiff[2] == ll
+        indmod = modepsdiff[2] == ll
+        spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
+        fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 1000)
+
+        # Raw model with spline
+        ax[1, 1].errorbar(
+            modepsdiff[1][indmod],
+            modepsdiff[0][indmod],
+            yerr=np.zeros(sum(indmod)),
+            fmt=fmt[ll],
+            color=colors["l%d" % ll],
+            markeredgewidth=0.5,
+            markeredgecolor="k",
+            label=delab % ("", ll),
+        )
+        ax[1, 1].plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
+
+        # Constrained model range
+        indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
+        indmod &= modepsdiff[1] < max(obsepsdiff[1]) + 3 * moddnu
+        spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
+        fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100)
+
+        # Model with spline
+        (moddot,) = ax[0, 0].plot(
+            modepsdiff[1][indmod],
+            modepsdiff[0][indmod],
+            fmt[0],
+            color=colors["l%d" % ll],
+        )
+        ax[0, 0].plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
+
+        # Model at observed
+        (modobs,) = ax[0, 0].plot(
+            obsepsdiff[1][indobs],
+            spline(obsepsdiff[1][indobs]),
+            fmtev[ll],
+            color="k",
+            markeredgewidth=2,
+            alpha=0.7,
+        )
+
+        # Observed with uncertainties
+        obsdot = ax[0, 0].errorbar(
+            obsepsdiff[1][indobs],
+            obsepsdiff[0][indobs],
+            yerr=uncert[indobs],
+            fmt=fmt[ll],
+            color=colors["l%d" % ll],
+            markeredgewidth=0.5,
+            markeredgecolor="k",
+        )
+
+        # Spline observed for separate plot
+        spline = CubicSpline(obsepsdiff[1][indobs], obsepsdiff[0][indobs])
+        fnew = np.linspace(min(obsepsdiff[1][indobs]), max(obsepsdiff[1][indobs]), 100)
+
+        # Observed with uncertainties and spline
+        ax[1, 0].errorbar(
+            obsepsdiff[1][indobs],
+            obsepsdiff[0][indobs],
+            yerr=uncert[indobs],
+            fmt=fmt[ll],
+            color=colors["l%d" % ll],
+            markeredgewidth=0.5,
+            markeredgecolor="k",
+        )
+        ax[1, 0].plot(fnew, spline(fnew), "--k")
+
+        handles.extend([moddot, obsdot, modobs])
+
+    # Correlation map and colorbar
+    im = ax[0, 1].imshow(cor, cmap="RdBu_r", vmin=-1, vmax=1)
+    labs = [
+        colab % (obsepsdiff[2][j], obsepsdiff[3][j]) for j in range(obsepsdiff.shape[1])
+    ]
+    plt.colorbar(im, cax=ax[0, 2], shrink=0.5, pad=0.05)
+
+    # Potential extrapolated points
+    if len(expol):
+        for ll in set(edextrapol[2][expol].astype(int)):
+            ax[1, 0].plot(
+                edextrapol[1][expol],
+                edextrapol[0][expol],
+                fmt[ll],
+                color="k",
+                label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
+            )
+        ax[1, 0].legend()
+
+    # Individual epsilons
+    for ll in [0, *l_available]:
+        # Extract observed quantities
+        indobs = obskey[0] == ll
+        fre = obs[0][indobs]
+        eps = fre / obsdnu - obskey[1][indobs] - ll / 2
+        err = obs[1][indobs] / obsdnu
+        intpol = CubicSpline(fre, eps)
+        fnew = np.linspace(min(fre), max(fre), 100)
+
+        # Plot observed w. spline
+        ax[2, 0].errorbar(
+            fre, eps, yerr=err, fmt=fmt[ll], color=colors["l%d" % ll], label=elab % ll
+        )
+        ax[2, 0].plot(fnew, intpol(fnew), "-", color=colors["l%d" % ll])
+
+        # Extract model quantities
+        indmod = modkey[0] == ll
+        fre = mod[0][indmod]
+        eps = fre / moddnu - modkey[1][indmod] - ll / 2
+        err = mod[1][indmod] / moddnu
+        intpol = CubicSpline(fre, eps)
+        fnew = np.linspace(min(fre), max(fre), 1000)
+
+        # Plot model w. spline
+        ax[2, 1].errorbar(
+            fre, eps, yerr=err, fmt=fmt[ll], color=colors["l%d" % ll], label=elab % ll
+        )
+        ax[2, 1].plot(fnew, intpol(fnew), "-", color=colors["l%d" % ll])
+
+    # Limits in the bottom plots
+    for i in [0, 1]:
+        xl1 = list(ax[1, i].get_xlim())
+        xl2 = list(ax[2, i].get_xlim())
+        xlim = [min(xl1[0], xl2[0]), max(xl1[1], xl2[1])]
+        yl1 = list(ax[i + 1, 0].get_ylim())
+        yl2 = list(ax[i + 1, 1].get_ylim())
+        ylim = [min(yl1[0], yl2[0]), max(yl1[1], yl2[1])]
+        for j in [0, 1]:
+            ax[j + 1, i].set_xlim(xlim)
+            ax[i + 1, j].set_ylim(ylim)
+        ax[1, i].set_xticklabels([])
+        ax[i + 1, 1].set_yticklabels([])
+
+    # To get the right order of entries in the legend
+    h, l = [], []
+    for i in range(3):
+        h.extend(handles[i::3])
+        l.extend(legends[i::3])
+    # Legends
+    ax[0, 0].legend(
+        h,
+        l,
+        fontsize=16,
+        bbox_to_anchor=(0, 1.02, 1, 0.102),
+        ncol=3,
+        loc=8,
+        mode="expand",
+        borderpad=0,
+        borderaxespad=0.0,
+    )
+    ax[1, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.0)
+    ax[2, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2)
+
+    # Axes labels
+    ax[0, 0].set_xlabel(r"$\nu\,(\mu {\rm Hz})$")
+    ax[0, 0].set_ylabel(r"$\delta\epsilon_{0\ell}$")
+    ax[0, 1].set_xticklabels([])
+    ax[0, 1].set_yticks(range(obsepsdiff.shape[1]))
+    ax[0, 1].set_yticklabels(labs)
+    ax[1, 0].set_ylabel(r"$\delta\epsilon_{0\ell}$")
+    ax[2, 0].set_xlabel(r"$\nu\, (\mu {\rm Hz})$")
+    ax[2, 0].set_ylabel(r"$\epsilon_{\ell}$")
+    ax[2, 1].set_xlabel(r"$\nu\, (\mu {\rm Hz})$")
+
+    # Titles
+    ax[0, 1].set_title(r"Correlation map", fontsize=18)
+    ax[1, 0].set_title(r"Observed", fontsize=18)
+    ax[1, 1].set_title(r"Model", fontsize=18)
+
+    fig.tight_layout()
+    fig.subplots_adjust(wspace=0.2, hspace=0.4)
+
+    # Dear god oh why does this have to be so difficult...
+    p10 = ax[1, 0].get_position().get_points().flatten()
+    p11 = ax[1, 1].get_position().get_points().flatten()
+    p20 = ax[2, 0].get_position().get_points().flatten()
+    dx = p10[2] - p10[0] + (p11[0] - p10[2]) / 2
+    xs = [p10[0], p10[0] + dx]
+    dy = p20[3] - p20[1] + (p10[1] - p20[3]) / 2
+    ys = [p20[0], p20[0] + dy]
+
+    ax[1, 0].set_position([xs[0], ys[1], dx, dy])
+    ax[1, 1].set_position([xs[1], ys[1], dx, dy])
+    ax[2, 0].set_position([xs[0], ys[0], dx, dy])
+    ax[2, 1].set_position([xs[1], ys[0], dx, dy])
+
+    fig.savefig(output)
+    print("Saved figure to " + output)
+
+
+def epsilon_diff_and_correlation(depsN, depsL, covN, covL, osc, osckey, avgdnu):
+
+    titles = [r"Correlation $n$-sorted", r"Correlation $\ell$-sorted"]
+    l_avail = [int(ll) for ll in set(depsN[2])]
+    fig, ax = plt.subplots(
+        2, 3, figsize=(17, 15), gridspec_kw={"width_ratios": [1, 1, 0.05]}
+    )
+    fig.delaxes(ax[1, 2])
+
+    ####################
+    # Correlation maps #
+    ####################
+    for i, (deps, cov) in enumerate(zip([depsN, depsL], [covN, covL])):
+        Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
+        cor = Dinv @ cov @ Dinv
+        im = ax[0, i].imshow(cor, cmap="RdBu_r", vmin=-1, vmax=1)
+
+        labs = [
+            r"$\delta\epsilon_{0%d}(%d)$" % (deps[2][j], deps[3][j])
+            for j in range(deps.shape[1])
+        ]
+
+        ax[0, i].set_xticks(range(deps.shape[1]))
+        ax[0, i].set_xticklabels(labs, rotation=90)
+        ax[0, i].set_yticks(range(deps.shape[1]))
+        ax[0, i].set_yticklabels(labs)
+        if sum(abs(np.diff(deps[2]))) < 2:
+            ax[0, i].set_title(titles[1], fontsize=18)
+        else:
+            ax[0, i].set_title(titles[0], fontsize=18)
+
+    ax[0, 1].yaxis.tick_right()
+    plt.colorbar(
+        im,
+        cax=ax[0, 2],
+        shrink=0.5,
+        drawedges=False,
+        anchor=(0.5, 0.5),
+        use_gridspec=False,
+        pad=20,
+        fraction=0.8,
+        aspect=10,
+    )
+
+    ################
+    # Pure epsilon #
+    ################
+    for ll in [0, *l_avail]:
+        nn = osckey[1, :][osckey[0] == ll]
+        eps = osc[0, :][osckey[0] == ll] / avgdnu - nn - ll / 2
+        err = osc[1, :][osckey[0] == ll] / avgdnu
+        fre = osc[0, :][osckey[0] == ll]
+        ax[1, 0].errorbar(
+            fre,
+            eps,
+            yerr=err,
+            fmt=".",
+            color=colors["l%d" % ll],
+            label=r"$\epsilon_{%d}$" % (ll),
+        )
+        intpol = CubicSpline(fre, eps)
+        if ll == 0:
+            fnew = np.linspace(min(osc[0]) - avgdnu, max(osc[0]) + avgdnu, 100)
+
+            ax[1, 0].plot(fnew, intpol(fnew), "-", color=colors["l%d" % ll])
+        else:
+            fnew = np.linspace(fre[0], fre[-1], 100)
+            ax[1, 0].plot(fnew, intpol(fnew), "--k", alpha=0.7)
+
+    ax[1, 0].legend(fontsize=16)
+    ax[1, 0].set_xlabel(r"$\nu\,(\mu {\rm Hz})$")
+    ax[1, 0].set_ylabel(r"$\epsilon_\ell$")
+
+    #######################
+    # Epsilon differences #
+    #######################
+    for ll in l_avail:
+        deps = depsN[0][depsN[2] == ll]
+        fre = depsN[1][depsN[2] == ll]
+        err = np.sqrt(np.diag(covN))[depsN[2] == ll]
+        intpol = CubicSpline(fre, deps)
+        fnew = np.linspace(min(fre), max(fre), 100)
+        ax[1, 1].errorbar(
+            fre,
+            deps,
+            yerr=err,
+            fmt=".",
+            color=colors["l%d" % ll],
+            label=r"$\delta\epsilon_{0%d}$" % (ll),
+        )
+        ax[1, 1].plot(fnew, intpol(fnew), "--", color="k", alpha=0.7)
+
+    nu12 = depsN[1][depsN[2] > 0]
+    nu0 = osc[0][osckey[0] == 0]
+    expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
+    if len(expol):
+        ax[1, 1].plot(
+            depsN[1][expol], depsN[0][expol], "o", color="k", label=r"Extrapolation"
+        )
+
+    ax[1, 1].legend(fontsize=16)
+    ax[1, 1].set_xlabel(r"$\nu\,(\mu {\rm Hz})$")
+    ax[1, 1].set_ylabel(r"$\delta\epsilon_{0\ell}$")
+    ax[1, 1].yaxis.tick_right()
+    ax[1, 1].yaxis.set_label_position("right")
+
+    fig.tight_layout()
+    fig.savefig("covariance_map.pdf")
+    plt.close(fig)
