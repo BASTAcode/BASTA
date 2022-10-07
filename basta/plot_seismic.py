@@ -1183,8 +1183,8 @@ def epsilon_difference_all_diagram(
     if len(expol):
         for ll in set(edextrapol[2][expol].astype(int)):
             ax[1, 0].plot(
-                edextrapol[1][expol],
-                edextrapol[0][expol],
+                edextrapol[1][expol][edextrapol[2][expol] == ll],
+                edextrapol[0][expol][edextrapol[2][expol] == ll],
                 fmt[ll],
                 color="k",
                 label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
