@@ -13,8 +13,14 @@
 import os
 import sys
 
+# Make the modules importable
+sys.path.insert(0, os.path.abspath(".."))
 sys.path.insert(0, os.path.abspath("../basta"))
 sys.path.insert(0, os.path.abspath("../examples"))
+
+# Add required environment variable
+if not "BASTADIR" in os.environ:
+    os.environ["BASTADIR"] = os.path.abspath("../basta")
 
 
 # -- Project information -----------------------------------------------------
@@ -25,10 +31,10 @@ copyright = "2022, The BASTA Team"
 author = "The BASTA Team"
 
 # The short X.Y version.
-version = "1.1.5"
+version = "1.1.6"
 
 # The full version, including alpha/beta/rc tags.
-release = "1.1.5"
+release = "1.1.6"
 
 
 # -- General configuration ------------------------------------------------
