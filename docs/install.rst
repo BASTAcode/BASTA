@@ -106,7 +106,7 @@ To automatically compile the external routines with ``f2py3`` (described above) 
     source venv/bin/activate
     python setup.py CASE
 
-Here ``CASE`` should be ``personal`` unless you are running BASTA natively on a M1/M1X Mac, in which case it should be ``light``. Setting the latter will disable the functionality to fit glitches and to use grid interpolation. Support for the new Mac systems are currently work-in-progress. Internally on AU, it is also possible to use the case ``grendel`` on the Grendel-S cluster, in which case BASTA will use the dustmaps from our shared project folder.
+Here ``CASE`` should be ``personal``. Setting the case ``light`` will enable you to install the code on a system without a Fortran-compiler, but disable the functionality to fit glitches and to use grid interpolation. Internally on AU, it is also possible to use the case ``grendel`` on the Grendel-S cluster, in which case BASTA will use the dustmaps from our shared project folder.
 
 Please note that quite a lot of output might be produced, including some warnings. However, these warnings (e.g. the deprecated NumPy API) are harmless and cannot be avoided until the Scipy-people update ``f2py``. Unless the compilation fails, just ignore the warnings.
 
