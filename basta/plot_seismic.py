@@ -1292,8 +1292,34 @@ def epsilon_difference_all_diagram(
     print("Saved figure to " + output)
 
 
-def epsilon_diff_and_correlation(depsN, depsL, covN, covL, osc, osckey, avgdnu):
+def epsilon_diff_and_correlation(
+    depsN, depsL, covN, covL, osc, osckey, avgdnu, filename
+):
+    """
+    Subroutine only run when --debug as been invoked. It produces correlation maps and
+    diagrams of the observed epsilon differences. The correlation maps are produced
+    using the two different sorting methods, to detail the differences between the
+    "01" and "02" sequence, if both are available.
 
+    Parameters
+    ----------
+    depsN : array
+        The epsilon differences and their identifying information, sorted by n before l.
+    depsL : array
+        Same as depsN, but sorted as l before n.
+    covN : array
+        Covariance matrix of the n before l sorted epsilon differences.
+    covL : array
+        Same as covN, but sorted as l before n.
+    osc : array
+        Observed oscillation frequencies.
+    osckey : array
+        l and n of the observed oscillation frequencies.
+    avgdnu : float
+        Average large frequency separation for computation of epsilons.
+    filename : str
+        Name to save the figure to.
+    """
     titles = [r"Correlation $n$-sorted", r"Correlation $\ell$-sorted"]
     l_avail = [int(ll) for ll in set(depsN[2])]
     fig, ax = plt.subplots(
@@ -1399,5 +1425,5 @@ def epsilon_diff_and_correlation(depsN, depsL, covN, covL, osc, osckey, avgdnu):
     ax[1, 1].yaxis.set_label_position("right")
 
     fig.tight_layout()
-    fig.savefig("covariance_map.pdf")
+    fig.savefig(filename)
     plt.close(fig)

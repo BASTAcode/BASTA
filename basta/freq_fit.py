@@ -823,7 +823,7 @@ def compute_epsilon_diff(
     osc,
     avgdnu,
     seq="e012",
-    nsorting=False,
+    nsorting=True,
 ):
     """
     Computed epsilon differences, based on Roxburgh 2016 (eq. 1 and 4)
@@ -852,8 +852,8 @@ def compute_epsilon_diff(
         Similar to ratios, what sequence of epsilon differences to be computed.
         Can be 01, 02 or 012 for a combination of the two first.
     nsorting : bool
-        Whether to sort the modes according to n before l (True).
-        l before n (False) is default.
+        If True (default), the sequences are sorted by n-value of the frequencies.
+        If False, the entire 01 sequence is followed by the 02 sequence.
 
     Returns
     -------
@@ -862,6 +862,7 @@ def compute_epsilon_diff(
         l different from 0 (2) and n (3).
     """
 
+    # Select the sequence(s) to use
     if seq == "e012":
         l_used = [1, 2]
     elif seq == "e02":
@@ -871,8 +872,6 @@ def compute_epsilon_diff(
     else:
         raise KeyError("Undefined epsilon difference sequence requested!")
 
-    Nmodes = sum([sum(osckey[0] == ll) for ll in l_used])
-
     # Epsilon is computed analytically from the frequency information
     epsilon = np.zeros(osc.shape[1])
 
@@ -880,12 +879,13 @@ def compute_epsilon_diff(
         ll, nn = osckey[:, i]
         epsilon[i] = freq / avgdnu - nn - ll / 2
 
-    # Setup essential l=0 interpolater
+    # Setup base l=0 interpolater object
     nu0 = osc[0, osckey[0, :] == 0]
     eps0 = epsilon[osckey[0, :] == 0]
     eps0_intpol = CubicSpline(nu0, eps0)
 
-    # Collection array
+    # Compute the epsilon differences of the selected sequence(s)
+    Nmodes = sum([sum(osckey[0] == ll) for ll in l_used])
     deps = np.zeros((4, Nmodes))
     Niter = 0
     for ll in l_used:
@@ -907,7 +907,7 @@ def compute_epsilon_diff(
 
         Niter += len(diff_eps0l)
 
-    # Sort according to n if flagged
+    # Sort according to n if flagged (ensure l=1 before l=2 with 0.1)
     if nsorting:
         mask = np.argsort(deps[3, :] + deps[2, :] * 0.1)
         deps = deps[:, mask]

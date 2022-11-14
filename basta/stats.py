@@ -64,7 +64,7 @@ def chi2_astero(
     obsintervals,
     dnudata,
     dnudata_err,
-    moddnu,
+    moddnufit,
     tau0=3500.0,
     tauhe=800.0,
     taubcz=2200.0,
@@ -325,10 +325,11 @@ def chi2_astero(
         mod = mod[:, index]
         modkey = modkey[:, index]
 
-        # 0: deps, 1: nu, 2: l, 3: n
-        modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnu)
+        # Compute epsilon differences of the model
+        # --> (0: deps, 1: nu, 2: l, 3: n)
+        modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnufit)
 
-        # Spline model epsdiff to nu of observations
+        # Interpolate model epsdiff to the frequencies of the observations
         evalepsdiff = np.zeros(obsepsdiff.shape[1])
         for ll in l_available:
             indobs = obsepsdiff[2] == ll
@@ -336,7 +337,7 @@ def chi2_astero(
             spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
             evalepsdiff[indobs] = spline(obsepsdiff[1][indobs])
 
-        # Compute chi**2 of epsilon contribution
+        # Compute chi^2 of epsilon contribution
         chi2rut = 0.0
         x = obsepsdiff[0] - evalepsdiff
         w = _weight(len(evalepsdiff), seisw)

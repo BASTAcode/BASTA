@@ -263,7 +263,7 @@ def BASTA(
             obsintervals,
             dnudata,
             dnudata_err,
-        ) = su.prepare_obs(inputparams, verbose=verbose)
+        ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
 
     # Check if grid is interpolated
     try:
@@ -618,7 +618,7 @@ def BASTA(
                         rawmodkey = libitem["osckey"][ind]
                         mod = su.transform_obj_array(rawmod)
                         modkey = su.transform_obj_array(rawmodkey)
-                        moddnu = libitem["dnufit"][ind]
+                        moddnufit = libitem["dnufit"][ind]
                         tau0 = libitem["tau0"][ind]
                         tauhe = libitem["tauhe"][ind]
                         taubcz = libitem["taubcz"][ind]
@@ -633,7 +633,7 @@ def BASTA(
                             obsintervals,
                             dnudata,
                             dnudata_err,
-                            moddnu,
+                            moddnufit,
                             tau0=tau0,
                             tauhe=tauhe,
                             taubcz=taubcz,

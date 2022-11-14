@@ -1156,6 +1156,7 @@ def read_rt(
     nottrustedfile=None,
     threepoint=False,
     verbose=False,
+    debug=False,
 ):
     """
     Routine to all necesary data from individual frequencies for the
@@ -1183,6 +1184,8 @@ def read_rt(
         instead of default five point definition.
     verbose : bool, optional
         If True, extra text will be printed to log (for developers).
+    debug : bool, optional
+        Activate additional output for debugging (for developers)
 
     Returns
     -------
@@ -1329,18 +1332,19 @@ def read_rt(
                 print("please provide the single combined key (e.g. e012)")
                 raise KeyError
             seq = inpseq[0]
-            print(
-                "* Computing epsilon differences sequance {0}...".format(seq),
-                end="",
-                flush=True,
-            )
+            print("* Computing epsilon differences sequence {0}...".format(seq))
             datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
-                obskey, obs, None, dnudata, seq=seq
+                obskey,
+                obs,
+                dnudata,
+                seq=seq,
             )
             print("done!")
         elif datosepsdiff is None and plotepsdiff:
             datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
-                obskey, obs, None, dnudata
+                obskey,
+                obs,
+                dnudata,
             )
 
     # Glitch
@@ -1361,6 +1365,34 @@ def read_rt(
         datosepsdiff,
     )
     cov = (cov010, cov02, cov_f, cov01, cov10, cov012, cov102, covglh, covepsdiff)
+
+    # Epsilon differences debug plot production
+    if debug:
+        print("* Resampling epsilon differences covariances for debug plot")
+        epsdiff_plotname = filename.split(".xml")[0] + "_epsdiff_and_cov.png"
+        # Get epsilon differences with reverse sorting
+        dbg_epsdiff, dbg_covepsdiff = su.compute_epsilon_diff_and_cov(
+            obskey,
+            obs,
+            dnudata,
+            nsort=False,
+            debug=debug,
+        )
+        # Make the plot of the correlation matrix
+        # --> Yes, importing here is dirty. but no need for a general import!
+        from basta.plot_seismic import epsilon_diff_and_correlation
+
+        epsilon_diff_and_correlation(
+            datosepsdiff,
+            dbg_epsdiff,
+            covepsdiff,
+            dbg_covepsdiff,
+            obs,
+            obskey,
+            dnudata,
+            epsdiff_plotname,
+        )
+        print("* Saved correlation maps and epsilon differences as ", epsdiff_plotname)
 
     return datos, cov, obskey, obs, dnudata, dnudata_err
 

@@ -14,7 +14,6 @@ from basta import freq_fit
 from basta import fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
-from basta.plot_seismic import epsilon_diff_and_correlation
 
 
 def combined_ratios(r02, r01, r10):
@@ -351,7 +350,7 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     return inputparams
 
 
-def prepare_obs(inputparams, verbose=False):
+def prepare_obs(inputparams, verbose=False, debug=False):
     """
     Prepare frequencies and ratios for fitting
 
@@ -359,8 +358,10 @@ def prepare_obs(inputparams, verbose=False):
     ----------
     inputparams : dict
         Inputparameters for BASTA
-    verbose : bool
+    verbose : bool, optional
         Flag that if True adds extra text to the log (for developers).
+    debug : bool, optional
+        Activate additional output for debugging (for developers)
 
     Returns
     -------
@@ -468,6 +469,7 @@ def prepare_obs(inputparams, verbose=False):
         threepoint=threepoint,
         nottrustedfile=nottrustedfile,
         verbose=verbose,
+        debug=debug,
     )
 
     if not correlations and "freqs" in rt:
@@ -699,7 +701,14 @@ def scale_by_inertia(osckey, osc):
 
 
 def compute_epsilon_diff_and_cov(
-    osckey, osc, osccov, avgdnu, seq="e012", nrealisations=20000
+    osckey,
+    osc,
+    avgdnu,
+    seq="e012",
+    nsort=True,
+    extrapolation=False,
+    nrealisations=20000,
+    debug=False,
 ):
     """
     Compute epsilon differences and covariances.
@@ -720,7 +729,6 @@ def compute_epsilon_diff_and_cov(
     epsilon differences are drawn from random Gaussian distributions of the
     individual frequencies within their uncertainty.
 
-    TODO: Analytic covariance
 
     Parameters
     ----------
@@ -732,13 +740,22 @@ def compute_epsilon_diff_and_cov(
         Covariances between individual frequencies
     avgdnu : float
         Average value of the large frequency separation
-    seq : str
+    seq : str, optional
         Similar to ratios, what sequence of epsilon differences to be computed.
-        Can be 01, 02 or 012 for a combination of the two first.
-    nrealisations : int or bool
+        Can be e01, e02 or e012 for a combination of the two first.
+    nsort : bool, optional
+        If True (default), the sequences are sorted by n-value of the frequencies. If
+        False, the entire 01 sequence is followed by the 02 sequence.
+    extrapolation : bool, optional
+        If False (default), modes outside the range of the l=0 modes are discarded to
+        avoid extrapolation.
+    nrealisations : int or bool, optional
         If int: number of realisations used for MC-sampling the covariances
         If bool: Whether to use MC (True) or analytic (False) deternubation
         of covariances. If True, nrealisations of 20,000 is used.
+    debug : bool, optional
+        Print additional output and make plots for debugging (incl. a plot of the
+        correlation matrix)
 
     Returns
     -------
@@ -748,23 +765,7 @@ def compute_epsilon_diff_and_cov(
         Covariances. The inverse.
     """
 
-    # Check covariance determination input
-    MonteCarlo = False
-    if type(nrealisations) in [int, float]:
-        if nrealisations > 0:
-            MonteCarlo = True
-            nrealisations = int(nrealisations)
-    elif type(nrealisations) == bool:
-        if nrealisations == True:
-            MonteCarlo
-            nrealisations = 20000
-
-    # Possible input parameters
-    extrapolation = False
-    nsort = True
-    DEBUG = False
-
-    # Remove modes outside of l=0 range
+    # Step 0: Remove modes outside of l=0 range
     if not extrapolation:
         indall = osckey[0, :] > -1
         ind0 = osckey[0, :] == 0
@@ -773,108 +774,38 @@ def compute_epsilon_diff_and_cov(
             osc[0, ind12] < max(osc[0, ind0]), osc[0, ind12] > min(osc[0, ind0])
         )
         indall[ind12] = mask
+        if debug and any(mask):
+            print(
+                "The following modes have been skipped from epsilon differences to avoid extrapolation:"
+            )
+            for f, (l, n) in zip(osc[0, ~indall], osckey[:, ~indall].T):
+                print(" - (l,n,f) = ({0}, {1:02d}, {2:.3f})".format(l, n, f))
+
         osc = osc[:, indall]
         osckey = osckey[:, indall]
 
-    if not MonteCarlo:
-        # Epsilon is computed analytically from the frequency information
-        epsilon = np.zeros(osc.shape[1])
-        epsilon_err = np.zeros(osc.shape[1])
-        epsilon_cov = np.zeros(osccov.shape)
-        if DEBUG:
-            print(
-                "DEBUG: {:>2}{:>4}{:>9}{:>6}{:>7}{:>8}".format(
-                    "l", "n", "nu", "e_nu", "eps", "e_eps"
-                )
-            )
-        for i, freq in enumerate(osc[0, :]):
-            ll, nn = osckey[:, i]
-            epsilon[i] = freq / avgdnu - nn - ll / 2
-            epsilon_cov[i, i] = (
-                osccov[i, i] / avgdnu**2
-            )  # Error propagation, variance
-            epsilon_err[i] = (
-                np.sqrt(osccov[i, i]) / avgdnu
-            )  # One of the two is redundant
-            if DEBUG:
-                print(
-                    "DEBUG: {:2}{:4}{:9.2f}{:6.2f}{:7.3f}{:8.4f}".format(
-                        ll,
-                        nn,
-                        freq,
-                        np.sqrt(osccov[i, i]),
-                        epsilon[i],
-                        np.sqrt(epsilon_cov[i, i]),
-                    )
-                )
+    # Step 1: Compute epsilon differences
+    eps_diff = freq_fit.compute_epsilon_diff(
+        osckey, osc, avgdnu, seq=seq, nsorting=nsort
+    )
 
-        # Determination of the epsilon differences by interpolation
-        eps0 = epsilon[osckey[0, :] == 0]
-        nu0 = osc[0, osckey[0, :] == 0]
-        eps1 = epsilon[osckey[0, :] == 1]
-        nu1 = osc[0, osckey[0, :] == 1]
-        eps2 = epsilon[osckey[0, :] == 2]
-        nu2 = osc[0, osckey[0, :] == 2]
-
-        eps0_intpol = CubicSpline(nu0, eps0)
-        eps0_at_nu1 = eps0_intpol(nu1)
-        eps0_at_nu2 = eps0_intpol(nu2)
-
-        delta_eps01 = eps0_at_nu1 - eps1
-        delta_eps02 = eps0_at_nu2 - eps2
-
-    else:
-        # Compute epsilon and store them with the information
-        eps_diff = freq_fit.compute_epsilon_diff(
-            osckey, osc, avgdnu, seq=seq, nsorting=nsort
+    # Step 2a: Compute different perturbed realisations (Monte Carlo) for covariances
+    eps_reals = np.zeros((nrealisations, eps_diff.shape[1]))
+    perturb_osc = deepcopy(osc)
+    for i in tqdm(range(nrealisations), desc="Sampling covariances", ascii=True):
+        perturb_osc[0][:] = np.random.normal(osc[0][:], osc[1][:])
+        perturb_eps = freq_fit.compute_epsilon_diff(
+            osckey, perturb_osc, avgdnu, seq=seq, nsorting=nsort
         )
-        pbar = tqdm(total=nrealisations, desc="Sampling covariances", ascii=True)
-        # Compute and store different realizations
-        eps_reals = np.zeros((nrealisations, eps_diff.shape[1]))
-        perturb_osc = deepcopy(osc)
-        for i in range(nrealisations):
-            pbar.update(1)
-            perturb_osc[0][:] = np.random.normal(osc[0][:], osc[1][:])
-            perturb_eps = freq_fit.compute_epsilon_diff(
-                osckey, perturb_osc, avgdnu, seq=seq, nsorting=nsort
-            )
-            eps_reals[i, :] = perturb_eps[0]
-        pbar.close()
+        eps_reals[i, :] = perturb_eps[0]
 
-        # Compute the covariance matrix and test the convergence
-        n = int(round(nrealisations / 2))
-        cov = np.cov(eps_reals[:n, :], rowvar=False)
-        covDeps = np.cov(eps_reals, rowvar=False)
-        fnorm = np.linalg.norm(covDeps - cov) / eps_diff.shape[1] ** 2
-        if fnorm > 1.0e-6:
-            print("Frobenius norm {0} > 1e-6".format(fnorm))
-            print("Warning: Covariance failed to converge")
-
-        if DEBUG:
-            nsort2 = not nsort
-            eps2 = freq_fit.compute_epsilon_diff(
-                osckey, osc, avgdnu, seq=seq, nsorting=nsort2
-            )
-
-            pbar = tqdm(total=nrealisations, desc="Sampling covariances", ascii=True)
-            eps_reals = np.zeros((nrealisations, eps2.shape[1]))
-            perturb_osc = deepcopy(osc)
-            for i in range(nrealisations):
-                pbar.update(1)
-                perturb_osc[0][:] = np.random.normal(osc[0][:], osc[1][:])
-                perturb_eps = freq_fit.compute_epsilon_diff(
-                    osckey, perturb_osc, avgdnu, seq=seq, nsorting=nsort2
-                )
-                eps_reals[i, :] = perturb_eps[0]
-            pbar.close()
-
-            # Compute the covariance matrix and test the convergence
-            n = int(round(nrealisations / 2))
-            cov = np.cov(eps_reals[:n, :], rowvar=False)
-            covD2 = np.cov(eps_reals, rowvar=False)
-
-            epsilon_diff_and_correlation(
-                eps_diff, eps2, covDeps, covD2, osc, osckey, avgdnu
-            )
+    # Step 2b: Derive covariance matrix from MC-realisations and test convergence
+    n = int(round(nrealisations / 2))
+    cov = np.cov(eps_reals[:n, :], rowvar=False)
+    covDeps = np.cov(eps_reals, rowvar=False)
+    fnorm = np.linalg.norm(covDeps - cov) / eps_diff.shape[1] ** 2
+    if fnorm > 1.0e-6:
+        print("Frobenius norm {0} > 1e-6".format(fnorm))
+        print("Warning: Covariance failed to converge")
 
     return eps_diff, covDeps
