@@ -495,7 +495,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
             covinv.append(None)
 
     # Compute the intervals used in frequency fitting
-    if "freqs" in rt:
+    if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in rt]):
         obsintervals = freq_fit.make_intervals(obs, obskey, dnu=inputparams["dnufit"])
     else:
         obsintervals = None

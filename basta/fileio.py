@@ -1218,6 +1218,18 @@ def read_rt(
     freq[:]["freq"] = obs[0, obskey[0, :] < 3]
     freq[:]["err"] = obs[1, obskey[0, :] < 3]
 
+    # Compute large frequency separation (the same way as dnufit)
+    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+    yfitdnu = freq[freq["l"] == 0]["freq"]
+    xfitdnu = np.arange(0, len(yfitdnu))
+    wfitdnu = np.exp(
+        -1.0
+        * np.power(yfitdnu - numax, 2)
+        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+    )
+    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
+    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+
     # Ratios and covariances
     datos010, datos02, datos01, datos10, datos012, datos102 = (
         None,
@@ -1231,24 +1243,11 @@ def read_rt(
     datosepsdiff, covepsdiff = None, None
 
     cov010, cov02, cov01, cov10, cov012, cov102 = (None, None, None, None, None, None)
-    dnudata, dnudata_err = None, None
     r02, r01, r10 = freq_fit.ratios(freq)
     if r02 is None:
         if any(x in freqtypes.rtypes for x in rt):
             print("WARNING: Missing radial orders! Skipping ratios fitting!")
     else:
-        # Compute large frequency separation (the same way as dnufit)
-        FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-        yfitdnu = freq[freq["l"] == 0]["freq"]
-        xfitdnu = np.arange(0, len(yfitdnu))
-        wfitdnu = np.exp(
-            -1.0
-            * np.power(yfitdnu - numax, 2)
-            / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-        )
-        fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-        dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
-
         # Ratios and their covariances
         r010, r012, r102 = su.combined_ratios(r02, r01, r10)
         rrange = (
@@ -1322,30 +1321,31 @@ def read_rt(
             datos102[2, :] = rat[:, 2]
             print("done!")
 
-        if datosepsdiff is None and any([x in freqtypes.epsdiff for x in rt]):
-            inp = np.asarray(rt)
-            inpseq = inp[list(x in freqtypes.epsdiff for x in list(rt))]
-            try:
-                assert len(inpseq) < 2
-            except AssertionError:
-                print("For fitting multiple epsilon difference sequences", end="")
-                print("please provide the single combined key (e.g. e012)")
-                raise KeyError
-            seq = inpseq[0]
-            print("* Computing epsilon differences sequence {0}...".format(seq))
-            datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
-                obskey,
-                obs,
-                dnudata,
-                seq=seq,
-            )
-            print("done!")
-        elif datosepsdiff is None and plotepsdiff:
-            datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
-                obskey,
-                obs,
-                dnudata,
-            )
+    if datosepsdiff is None and any([x in freqtypes.epsdiff for x in rt]):
+        inp = np.asarray(rt)
+        inpseq = inp[list(x in freqtypes.epsdiff for x in list(rt))]
+        try:
+            assert len(inpseq) < 2
+        except AssertionError:
+            print("For fitting multiple epsilon difference sequences", end="")
+            print("please provide the single combined key (e.g. e012)")
+            raise KeyError
+        seq = inpseq[0]
+        print("* Computing epsilon differences sequence {0}...".format(seq))
+        datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
+            obskey,
+            obs,
+            dnudata,
+            seq=seq,
+        )
+        print("done!")
+    elif datosepsdiff is None and plotepsdiff:
+        datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
+            obskey,
+            obs,
+            dnudata,
+            nrealisations=2000,
+        )
 
     # Glitch
     if "glitches" in rt:
