@@ -807,7 +807,7 @@ def pairechelle(
                 linewidths=1,
                 edgecolors="k",
                 zorder=3,
-                label=r"Best fit $l=0$",
+                label=r"Best fit $\ell=0$",
             )
             plt.errorbar(
                 fobsl0 % dnu,
@@ -817,7 +817,7 @@ def pairechelle(
                 mfc=colors["l0"],
                 ecolor=colors["l0"],
                 zorder=1,
-                label=r"Measured $l=0$",
+                label=r"Measured $\ell=0$",
             )
         if len(fmodl1) != 0:
             plt.scatter(
@@ -829,7 +829,7 @@ def pairechelle(
                 linewidths=1,
                 edgecolors="k",
                 zorder=3,
-                label=r"Best fit $l=1$",
+                label=r"Best fit $\ell=1$",
             )
             plt.errorbar(
                 fobsl1 % dnu,
@@ -839,7 +839,7 @@ def pairechelle(
                 mfc=colors["l1"],
                 ecolor=colors["l1"],
                 zorder=1,
-                label=r"Measured $l=1$",
+                label=r"Measured $\ell=1$",
             )
         if len(fmodl2) != 0:
             plt.scatter(
@@ -851,7 +851,7 @@ def pairechelle(
                 linewidths=1,
                 edgecolors="k",
                 zorder=3,
-                label=r"Best fit $l=2$",
+                label=r"Best fit $\ell=2$",
             )
             plt.errorbar(
                 fobsl2 % dnu,
@@ -861,7 +861,7 @@ def pairechelle(
                 mfc=colors["l2"],
                 ecolor=colors["l2"],
                 zorder=1,
-                label=r"Measured $l=2$",
+                label=r"Measured $\ell=2$",
             )
 
         # Make line segments connecting the observed and associated mode
