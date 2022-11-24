@@ -44,8 +44,8 @@ class parameters:
     # fmt: off
     params = [
               ('modnum', None, r'Model', r'Model number', pcol),
-              ('d02fit', r'microHz', r'$d_{02,{\rm fit}}$ ($\mu$Hz)', r'Weighted mean small frequency separation', pcol),
-              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)', r'Simple mean small frequency separation', pcol),
+              ('d02fit', r'microHz', r'$d_{02,{\rm fit}}$ ($\mu$Hz)', r'Weighted mean small frequency separation', '#D36E70'),
+              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)', r'Simple mean small frequency separation', '#D36E70'),
               ('ove', None, r'$\xi_\mathrm{ove}$', r'Overshooting efficiency', pcol),
               ('gcut', None, r'$g_\mathrm{cut}$', r'Geometric cutoff', pcol),
               ('eta', None, r'$\eta$', r'Reimers mass loss', '#858FC2'),
@@ -99,8 +99,6 @@ class parameters:
               ('nummodSer', None, r'N$_\mathrm{modes}$ (Serenelli 17)', r'Number of modes used in the corrections from Serenelli 2017', pcol),
               ('errflagSer', None, r'error$_\mathrm{flag}$ (Serenelli 17)', r'Error output of the corrections from Serenelli 2017', pcol),
               ('dnuSer', r'solar', r'$\Delta \nu_\mathrm{Serenelli17}$', r'Large frequency separation corrected following Serenelli 2017', '#228833'),
-              ('d02fit', r'microHz', r'$d_{02,{\rm fit}} ($\mu$Hz)', r'Small frequency separation computed as a weighted fit around numax in a similar way as `dnufit`', '#D36E70'),
-              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)$', r'Small frequency separation computed as a simple mean of all positive values of `d02`', '#D36E70'),
               ('TPS', r's', r't', r'to be completed', pcol),
               ('PS', r's', r'$\Delta \Pi$ (s)', r'Asymptotic period spacing', '#332288'),
               ('tau0', r's', r'$\Tau$ (s)', r'Acoustic radius', pcol),
