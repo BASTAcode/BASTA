@@ -157,19 +157,20 @@ def chi2_astero(
     warnings : bool
         See 'warnings' above.
     """
-    # If more observed modes than model modes are in one bin, move on
-    joins = freq_fit.calc_join(
-        mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
-    )
-    if joins is None:
-        chi2rut = np.inf
-        return chi2rut, warnings, shapewarn
-    else:
-        joinkeys, join = joins
-        nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
+    if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in tipo):
+        # If more observed modes than model modes are in one bin, move on
+        joins = freq_fit.calc_join(
+            mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
+        )
+        if joins is None:
+            chi2rut = np.inf
+            return chi2rut, warnings, shapewarn
+        else:
+            joinkeys, join = joins
+            nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
-    if any(x in freqtypes.alltypes for x in tipo):
+    if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in tipo):
         if fcor == "None":
             corjoin = join
         elif fcor == "HK08":

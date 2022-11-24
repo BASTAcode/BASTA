@@ -44,6 +44,8 @@ class parameters:
     # fmt: off
     params = [
               ('modnum', None, r'Model', r'Model number', pcol),
+              ('d02fit', r'microHz', r'$d_{02,{\rm fit}}$ ($\mu$Hz)', r'Weighted mean small frequency separation', pcol),
+              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)', r'Simple mean small frequency separation', pcol),
               ('ove', None, r'$\xi_\mathrm{ove}$', r'Overshooting efficiency', pcol),
               ('gcut', None, r'$g_\mathrm{cut}$', r'Geometric cutoff', pcol),
               ('eta', None, r'$\eta$', r'Reimers mass loss', '#858FC2'),
