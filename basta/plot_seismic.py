@@ -984,7 +984,7 @@ def epsilon_difference_diagram(
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",
-            zorder=-1
+            zorder=-1,
         )
 
         handles.extend([moddot, obsdot, modobs])
@@ -1003,7 +1003,8 @@ def epsilon_difference_diagram(
         l.extend(legends[i::3])
     # ax.legend(h, l, fontsize=16, loc=2, bbox_to_anchor=(1.02, 1))
     lgnd = ax.legend(
-            h,l,
+        h,
+        l,
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
         ncol=9,
@@ -1162,6 +1163,7 @@ def epsilon_difference_all_diagram(
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",
+            zorder=-1,
         )
 
         # Spline observed for separate plot
