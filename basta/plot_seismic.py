@@ -304,7 +304,7 @@ def duplicateechelle(
                 linewidths=1,
                 edgecolors="k",
                 zorder=3,
-                label=r"Best fit $l=0$",
+                label=r"Best fit $\ell=0$",
             )
             ax2.errorbar(
                 fobsl0 % 1,
@@ -314,7 +314,7 @@ def duplicateechelle(
                 mfc=colors["l0"],
                 ecolor=colors["l0"],
                 zorder=1,
-                label=r"Measured $l=0$",
+                label=r"Measured $\ell=0$",
             )
             ax2.errorbar(
                 fobsl0 % 1 - 1,
@@ -345,7 +345,7 @@ def duplicateechelle(
                 linewidths=1,
                 edgecolors="k",
                 zorder=3,
-                label=r"Best fit $l=1$",
+                label=r"Best fit $\ell=1$",
             )
             ax2.errorbar(
                 fobsl1 % 1,
@@ -355,7 +355,7 @@ def duplicateechelle(
                 mfc=colors["l1"],
                 ecolor=colors["l1"],
                 zorder=1,
-                label=r"Measured $l=1$",
+                label=r"Measured $\ell=1$",
             )
             ax2.errorbar(
                 fobsl1 % 1 - 1,
@@ -386,7 +386,7 @@ def duplicateechelle(
                 linewidths=1,
                 edgecolors="k",
                 zorder=3,
-                label=r"Best fit $l=2$",
+                label=r"Best fit $\ell=2$",
             )
             ax2.errorbar(
                 fobsl2 % 1,
@@ -396,7 +396,7 @@ def duplicateechelle(
                 mfc=colors["l2"],
                 ecolor=colors["l2"],
                 zorder=1,
-                label=r"Measured $l=2$",
+                label=r"Measured $\ell=2$",
             )
             ax2.errorbar(
                 fobsl2 % 1 - 1,
@@ -928,7 +928,7 @@ def epsilon_difference_diagram(
 
     # Labels and markers
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
-    fmt = [".", "^", "s"]
+    fmt = ["d", ".", "s"]
     fmtev = [".", "1", "2"]
 
     # Extract l degrees available and apply restriction to model
@@ -984,6 +984,7 @@ def epsilon_difference_diagram(
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",
+            zorder=-1
         )
 
         handles.extend([moddot, obsdot, modobs])
@@ -1000,10 +1001,19 @@ def epsilon_difference_diagram(
     for i in range(3):
         h.extend(handles[i::3])
         l.extend(legends[i::3])
-    ax.legend(h, l, fontsize=16, loc=2, bbox_to_anchor=(1.02, 1))
-    # Labels
-    ax.set_xlabel(r"$\nu\,(\mu {\rm Hz})$")
-    ax.set_ylabel(r"$\delta\epsilon_{0\ell}$")
+    # ax.legend(h, l, fontsize=16, loc=2, bbox_to_anchor=(1.02, 1))
+    lgnd = ax.legend(
+            h,l,
+        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+        loc=8,
+        ncol=9,
+        mode="expand",
+        borderaxespad=0.0,
+    )
+    for i in range(len(lgnd.legendHandles)):
+        lgnd.legendHandles[i]._sizes = [50]
+    ax.set_xlabel(r"Frequency ($\mu$Hz)")
+    ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
 
     fig.tight_layout()
     fig.savefig(output)
@@ -1052,7 +1062,7 @@ def epsilon_difference_all_diagram(
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
     elab = r"$\epsilon_{%d}$"
     colab = r"$\delta\epsilon_{0%d}(%d)$"
-    fmt = [".", "^", "s"]
+    fmt = ["d", ".", "s"]
     fmtev = [".", "1", "2"]
 
     # Extract l degrees available, and only work with these
@@ -1256,15 +1266,15 @@ def epsilon_difference_all_diagram(
     ax[2, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2)
 
     # Axes labels
-    ax[0, 0].set_xlabel(r"$\nu\,(\mu {\rm Hz})$")
-    ax[0, 0].set_ylabel(r"$\delta\epsilon_{0\ell}$")
+    ax[0, 0].set_xlabel(r"Frequency ($\mu$Hz)")
+    ax[0, 0].set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
     ax[0, 1].set_xticklabels([])
     ax[0, 1].set_yticks(range(obsepsdiff.shape[1]))
     ax[0, 1].set_yticklabels(labs)
-    ax[1, 0].set_ylabel(r"$\delta\epsilon_{0\ell}$")
-    ax[2, 0].set_xlabel(r"$\nu\, (\mu {\rm Hz})$")
-    ax[2, 0].set_ylabel(r"$\epsilon_{\ell}$")
-    ax[2, 1].set_xlabel(r"$\nu\, (\mu {\rm Hz})$")
+    ax[1, 0].set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
+    ax[2, 0].set_xlabel(r"Frequency ($\mu$Hz)")
+    ax[2, 0].set_ylabel(r"Epsilon $\epsilon_{\ell}$")
+    ax[2, 1].set_xlabel(r"Frequency ($\mu$Hz)")
 
     # Titles
     ax[0, 1].set_title(r"Correlation map", fontsize=18)
