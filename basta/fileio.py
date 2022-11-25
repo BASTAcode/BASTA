@@ -1145,6 +1145,25 @@ def read_glh(filename):
     return glhParams, glhCov
 
 
+def readratios(ratiotype, filename, nottrustedfile, verbose=verbose):
+    r02 = freq_fit.ratios(obskey, obs, ratiotype='r02', threepoint=threepoint)
+    r01 = freq_fit.ratios(obskey, obs, ratiotype='r01', threepoint=threepoint)
+    r10 = freq_fit.ratios(obskey, obs, ratiotype='r10', threepoint=threepoint)
+    rrange = (
+        int(round(r01[0, 0])),
+        int(round(r01[-1, 0])),
+        int(round(r10[0, 0])),
+        int(round(r10[-1, 0])),
+        int(round(r02[0, 0])),
+        int(round(r02[-1, 0])),
+    )
+    if ratiotype == 'r010':
+        datos, cov = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
+    elif ratiotype == 'r02':
+        datos, cov = read_r02(filename, rrange, nottrustedfile)
+    return datos, cov
+
+
 def read_rt(
     filename,
     glhtxt,
@@ -1154,6 +1173,7 @@ def read_rt(
     getfreqcovar=False,
     nottrustedfile=None,
     threepoint=False,
+    readratios=False,
     verbose=False,
     debug=False,
 ):
@@ -1181,6 +1201,8 @@ def read_rt(
     threepoint : bool
         If True, use three point definition of r01 and r10 ratios
         instead of default five point definition.
+    readratios : bool
+        If True, look in xml file for precomputed r010 and r02 ratios.
     verbose : bool, optional
         If True, extra text will be printed to log (for developers).
     debug : bool, optional
@@ -1237,8 +1259,10 @@ def read_rt(
     # Check if it is unnecesarry to compute ratios
     allfits = np.asarray(list(rt))
     allplots = np.asarray(list(freqplots))
-    ratiotypes = []
-    epsdifftypes = []
+    fitratiotypes = []
+    plotratiotypes = []
+    fitepsdifftypes = []
+    plotepsdifftypes = []
 
     defaultrtypes = ['r01', 'r10', 'r02']
     defaultepstypes = ['e012', ]
@@ -1250,22 +1274,22 @@ def read_rt(
         # Look for ratios
         if fit in freqtypes.rtypes:
             getratios = True
-            ratiotypes.append(fit)
+            fitratiotypes.append(fit)
         # Look for glitches
         if fit in freqtypes.glitches:
             getglitch = True
         # Look for epsdiff
         if fit in freqtypes.epsdiff:
             getepsdiff = True
-            epsdifftypes.append(fit)
+            fitepsdifftypes.append(fit)
 
     if freqplots[0] == True:
         getratios = True
         getglitch = True
         getepsdiff = True
 
-        ratiotypes = defaultrtypes
-        epsdifftypes = defaultepstypes
+        fitratiotypes = defaultrtypes
+        fitepsdifftypes = defaultepstypes
     else:
         for plot in allplots:
             # Look for ratios
@@ -1273,11 +1297,11 @@ def read_rt(
                 getratios = True
                 if plot in ['ratios', ]:
                     for rtype in defaultrtypes:
-                        if rtype not in ratiotypes:
-                            ratiotypes.append(rtype)
+                        if rtype not in plotratios:
+                            plotratios.append(rtype)
                 else:
-                    if plot not in ratiotypes:
-                        ratiotypes.append(plot)
+                    if plot not in plotratios:
+                        plotratios.append(plot)
             # Look for glitches
             if plot in freqtypes.glitches:
                 getglitch = True
@@ -1286,65 +1310,37 @@ def read_rt(
                 getepsdiff = True
                 if plot in ['epsdiff', ]:
                     for etype in defaultepstypes:
-                        if etype not in epsdifftypes:
-                            epsdifftypes.append(etype)
+                        if etype not in plotepsdifftypes:
+                            plotepsdifftypes.append(etype)
                 else:
-                    if plot not in epsdifftypes:
-                        epsdifftypes.append(plot)
-
+                    if plot not in plotepsdifftypes:
+                        plotepsdifftypes.append(plot)
 
     # Compute or read in required ratios
     if getratios:
-        # omstrukturer freq_fit.ratios also can return combined ratios
-        for ratiotype in ratiotypes:
-            if readratios
-            o
+        readratiotypes = []
+        if readratios:
+            # Parse the XML file:
+            tree = ElementTree.parse(filename)
+            root = tree.getroot()
 
-            def readratios(ratiotype, filename, nottrustedfile, verbose=verbose):
-                r02 = freq_fit.ratios(freq)
-                r01 = freq_fit.ratios(freq)
-                r10 = freq_fit.ratios(freq)
-                rrange = (
-                    int(round(r01[0, 0])),
-                    int(round(r01[-1, 0])),
-                    int(round(r10[0, 0])),
-                    int(round(r10[-1, 0])),
-                    int(round(r02[0, 0])),
-                    int(round(r02[-1, 0])),
-                )
-                if ratiotype == 'r010':
-                    datos010, cov010 = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
-                elif ratiotype == 'r02':
-                    datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
+            # Find a list of all available frequency ratios:
+            readratiotypes = root.findall("frequency_ratio")
+            for ratiotype in readratiotypes:
+                datos, cov = readratios(ratiotype, filename, nottrustedfile, verbose)
+                obsfreqinfo[ratiotype]['r'] = datos
+                obsfreqinfo[ratiotype]['cov'] = cov
+        for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(readratiotypes):
+            datos = freq_fit.ratios(obskey, obs, ratiotype, threepoint=threepoint)
+            if datos is None:
+                if ratiotype in fitratiotypes):
+                    # Fail
+                else:
+                    # Do not fail as much
+            else:
+                obsfreqinfo[ratiotype]['r'] = datos[0]
+                obsfreqinfo[ratiotype]['cov'] = datos[1]
 
-
-
-
-            obsfreqinfo[ratiotype] = freq_fit.ratios(obskey, obs, ratiotype, threepoint=threepoint)
-        print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
-        rat, cov102 = su.ratio_and_cov(freq, rtype="R102", threepoint=threepoint)
-        # Ratios and their covariances
-        r010, r012, r102 = su.combined_ratios(r02, r01, r10)
-
-        # R010
-        if datos010 is None and "r010" in rt:
-            print("* r010 unavailable in xml. Computing it ... ", end="", flush=True)
-            datos010 = np.zeros((3, len(rat[:, 0])))
-            datos010[0, :] = rat[:, 1]
-            datos010[1, :] = rat[:, 3]
-            datos010[2, :] = rat[:, 2]
-            print("done!")
-
-        # R02
-        datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
-        if datos02 is None and ("r02" in rt or plotratios):
-            print("* r02 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov02 = su.ratio_and_cov(freq, rtype="R02", threepoint=threepoint)
-            datos02 = np.zeros((3, len(rat[:, 0])))
-            datos02[0, :] = rat[:, 1]
-            datos02[1, :] = rat[:, 3]
-            datos02[2, :] = rat[:, 2]
-            print("done!")
 
     # Get glitches
     if getglitch:
