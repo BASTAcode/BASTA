@@ -247,8 +247,18 @@ def BASTA(
 
     # Prepare asteroseismic quantities if required
     if fitfreqs:
-        (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint, readratios) = fitfreqs
-        if not all(x in freqtypes.alltypes for x in rt):
+        (
+                freqfilename,
+                glitchfilename,
+                correlations,
+                bexp,
+                freqfits,
+                seisw,
+                threepoint,
+                readratios
+                ) = fitfreqs
+
+        if not all(x in freqtypes.alltypes for x in freqfuts):
             raise ValueError("Unrecognized frequency fitting parameters!")
 
         # Obtain/calculate all frequency related quantities
@@ -257,8 +267,9 @@ def BASTA(
             obs,
             numax,
             dnufrac,
-            obsfreqinfo,
             fcor,
+            obsfreqdata,
+            obsfreqmeta,
             obsintervals,
             dnudata,
             dnudata_err,
@@ -325,13 +336,14 @@ def BASTA(
 
     # Fitting info: Frequencies
     if fitfreqs:
-        if "glitches" in rt:
+        if "glitches" in freqfits:
             print("* Fitting of frequency glitches activated!")
-        elif "freqs" in rt:
+        elif "freqs" in freqfits:
             print("* Fitting of individual frequencies activated!")
         else:
             print(
-                "* Fitting of frequency ratios {{{0}}} activated!".format(", ".join(rt))
+                "* Fitting of frequency ratios {{{0}}} activated!".format(
+                    ", ".join(freqfits))
             )
 
         if bexp is not None:
@@ -351,7 +363,7 @@ def BASTA(
             ),
         )
         print("  - Correlations: {0}".format(corrstr))
-        print("  - Frequency input data: {0}".format(freqxml))
+        print("  - Frequency input data: {0}".format(freqfilename))
         print(
             "  - Frequency input data (list of ignored modes): {0}".format(
                 inputparams["nottrustedfile"]
@@ -626,8 +638,8 @@ def BASTA(
                             mod,
                             obskey,
                             obs,
-                            obsfreqinfo,
-                            rt,
+                            obsfreqdata,
+                            freqfits,
                             obsintervals,
                             dnudata,
                             dnudata_err,
@@ -814,7 +826,7 @@ def BASTA(
             plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                freqfilename,
                 mod=maxmod,
                 modkey=maxmodkey,
                 dnu=inputparams["dnufit"],
@@ -827,7 +839,7 @@ def BASTA(
             plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                freqfilename,
                 mod=maxmod,
                 modkey=maxmodkey,
                 dnu=inputparams["dnufit"],
@@ -858,7 +870,7 @@ def BASTA(
             plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                freqfilename,
                 mod=maxmod,
                 modkey=maxmodkey,
                 dnu=inputparams["dnufit"],
@@ -874,7 +886,7 @@ def BASTA(
             plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                freqfilename,
                 mod=maxmod,
                 modkey=maxmodkey,
                 dnu=inputparams["dnufit"],
@@ -888,8 +900,8 @@ def BASTA(
             )
         if allfplots or "ratios" in freqplots:
             plot_seismic.ratioplot(
-                freqxml,
-                obsfreqinfo,
+                freqfilename,
+                obsfreqdata,
                 maxjoinkeys,
                 maxjoin,
                 output=ratioplotname,
@@ -900,8 +912,8 @@ def BASTA(
                 mod=maxmod,
                 modkey=maxmodkey,
                 moddnu=maxmoddnu,
-                obsepsdiff=obsfreqinfo["e012"]["epsdiff"],
-                covinv=obsfreqinfo["e012"]["epsdiff"],
+                obsepsdiff=obsfreqdata["e012"]["epsdiff"],
+                covinv=obsfreqdata["e012"]["epsdiff"],
                 output=plotfname.format("epsilon_differences"),
             )
         if allfplots or "allepsdiff" in freqplots:
@@ -909,8 +921,8 @@ def BASTA(
                 mod=maxmod,
                 modkey=maxmodkey,
                 moddnu=maxmoddnu,
-                obsepsdiff=obsfreqinfo["e012"]["epsdiff"],
-                covinv=obsfreqinfo["e012"]["epsdiff"],
+                obsepsdiff=obsfreqdata["e012"]["epsdiff"],
+                covinv=obsfreqdata["e012"]["epsdiff"],
                 obs=obs,
                 obskey=obskey,
                 obsdnu=dnudata,

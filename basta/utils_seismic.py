@@ -308,7 +308,16 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     print("\nPreparing asteroseismic input ...")
 
     fitfreqs = inputparams.get("fitfreqs")
-    (freqfilename, glitchfilename, correlations, bexp, freqfits, seisw, threepoint, readratios) = fitfreqs
+    (
+            freqfilename,
+            glitchfilename,
+            correlations,
+            bexp,
+            freqfits,
+            seisw,
+            threepoint,
+            readratios
+            ) = fitfreqs
 
     # Get frequency correction method
     fcor = inputparams.get("fcor", "BG14")

@@ -58,7 +58,7 @@ def chi2_astero(
     mod,
     obskey,
     obs,
-    obsfreqinfo,
+    obsfreqdata,
     tipo,
     obsintervals,
     dnudata,
