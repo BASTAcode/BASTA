@@ -10,15 +10,25 @@ from scipy.interpolate import CubicSpline
 from basta import utils_seismic as su
 
 
-def ratios(freq, threepoint=False):
+def ratios(obskey, obs, ratiotype, threepoint=False):
     """
-    Routine to compute the ratios (r02, r01 and r10) from oscillation
-    frequencies
+    Routine to compute the ratios r02, r01 and r10 from oscillation
+    frequencies, and return the desired ratio sequence, both individual
+    and combined sequences.
+
+    Developers note: We currently do not store identifying information
+    of the sequence origin in the combined sequences. We rely on them
+    being constructed/sorted identically when computed.
 
     Parameters
     ----------
-    freq : array
-        Harmonic degrees, radial orders, frequencies
+    obskey : array
+        Harmonic degrees, radial orders and radial orders of frequencies
+    obs : array
+        Frequencies and their error, following the structure of obs
+    ratiotype : str
+        Which ratio sequence to determine, see constants.freqtypes.rtypes
+        for possible sequences.
     threepoint : bool
         If True, use three point definition of r01 and r10 ratios
         instead of default five point definition.
@@ -35,178 +45,227 @@ def ratios(freq, threepoint=False):
         radial orders, r10 ratios,
         scratch for uncertainties (to be calculated), frequencies
     """
+    r01, r10, r02 = True, True, True
     # Isolate l = 0 modes
-    f0 = freq[freq[:]["l"] == 0]
-    if (len(f0) == 0) or (len(f0) != f0[-1]["n"] - f0[0]["n"] + 1):
-        # Missing modes detected (not implemented)!
-        r02, r01, r10 = None, None, None
-        return r02, r01, r10
+    f0 = obs[0, obskey[0, :] == 0]
+    n0 = obskey[1, obskey[0, :] == 0]
+    if (len(f0) == 0) or (len(f0) != n0[-1] - n0[0] + 1):
+        # Missing modes detected
+        r01, r10 = None, None
 
     # Isolate l = 1 modes
-    f1 = freq[freq[:]["l"] == 1]
-    if (len(f1) == 0) or (len(f1) != f1[-1]["n"] - f1[0]["n"] + 1):
-        # Missing modes detected (not implemented)!
-        r02, r01, r10 = None, None, None
-        return r02, r01, r10
+    f1 = obs[0, obskey[0, :] == 1]
+    n1 = obskey[1, obskey[0, :] == 1]
+    if (len(f1) == 0) or (len(f1) != n1[-1] - n1[0] + 1):
+        # Missing modes detected
+        r01, r10 = None, None
 
     # Isolate l = 2 modes
-    f2 = freq[freq[:]["l"] == 2]
-    if (len(f2) == 0) or (len(f2) != f2[-1]["n"] - f2[0]["n"] + 1):
+    f2 = obs[0, obskey[0, :] == 2]
+    n2 = obskey[1, obskey[0, :] == 2]
+    if (len(f2) == 0) or (len(f2) != n2[-1] - n2[0] + 1):
         # Missing modes detected (not implemented)!
-        r02, r01, r10 = None, None, None
-        return r02, r01, r10
+        r02 = None
 
-    # Two-point frequency ratio
-    # ---------------------------
-    n0 = (f0[0]["n"] - 1, f1[0]["n"], f2[0]["n"])
-    l0 = n0.index(max(n0))
+    # Two-point frequency ratio R02
+    # -----------------------------
+    if ratiotype in ["r02", "r012", "r102"] and r02 is not None:
+        lowest_n0 = (n0[0] - 1, n1[0], n2[0])
+        l0 = lowest_n0.index(max(lowest_n0))
 
-    # Find lowest indices for l = 0, 1, and 2
-    if l0 == 0:
-        i00 = 0
-        i01 = f0[0]["n"] - f1[0]["n"] - 1
-        i02 = f0[0]["n"] - f2[0]["n"] - 1
-    elif l0 == 1:
-        i00 = f1[0]["n"] - f0[0]["n"] + 1
-        i01 = 0
-        i02 = f1[0]["n"] - f2[0]["n"]
-    elif l0 == 2:
-        i00 = f2[0]["n"] - f0[0]["n"] + 1
-        i01 = f2[0]["n"] - f1[0]["n"]
-        i02 = 0
-
-    # Number of r02s
-    nn = (f0[-1]["n"], f1[-1]["n"], f2[-1]["n"] + 1)
-    ln = nn.index(min(nn))
-    if ln == 0:
-        nr02 = f0[-1]["n"] - f0[i00]["n"] + 1
-    elif ln == 1:
-        nr02 = f1[-1]["n"] - f1[i01]["n"]
-    elif ln == 2:
-        nr02 = f2[-1]["n"] - f2[i02]["n"] + 1
-
-    # R02
-    r02 = np.zeros((nr02, 4))
-    for i in range(nr02):
-        r02[i, 0] = f0[i00 + i]["n"]
-        r02[i, 3] = f0[i00 + i]["freq"]
-        r02[i, 1] = f0[i00 + i]["freq"] - f2[i02 + i]["freq"]
-        r02[i, 1] /= f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"]
-
-    if not threepoint:
-        # Five-point frequency ratio R01
-        # ---------------------------------
-        # Find lowest indices for l = 0 and 1
-        if f0[0]["n"] >= f1[0]["n"]:
+        # Find lowest indices for l = 0, 1, and 2
+        if l0 == 0:
             i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"]
+            i01 = n0[0] - n1[0] - 1
+            i02 = n0[0] - n2[0] - 1
+        elif l0 == 1:
+            i00 = n1[0] - n0[0] + 1
+            i01 = 0
+            i02 = n1[0] - n2[0]
+        elif l0 == 2:
+            i00 = n2[0] - n0[0] + 1
+            i01 = n2[0] - n1[0]
+            i02 = 0
+
+        # Number of r02s
+        nn = (n0[-1], n1[-1], n2[-1] + 1)
+        ln = nn.index(min(nn))
+        if ln == 0:
+            nr02 = n0[-1] - n0[i00] + 1
+        elif ln == 1:
+            nr02 = n1[-1] - n1[i01]
+        elif ln == 2:
+            nr02 = n2[-1] - n2[i02] + 1
+
+        # R02
+        r02 = np.zeros((nr02, 4))
+        for i in range(nr02):
+            r02[i, 0] = n0[i00 + i]
+            r02[i, 3] = f0[i00 + i]
+            r02[i, 1] = f0[i00 + i] - f2[i02 + i]
+            r02[i, 1] /= f1[i01 + i + 1] - f1[i01 + i]
+
+    # Five-point frequency ratio R01
+    # ------------------------------
+    if ratiotype in ["r01", "r012", "r010"] and r01 is not None and not threepoint:
+        # Find lowest indices for l = 0 and 1
+        if n0[0] >= n1[0]:
+            i00 = 0
+            i01 = n0[0] - n1[0]
         else:
-            i00 = f1[0]["n"] - f0[0]["n"]
+            i00 = n1[0] - n0[0]
             i01 = 0
 
         # Number of r01s
-        if f0[-1]["n"] - 1 >= f1[-1]["n"]:
-            nr01 = f1[-1]["n"] - f1[i01]["n"]
+        if n0[-1] - 1 >= n1[-1]:
+            nr01 = n1[-1] - n1[i01]
         else:
-            nr01 = f0[-1]["n"] - f0[i00]["n"] - 1
+            nr01 = n0[-1] - n0[i00] - 1
 
         # R01
         r01 = np.zeros((nr01, 4))
         for i in range(nr01):
-            r01[i, 0] = f0[i00 + i + 1]["n"]
-            r01[i, 3] = f0[i00 + i + 1]["freq"]
-            r01[i, 1] = (
-                f0[i00 + i]["freq"]
-                + 6.0 * f0[i00 + i + 1]["freq"]
-                + f0[i00 + i + 2]["freq"]
-            )
-            r01[i, 1] -= 4.0 * (f1[i01 + i + 1]["freq"] + f1[i01 + i]["freq"])
-            r01[i, 1] /= 8.0 * (f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"])
+            r01[i, 0] = n0[i00 + i + 1]
+            r01[i, 3] = f0[i00 + i + 1]
+            r01[i, 1] = f0[i00 + i] + 6.0 * f0[i00 + i + 1] + f0[i00 + i + 2]
+            r01[i, 1] -= 4.0 * (f1[i01 + i + 1] + f1[i01 + i])
+            r01[i, 1] /= 8.0 * (f1[i01 + i + 1] - f1[i01 + i])
 
-    elif threepoint:
-        # Five-point frequency ratio R01
-        # ---------------------------------
+    # Three-point frequency ratio R01
+    # -------------------------------
+    elif ratiotype in ["r01", "r012", "r010"] and r01 is not None:
         # Find lowest indices for l = 0 and 1
         # i01 point to one n-value lower than i00
-        if f0[0]["n"] - 1 >= f1[0]["n"]:
+        if n0[0] - 1 >= n1[0]:
             i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"] - 1
+            i01 = n0[0] - n1[0] - 1
         else:
-            i00 = f1[0]["n"] - f0[0]["n"] + 1
+            i00 = n1[0] - n0[0] + 1
             i01 = 0
 
         # Number of r01s
-        if f0[-1]["n"] >= f1[-1]["n"]:
-            nr01 = f1[-1]["n"] - f1[i01]["n"]
+        if n0[-1] >= n1[-1]:
+            nr01 = n1[-1] - n1[i01]
         else:
-            nr01 = f0[-1]["n"] - f0[i00]["n"] + 1
+            nr01 = n0[-1] - n0[i00] + 1
 
         # R01
         r01 = np.zeros((nr01, 4))
         for i in range(nr01):
-            r01[i, 0] = f0[i00 + i]["n"]
-            r01[i, 3] = f0[i00 + i]["freq"]
-            r01[i, 1] = f0[i00 + i]["freq"]
-            r01[i, 1] -= (f1[i01 + i + 1]["freq"] + f1[i01 + i]["freq"]) / 2.0
-            r01[i, 1] /= f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"]
+            r01[i, 0] = n0[i00 + i]
+            r01[i, 3] = f0[i00 + i]
+            r01[i, 1] = f0[i00 + i]
+            r01[i, 1] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
+            r01[i, 1] /= f1[i01 + i + 1] - f1[i01 + i]
 
-    if not threepoint:
-        # Five point frequency ratio R10
-        # ---------------------------------
+    # Five point frequency ratio R10
+    # ------------------------------
+    if ratiotype in ["r10", "r102", "r010"] and r10 is not None and not threepoint:
         # Find lowest indices for l = 0 and 1
-        if f0[0]["n"] - 1 >= f1[0]["n"]:
+        if n0[0] - 1 >= n1[0]:
             i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"] - 1
+            i01 = n0[0] - n1[0] - 1
         else:
-            i00 = f1[0]["n"] - f0[0]["n"] + 1
+            i00 = n1[0] - n0[0] + 1
             i01 = 0
 
         # Number of r10s
-        if f0[-1]["n"] >= f1[-1]["n"]:
-            nr10 = f1[-1]["n"] - f1[i01]["n"] - 1
+        if n0[-1] >= n1[-1]:
+            nr10 = n1[-1] - n1[i01] - 1
         else:
-            nr10 = f0[-1]["n"] - f0[i00]["n"]
+            nr10 = n0[-1] - n0[i00]
 
         # R10
         r10 = np.zeros((nr10, 4))
         for i in range(nr10):
-            r10[i, 0] = f1[i01 + i + 1]["n"]
-            r10[i, 3] = f1[i01 + i + 1]["freq"]
-            r10[i, 1] = (
-                f1[i01 + i]["freq"]
-                + 6.0 * f1[i01 + i + 1]["freq"]
-                + f1[i01 + i + 2]["freq"]
-            )
-            r10[i, 1] -= 4.0 * (f0[i00 + i + 1]["freq"] + f0[i00 + i]["freq"])
-            r10[i, 1] /= -8.0 * (f0[i00 + i + 1]["freq"] - f0[i00 + i]["freq"])
+            r10[i, 0] = n1[i01 + i + 1]
+            r10[i, 3] = f1[i01 + i + 1]
+            r10[i, 1] = f1[i01 + i] + 6.0 * f1[i01 + i + 1] + f1[i01 + i + 2]
+            r10[i, 1] -= 4.0 * (f0[i00 + i + 1] + f0[i00 + i])
+            r10[i, 1] /= -8.0 * (f0[i00 + i + 1] - f0[i00 + i])
 
-    elif threepoint:
-        # Three point frequency ratio R10
-        # ---------------------------------
+    # Three point frequency ratio R10
+    # -------------------------------
+    elif ratiotype in ["r10", "r102", "r010"] and r10 is not None:
         # Find lowest indices for l = 0 and 1
-        if f0[0]["n"] >= f1[0]["n"]:
+        if n0[0] >= n1[0]:
             i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"]
+            i01 = n0[0] - n1[0]
         else:
-            i00 = f1[0]["n"] - f0[0]["n"]
+            i00 = n1[0] - n0[0]
             i01 = 0
 
         # Number of r10s
-        if f0[-1]["n"] >= f1[-1]["n"]:
-            nr10 = f1[-1]["n"] - f1[i01]["n"]
+        if n0[-1] >= n1[-1]:
+            nr10 = n1[-1] - n1[i01]
         else:
-            nr10 = f0[-1]["n"] - f0[i00]["n"]
+            nr10 = n0[-1] - n0[i00]
 
         # R10
         r10 = np.zeros((nr10, 4))
         for i in range(nr10):
-            r10[i, 0] = f1[i01 + i]["n"]
-            r10[i, 3] = f1[i01 + i]["freq"]
-            r10[i, 1] = f1[i01 + i]["freq"]
-            r10[i, 1] -= (f0[i00 + i]["freq"] + f0[i00 + i + 1]["freq"]) / 2.0
-            r10[i, 1] /= f0[i00 + i]["freq"] - f0[i00 + i + 1]["freq"]
+            r10[i, 0] = n1[i01 + i]
+            r10[i, 3] = f1[i01 + i]
+            r10[i, 1] = f1[i01 + i]
+            r10[i, 1] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
+            r10[i, 1] /= f0[i00 + i] - f0[i00 + i + 1]
 
-    return r02, r01, r10
+    if ratiotype == "r02":
+        return r02
+
+    elif ratiotype == "r01":
+        return r01
+
+    elif ratiotype == "r10":
+        return r10
+
+    elif ratiotype == "r012":
+        # Number of ratios
+        n02 = r02.shape[0]
+        n01 = r01.shape[0]
+        n012 = n01 + n02
+
+        # R012 (R01 followed by R02)
+        r012 = np.zeros((n012, 4))
+        r012[0:n01, :] = r01[:, :]
+        r012[n01 : n01 + n02, 0] = r02[:, 0] + 0.1
+        r012[n01 : n01 + n02, 1:4] = r02[:, 1:4]
+        r012 = r012[r012[:, 0].argsort()]
+        r012[:, 0] = np.round(r012[:, 0])
+
+        return r012
+
+    elif ratiotype == "r102":
+        # Number of ratios
+        n02 = r02.shape[0]
+        n10 = r10.shape[0]
+        n102 = n10 + n02
+
+        # R102 (R10 followed by R02)
+        r102 = np.zeros((n102, 4))
+        r102[0:n10, :] = r10[:, :]
+        r102[n10 : n10 + n02, 0] = r02[:, 0] + 0.1
+        r102[n10 : n10 + n02, 1:4] = r02[:, 1:4]
+        r102 = r102[r102[:, 0].argsort()]
+        r102[:, 0] = np.round(r102[:, 0])
+
+        return r102
+
+    elif ratiotype == "r010":
+        # Number of ratios
+        n01 = r01.shape[0]
+        n10 = r10.shape[0]
+        n010 = n01 + n10
+
+        # R010 (R01 followed by R10)
+        r010 = np.zeros((n010, 4))
+        r010[0:n01, :] = r01[:, :]
+        r010[n01 : n01 + n10, 0] = r10[:, 0] + 0.1
+        r010[n01 : n01 + n10, 1:4] = r10[:, 1:4]
+        r010 = r010[r010[:, 0].argsort()]
+        r010[:, 0] = np.round(r010[:, 0])
+
+        return r010
 
 
 def make_intervals(osc, osckey, dnu=None):
