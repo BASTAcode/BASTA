@@ -813,7 +813,7 @@ def BASTA(
         maxmoddnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
 
         if allfplots or "pairechelle" in freqplots:
-            plot_seismic.pairechelle(
+            plot_seismic.echelle(
                 selectedmodels,
                 Grid,
                 freqxml,
@@ -822,10 +822,11 @@ def BASTA(
                 dnu=inputparams["dnufit"],
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
+                pair=True,
                 output=plotfname.format("pairechelle_uncorrected"),
             )
         if allfplots or "dupechelle" in freqplots:
-            plot_seismic.duplicateechelle(
+            plot_seismic.echelle(
                 selectedmodels,
                 Grid,
                 freqxml,
@@ -834,6 +835,7 @@ def BASTA(
                 dnu=inputparams["dnufit"],
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
+                duplicate=True,
                 output=plotfname.format("dupechelle_uncorrected"),
             )
 
@@ -854,23 +856,8 @@ def BASTA(
             )
 
         print("The surface correction coefficients are", *coeffs)
-        if allfplots or "dupechelle" in freqplots:
-            plot_seismic.duplicateechelle(
-                selectedmodels,
-                Grid,
-                freqxml,
-                mod=maxmod,
-                modkey=maxmodkey,
-                dnu=inputparams["dnufit"],
-                join=corjoin,
-                joinkeys=maxjoinkeys,
-                freqcor=fcor,
-                coeffs=coeffs,
-                scalnu=numax,
-                output=plotfname.format("dupechelle"),
-            )
         if allfplots or "pairechelle" in freqplots:
-            plot_seismic.pairechelle(
+            plot_seismic.echelle(
                 selectedmodels,
                 Grid,
                 freqxml,
@@ -882,7 +869,24 @@ def BASTA(
                 freqcor=fcor,
                 coeffs=coeffs,
                 scalnu=numax,
+                pair=True,
                 output=plotfname.format("pairechelle"),
+            )
+        if allfplots or "dupechelle" in freqplots:
+            plot_seismic.echelle(
+                selectedmodels,
+                Grid,
+                freqxml,
+                mod=maxmod,
+                modkey=maxmodkey,
+                dnu=inputparams["dnufit"],
+                join=corjoin,
+                joinkeys=maxjoinkeys,
+                freqcor=fcor,
+                coeffs=coeffs,
+                scalnu=numax,
+                duplicate=True,
+                output=plotfname.format("dupechelle"),
             )
         if allfplots or "ratios" in freqplots:
             plot_seismic.ratioplot(
