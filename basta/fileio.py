@@ -730,29 +730,6 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
 
     if covarfre:
         corrfre, covarfreq = read_freq_cov_xml(filename, obskey)
-        """
-        # Read covariances of individual frequency pairs from .cov file
-        # These covariances are not (yet) implemented in the xml file
-        covfile = os.path.splitext(filename)[0] + ".cov"
-        if os.path.isfile(covfile):
-            cov = read_cov_freqs(covfile)
-            covarfre = np.zeros((len(obs[0, :]), len(obs[0, :])))
-
-            nldata = list(zip(obskey[0], obskey[1]))
-            for i, (l1, n1) in enumerate(nldata):
-                for j, (n2, l2) in enumerate(nldata[i:], start=i):
-                    cov_index = np.where(
-                        (cov["n1"] == n1)
-                        & (cov["l1"] == l1)
-                        & (cov["n2"] == n2)
-                        & (cov["l2"] == l2)
-                    )[0][0]
-
-                    covarfre[i, j] = covarfre[j, i] = cov["covariance"][cov_index]
-        else:
-            print(covfile + " not found!")
-            return
-        """
     else:
         covarfreq = np.diag(obs[1, :]) ** 2
 
@@ -1164,10 +1141,10 @@ def readratios(ratiotype, filename, nottrustedfile, verbose=verbose):
     return datos, cov
 
 
-def read_rt(
+def read_allseismic(
     filename,
-    glhtxt,
-    rt,
+    glitchfilename,
+    allfits,
     numax,
     freqplots,
     getfreqcovar=False,
@@ -1185,9 +1162,9 @@ def read_rt(
     ----------
     filename : string
         Name of file to read
-    glhtxt : str
+    glitchfilename : str
         Name of file containing glitch parameters and covariances.
-    rt : list
+    allfits : list
         Type of fits available for individual frequencies
     numax : scalar
         Frequency of maximum power
@@ -1227,9 +1204,15 @@ def read_rt(
         Uncertainty on dnudata
     """
     obsfreqdata = {}
+    obsfreqmetadata = {}
 
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
+    obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
+    obsfreqdata["freqs"] = {
+            "cov": obscov, 
+            "covinv": obscovinv
+            }
 
     # Compute large frequency separation (the same way as dnufit)
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
@@ -1245,7 +1228,7 @@ def read_rt(
 
     # Ratios and covariances
     # Check if it is unnecesarry to compute ratios
-    allfits = np.asarray(list(rt))
+    allfits = np.asarray(list(allfits))
     allplots = np.asarray(list(freqplots))
     fitratiotypes = []
     plotratiotypes = []
@@ -1261,12 +1244,15 @@ def read_rt(
             getratios = True
             fitratiotypes.append(fit)
         # Look for glitches
-        if fit in freqtypes.glitches:
+        elif fit in freqtypes.glitches:
             getglitch = True
         # Look for epsdiff
-        if fit in freqtypes.epsdiff:
+        elif fit in freqtypes.epsdiff:
             getepsdiff = True
             fitepsdifftypes.append(fit)
+        else:
+            print(f'Fittype {fit} not recognised')
+            raise ValueError
 
     if freqplots[0] == True:
         getratios = True
@@ -1282,11 +1268,11 @@ def read_rt(
                 getratios = True
                 if plot in ['ratios', ]:
                     for rtype in freqtypes.defaultrtypes:
-                        if rtype not in plotratios:
-                            plotratios.append(rtype)
+                        if rtype not in plotratiotypes:
+                            plotratiotypes.append(rtype)
                 else:
-                    if plot not in plotratios:
-                        plotratios.append(plot)
+                    if plot not in plotratiotypes:
+                        plotratiotypes.append(plot)
             # Look for glitches
             if plot in freqtypes.glitches:
                 getglitch = True
@@ -1301,7 +1287,12 @@ def read_rt(
                     if plot not in plotepsdifftypes:
                         plotepsdifftypes.append(plot)
 
-    # Compute or read in required ratios
+    obsfreqmetadata['ratios']['fit'] = fitratiotypes
+    obsfreqmetadata['ratios']['plot'] = plotratiotypes
+    obsfreqmetadata['epsdiff']['fit'] = fitepsdifftypes
+    obsfreqmetadata['epsdiff']['plot'] = plotepsdifftypes
+
+    # Compute or dataread in required ratios
     if getratios:
         readratiotypes = []
         if readratios:
@@ -1310,7 +1301,7 @@ def read_rt(
             root = tree.getroot()
 
             # Find a list of all available frequency ratios:
-            readratiotypes = root.findall("frequency_ratio")
+            readratiotypes = list(root.findall("frequency_ratio"))
             for ratiotype in readratiotypes:
                 datos, cov = readratios(ratiotype, filename, nottrustedfile, verbose)
                 obsfreqdata[ratiotype]['r'] = datos
@@ -1335,82 +1326,63 @@ def read_rt(
 
     # Get glitches
     if getglitch:
+        g, covg = read_glh(glitchfilename)
 
     # Get epsilon differences
     if getepsdiff:
-        inp = np.asarray(rt)
-        inpseq = inp[list(x in freqtypes.epsdiff for x in list(rt))]
-        try:
-            assert len(inpseq) < 2
-        except AssertionError:
-            print("For fitting multiple epsilon difference sequences", end="")
-            print("please provide the single combined key (e.g. e012)")
-            raise KeyError
-        seq = inpseq[0]
-        print("* Computing epsilon differences sequence {0}...".format(seq))
-        datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
-            obskey,
-            obs,
-            dnudata,
-            seq=seq,
-        )
-        print("done!")
-    elif datosepsdiff is None and plotepsdiff:
-        datosepsdiff, covepsdiff = su.compute_epsilon_diff_and_cov(
-            obskey,
-            obs,
-            dnudata,
-            nrealisations=2000,
-        )
+        for epsdifffit in set(fitepsdifftypes) | set(plotepsdifftypes):
+            if epsdifffit in fitepsdifftypes:
+                print(f"* Computing epsilon differences sequence {epsdifffit}")
+                ed, coved = su.compute_epsilon_diff_and_cov(
+                    obskey,
+                    obs,
+                    dnudata,
+                    seq=epsdifffit,
+                )
+                print("done!")
+                obsfreqdata[epsdifffit]['e'] = ed
+                obsfreqdata[epsdifffit]['cov'] = coved 
+            elif epsdifffit in plotepsdifftypes:
+                ed, coved = su.compute_epsilon_diff_and_cov(
+                    obskey,
+                    obs,
+                    dnudata,
+                    seq=epsdifffit,
+                    nrealisations=2000,
+                )
+                obsfreqdata[epsdifffit]['e'] = ed
+                obsfreqdata[epsdifffit]['cov'] = coved 
 
-    # Glitch
-    if "glitches" in rt:
-        datosglh, covglh = read_glh(glhtxt)
-    else:
-        datosglh, covglh = None, None
+            # Epsilon differences debug plot production
+            if debug:
+                print("* Resampling epsilon differences covariances for debug plot")
+                debugplotidstr = f"_{epsdifffit}_epsdiff_and_cov.png"
+                epsdiff_plotname = filename.split(".xml")[0] + debugplotidstr
+                # Get epsilon differences with reverse sorting
+                dbg_epsdiff, dbg_covepsdiff = su.compute_epsilon_diff_and_cov(
+                    obskey,
+                    obs,
+                    dnudata,
+                    nsort=False,
+                    debug=debug,
+                )
+                # Make the plot of the correlation matrix
+                # --> Yes, importing here is dirty. but no need for a general import!
+                from basta.plot_seismic import epsilon_diff_and_correlation
 
-    datos = (
-        datos010,
-        datos02,
-        datos_f,
-        datos01,
-        datos10,
-        datos012,
-        datos102,
-        datosglh,
-        datosepsdiff,
-    )
-    cov = (cov010, cov02, obscov, cov01, cov10, cov012, cov102, covglh, covepsdiff)
+                epsilon_diff_and_correlation(
+                    ed,
+                    dbg_epsdiff,
+                    coved,
+                    dbg_covepsdiff,
+                    obs,
+                    obskey,
+                    dnudata,
+                    epsdiff_plotname,
+                )
+                print("* Saved correlation maps and epsilon differences as ", epsdiff_plotname)
 
-    # Epsilon differences debug plot production
-    if debug:
-        print("* Resampling epsilon differences covariances for debug plot")
-        epsdiff_plotname = filename.split(".xml")[0] + "_epsdiff_and_cov.png"
-        # Get epsilon differences with reverse sorting
-        dbg_epsdiff, dbg_covepsdiff = su.compute_epsilon_diff_and_cov(
-            obskey,
-            obs,
-            dnudata,
-            nsort=False,
-            debug=debug,
-        )
-        # Make the plot of the correlation matrix
-        # --> Yes, importing here is dirty. but no need for a general import!
-        from basta.plot_seismic import epsilon_diff_and_correlation
-
-        epsilon_diff_and_correlation(
-            datosepsdiff,
-            dbg_epsdiff,
-            covepsdiff,
-            dbg_covepsdiff,
-            obs,
-            obskey,
-            dnudata,
-            epsdiff_plotname,
-        )
-        print("* Saved correlation maps and epsilon differences as ", epsdiff_plotname)
-
-    return datos, cov, obskey, obs, dnudata, dnudata_err
+    return obskey, obs, obsfreqdata, obsfreqmetadata, dnudata, dnudata_err
 
 
 def get_freq_ranges(filename):

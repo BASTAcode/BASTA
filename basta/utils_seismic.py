@@ -342,7 +342,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
 
     # Load or calculate ratios (requires numax)
     # --> datos and cov are 3-tuples with 010, 02 and freqs
-    datos, cov, obskey, obs, dnudata, dnudata_err = fio.read_rt(
+    datos, cov, obskey, obs, dnudata, dnudata_err = fio.read_allseismic(
         freqxml,
         glhtxt,
         rt,
