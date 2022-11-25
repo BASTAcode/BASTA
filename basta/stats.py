@@ -58,9 +58,8 @@ def chi2_astero(
     mod,
     obskey,
     obs,
-    inpdata,
+    obsfreqinfo,
     tipo,
-    covinv,
     obsintervals,
     dnudata,
     dnudata_err,
@@ -94,18 +93,15 @@ def chi2_astero(
         Array containing the angular degrees and radial orders of obs
     obs : array
         Array containing the modes in the observed data
-    inpdata : array
-        Individual frequencies, uncertainties, and combinations read from the
-        observational input files.
+    obsfreqinfo : dict
+        Combinations of frequencies read from the frequency input files.
+        Contains ratios, glitches, epsilon differences and covariance matrices.
     tipo : str
         Flag determining the kind of fitting. tipo means *type* in Spanish.
         `tipo` can be:
         * 'freqs' for fitting individual frequencies.
         * 'rn' for fitting n ratio sequence (e.g. 012, 01)
         * 'glitches' for fitting glitches
-    covinv : array
-        Covariances between individual frequencies and frequency ratios read
-        from the observational input files.
     obsintervals : array
         Array containing the endpoints of the intervals used in the frequency
         fitting routine in :func:'freq_fit.calc_join'.
@@ -185,8 +181,30 @@ def chi2_astero(
             print('ERROR: fcor must be either "None", "HK08" or "BG14" or "cubicBG14"')
             return
 
-    # Add the chi-square terms for ratios
     chi2rut = 0.0
+
+    if "freqs" in tipo:
+        # The frequency correction moved up before the ratios fitting!
+        # --> If fitting frequencies, just add the already calculated things
+        x = corjoin[0, :] - corjoin[2, :]
+        w = _weight(len(corjoin[0, :]), seisw)
+        covinv = obsfreqinfo["freqs"]["covinv"]
+        if x.shape[0] == covinv.shape[0]:
+            chi2rut += (x.T.dot(covinv).dot(x)) / w
+        else:
+            shapewarn = True
+            chi2rut = np.inf
+
+        if ~np.isfinite(chi2rut):
+            chi2rut = np.inf
+            if debug and verbose:
+                print("DEBUG: Computed non-finite chi2, setting chi2 to inf")
+        elif chi2rut < 0:
+            chi2rut = np.inf
+            if debug and verbose:
+                print("DEBUG: chi2 less than zero, setting chi2 to inf")
+
+    # Add the chi-square terms for ratios
     if any(x in freqtypes.rtypes for x in tipo):
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
@@ -210,84 +228,18 @@ def chi2_astero(
             chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
 
         # Add frequency ratios terms
-        names = ["l", "n", "freq", "err"]  # 'err' is redundant here
-        fmts = [int, int, float, float]
-        freq = np.zeros(nmodes, dtype={"names": names, "formats": fmts})
-        freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
-        freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
-        freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-        r02, r01, r10 = freq_fit.ratios(freq, threepoint=threepoint)
-        if r02 is not None:
-            if any([x in tipo for x in ["r010", "r012", "r102"]]):
-                r010, r012, r102 = su.combined_ratios(r02, r01, r10)
-            if "r010" in tipo:
-                x = inpdata[0][0, :] - r010[:, 1]
-                w = _weight(len(x), seisw)
-                if x.shape[0] == covinv[0].shape[0]:
-                    chi2rut += (x.T.dot(covinv[0]).dot(x)) / w
-                else:
-                    shapewarn = True
-                    chi2rut = np.inf
-            if "r02" in tipo:
-                x = inpdata[1][0, :] - r02[:, 1]
-                w = _weight(len(x), seisw)
-                if x.shape[0] == covinv[1].shape[0]:
-                    chi2rut += (x.T.dot(covinv[1]).dot(x)) / w
-                else:
-                    shapewarn = True
-                    chi2rut = np.inf
-            if "r01" in tipo:
-                x = inpdata[3][0, :] - r01[:, 1]
-                w = _weight(len(x), seisw)
-                if x.shape[0] == covinv[3].shape[0]:
-                    chi2rut += (x.T.dot(covinv[3]).dot(x)) / w
-                else:
-                    chi2rut = np.inf
-            if "r10" in tipo:
-                x = inpdata[4][0, :] - r10[:, 1]
-                w = _weight(len(x), seisw)
-                if x.shape[0] == covinv[4].shape[0]:
-                    chi2rut += (x.T.dot(covinv[4]).dot(x)) / w
-                else:
-                    shapewarn = True
-                    chi2rut = np.inf
-            if "r012" in tipo:
-                x = inpdata[5][0, :] - r012[:, 1]
-                w = _weight(len(x), seisw)
-                if x.shape[0] == covinv[5].shape[0]:
-                    chi2rut += (x.T.dot(covinv[5]).dot(x)) / w
-                else:
-                    shapewarn = True
-                    chi2rut = np.inf
-            if "r102" in tipo:
-                x = inpdata[6][0, :] - r102[:, 1]
-                w = _weight(len(x), seisw)
-                if x.shape[0] == covinv[6].shape[0]:
-                    chi2rut += (x.T.dot(covinv[6]).dot(x)) / w
-                else:
-                    shapewarn = True
-                    chi2rut = np.inf
-
-    if "freqs" in tipo:
-        # The frequency correction moved up before the ratios fitting!
-        # --> If fitting frequencies, just add the already calculated things
-        x = corjoin[0, :] - corjoin[2, :]
-        w = _weight(len(corjoin[0, :]), seisw)
-        if x.shape[0] == covinv[2].shape[0]:
-            chi2rut += (x.T.dot(covinv[2]).dot(x)) / w
+        ratiotype = list(set(tipo).intersection(freqtypes.rtypes))[0]
+        modratio = freq_fit.ratios(joinkeys, join, ratiotype, threepoint=threepoint)
+        x = obsfreqinfo[ratiotype]["r"][:, 1] - modratio[:, 1]
+        w = _weight(len(x), seisw)
+        covinv = obsfreqinfo[ratiotype]["covinv"]
+        if x.shape[0] == covinv.shape[0]:
+            chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
             shapewarn = True
             chi2rut = np.inf
 
-        if ~np.isfinite(chi2rut):
-            chi2rut = np.inf
-            if debug and verbose:
-                print("DEBUG: Computed non-finite chi2, setting chi2 to inf")
-        elif chi2rut < 0:
-            chi2rut = np.inf
-            if debug and verbose:
-                print("DEBUG: chi2 less than zero, setting chi2 to inf")
-
+    # Add contribution from glitches
     if "glitches" in tipo:
         if nmodes > 200:
             raise NotImplementedError("> 200 modes to fit!")
@@ -305,7 +257,7 @@ def chi2_astero(
 
         glhParams, nerr = glitch.glh_params(freq, nmodes, nu1, nu2, tau0, tauhe, taubcz)
         if nerr == 0:
-            x = inpdata[7] - glhParams
+            x = obsfreqinfo["glitches"] - glhParams
             w = _weight(len(x), seisw)
             if x.shape[0] == covinv[7].shape[0]:
                 chi2rut += (x.T.dot(covinv[7]).dot(x)) / w
@@ -317,7 +269,8 @@ def chi2_astero(
             return chi2rut, warnings, shapewarn
 
     if any([x in freqtypes.epsdiff for x in tipo]):
-        obsepsdiff = inpdata[8]
+        epsdifftype = list(set(tipo).intersection(freqtypes.epsdiff))[0]
+        obsepsdiff = obsfreqinfo[epsdifftype]["epsdiff"]
         # Purge model freqs of unused modes
         l_available = [int(ll) for ll in obsepsdiff[2]]
         index = np.zeros(mod.shape[1], dtype=bool)
@@ -342,6 +295,7 @@ def chi2_astero(
         chi2rut = 0.0
         x = obsepsdiff[0] - evalepsdiff
         w = _weight(len(evalepsdiff), seisw)
+        covinv = obsfreqinfo[epsdifftype]["covinv"]
         chi2rut += (x.T.dot(covinv[8]).dot(x)) / w
 
         # Check extreme values

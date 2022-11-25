@@ -70,7 +70,9 @@ def ratio_and_cov(obskey, obs, ratiotype, nrealizations=10000, threepoint=False)
     # Compute the uncertainties on ratios using covariance matrix
     obsratio[:, 2] = np.sqrt(np.diag(covratio))
 
-    return obsratio, covratio
+    # We need the inverse covariance matrix for fitting
+    covinv = np.linalg.pinv(covratio, rcond=1e-8)
+    return obsratio, covratio, covinv
 
 
 def solar_scaling(Grid, inputparams, diffusion=None):
@@ -353,28 +355,6 @@ def prepare_obs(inputparams, verbose=False, debug=False):
         debug=debug,
     )
 
-    if not correlations and "freqs" in rt:
-        cov = list(cov)
-        cov[2] = np.identity(cov[2].shape[0]) * np.diagonal(cov[2])
-        cov = tuple(cov)
-    elif not correlations and any(
-        x in [*freqtypes.rtypes, *freqtypes.epsdiff] for x in rt
-    ):
-        cov = list(cov)
-        for i in range(len(cov)):
-            if cov[i] is None:
-                continue
-            cov[i] = np.identity(cov[i].shape[0]) * np.diagonal(cov[i])
-        cov = tuple(cov)
-
-    # Computing inverse of covariance matrices...
-    covinv = []
-    for i in range(len(cov)):
-        if cov[i] is not None:
-            covinv.append(np.linalg.pinv(cov[i], rcond=1e-8))
-        else:
-            covinv.append(None)
-
     # Compute the intervals used in frequency fitting
     if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in rt]):
         obsintervals = freq_fit.make_intervals(obs, obskey, dnu=inputparams["dnufit"])
@@ -390,8 +370,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
         obs,
         numax,
         dnufrac,
-        datos,
-        covinv,
+        obsfreqinfo,
         fcor,
         obsintervals,
         dnudata,

@@ -249,7 +249,7 @@ def BASTA(
     if fitfreqs:
         (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint) = fitfreqs
         if not all(x in freqtypes.alltypes for x in rt):
-            raise ValueError("Unrecognized fitting parameters!")
+            raise ValueError("Unrecognized frequency fitting parameters!")
 
         # Obtain/calculate all frequency related quantities
         (
@@ -257,8 +257,7 @@ def BASTA(
             obs,
             numax,
             dnufrac,
-            datos,
-            covinv,
+            obsfreqinfo,
             fcor,
             obsintervals,
             dnudata,
@@ -627,9 +626,8 @@ def BASTA(
                             mod,
                             obskey,
                             obs,
-                            datos,
+                            obsfreqinfo,
                             rt,
-                            covinv,
                             obsintervals,
                             dnudata,
                             dnudata_err,
@@ -891,7 +889,7 @@ def BASTA(
         if allfplots or "ratios" in freqplots:
             plot_seismic.ratioplot(
                 freqxml,
-                datos,
+                obsfreqinfo,
                 maxjoinkeys,
                 maxjoin,
                 output=ratioplotname,
@@ -902,8 +900,8 @@ def BASTA(
                 mod=maxmod,
                 modkey=maxmodkey,
                 moddnu=maxmoddnu,
-                obsepsdiff=datos[8],
-                covinv=covinv[8],
+                obsepsdiff=obsfreqinfo["e012"]["epsdiff"],
+                covinv=obsfreqinfo["e012"]["epsdiff"],
                 output=plotfname.format("epsilon_differences"),
             )
         if allfplots or "allepsdiff" in freqplots:
@@ -911,8 +909,8 @@ def BASTA(
                 mod=maxmod,
                 modkey=maxmodkey,
                 moddnu=maxmoddnu,
-                obsepsdiff=datos[8],
-                covinv=covinv[8],
+                obsepsdiff=obsfreqinfo["e012"]["epsdiff"],
+                covinv=obsfreqinfo["e012"]["epsdiff"],
                 obs=obs,
                 obskey=obskey,
                 obsdnu=dnudata,
