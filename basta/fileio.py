@@ -1204,6 +1204,8 @@ def read_rt(
     dnudata_err : scalar
         Uncertainty on dnudata
     """
+    obsfreqinfo = {}
+
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
 
@@ -1289,6 +1291,67 @@ def read_rt(
                 else:
                     if plot not in epsdifftypes:
                         epsdifftypes.append(plot)
+
+
+    # Compute or read in required ratios
+    if getratios:
+        # omstrukturer freq_fit.ratios also can return combined ratios
+        for ratiotype in ratiotypes:
+            if readratios
+            o
+
+            def readratios(ratiotype, filename, nottrustedfile, verbose=verbose):
+                r02 = freq_fit.ratios(freq)
+                r01 = freq_fit.ratios(freq)
+                r10 = freq_fit.ratios(freq)
+                rrange = (
+                    int(round(r01[0, 0])),
+                    int(round(r01[-1, 0])),
+                    int(round(r10[0, 0])),
+                    int(round(r10[-1, 0])),
+                    int(round(r02[0, 0])),
+                    int(round(r02[-1, 0])),
+                )
+                if ratiotype == 'r010':
+                    datos010, cov010 = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
+                elif ratiotype == 'r02':
+                    datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
+
+
+
+
+            obsfreqinfo[ratiotype] = freq_fit.ratios(obskey, obs, ratiotype, threepoint=threepoint)
+        print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
+        rat, cov102 = su.ratio_and_cov(freq, rtype="R102", threepoint=threepoint)
+        # Ratios and their covariances
+        r010, r012, r102 = su.combined_ratios(r02, r01, r10)
+
+        # R010
+        if datos010 is None and "r010" in rt:
+            print("* r010 unavailable in xml. Computing it ... ", end="", flush=True)
+            datos010 = np.zeros((3, len(rat[:, 0])))
+            datos010[0, :] = rat[:, 1]
+            datos010[1, :] = rat[:, 3]
+            datos010[2, :] = rat[:, 2]
+            print("done!")
+
+        # R02
+        datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
+        if datos02 is None and ("r02" in rt or plotratios):
+            print("* r02 unavailable in xml. Computing it ... ", end="", flush=True)
+            rat, cov02 = su.ratio_and_cov(freq, rtype="R02", threepoint=threepoint)
+            datos02 = np.zeros((3, len(rat[:, 0])))
+            datos02[0, :] = rat[:, 1]
+            datos02[1, :] = rat[:, 3]
+            datos02[2, :] = rat[:, 2]
+            print("done!")
+
+    # Get glitches
+    if getglitch:
+
+    # Get epsilon differences
+    if getepsdiff:
+
 
     """
     datos010, datos02, datos01, datos10, datos012, datos102 = (
