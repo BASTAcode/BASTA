@@ -1150,8 +1150,7 @@ def read_rt(
     glhtxt,
     rt,
     numax,
-    plotratios,
-    plotepsdiff,
+    freqplots,
     getfreqcovar=False,
     nottrustedfile=None,
     threepoint=False,
@@ -1172,8 +1171,8 @@ def read_rt(
         Type of fits available for individual frequencies
     numax : scalar
         Frequency of maximum power
-    plotratios : bool
-        Whether or not computation of ratios for plots is needed
+    freqplots : list
+        List of frequency-dependent fits
     getfreqcovar : bool
         Whether to try to read frequency covariances from the input xml
     nottrustedfile : str or None.
@@ -1206,10 +1205,11 @@ def read_rt(
         Uncertainty on dnudata
     """
     # Observed frequencies
-    obskey, obs, covf = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
-    datos_f, cov_f = obs, covf
+    obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
 
     # Observed ratios and covariances
+    """
+    # datos_f, cov_f = obs, covf
     names = ["l", "n", "freq", "err"]
     fmts = [int, int, float, float]
     freq = np.zeros(obskey.shape[1], dtype={"names": names, "formats": fmts})
@@ -1217,10 +1217,11 @@ def read_rt(
     freq[:]["n"] = obskey[1, obskey[0, :] < 3]
     freq[:]["freq"] = obs[0, obskey[0, :] < 3]
     freq[:]["err"] = obs[1, obskey[0, :] < 3]
+    """
 
     # Compute large frequency separation (the same way as dnufit)
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    yfitdnu = freq[freq["l"] == 0]["freq"]
+    yfitdnu = obs[0, obskey[0, :] == 0]
     xfitdnu = np.arange(0, len(yfitdnu))
     wfitdnu = np.exp(
         -1.0
@@ -1231,6 +1232,65 @@ def read_rt(
     dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
 
     # Ratios and covariances
+    # Check if it is unnecesarry to compute ratios
+    allfits = np.asarray(list(rt))
+    allplots = np.asarray(list(freqplots))
+    ratiotypes = []
+    epsdifftypes = []
+
+    defaultrtypes = ['r01', 'r10', 'r02']
+    defaultepstypes = ['e012', ]
+
+    getratios = False
+    getglitch = False
+    getepsdiff = False
+    for fit in allfits:
+        # Look for ratios
+        if fit in freqtypes.rtypes:
+            getratios = True
+            ratiotypes.append(fit)
+        # Look for glitches
+        if fit in freqtypes.glitches:
+            getglitch = True
+        # Look for epsdiff
+        if fit in freqtypes.epsdiff:
+            getepsdiff = True
+            epsdifftypes.append(fit)
+
+    if freqplots[0] == True:
+        getratios = True
+        getglitch = True
+        getepsdiff = True
+
+        ratiotypes = defaultrtypes
+        epsdifftypes = defaultepstypes
+    else:
+        for plot in allplots:
+            # Look for ratios
+            if plot in ['ratios', *freqtypes.rtypes]:
+                getratios = True
+                if plot in ['ratios', ]:
+                    for rtype in defaultrtypes:
+                        if rtype not in ratiotypes:
+                            ratiotypes.append(rtype)
+                else:
+                    if plot not in ratiotypes:
+                        ratiotypes.append(plot)
+            # Look for glitches
+            if plot in freqtypes.glitches:
+                getglitch = True
+            # Look for epsdiff
+            if plot in ['epsdiff', *freqtypes.epsdiff]:
+                getepsdiff = True
+                if plot in ['epsdiff', ]:
+                    for etype in defaultepstypes:
+                        if etype not in epsdifftypes:
+                            epsdifftypes.append(etype)
+                else:
+                    if plot not in epsdifftypes:
+                        epsdifftypes.append(plot)
+
+    """
     datos010, datos02, datos01, datos10, datos012, datos102 = (
         None,
         None,
@@ -1243,7 +1303,22 @@ def read_rt(
     datosepsdiff, covepsdiff = None, None
 
     cov010, cov02, cov01, cov10, cov012, cov102 = (None, None, None, None, None, None)
+
     r02, r01, r10 = freq_fit.ratios(freq)
+    for ratiostr, ratio in zip(['r02', 'r01', 'r10'], [r02, r01, r10]):
+        if ratio is None:
+            print(f"WARNING: Missing radial orders or modes for {ratiostr}")
+
+    if datos102 is None and "r102" in rt:
+        print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
+        rat, cov102 = su.ratio_and_cov(freq, rtype="R102", threepoint=threepoint)
+        datos102 = np.zeros((3, len(rat[:, 0])))
+        datos102[0, :] = rat[:, 1]
+        datos102[1, :] = rat[:, 3]
+        datos102[2, :] = rat[:, 2]
+        print("done!")
+    """
+    """
     if r02 is None:
         if any(x in freqtypes.rtypes for x in rt):
             print("WARNING: Missing radial orders! Skipping ratios fitting!")
@@ -1320,6 +1395,7 @@ def read_rt(
             datos102[1, :] = rat[:, 3]
             datos102[2, :] = rat[:, 2]
             print("done!")
+    """
 
     if datosepsdiff is None and any([x in freqtypes.epsdiff for x in rt]):
         inp = np.asarray(rt)
@@ -1364,7 +1440,7 @@ def read_rt(
         datosglh,
         datosepsdiff,
     )
-    cov = (cov010, cov02, cov_f, cov01, cov10, cov012, cov102, covglh, covepsdiff)
+    cov = (cov010, cov02, obscov, cov01, cov10, cov012, cov102, covglh, covepsdiff)
 
     # Epsilon differences debug plot production
     if debug:

@@ -431,30 +431,9 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     # Get the nottrustedfile for excempted modes
     nottrustedfile = inputparams.get("nottrustedfile")
 
-    # Check if it is unnecesarry to compute ratios
-    getratios = False
+    # TODO: Change behavior of freqplots to be list of ratios to fit/plot
+    # Make 'catch-all' 'ratios' option
     freqplots = inputparams.get("freqplots")
-    if any(x in freqtypes.rtypes for x in rt):
-        getratios = True
-    elif len(freqplots):
-        if any([freqplots[0] == True, "ratios" in freqplots]):
-            getratios = True
-
-    # Check if it is unnecesarry to compute epsilon differences
-    getepsdiff = False
-    if any(x in freqtypes.epsdiff for x in rt):
-        getepsdiff = True
-    elif len(freqplots):
-        if freqplots[0] == True:
-            getepsdiff = True
-        elif any(x.endswith("epsdiff") for x in freqplots):
-            getepsdiff = True
-
-    if getratios:
-        print(
-            "Frequency ratios required for fitting and/or plotting. This may take",
-            "a little while...",
-        )
 
     # Load or calculate ratios (requires numax)
     # --> datos and cov are 3-tuples with 010, 02 and freqs
@@ -463,8 +442,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
         glhtxt,
         rt,
         numax,
-        getratios,
-        getepsdiff,
+        freqplots,
         getfreqcovar,
         threepoint=threepoint,
         nottrustedfile=nottrustedfile,
