@@ -1226,7 +1226,7 @@ def read_rt(
     dnudata_err : scalar
         Uncertainty on dnudata
     """
-    obsfreqinfo = {}
+    obsfreqdata = {}
 
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
@@ -1252,9 +1252,6 @@ def read_rt(
     fitepsdifftypes = []
     plotepsdifftypes = []
 
-    defaultrtypes = ['r01', 'r10', 'r02']
-    defaultepstypes = ['e012', ]
-
     getratios = False
     getglitch = False
     getepsdiff = False
@@ -1276,15 +1273,15 @@ def read_rt(
         getglitch = True
         getepsdiff = True
 
-        fitratiotypes = defaultrtypes
-        fitepsdifftypes = defaultepstypes
+        fitratiotypes = freqtypes.defaultrtypes
+        fitepsdifftypes = freqtypes.defaultepstypes
     else:
         for plot in allplots:
             # Look for ratios
             if plot in ['ratios', *freqtypes.rtypes]:
                 getratios = True
                 if plot in ['ratios', ]:
-                    for rtype in defaultrtypes:
+                    for rtype in freqtypes.defaultrtypes:
                         if rtype not in plotratios:
                             plotratios.append(rtype)
                 else:
@@ -1297,7 +1294,7 @@ def read_rt(
             if plot in ['epsdiff', *freqtypes.epsdiff]:
                 getepsdiff = True
                 if plot in ['epsdiff', ]:
-                    for etype in defaultepstypes:
+                    for etype in freqtypes.defaultepstypes:
                         if etype not in plotepsdifftypes:
                             plotepsdifftypes.append(etype)
                 else:
@@ -1316,8 +1313,9 @@ def read_rt(
             readratiotypes = root.findall("frequency_ratio")
             for ratiotype in readratiotypes:
                 datos, cov = readratios(ratiotype, filename, nottrustedfile, verbose)
-                obsfreqinfo[ratiotype]['r'] = datos
-                obsfreqinfo[ratiotype]['cov'] = cov
+                obsfreqdata[ratiotype]['r'] = datos
+                obsfreqdata[ratiotype]['cov'] = cov
+                obsfreqdata[ratiotype]['covinv'] = None
         for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(readratiotypes):
             datos = freq_fit.ratios(obskey, obs, ratiotype, threepoint=threepoint)
             if datos is None:
@@ -1327,20 +1325,19 @@ def read_rt(
                 else:
                     # Do not fail as much
                     print(f"Ratio {ratiotype} could not be computed.")
-                    obsfreqinfo[ratiotype]['r'] = None
-                    obsfreqinfo[ratiotype]['cov'] = None
+                    obsfreqdata[ratiotype]['r'] = None
+                    obsfreqdata[ratiotype]['cov'] = None
+                    obsfreqdata[ratiotype]['covinv'] = None
             else:
-                obsfreqinfo[ratiotype]['r'] = datos[0]
-                obsfreqinfo[ratiotype]['cov'] = datos[1]
+                obsfreqdata[ratiotype]['r'] = datos[0]
+                obsfreqdata[ratiotype]['cov'] = datos[1]
+                obsfreqdata[ratiotype]['covinv'] = None
 
     # Get glitches
     if getglitch:
 
     # Get epsilon differences
     if getepsdiff:
-
-
-    if datosepsdiff is None and any([x in freqtypes.epsdiff for x in rt]):
         inp = np.asarray(rt)
         inpseq = inp[list(x in freqtypes.epsdiff for x in list(rt))]
         try:
