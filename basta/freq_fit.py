@@ -18,9 +18,7 @@ def ratios(obskey, obs, ratiotype, threepoint=False):
 
     Developers note: We currently do not store identifying information
     of the sequence origin in the combined sequences. We rely on them
-    being constructed/sorted identically when computed. However, this
-    information could be stored in the 3'rd column of the output,
-    which is currently unused.
+    being constructed/sorted identically when computed.
 
     Parameters
     ----------
