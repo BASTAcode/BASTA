@@ -280,14 +280,19 @@ def prepare_obs(inputparams, verbose=False, debug=False):
         The allowed fraction of the large frequency separation that defines
         when the l=0 mode in the model is close enough to the lowest l=0 mode
         in the observed set that the model can be considered.
-    datos : array
-        Individual frequencies, uncertainties, and combinations read
-        directly from the observational input files
-    covinv : array
-        Covariances between individual frequencies and frequency ratios read
-        from the observational input files.
     fcor : strgs
         Type of surface correction (see :func:'freq_fit.py').
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
     obsintervals : array
         Array containing the endpoints of the intervals used in the frequency
         fitting routine in :func:'freq_fit.calc_join'.
@@ -303,13 +308,13 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     print("\nPreparing asteroseismic input ...")
 
     fitfreqs = inputparams.get("fitfreqs")
-    (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint) = fitfreqs
+    (freqfilename, glitchfilename, correlations, bexp, freqfits, seisw, threepoint, readratios) = fitfreqs
 
     # Get frequency correction method
     fcor = inputparams.get("fcor", "BG14")
-    if fcor not in ["None", "HK08", "BG14", "cubicBG14"]:
+    if fcor not in ["None", *freqtypes.surfeffcorrs]:
         raise ValueError(
-            'ERROR: fcor must be either "None", "HK08", "BG14" or "cubicBG14"'
+            f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}'
         )
 
     # Get numax
@@ -319,7 +324,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
             + " frequencies or ratios!"
         )
         raise ValueError(numaxerr)
-    numax = inputparams.get("numax")  # *numsun #NOTE SOLAR UNITS
+    numax = inputparams.get("numax")  # *numsun in solar units
 
     # Just check if 'dnufit' is specified, will be used otherwhere
     if inputparams.get("dnufit", False) is False:
@@ -328,7 +333,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     # Read dnu-constraint value
     dnufrac = inputparams.get("dnufrac", 0.15)
 
-    if "freqs" in rt and correlations:
+    if "freqs" in freqfits and correlations:
         getfreqcovar = True
     else:
         getfreqcovar = False
@@ -336,27 +341,25 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     # Get the nottrustedfile for excempted modes
     nottrustedfile = inputparams.get("nottrustedfile")
 
-    # TODO: Change behavior of freqplots to be list of ratios to fit/plot
-    # Make 'catch-all' 'ratios' option
     freqplots = inputparams.get("freqplots")
 
-    # Load or calculate ratios (requires numax)
-    # --> datos and cov are 3-tuples with 010, 02 and freqs
-    datos, cov, obskey, obs, dnudata, dnudata_err = fio.read_allseismic(
-        freqxml,
-        glhtxt,
-        rt,
+    # Load or compute frequency-dependent products
+    obskey, obs, obsfreqdata, obsfreqmeta, dnudata, dnudata_err = fio.read_allseismic(
+        freqfilename,
+        glitchfilename,
+        freqfits,
         numax,
         freqplots,
-        getfreqcovar,
-        threepoint=threepoint,
+        getfreqcovar=getfreqcovar,
         nottrustedfile=nottrustedfile,
+        threepoint=threepoint,
+        readratios=readratios,
         verbose=verbose,
         debug=debug,
     )
 
     # Compute the intervals used in frequency fitting
-    if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in rt]):
+    if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in freqfits]):
         obsintervals = freq_fit.make_intervals(obs, obskey, dnu=inputparams["dnufit"])
     else:
         obsintervals = None
@@ -370,8 +373,9 @@ def prepare_obs(inputparams, verbose=False, debug=False):
         obs,
         numax,
         dnufrac,
-        obsfreqinfo,
         fcor,
+        obsfreqdata,
+        obsfreqmeta,
         obsintervals,
         dnudata,
         dnudata_err,

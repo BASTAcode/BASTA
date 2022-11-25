@@ -1088,7 +1088,7 @@ def read_r02(filename, rrange, nottrustedfile):
     return r02var, covar02
 
 
-def read_glh(filename):
+def read_glitch(filename):
     """
     Read glitch parameters.
 
@@ -1122,10 +1122,10 @@ def read_glh(filename):
     return glhParams, glhCov
 
 
-def readratios(ratiotype, filename, nottrustedfile, verbose=verbose):
-    r02 = freq_fit.ratios(obskey, obs, ratiotype='r02', threepoint=threepoint)
-    r01 = freq_fit.ratios(obskey, obs, ratiotype='r01', threepoint=threepoint)
-    r10 = freq_fit.ratios(obskey, obs, ratiotype='r10', threepoint=threepoint)
+def read_precomputedratios(obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False):
+    r02 = freq_fit.ratios(obskey, obs, ratiotype="r02", threepoint=threepoint)
+    r01 = freq_fit.ratios(obskey, obs, ratiotype="r01", threepoint=threepoint)
+    r10 = freq_fit.ratios(obskey, obs, ratiotype="r10", threepoint=threepoint)
     rrange = (
         int(round(r01[0, 0])),
         int(round(r01[-1, 0])),
@@ -1134,9 +1134,9 @@ def readratios(ratiotype, filename, nottrustedfile, verbose=verbose):
         int(round(r02[0, 0])),
         int(round(r02[-1, 0])),
     )
-    if ratiotype == 'r010':
+    if ratiotype == "r010":
         datos, cov = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
-    elif ratiotype == 'r02':
+    elif ratiotype == "r02":
         datos, cov = read_r02(filename, rrange, nottrustedfile)
     return datos, cov
 
@@ -1187,32 +1187,35 @@ def read_allseismic(
 
     Returns
     -------
-    datos : array
-        Individual frequencies, uncertainties, and combinations read
-        directly from the observational input files
-    cov : array
-        Covariances between individual frequencies and frequency ratios
-        read directly from the observational input files
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
     obs : array
-        Individual frequencies, uncertainties, and combinations computed
-        from these frequencies
+        Individual frequencies and uncertainties.
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
     dnudata : scalar
         Large frequency separation obtained by fitting the radial mode observed
         frequencies. Similar to dnufit, but from data and not from the
-        theoretical frequencies in the grid of models
+        theoretical frequencies in the grid of models.
     dnudata_err : scalar
-        Uncertainty on dnudata
+        Uncertainty on dnudata.
     """
     obsfreqdata = {}
-    obsfreqmetadata = {}
+    obsfreqmeta = {}
 
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    obsfreqdata["freqs"] = {
-            "cov": obscov, 
-            "covinv": obscovinv
-            }
+    obsfreqdata["freqs"] = {"cov": obscov, "covinv": obscovinv}
 
     # Compute large frequency separation (the same way as dnufit)
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
@@ -1251,7 +1254,7 @@ def read_allseismic(
             getepsdiff = True
             fitepsdifftypes.append(fit)
         else:
-            print(f'Fittype {fit} not recognised')
+            print(f"Fittype {fit} not recognised")
             raise ValueError
 
     if freqplots[0] == True:
@@ -1264,9 +1267,11 @@ def read_allseismic(
     else:
         for plot in allplots:
             # Look for ratios
-            if plot in ['ratios', *freqtypes.rtypes]:
+            if plot in ["ratios", *freqtypes.rtypes]:
                 getratios = True
-                if plot in ['ratios', ]:
+                if plot in [
+                    "ratios",
+                ]:
                     for rtype in freqtypes.defaultrtypes:
                         if rtype not in plotratiotypes:
                             plotratiotypes.append(rtype)
@@ -1277,9 +1282,11 @@ def read_allseismic(
             if plot in freqtypes.glitches:
                 getglitch = True
             # Look for epsdiff
-            if plot in ['epsdiff', *freqtypes.epsdiff]:
+            if plot in ["epsdiff", *freqtypes.epsdiff]:
                 getepsdiff = True
-                if plot in ['epsdiff', ]:
+                if plot in [
+                    "epsdiff",
+                ]:
                     for etype in freqtypes.defaultepstypes:
                         if etype not in plotepsdifftypes:
                             plotepsdifftypes.append(etype)
@@ -1287,10 +1294,10 @@ def read_allseismic(
                     if plot not in plotepsdifftypes:
                         plotepsdifftypes.append(plot)
 
-    obsfreqmetadata['ratios']['fit'] = fitratiotypes
-    obsfreqmetadata['ratios']['plot'] = plotratiotypes
-    obsfreqmetadata['epsdiff']['fit'] = fitepsdifftypes
-    obsfreqmetadata['epsdiff']['plot'] = plotepsdifftypes
+    obsfreqmeta["ratios"]["fit"] = fitratiotypes
+    obsfreqmeta["ratios"]["plot"] = plotratiotypes
+    obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
+    obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
 
     # Compute or dataread in required ratios
     if getratios:
@@ -1303,30 +1310,44 @@ def read_allseismic(
             # Find a list of all available frequency ratios:
             readratiotypes = list(root.findall("frequency_ratio"))
             for ratiotype in readratiotypes:
-                datos, cov = readratios(ratiotype, filename, nottrustedfile, verbose)
-                obsfreqdata[ratiotype]['r'] = datos
-                obsfreqdata[ratiotype]['cov'] = cov
-                obsfreqdata[ratiotype]['covinv'] = None
-        for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(readratiotypes):
+                datos, cov = read_precomputedratios(
+                        obskey,
+                        obs,
+                        ratiotype,
+                        filename,
+                        nottrustedfile,
+                        threepoint=threepoint,
+                        verbose=verbose
+                        )
+                obsfreqdata[ratiotype]["data"] = datos
+                obsfreqdata[ratiotype]["cov"] = cov
+                obsfreqdata[ratiotype]["covinv"] = None
+        for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(
+            readratiotypes
+        ):
             datos = freq_fit.ratios(obskey, obs, ratiotype, threepoint=threepoint)
             if datos is None:
                 if ratiotype in fitratiotypes:
                     # Fail
-                    raise ValueError(f"Fitting parameter {ratiotype} could not be computed.")
+                    raise ValueError(
+                        f"Fitting parameter {ratiotype} could not be computed."
+                    )
                 else:
                     # Do not fail as much
                     print(f"Ratio {ratiotype} could not be computed.")
-                    obsfreqdata[ratiotype]['r'] = None
-                    obsfreqdata[ratiotype]['cov'] = None
-                    obsfreqdata[ratiotype]['covinv'] = None
+                    obsfreqdata[ratiotype]["data"] = None
+                    obsfreqdata[ratiotype]["cov"] = None
+                    obsfreqdata[ratiotype]["covinv"] = None
             else:
-                obsfreqdata[ratiotype]['r'] = datos[0]
-                obsfreqdata[ratiotype]['cov'] = datos[1]
-                obsfreqdata[ratiotype]['covinv'] = None
+                obsfreqdata[ratiotype]["data"] = datos[0]
+                obsfreqdata[ratiotype]["cov"] = datos[1]
+                obsfreqdata[ratiotype]["covinv"] = None
 
     # Get glitches
     if getglitch:
-        g, covg = read_glh(glitchfilename)
+        g, covg = read_glitch(glitchfilename)
+        obsfreqdata['glitch']["data"] = g
+        obsfreqdata['glitch']["cov"] = covg
 
     # Get epsilon differences
     if getepsdiff:
@@ -1340,8 +1361,8 @@ def read_allseismic(
                     seq=epsdifffit,
                 )
                 print("done!")
-                obsfreqdata[epsdifffit]['e'] = ed
-                obsfreqdata[epsdifffit]['cov'] = coved 
+                obsfreqdata[epsdifffit]["data"] = ed
+                obsfreqdata[epsdifffit]["cov"] = coved
             elif epsdifffit in plotepsdifftypes:
                 ed, coved = su.compute_epsilon_diff_and_cov(
                     obskey,
@@ -1350,8 +1371,8 @@ def read_allseismic(
                     seq=epsdifffit,
                     nrealisations=2000,
                 )
-                obsfreqdata[epsdifffit]['e'] = ed
-                obsfreqdata[epsdifffit]['cov'] = coved 
+                obsfreqdata[epsdifffit]["data"] = ed
+                obsfreqdata[epsdifffit]["cov"] = coved
 
             # Epsilon differences debug plot production
             if debug:
@@ -1380,9 +1401,12 @@ def read_allseismic(
                     dnudata,
                     epsdiff_plotname,
                 )
-                print("* Saved correlation maps and epsilon differences as ", epsdiff_plotname)
+                print(
+                    "* Saved correlation maps and epsilon differences as ",
+                    epsdiff_plotname,
+                )
 
-    return obskey, obs, obsfreqdata, obsfreqmetadata, dnudata, dnudata_err
+    return obskey, obs, obsfreqdata, obsfreqmeta, dnudata, dnudata_err
 
 
 def get_freq_ranges(filename):

@@ -247,7 +247,7 @@ def BASTA(
 
     # Prepare asteroseismic quantities if required
     if fitfreqs:
-        (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint) = fitfreqs
+        (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint, readratios) = fitfreqs
         if not all(x in freqtypes.alltypes for x in rt):
             raise ValueError("Unrecognized frequency fitting parameters!")
 

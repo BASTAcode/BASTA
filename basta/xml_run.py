@@ -488,6 +488,9 @@ def run_xml(
         threepoint = strtobool(
             _find_get(root, "default/freqparams/threepoint", "value", defa="False")
         )
+        readratios = strtobool(
+            _find_get(root, "default/freqparams/readratios", "value", defa="False")
+        )
         dnufrac = float(_find_get(root, "default/freqparams/dnufrac", "value"))
         inputparams["fcor"] = fcor
         inputparams["dnufrac"] = dnufrac
@@ -691,6 +694,7 @@ def run_xml(
                     freqfittypes,
                     seismicweights,
                     threepoint,
+                    readratios,
                 )
 
                 inputparams["fitfreqs"] = freqinput
