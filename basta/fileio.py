@@ -1231,18 +1231,6 @@ def read_rt(
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
 
-    # Observed ratios and covariances
-    """
-    # datos_f, cov_f = obs, covf
-    names = ["l", "n", "freq", "err"]
-    fmts = [int, int, float, float]
-    freq = np.zeros(obskey.shape[1], dtype={"names": names, "formats": fmts})
-    freq[:]["l"] = obskey[0, obskey[0, :] < 3]
-    freq[:]["n"] = obskey[1, obskey[0, :] < 3]
-    freq[:]["freq"] = obs[0, obskey[0, :] < 3]
-    freq[:]["err"] = obs[1, obskey[0, :] < 3]
-    """
-
     # Compute large frequency separation (the same way as dnufit)
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
     yfitdnu = obs[0, obskey[0, :] == 0]
@@ -1333,14 +1321,17 @@ def read_rt(
         for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(readratiotypes):
             datos = freq_fit.ratios(obskey, obs, ratiotype, threepoint=threepoint)
             if datos is None:
-                if ratiotype in fitratiotypes):
+                if ratiotype in fitratiotypes:
                     # Fail
+                    raise ValueError(f"Fitting parameter {ratiotype} could not be computed.")
                 else:
                     # Do not fail as much
+                    print(f"Ratio {ratiotype} could not be computed.")
+                    obsfreqinfo[ratiotype]['r'] = None
+                    obsfreqinfo[ratiotype]['cov'] = None
             else:
                 obsfreqinfo[ratiotype]['r'] = datos[0]
                 obsfreqinfo[ratiotype]['cov'] = datos[1]
-
 
     # Get glitches
     if getglitch:
@@ -1348,113 +1339,6 @@ def read_rt(
     # Get epsilon differences
     if getepsdiff:
 
-
-    """
-    datos010, datos02, datos01, datos10, datos012, datos102 = (
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
-    )
-
-    datosepsdiff, covepsdiff = None, None
-
-    cov010, cov02, cov01, cov10, cov012, cov102 = (None, None, None, None, None, None)
-
-    r02, r01, r10 = freq_fit.ratios(freq)
-    for ratiostr, ratio in zip(['r02', 'r01', 'r10'], [r02, r01, r10]):
-        if ratio is None:
-            print(f"WARNING: Missing radial orders or modes for {ratiostr}")
-
-    if datos102 is None and "r102" in rt:
-        print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
-        rat, cov102 = su.ratio_and_cov(freq, rtype="R102", threepoint=threepoint)
-        datos102 = np.zeros((3, len(rat[:, 0])))
-        datos102[0, :] = rat[:, 1]
-        datos102[1, :] = rat[:, 3]
-        datos102[2, :] = rat[:, 2]
-        print("done!")
-    """
-    """
-    if r02 is None:
-        if any(x in freqtypes.rtypes for x in rt):
-            print("WARNING: Missing radial orders! Skipping ratios fitting!")
-    else:
-        # Ratios and their covariances
-        r010, r012, r102 = su.combined_ratios(r02, r01, r10)
-        rrange = (
-            int(round(r01[0, 0])),
-            int(round(r01[-1, 0])),
-            int(round(r10[0, 0])),
-            int(round(r10[-1, 0])),
-            int(round(r02[0, 0])),
-            int(round(r02[-1, 0])),
-        )
-
-        # R010
-        datos010, cov010 = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
-        if datos010 is None and "r010" in rt:
-            print("* r010 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov010 = su.ratio_and_cov(freq, rtype="R010", threepoint=threepoint)
-            datos010 = np.zeros((3, len(rat[:, 0])))
-            datos010[0, :] = rat[:, 1]
-            datos010[1, :] = rat[:, 3]
-            datos010[2, :] = rat[:, 2]
-            print("done!")
-
-        # R02
-        datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
-        if datos02 is None and ("r02" in rt or plotratios):
-            print("* r02 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov02 = su.ratio_and_cov(freq, rtype="R02", threepoint=threepoint)
-            datos02 = np.zeros((3, len(rat[:, 0])))
-            datos02[0, :] = rat[:, 1]
-            datos02[1, :] = rat[:, 3]
-            datos02[2, :] = rat[:, 2]
-            print("done!")
-
-        # R01
-        if datos01 is None and ("r01" in rt or plotratios):
-            print("* r01 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov01 = su.ratio_and_cov(freq, rtype="R01", threepoint=threepoint)
-            datos01 = np.zeros((3, len(rat[:, 0])))
-            datos01[0, :] = rat[:, 1]
-            datos01[1, :] = rat[:, 3]
-            datos01[2, :] = rat[:, 2]
-            print("done!")
-
-        # R10
-        if datos10 is None and ("r10" in rt or plotratios):
-            print("* r10 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov10 = su.ratio_and_cov(freq, rtype="R10", threepoint=threepoint)
-            datos10 = np.zeros((3, len(rat[:, 0])))
-            datos10[0, :] = rat[:, 1]
-            datos10[1, :] = rat[:, 3]
-            datos10[2, :] = rat[:, 2]
-            print("done!")
-
-        # R012
-        if datos012 is None and "r012" in rt:
-            print("* r012 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov012 = su.ratio_and_cov(freq, rtype="R012", threepoint=threepoint)
-            datos012 = np.zeros((3, len(rat[:, 0])))
-            datos012[0, :] = rat[:, 1]
-            datos012[1, :] = rat[:, 3]
-            datos012[2, :] = rat[:, 2]
-            print("done!")
-
-        # R102
-        if datos102 is None and "r102" in rt:
-            print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov102 = su.ratio_and_cov(freq, rtype="R102", threepoint=threepoint)
-            datos102 = np.zeros((3, len(rat[:, 0])))
-            datos102[0, :] = rat[:, 1]
-            datos102[1, :] = rat[:, 3]
-            datos102[2, :] = rat[:, 2]
-            print("done!")
-    """
 
     if datosepsdiff is None and any([x in freqtypes.epsdiff for x in rt]):
         inp = np.asarray(rt)
