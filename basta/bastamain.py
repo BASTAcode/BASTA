@@ -258,7 +258,7 @@ def BASTA(
                 readratios
                 ) = fitfreqs
 
-        if not all(x in freqtypes.alltypes for x in freqfuts):
+        if not all(x in freqtypes.alltypes for x in freqfits):
             raise ValueError("Unrecognized frequency fitting parameters!")
 
         # Obtain/calculate all frequency related quantities

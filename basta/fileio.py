@@ -1215,7 +1215,6 @@ def read_allseismic(
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    obsfreqdata["freqs"] = {"cov": obscov, "covinv": obscovinv}
 
     # Compute large frequency separation (the same way as dnufit)
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
@@ -1241,11 +1240,15 @@ def read_allseismic(
     getratios = False
     getglitch = False
     getepsdiff = False
+
     for fit in allfits:
+        obsfreqdata[fit] = {}
         # Look for ratios
         if fit in freqtypes.rtypes:
             getratios = True
             fitratiotypes.append(fit)
+            if not "ratios" in obsfreqmeta.keys():
+                obsfreqmeta["ratios"] = {}
         # Look for glitches
         elif fit in freqtypes.glitches:
             getglitch = True
@@ -1253,17 +1256,28 @@ def read_allseismic(
         elif fit in freqtypes.epsdiff:
             getepsdiff = True
             fitepsdifftypes.append(fit)
+            if not "epsdiff" in obsfreqmeta.keys():
+                obsfreqmeta["epsdiff"] = {}
+        elif fit in freqtypes.freqs:
+            obsfreqdata["freqs"] = {
+                    "cov": obscov,
+                    "covinv": obscovinv
+                    }
         else:
             print(f"Fittype {fit} not recognised")
             raise ValueError
 
+    print(obsfreqdata)
+    print(allplots)
     if freqplots[0] == True:
         getratios = True
         getglitch = True
         getepsdiff = True
 
         fitratiotypes = freqtypes.defaultrtypes
+        plotratiotypes = freqtypes.defaultrtypes
         fitepsdifftypes = freqtypes.defaultepstypes
+        plotepsdifftypes = freqtypes.defaultepstypes
     else:
         for plot in allplots:
             # Look for ratios
@@ -1278,6 +1292,7 @@ def read_allseismic(
                 else:
                     if plot not in plotratiotypes:
                         plotratiotypes.append(plot)
+            print(plotratiotypes)
             # Look for glitches
             if plot in freqtypes.glitches:
                 getglitch = True
@@ -1294,10 +1309,12 @@ def read_allseismic(
                     if plot not in plotepsdifftypes:
                         plotepsdifftypes.append(plot)
 
-    obsfreqmeta["ratios"]["fit"] = fitratiotypes
-    obsfreqmeta["ratios"]["plot"] = plotratiotypes
-    obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
-    obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
+    if getratios:
+        obsfreqmeta["ratios"]["fit"] = fitratiotypes
+        obsfreqmeta["ratios"]["plot"] = plotratiotypes
+    if getepsdiff:
+        obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
+        obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
 
     # Compute or dataread in required ratios
     if getratios:
@@ -1319,14 +1336,26 @@ def read_allseismic(
                         threepoint=threepoint,
                         verbose=verbose
                         )
+                covinv = np.linalg.pinv(cov, rcond=1e-8)
+                obsfreqdata[ratiotype] = {}
                 obsfreqdata[ratiotype]["data"] = datos
                 obsfreqdata[ratiotype]["cov"] = cov
-                obsfreqdata[ratiotype]["covinv"] = None
+                obsfreqdata[ratiotype]["covinv"] = covinv
         for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(
             readratiotypes
         ):
-            datos = freq_fit.ratios(obskey, obs, ratiotype, threepoint=threepoint)
-            if datos is None:
+            obsfreqdata[ratiotype] = {}
+            datos = freq_fit.ratios(
+                    obskey,
+                    obs,
+                    ratiotype,
+                    threepoint=threepoint
+                    )
+            if datos[0] is not None:
+                obsfreqdata[ratiotype]["data"] = datos
+                obsfreqdata[ratiotype]["cov"] = None
+                obsfreqdata[ratiotype]["covinv"] = None
+            else:
                 if ratiotype in fitratiotypes:
                     # Fail
                     raise ValueError(
@@ -1338,41 +1367,45 @@ def read_allseismic(
                     obsfreqdata[ratiotype]["data"] = None
                     obsfreqdata[ratiotype]["cov"] = None
                     obsfreqdata[ratiotype]["covinv"] = None
-            else:
-                obsfreqdata[ratiotype]["data"] = datos[0]
-                obsfreqdata[ratiotype]["cov"] = datos[1]
-                obsfreqdata[ratiotype]["covinv"] = None
 
     # Get glitches
     if getglitch:
+        obsfreqdata['glitches'] = {}
         g, covg = read_glitch(glitchfilename)
-        obsfreqdata['glitch']["data"] = g
-        obsfreqdata['glitch']["cov"] = covg
+        covinvg = np.linalg.pinv(covg, rcond=1e-8)
+        obsfreqdata['glitches']["data"] = g
+        obsfreqdata['glitches']["cov"] = covg
+        obsfreqdata['glitches']["covinv"] = covinvg
 
     # Get epsilon differences
     if getepsdiff:
         for epsdifffit in set(fitepsdifftypes) | set(plotepsdifftypes):
+            obsfreqdata[epsdifffit] = {}
             if epsdifffit in fitepsdifftypes:
                 print(f"* Computing epsilon differences sequence {epsdifffit}")
-                ed, coved = su.compute_epsilon_diff_and_cov(
+                datos = su.compute_epsilon_diff_and_cov(
                     obskey,
                     obs,
                     dnudata,
                     seq=epsdifffit,
                 )
                 print("done!")
-                obsfreqdata[epsdifffit]["data"] = ed
-                obsfreqdata[epsdifffit]["cov"] = coved
+                covinv = np.linalg.pinv(datos[1], rcond=1e-8)
+                obsfreqdata[epsdifffit]["data"] = datos[0]
+                obsfreqdata[epsdifffit]["cov"] = datos[1]
+                obsfreqdata[epsdifffit]["covinv"] = covinv
             elif epsdifffit in plotepsdifftypes:
-                ed, coved = su.compute_epsilon_diff_and_cov(
+                datos = su.compute_epsilon_diff_and_cov(
                     obskey,
                     obs,
                     dnudata,
                     seq=epsdifffit,
                     nrealisations=2000,
                 )
-                obsfreqdata[epsdifffit]["data"] = ed
-                obsfreqdata[epsdifffit]["cov"] = coved
+                covinv = np.linalg.pinv(datos[1], rcond=1e-8)
+                obsfreqdata[epsdifffit]["data"] = datos[0]
+                obsfreqdata[epsdifffit]["cov"] = datos[1]
+                obsfreqdata[epsdifffit]["covinv"] = covinv
 
             # Epsilon differences debug plot production
             if debug:

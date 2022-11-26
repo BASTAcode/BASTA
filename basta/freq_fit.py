@@ -35,36 +35,27 @@ def ratios(obskey, obs, ratiotype, threepoint=False):
 
     Returns
     -------
-    r02 : array
-        radial orders, r02 ratios,
-        scratch for uncertainties (to be calculated), frequencies
-    r01 : array
-        radial orders, r01 ratios,
-        scratch for uncertainties (to be calculated), frequencies
-    r10 : array
-        radial orders, r10 ratios,
-        scratch for uncertainties (to be calculated), frequencies
+    modratio : array
+        Ratio requested from `ratiotype`
+        
     """
     r01, r10, r02 = True, True, True
-    # Isolate l = 0 modes
+
     f0 = obs[0, obskey[0, :] == 0]
     n0 = obskey[1, obskey[0, :] == 0]
-    if (len(f0) == 0) or (len(f0) != n0[-1] - n0[0] + 1):
+    if (len(f0) == 0) or (len(f0) != (n0[-1] - n0[0] + 1)):
         # Missing modes detected
         r01, r10 = None, None
 
-    # Isolate l = 1 modes
     f1 = obs[0, obskey[0, :] == 1]
     n1 = obskey[1, obskey[0, :] == 1]
-    if (len(f1) == 0) or (len(f1) != n1[-1] - n1[0] + 1):
+    if (len(f1) == 0) or (len(f1) != (n1[-1] - n1[0] + 1)):
         # Missing modes detected
         r01, r10 = None, None
 
-    # Isolate l = 2 modes
     f2 = obs[0, obskey[0, :] == 2]
     n2 = obskey[1, obskey[0, :] == 2]
-    if (len(f2) == 0) or (len(f2) != n2[-1] - n2[0] + 1):
-        # Missing modes detected (not implemented)!
+    if (len(f2) == 0) or (len(f2) != (n2[-1] - n2[0] + 1)):
         r02 = None
 
     # Two-point frequency ratio R02
