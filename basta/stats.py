@@ -235,8 +235,7 @@ def chi2_astero(
                 ratiotype,
                 threepoint=threepoint
                 )
-        print(obsfreqdata[ratiotype])
-        x = obsfreqdata[ratiotype]["data"] - modratio
+        x = obsfreqdata[ratiotype]["data"][:, 1] - modratio[:, 1]
         w = _weight(len(x), seisw)
         covinv = obsfreqdata[ratiotype]["covinv"]
         if x.shape[0] == covinv.shape[0]:
