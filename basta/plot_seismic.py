@@ -418,6 +418,7 @@ def ratioplot(
 
         obsratio = obsfreqdata[ratiotype]["data"]
         obsratio_covinv = obsfreqdata[ratiotype]["covinv"]
+        obsratio_err = np.sqrt(np.diag(np.linalg.pinv(obsratio_covinv, rcond=1e-12)))
         modratio = freq_fit.compute_ratioseqs(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
         )
@@ -429,16 +430,17 @@ def ratioplot(
             color=colors[ratiotype],
             edgecolors="k",
             zorder=3,
-            label=f"Best fit {ratiotype[1:]}",
+            label=f"Best fit ({ratiotype[1:]})",
         )
 
         allax.errorbar(
             obsratio[:, 3],
             obsratio[:, 1],
-            yerr=np.sqrt(np.diag(np.linalg.pinv(obsratio_covinv, rcond=1e-12))),
+            yerr=obsratio_err,
             marker=obsmarker,
             color=colors[ratiotype],
             mec="k",
+            mew=0.5,
             linestyle="None",
             label=f"Measured ({ratiotype[1:]})",
         )
@@ -456,10 +458,11 @@ def ratioplot(
         ax.errorbar(
             obsratio[:, 3],
             obsratio[:, 1],
-            yerr=np.sqrt(np.diag(np.linalg.pinv(obsratio_covinv, rcond=1e-12))),
+            yerr=obsratio_err,
             marker=obsmarker,
             color=colors[ratiotype],
             mec="k",
+            mew=0.5,
             linestyle="None",
             label=f"Measured ({ratiotype[1:]})",
         )
