@@ -19,8 +19,23 @@ from matplotlib.backends.backend_pdf import PdfPages
 plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
 
 # Define a color dictionary for easier change of color
-colors = {"l0": "#D55E00", "l1": "#009E73", "l2": "#0072B2"}
-modmarker = {"l0": "D", "l1": "^", "l2": "v"}
+colors = {
+    "l0": "#D55E00",
+    "l1": "#009E73",
+    "l2": "#0072B2",
+    "r01": "#D36E70",
+    "r10": "#CCBB44",
+    "r02": "#228833",
+    "r012": "#549EB3",
+    "r010": "#60AB9E",
+    "r102": "#A778B4",
+}
+modmarker = {
+    "l0": "D",
+    "l1": "^",
+    "l2": "v",
+    "ratio": "*",
+}
 obsmarker = "o"
 
 
@@ -361,7 +376,14 @@ def echelle(
 
 
 def ratioplot(
-    freqfile, datos, joinkeys, join, output=None, nonewfig=False, threepoint=False
+    freqfile,
+    obsfreqdata,
+    obsfreqmeta,
+    joinkeys,
+    join,
+    output=None,
+    nonewfig=False,
+    threepoint=False,
 ):
     """
     Plot frequency ratios.
@@ -379,7 +401,7 @@ def ratioplot(
     join : array
         Array containing the matched observed and modelled modes.
     output : str or None, optional
-        Filename for saving the plot. MUST BE PDF!
+        Filename for saving the plot.
     nonewfig : bool, optional
         If True, this creates a new canvas. Otherwise, the plot is added
         to the existing canvas.
@@ -387,102 +409,96 @@ def ratioplot(
         If True, use three point definition of r01 and r10 ratios instead
         of default five point definition.
     """
-    # Load input ratios
-    orders, ratio, ratio_types, errors, errors_m, errors_p = fio.read_ratios_xml(
-        freqfile
+    if output is not None:
+        pp = PdfPages(output)
+
+    allfig, allax = plt.subplots(1, 1)
+    for ratiotype in obsfreqmeta["ratios"]["plot"]:
+        fig, ax = plt.subplots(1, 1)
+
+        obsratio = obsfreqdata[ratiotype]["data"]
+        obsratio_covinv = obsfreqdata[ratiotype]["covinv"]
+        modratio = freq_fit.compute_ratioseqs(
+            joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
+        )
+
+        allax.scatter(
+            modratio[:, 3],
+            modratio[:, 1],
+            marker=modmarker["ratio"],
+            color=colors[ratiotype],
+            edgecolors="k",
+            zorder=3,
+            label=f"Best fit {ratiotype[1:]}",
+        )
+
+        allax.errorbar(
+            obsratio[:, 3],
+            obsratio[:, 1],
+            yerr=np.sqrt(np.diag(np.linalg.pinv(obsratio_covinv, rcond=1e-12))),
+            marker=obsmarker,
+            color=colors[ratiotype],
+            mec="k",
+            linestyle="None",
+            label=f"Measured ({ratiotype[1:]})",
+        )
+
+        ax.scatter(
+            modratio[:, 3],
+            modratio[:, 1],
+            marker=modmarker["ratio"],
+            color=colors[ratiotype],
+            edgecolors="k",
+            zorder=3,
+            label=f"Best fit ({ratiotype[1:]})",
+        )
+
+        ax.errorbar(
+            obsratio[:, 3],
+            obsratio[:, 1],
+            yerr=np.sqrt(np.diag(np.linalg.pinv(obsratio_covinv, rcond=1e-12))),
+            marker=obsmarker,
+            color=colors[ratiotype],
+            mec="k",
+            linestyle="None",
+            label=f"Measured ({ratiotype[1:]})",
+        )
+
+        lgnd = ax.legend(
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc=8,
+            ncol=2,
+            mode="expand",
+            borderaxespad=0.0,
+        )
+        for i in range(len(lgnd.legendHandles)):
+            lgnd.legendHandles[i]._sizes = [50]
+
+        ax.set_xlabel(r"Frequency ($\mu$Hz)")
+        ax.set_ylabel(f"Frequency ratio ({ratiotype})")
+
+        if output is not None:
+            pp.savefig(fig, bbox_inches="tight")
+
+    ncols = np.amin([len(obsfreqmeta["ratios"]["plot"]) * 2, 6])
+    lgnd = allax.legend(
+        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+        loc=8,
+        ncol=ncols,
+        mode="expand",
+        borderaxespad=0.0,
     )
-    f, f_err, f_n, f_l = fio.read_freqs_xml(freqfile)
+    for i in range(len(lgnd.legendHandles)):
+        lgnd.legendHandles[i]._sizes = [50]
 
-    # Observed ratios (prefer ratios from xml file)
-    # r02
-    if b"r02" in ratio_types:
-        nr = orders[ratio_types == b"r02"]
-        datos02 = np.zeros((3, len(nr)))
-        datos02[0, :] = ratio[ratio_types == b"r02"]
-        datos02[2, :] = errors[ratio_types == b"r02"]
-        for i, n in enumerate(nr):
-            ind = (f_n == n) & (f_l == 0)
-            datos02[1, i] = f[ind]
-    else:
-        datos02 = datos[1]
+    allax.set_xlabel(r"Frequency ($\mu$Hz)")
+    allax.set_ylabel(r"Frequency ratio")
 
-    # r01
-    if b"r01" in ratio_types:
-        nr = orders[ratio_types == b"r01"]
-        datos01 = np.zeros((3, len(nr)))
-        datos01[0, :] = ratio[ratio_types == b"r01"]
-        datos01[2, :] = errors[ratio_types == b"r01"]
-        for i, n in enumerate(nr):
-            ind = (f_n == n) & (f_l == 0)
-            datos01[1, i] = f[ind]
-    else:
-        datos01 = datos[3]
+    pp.savefig(allfig, bbox_inches="tight")
 
-    # r10
-    if b"r10" in ratio_types:
-        nr = orders[ratio_types == b"r10"]
-        datos10 = np.zeros((3, len(nr)))
-        datos10[0, :] = ratio[ratio_types == b"r10"]
-        datos10[2, :] = errors[ratio_types == b"r10"]
-        for i, n in enumerate(nr):
-            ind = (f_n == n) & (f_l == 1)
-            datos10[1, i] = f[ind]
-    else:
-        datos10 = datos[4]
-
-    # Best fit model ratios
-    names = ["l", "n", "freq", "err"]  # 'err' is redundant here!
-    fmts = [int, int, float, float]
-    nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
-    freq = np.zeros(nmodes, dtype={"names": names, "formats": fmts})
-    freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
-    freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
-    freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-    r02, r01, r10 = freq_fit.compute_ratios(freq, threepoint=threepoint)
-
-    if r02 is None:
-        print("WARNING: missing radial orders! Skipping ratios plot.")
-    else:
-        # Plotting...
-        if output is not None:
-            pp = PdfPages(output)
-
-        for ratio_type in ["r02", "r01", "r10"]:
-            if ratio_type == "r02":
-                obsratio = datos02
-                modratio = r02
-            elif ratio_type == "r01":
-                obsratio = datos01
-                modratio = r01
-            elif ratio_type == "r10":
-                obsratio = datos10
-                modratio = r10
-
-            # Open figure and set style
-            if nonewfig is False:
-                plt.figure()
-
-            plt.plot(
-                modratio[:, 3], modratio[:, 1], "*", markersize=20, label="Best fit"
-            )
-            plt.errorbar(
-                obsratio[1, :],
-                obsratio[0, :],
-                yerr=obsratio[2, :],
-                marker="o",
-                linestyle="None",
-                label="Measured",
-            )
-            plt.legend(frameon=False)
-            plt.xlabel(r"Frequency ($\mu$Hz)")
-            plt.ylabel('Ratio type "{0}"'.format(ratio_type[1:]))
-
-            if output is not None:
-                pp.savefig(bbox_inches="tight")
-
-        if output is not None:
-            print("Saved figure to " + output)
-            pp.close()
+    if output is not None:
+        print("Saved figure to " + output)
+        pp.close()
 
 
 def epsilon_difference_diagram(
@@ -528,7 +544,7 @@ def epsilon_difference_diagram(
     modkey = modkey[:, index]
 
     # Get model epsilon differences
-    modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnu)
+    modepsdiff = freq_fit.compute_epsilondiff(modkey, mod, moddnu)
 
     # Uncertainty from inverse covariance
     uncert = np.sqrt(np.diag(np.linalg.pinv(covinv, rcond=1e-12)))
@@ -589,7 +605,7 @@ def epsilon_difference_diagram(
     for i in range(3):
         h.extend(handles[i::3])
         l.extend(legends[i::3])
-    # ax.legend(h, l, fontsize=16, loc=2, bbox_to_anchor=(1.02, 1))
+
     lgnd = ax.legend(
         h,
         l,
@@ -601,11 +617,13 @@ def epsilon_difference_diagram(
     )
     for i in range(len(lgnd.legendHandles)):
         lgnd.legendHandles[i]._sizes = [50]
+
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
 
     fig.tight_layout()
     fig.savefig(output)
+
     print("Saved figure to " + output)
 
 
@@ -856,6 +874,7 @@ def epsilon_difference_all_diagram(
     ax[2, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2)
 
     # Axes labels
+
     ax[0, 0].set_xlabel(r"Frequency ($\mu$Hz)")
     ax[0, 0].set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
     ax[0, 1].set_xticklabels([])

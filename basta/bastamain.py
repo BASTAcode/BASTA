@@ -902,6 +902,7 @@ def BASTA(
             plot_seismic.ratioplot(
                 freqfilename,
                 obsfreqdata,
+                obsfreqmeta,
                 maxjoinkeys,
                 maxjoin,
                 output=ratioplotname,
