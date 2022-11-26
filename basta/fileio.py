@@ -1184,7 +1184,121 @@ def compute_obsdnu(obskey, obs, numax):
     )
     fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
     obsdnu, obsdnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+
     return obsdnu, obsdnu_err
+
+
+def makeobsfreqs(allfits, freqplots, obscov, obscovinv):
+    """
+    Make a dictionary of frequency-dependent data
+
+    Parameters
+    ----------
+    allfits : list
+        Type of fits available for individual frequencies
+    freqplots : list
+        List of frequency-dependent fits
+
+    Returns
+    -------
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
+    """
+    obsfreqdata = {}
+    obsfreqmeta = {}
+
+    allfits = np.asarray(list(allfits))
+    allplots = np.asarray(list(freqplots))
+    fitratiotypes = []
+    plotratiotypes = []
+    fitepsdifftypes = []
+    plotepsdifftypes = []
+
+    getratios = False
+    getglitch = False
+    getepsdiff = False
+
+    for fit in allfits:
+        obsfreqdata[fit] = {}
+        # Look for ratios
+        if fit in freqtypes.rtypes:
+            getratios = True
+            fitratiotypes.append(fit)
+            if not "ratios" in obsfreqmeta.keys():
+                obsfreqmeta["ratios"] = {}
+        # Look for glitches
+        elif fit in freqtypes.glitches:
+            getglitch = True
+        # Look for epsdiff
+        elif fit in freqtypes.epsdiff:
+            getepsdiff = True
+            fitepsdifftypes.append(fit)
+            if not "epsdiff" in obsfreqmeta.keys():
+                obsfreqmeta["epsdiff"] = {}
+        elif fit in freqtypes.freqs:
+            obsfreqdata["freqs"] = {"cov": obscov, "covinv": obscovinv}
+        else:
+            print(f"Fittype {fit} not recognised")
+            raise ValueError
+
+    if freqplots[0] == True:
+        getratios = True
+        getglitch = True
+        getepsdiff = True
+
+        fitratiotypes = freqtypes.defaultrtypes
+        plotratiotypes = freqtypes.defaultrtypes
+        fitepsdifftypes = freqtypes.defaultepstypes
+        plotepsdifftypes = freqtypes.defaultepstypes
+    else:
+        for plot in allplots:
+            # Look for ratios
+            if plot in ["ratios", *freqtypes.rtypes]:
+                getratios = True
+                if plot in [
+                    "ratios",
+                ]:
+                    for rtype in freqtypes.defaultrtypes:
+                        if rtype not in plotratiotypes:
+                            plotratiotypes.append(rtype)
+                else:
+                    if plot not in plotratiotypes:
+                        plotratiotypes.append(plot)
+            # Look for glitches
+            if plot in freqtypes.glitches:
+                getglitch = True
+            # Look for epsdiff
+            if plot in ["epsdiff", *freqtypes.epsdiff]:
+                getepsdiff = True
+                if plot in ["epsdiff"]:
+                    for etype in freqtypes.defaultepstypes:
+                        if etype not in plotepsdifftypes:
+                            plotepsdifftypes.append(etype)
+                else:
+                    if plot not in plotepsdifftypes:
+                        plotepsdifftypes.append(plot)
+
+    if getratios:
+        obsfreqmeta["ratios"]["fit"] = fitratiotypes
+        obsfreqmeta["ratios"]["plot"] = plotratiotypes
+    if getepsdiff:
+        obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
+        obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
+
+    obsfreqmeta["getratios"] = getratios
+    obsfreqmeta["getglitch"] = getglitch
+    obsfreqmeta["getepsdiff"] = getepsdiff
+
+    return obsfreqdata, obsfreqmeta
 
 
 def read_allseismic(
@@ -1255,9 +1369,6 @@ def read_allseismic(
     dnudata_err : scalar
         Uncertainty on dnudata.
     """
-    obsfreqdata = {}
-    obsfreqmeta = {}
-
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
@@ -1266,92 +1377,15 @@ def read_allseismic(
 
     # Ratios and covariances
     # Check if it is unnecesarry to compute ratios
-    allfits = np.asarray(list(allfits))
-    allplots = np.asarray(list(freqplots))
-    fitratiotypes = []
-    plotratiotypes = []
-    fitepsdifftypes = []
-    plotepsdifftypes = []
-
-    getratios = False
-    getglitch = False
-    getepsdiff = False
-
-    for fit in allfits:
-        obsfreqdata[fit] = {}
-        # Look for ratios
-        if fit in freqtypes.rtypes:
-            getratios = True
-            fitratiotypes.append(fit)
-            if not "ratios" in obsfreqmeta.keys():
-                obsfreqmeta["ratios"] = {}
-        # Look for glitches
-        elif fit in freqtypes.glitches:
-            getglitch = True
-        # Look for epsdiff
-        elif fit in freqtypes.epsdiff:
-            getepsdiff = True
-            fitepsdifftypes.append(fit)
-            if not "epsdiff" in obsfreqmeta.keys():
-                obsfreqmeta["epsdiff"] = {}
-        elif fit in freqtypes.freqs:
-            obsfreqdata["freqs"] = {"cov": obscov, "covinv": obscovinv}
-        else:
-            print(f"Fittype {fit} not recognised")
-            raise ValueError
-
-    if freqplots[0] == True:
-        getratios = True
-        getglitch = True
-        getepsdiff = True
-
-        fitratiotypes = freqtypes.defaultrtypes
-        plotratiotypes = freqtypes.defaultrtypes
-        fitepsdifftypes = freqtypes.defaultepstypes
-        plotepsdifftypes = freqtypes.defaultepstypes
-    else:
-        for plot in allplots:
-            # Look for ratios
-            if plot in ["ratios", *freqtypes.rtypes]:
-                getratios = True
-                if plot in [
-                    "ratios",
-                ]:
-                    for rtype in freqtypes.defaultrtypes:
-                        if rtype not in plotratiotypes:
-                            plotratiotypes.append(rtype)
-                else:
-                    if plot not in plotratiotypes:
-                        plotratiotypes.append(plot)
-            # Look for glitches
-            if plot in freqtypes.glitches:
-                getglitch = True
-            # Look for epsdiff
-            if plot in ["epsdiff", *freqtypes.epsdiff]:
-                getepsdiff = True
-                if plot in [
-                    "epsdiff",
-                ]:
-                    for etype in freqtypes.defaultepstypes:
-                        if etype not in plotepsdifftypes:
-                            plotepsdifftypes.append(etype)
-                else:
-                    if plot not in plotepsdifftypes:
-                        plotepsdifftypes.append(plot)
-
-    if getratios:
-        obsfreqmeta["ratios"]["fit"] = fitratiotypes
-        obsfreqmeta["ratios"]["plot"] = plotratiotypes
-    if getepsdiff:
-        obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
-        obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
-
-    obsfreqmeta["getratios"] = getratios
-    obsfreqmeta["getglitch"] = getglitch
-    obsfreqmeta["getepsdiff"] = getepsdiff
+    obsfreqdata, obsfreqmeta = makeobsfreqs(
+        allfits,
+        freqplots,
+        obscov,
+        obscovinv,
+    )
 
     # Compute or dataread in required ratios
-    if getratios:
+    if obsfreqmeta["getratios"]:
         readratiotypes = []
         if readratios:
             # Parse the XML file:
@@ -1375,9 +1409,9 @@ def read_allseismic(
                 obsfreqdata[ratiotype]["cov"] = datos[1]
                 obsfreqdata[ratiotype]["covinv"] = datos[2]
 
-        for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(
-            readratiotypes
-        ):
+        for ratiotype in (
+            set(obsfreqmeta["ratios"]["fit"]) | set(obsfreqmeta["ratios"]["plot"])
+        ) - set(readratiotypes):
             obsfreqdata[ratiotype] = {}
             datos = freq_fit.compute_ratios(
                 obskey, obs, ratiotype, threepoint=threepoint
@@ -1387,7 +1421,7 @@ def read_allseismic(
                 obsfreqdata[ratiotype]["cov"] = datos[1]
                 obsfreqdata[ratiotype]["covinv"] = datos[2]
             else:
-                if ratiotype in fitratiotypes:
+                if ratiotype in obsfreqmeta["ratios"]["fit"]:
                     # Fail
                     raise ValueError(
                         f"Fitting parameter {ratiotype} could not be computed."
@@ -1400,7 +1434,7 @@ def read_allseismic(
                     obsfreqdata[ratiotype]["covinv"] = None
 
     # Get glitches
-    if getglitch:
+    if obsfreqmeta["getglitch"]:
         obsfreqdata["glitches"] = {}
         datos = read_glitch(glitchfilename)
         obsfreqdata["glitches"]["data"] = datos[0]
@@ -1408,10 +1442,12 @@ def read_allseismic(
         obsfreqdata["glitches"]["covinv"] = datos[2]
 
     # Get epsilon differences
-    if getepsdiff:
-        for epsdifffit in set(fitepsdifftypes) | set(plotepsdifftypes):
+    if obsfreqmeta["getepsdiff"]:
+        for epsdifffit in set(obsfreqmeta["epsdiff"]["fit"]) | set(
+            obsfreqmeta["epsdiff"]["plot"]
+        ):
             obsfreqdata[epsdifffit] = {}
-            if epsdifffit in fitepsdifftypes:
+            if epsdifffit in obsfreqmeta["epsdiff"]["fit"]:
                 if debug:
                     print(f"* Computing epsilon differences sequence {epsdifffit}")
                 datos = freq_fit.compute_epsilondiff(
@@ -1425,7 +1461,7 @@ def read_allseismic(
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
                 obsfreqdata[epsdifffit]["covinv"] = datos[2]
-            elif epsdifffit in plotepsdifftypes:
+            elif epsdifffit in obsfreqmeta["epsdiff"]["plot"]:
                 datos = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
