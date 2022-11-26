@@ -929,6 +929,7 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
 Epsilon difference fitting
 """
 
+
 def compute_epsilondiff(
     osckey,
     osc,
@@ -1012,13 +1013,7 @@ def compute_epsilondiff(
         osc = osc[:, indall]
         osckey = osckey[:, indall]
 
-    epsdiff = compute_epsilondiffseqs(
-            osckey,
-            osc,
-            avgdnu,
-            seq=seq,
-            nsorting=nsorting
-            )
+    epsdiff = compute_epsilondiffseqs(osckey, osc, avgdnu, seq=seq, nsorting=nsorting)
     print(epsdiff.shape)
     epsdiff_cov, epsdiff_covinv = su.compute_cov_from_mc(
         epsdiff.shape[0],
