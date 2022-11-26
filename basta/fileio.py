@@ -1122,11 +1122,19 @@ def read_glitch(filename):
     return glitchparams, cov, covinv
 
 
-def read_precomputedratios(obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False):
-    assert ratiotype in ['r010', 'r02']
-    r02, _, _ = freq_fit.compute_ratios(obskey, obs, ratiotype="r02", threepoint=threepoint)
-    r01, _, _ = freq_fit.compute_ratios(obskey, obs, ratiotype="r01", threepoint=threepoint)
-    r10, _, _ = freq_fit.compute_ratios(obskey, obs, ratiotype="r10", threepoint=threepoint)
+def read_precomputedratios(
+    obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False
+):
+    assert ratiotype in ["r010", "r02"]
+    r02, _, _ = freq_fit.compute_ratios(
+        obskey, obs, ratiotype="r02", threepoint=threepoint
+    )
+    r01, _, _ = freq_fit.compute_ratios(
+        obskey, obs, ratiotype="r01", threepoint=threepoint
+    )
+    r10, _, _ = freq_fit.compute_ratios(
+        obskey, obs, ratiotype="r10", threepoint=threepoint
+    )
     rrange = (
         int(round(r01[0, 0])),
         int(round(r01[-1, 0])),
@@ -1253,7 +1261,7 @@ def read_allseismic(
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    
+
     obsdnu, obsdnu_err = compute_obsdnu(obskey, obs, numax)
 
     # Ratios and covariances
@@ -1287,16 +1295,11 @@ def read_allseismic(
             if not "epsdiff" in obsfreqmeta.keys():
                 obsfreqmeta["epsdiff"] = {}
         elif fit in freqtypes.freqs:
-            obsfreqdata["freqs"] = {
-                    "cov": obscov,
-                    "covinv": obscovinv
-                    }
+            obsfreqdata["freqs"] = {"cov": obscov, "covinv": obscovinv}
         else:
             print(f"Fittype {fit} not recognised")
             raise ValueError
 
-    print(obsfreqdata)
-    print(allplots)
     if freqplots[0] == True:
         getratios = True
         getglitch = True
@@ -1320,7 +1323,6 @@ def read_allseismic(
                 else:
                     if plot not in plotratiotypes:
                         plotratiotypes.append(plot)
-            print(plotratiotypes)
             # Look for glitches
             if plot in freqtypes.glitches:
                 getglitch = True
@@ -1344,9 +1346,9 @@ def read_allseismic(
         obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
         obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
 
-    obsfreqmeta['getratios'] = getratios
-    obsfreqmeta['getglitch'] = getglitch
-    obsfreqmeta['getepsdiff'] = getepsdiff
+    obsfreqmeta["getratios"] = getratios
+    obsfreqmeta["getglitch"] = getglitch
+    obsfreqmeta["getepsdiff"] = getepsdiff
 
     # Compute or dataread in required ratios
     if getratios:
@@ -1359,29 +1361,27 @@ def read_allseismic(
             # Find a list of all available frequency ratios:
             readratiotypes = list(root.findall("frequency_ratio"))
             for ratiotype in readratiotypes:
-                datos = read_precomputedratios(
-                        obskey,
-                        obs,
-                        ratiotype,
-                        filename,
-                        nottrustedfile,
-                        threepoint=threepoint,
-                        verbose=verbose
-                        )
+                datos = su.read_precomputedratios(
+                    obskey,
+                    obs,
+                    ratiotype,
+                    filename,
+                    nottrustedfile,
+                    threepoint=threepoint,
+                    verbose=verbose,
+                )
                 obsfreqdata[ratiotype] = {}
                 obsfreqdata[ratiotype]["data"] = datos[0]
                 obsfreqdata[ratiotype]["cov"] = datos[1]
                 obsfreqdata[ratiotype]["covinv"] = datos[2]
+
         for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(
             readratiotypes
         ):
             obsfreqdata[ratiotype] = {}
             datos = freq_fit.compute_ratios(
-                    obskey,
-                    obs,
-                    ratiotype,
-                    threepoint=threepoint
-                    )
+                obskey, obs, ratiotype, threepoint=threepoint
+            )
             if datos is not None:
                 obsfreqdata[ratiotype]["data"] = datos[0]
                 obsfreqdata[ratiotype]["cov"] = datos[1]
@@ -1401,31 +1401,32 @@ def read_allseismic(
 
     # Get glitches
     if getglitch:
-        obsfreqdata['glitches'] = {}
-        g, covg = read_glitch(glitchfilename)
-        covinvg = np.linalg.pinv(covg, rcond=1e-8)
-        obsfreqdata['glitches']["data"] = g
-        obsfreqdata['glitches']["cov"] = covg
-        obsfreqdata['glitches']["covinv"] = covinvg
+        obsfreqdata["glitches"] = {}
+        datos = read_glitch(glitchfilename)
+        obsfreqdata["glitches"]["data"] = datos[0]
+        obsfreqdata["glitches"]["cov"] = datos[1]
+        obsfreqdata["glitches"]["covinv"] = datos[2]
 
     # Get epsilon differences
     if getepsdiff:
         for epsdifffit in set(fitepsdifftypes) | set(plotepsdifftypes):
             obsfreqdata[epsdifffit] = {}
             if epsdifffit in fitepsdifftypes:
-                print(f"* Computing epsilon differences sequence {epsdifffit}")
-                datos = compute_epsilon_diff_and_cov(
+                if debug:
+                    print(f"* Computing epsilon differences sequence {epsdifffit}")
+                datos = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
                     obsdnu,
                     seq=epsdifffit,
                 )
-                print("done!")
+                if debug:
+                    print("done!")
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
                 obsfreqdata[epsdifffit]["covinv"] = datos[2]
             elif epsdifffit in plotepsdifftypes:
-                datos = su.compute_epsilon_diff_and_cov(
+                datos = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
                     obsdnu,
@@ -1442,11 +1443,12 @@ def read_allseismic(
                 debugplotidstr = f"_{epsdifffit}_epsdiff_and_cov.png"
                 epsdiff_plotname = filename.split(".xml")[0] + debugplotidstr
                 # Get epsilon differences with reverse sorting
-                dbg_epsdiff, dbg_covepsdiff = su.compute_epsilon_diff_and_cov(
+                dbg_epsdiff, dbg_covepsdiff, _ = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
                     obsdnu,
-                    nsort=False,
+                    seq=epsdifffit,
+                    nsorting=False,
                     debug=debug,
                 )
                 # Make the plot of the correlation matrix
