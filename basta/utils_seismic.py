@@ -512,3 +512,49 @@ def scale_by_inertia(osckey, osc):
         s2 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl2[1, :]]
         s.append(np.asarray(s2))
     return s
+
+
+def compute_cov_from_mc(nr, osckey, osc, ratiotype, args, nrealisations=10000):
+    """
+    Compute covariance matrix (and its inverse) using Monte Carlo realisations.
+
+
+
+    """
+    # Compute different perturbed realisations (Monte Carlo) for covariances
+    nvalues = np.zeros((nrealisations, nr))
+    perturb_osc = deepcopy(osc)
+    for i in tqdm(
+            range(nrealisations),
+            desc=f"Sampling {ratiotype} covariances",
+            ascii=True
+            ):
+        perturb_osc[0, :] = np.random.normal(osc[0, :], osc[1, :])
+        if ratiotype in freqtypes.rtypes:
+            tmp = freq_fit.compute_ratioseqs(
+                    osckey, perturb_osc, ratiotype, **args,
+                    )
+            nvalues[i, :] = tmp[:, 1]
+        elif ratiotype in freqtypes.epsdiff:
+            tmp = freq_fit.compute_epsilondiffseqs(
+                osckey, perturb_osc, seq=ratiotype, **args,
+            )
+            nvalues[i, :] = tmp[0]
+        else:
+            raise NotImplementedError(
+                    'Science case for covariance matrix is not implemented'
+                    )
+
+    # Derive covariance matrix from MC-realisations and test convergence
+    n = int(round(nrealisations / 2))
+    cov = np.cov(nvalues[:n, :], rowvar=False)
+    n_cov = np.cov(nvalues, rowvar=False)
+    fnorm = np.linalg.norm(n_cov - cov) / (nr ** 2)
+
+    if fnorm > 1.0e-6:
+        print(f"Frobenius norm {fnorm} > 1e-6")
+        print("Warning: Covariance failed to converge")
+
+    n_covinv = np.linalg.pinv(n_cov, rcond=1e-8)
+
+    return n_cov, n_covinv
