@@ -438,7 +438,7 @@ def ratioplot(
     freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
     freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
     freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-    r02, r01, r10 = freq_fit.ratios(freq, threepoint=threepoint)
+    r02, r01, r10 = freq_fit.compute_ratios(freq, threepoint=threepoint)
 
     if r02 is None:
         print("WARNING: missing radial orders! Skipping ratios plot.")

@@ -229,7 +229,7 @@ def chi2_astero(
 
         # Add frequency ratios terms
         ratiotype = list(set(tipo).intersection(freqtypes.rtypes))[0]
-        modratio = freq_fit.ratios(
+        modratio = freq_fit.compute_ratioseqs(
                 joinkeys,
                 join,
                 ratiotype,

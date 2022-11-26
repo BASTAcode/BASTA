@@ -1099,33 +1099,34 @@ def read_glitch(filename):
 
     Returns
     -------
-    glhParams : array
+    glitchparams : array
         Array of median glitch parameters
     glhCov : array
         Covariance matrix
     """
     # Extract glitch parameters
-    glhFit = np.genfromtxt(filename, skip_header=3)
-    glhParams = np.zeros(3)
-    glhParams[0] = np.median(glhFit[:, 8])
-    glhParams[1] = np.median(glhFit[:, 4])
-    glhParams[2] = np.median(glhFit[:, 5])
+    glitchfit = np.genfromtxt(filename, skip_header=3)
+    glitchparams = np.zeros(3)
+    glitchparams[0] = np.median(glitchfit[:, 8])
+    glitchparams[1] = np.median(glitchfit[:, 4])
+    glitchparams[2] = np.median(glitchfit[:, 5])
 
     # Compute covariance matrix
-    tmpFit = np.zeros((len(glhFit[:, 0]), 3))
-    tmpFit[:, 0] = glhFit[:, 8]
-    tmpFit[:, 1] = glhFit[:, 4]
-    tmpFit[:, 2] = glhFit[:, 5]
-    glhCov = MinCovDet().fit(tmpFit).covariance_
-    # iglhCov = np.linalg.pinv(glhCov, rcond=1e-8)
+    tmpFit = np.zeros((len(glitchfit[:, 0]), 3))
+    tmpFit[:, 0] = glitchfit[:, 8]
+    tmpFit[:, 1] = glitchfit[:, 4]
+    tmpFit[:, 2] = glitchfit[:, 5]
+    cov = MinCovDet().fit(tmpFit).covariance_
+    covinv = np.linalg.pinv(cov, rcond=1e-8)
 
-    return glhParams, glhCov
+    return glitchparams, cov, covinv
 
 
 def read_precomputedratios(obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False):
-    r02 = freq_fit.ratios(obskey, obs, ratiotype="r02", threepoint=threepoint)
-    r01 = freq_fit.ratios(obskey, obs, ratiotype="r01", threepoint=threepoint)
-    r10 = freq_fit.ratios(obskey, obs, ratiotype="r10", threepoint=threepoint)
+    assert ratiotype in ['r010', 'r02']
+    r02, _, _ = freq_fit.compute_ratios(obskey, obs, ratiotype="r02", threepoint=threepoint)
+    r01, _, _ = freq_fit.compute_ratios(obskey, obs, ratiotype="r01", threepoint=threepoint)
+    r10, _, _ = freq_fit.compute_ratios(obskey, obs, ratiotype="r10", threepoint=threepoint)
     rrange = (
         int(round(r01[0, 0])),
         int(round(r01[-1, 0])),
@@ -1134,11 +1135,48 @@ def read_precomputedratios(obskey, obs, ratiotype, filename, nottrustedfile, thr
         int(round(r02[0, 0])),
         int(round(r02[-1, 0])),
     )
+
     if ratiotype == "r010":
-        datos, cov = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
+        ratio, cov = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
     elif ratiotype == "r02":
-        datos, cov = read_r02(filename, rrange, nottrustedfile)
-    return datos, cov
+        ratio, cov = read_r02(filename, rrange, nottrustedfile)
+    covinv = np.linalg.pinv(cov, rcond=1e-8)
+    return ratio, cov, covinv
+
+
+def compute_obsdnu(obskey, obs, numax):
+    """
+    Compute large frequency separation (the same way as dnufit)
+
+    Parameters
+    ----------
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
+    obs : array
+        Individual frequencies and uncertainties.
+    numax : scalar
+        Frequency of maximum power
+
+    Returns
+    -------
+    obsdnu : scalar
+        Large frequency separation obtained by fitting the radial mode observed
+        frequencies. Similar to dnufit, but from data and not from the
+        theoretical frequencies in the grid of models.
+    obsdnu_err : scalar
+        Uncertainty on dnudata.
+    """
+    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+    yfitdnu = obs[0, obskey[0, :] == 0]
+    xfitdnu = np.arange(0, len(yfitdnu))
+    wfitdnu = np.exp(
+        -1.0
+        * np.power(yfitdnu - numax, 2)
+        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+    )
+    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
+    obsdnu, obsdnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+    return obsdnu, obsdnu_err
 
 
 def read_allseismic(
@@ -1215,18 +1253,8 @@ def read_allseismic(
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-
-    # Compute large frequency separation (the same way as dnufit)
-    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    yfitdnu = obs[0, obskey[0, :] == 0]
-    xfitdnu = np.arange(0, len(yfitdnu))
-    wfitdnu = np.exp(
-        -1.0
-        * np.power(yfitdnu - numax, 2)
-        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-    )
-    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+    
+    obsdnu, obsdnu_err = compute_obsdnu(obskey, obs, numax)
 
     # Ratios and covariances
     # Check if it is unnecesarry to compute ratios
@@ -1316,6 +1344,10 @@ def read_allseismic(
         obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
         obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
 
+    obsfreqmeta['getratios'] = getratios
+    obsfreqmeta['getglitch'] = getglitch
+    obsfreqmeta['getepsdiff'] = getepsdiff
+
     # Compute or dataread in required ratios
     if getratios:
         readratiotypes = []
@@ -1327,7 +1359,7 @@ def read_allseismic(
             # Find a list of all available frequency ratios:
             readratiotypes = list(root.findall("frequency_ratio"))
             for ratiotype in readratiotypes:
-                datos, cov = read_precomputedratios(
+                datos = read_precomputedratios(
                         obskey,
                         obs,
                         ratiotype,
@@ -1336,25 +1368,24 @@ def read_allseismic(
                         threepoint=threepoint,
                         verbose=verbose
                         )
-                covinv = np.linalg.pinv(cov, rcond=1e-8)
                 obsfreqdata[ratiotype] = {}
-                obsfreqdata[ratiotype]["data"] = datos
-                obsfreqdata[ratiotype]["cov"] = cov
-                obsfreqdata[ratiotype]["covinv"] = covinv
+                obsfreqdata[ratiotype]["data"] = datos[0]
+                obsfreqdata[ratiotype]["cov"] = datos[1]
+                obsfreqdata[ratiotype]["covinv"] = datos[2]
         for ratiotype in (set(fitratiotypes) | set(plotratiotypes)) - set(
             readratiotypes
         ):
             obsfreqdata[ratiotype] = {}
-            datos = freq_fit.ratios(
+            datos = freq_fit.compute_ratios(
                     obskey,
                     obs,
                     ratiotype,
                     threepoint=threepoint
                     )
-            if datos[0] is not None:
-                obsfreqdata[ratiotype]["data"] = datos
-                obsfreqdata[ratiotype]["cov"] = None
-                obsfreqdata[ratiotype]["covinv"] = None
+            if datos is not None:
+                obsfreqdata[ratiotype]["data"] = datos[0]
+                obsfreqdata[ratiotype]["cov"] = datos[1]
+                obsfreqdata[ratiotype]["covinv"] = datos[2]
             else:
                 if ratiotype in fitratiotypes:
                     # Fail
@@ -1383,29 +1414,27 @@ def read_allseismic(
             obsfreqdata[epsdifffit] = {}
             if epsdifffit in fitepsdifftypes:
                 print(f"* Computing epsilon differences sequence {epsdifffit}")
-                datos = su.compute_epsilon_diff_and_cov(
+                datos = compute_epsilon_diff_and_cov(
                     obskey,
                     obs,
-                    dnudata,
+                    obsdnu,
                     seq=epsdifffit,
                 )
                 print("done!")
-                covinv = np.linalg.pinv(datos[1], rcond=1e-8)
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
-                obsfreqdata[epsdifffit]["covinv"] = covinv
+                obsfreqdata[epsdifffit]["covinv"] = datos[2]
             elif epsdifffit in plotepsdifftypes:
                 datos = su.compute_epsilon_diff_and_cov(
                     obskey,
                     obs,
-                    dnudata,
+                    obsdnu,
                     seq=epsdifffit,
                     nrealisations=2000,
                 )
-                covinv = np.linalg.pinv(datos[1], rcond=1e-8)
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
-                obsfreqdata[epsdifffit]["covinv"] = covinv
+                obsfreqdata[epsdifffit]["covinv"] = datos[2]
 
             # Epsilon differences debug plot production
             if debug:
@@ -1416,7 +1445,7 @@ def read_allseismic(
                 dbg_epsdiff, dbg_covepsdiff = su.compute_epsilon_diff_and_cov(
                     obskey,
                     obs,
-                    dnudata,
+                    obsdnu,
                     nsort=False,
                     debug=debug,
                 )
@@ -1425,13 +1454,13 @@ def read_allseismic(
                 from basta.plot_seismic import epsilon_diff_and_correlation
 
                 epsilon_diff_and_correlation(
-                    ed,
+                    datos[0],
                     dbg_epsdiff,
-                    coved,
+                    datos[1],
                     dbg_covepsdiff,
                     obs,
                     obskey,
-                    dnudata,
+                    obsdnu,
                     epsdiff_plotname,
                 )
                 print(
@@ -1439,7 +1468,7 @@ def read_allseismic(
                     epsdiff_plotname,
                 )
 
-    return obskey, obs, obsfreqdata, obsfreqmeta, dnudata, dnudata_err
+    return obskey, obs, obsfreqdata, obsfreqmeta, obsdnu, obsdnu_err
 
 
 def get_freq_ranges(filename):
