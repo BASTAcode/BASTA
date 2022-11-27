@@ -153,7 +153,9 @@ def chi2_astero(
     warnings : bool
         See 'warnings' above.
     """
-    if any(x in [*freqtypes.freqs, *freqtypes.rtypes, *freqtypes.glitches] for x in tipo):
+    if any(
+        x in [*freqtypes.freqs, *freqtypes.rtypes, *freqtypes.glitches] for x in tipo
+    ):
         # If more observed modes than model modes are in one bin, move on
         joins = freq_fit.calc_join(
             mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
@@ -230,11 +232,8 @@ def chi2_astero(
         # Add frequency ratios terms
         ratiotype = list(set(tipo).intersection(freqtypes.rtypes))[0]
         modratio = freq_fit.compute_ratioseqs(
-                joinkeys,
-                join,
-                ratiotype,
-                threepoint=threepoint
-                )
+            joinkeys, join, ratiotype, threepoint=threepoint
+        )
         x = obsfreqdata[ratiotype]["data"][:, 1] - modratio[:, 1]
         w = _weight(len(x), seisw)
         covinv = obsfreqdata[ratiotype]["covinv"]
