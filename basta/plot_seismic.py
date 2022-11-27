@@ -556,7 +556,7 @@ def epsilon_difference_diagram(
 
     obsepsdiff = obsfreqdata[epsdifftype]["data"]
     obsepsdiff_covinv = obsfreqdata[epsdifftype]["covinv"]
-    obsepsdiff_err = np.sqrt(np.diag(np.linalg.pinv(obsepsdiff_covinv, rcond=1e-12)))
+    obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
 
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
     lindex = np.zeros(mod.shape[1], dtype=bool)
@@ -701,19 +701,29 @@ def epsilon_difference_all_diagram(
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
     elab = r"$\epsilon_{%d}$"
     colab = r"$\delta\epsilon_{0%d}(%d)$"
-    fmt = ["d", ".", "s"]
     splinemarkers = [".", "1", "2"]
 
-    # Extract l degrees available, and only work with these
+    epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
+
+    obsepsdiff = obsfreqdata[epsdifftype]["data"]
+    obsepsdiff_cov = obsfreqdata[epsdifftype]["cov"]
+    obsepsdiff_covinv = obsfreqdata[epsdifftype]["covinv"]
+    obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
+
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
     lindex = np.zeros(mod.shape[1], dtype=bool)
+
     for ll in [0, *l_available]:
         lindex |= modkey[0] == ll
     mod = mod[:, lindex]
     modkey = modkey[:, lindex]
 
-    # Determine model epsilon differences
-    modepsdiff = freq_fit.compute_epsilondiff(modkey, mod, moddnu)
+    modepsdiff = freq_fit.compute_epsilondiffseqs(
+        modkey,
+        mod,
+        moddnu,
+        epsdifftype,
+    )
 
     # Recompute to determine if possible but extrapolated modes
     edextrapol = freq_fit.compute_epsilondiff(obskey, obs, obsdnu)
@@ -722,10 +732,8 @@ def epsilon_difference_all_diagram(
     expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
 
     # All parameters needed from inverse covariance
-    cov = np.linalg.pinv(covinv, rcond=1e-12)
-    uncert = np.sqrt(np.diag(cov))
-    Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
-    cor = Dinv @ cov @ Dinv
+    Dinv = np.diag(1 / np.sqrt(np.diag(obsepsdiff_cov)))
+    cor = Dinv @ obsepsdiff_cov @ Dinv
 
     # Definition of figure
     figsize = np.array([11.69, 11.69]) * 1.5
@@ -759,7 +767,7 @@ def epsilon_difference_all_diagram(
             modepsdiff[1][indmod],
             modepsdiff[0][indmod],
             yerr=np.zeros(sum(indmod)),
-            fmt=fmt[ll],
+            marker=modmarkers["e0" + str(ll)],
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",
@@ -777,7 +785,7 @@ def epsilon_difference_all_diagram(
         (moddot,) = ax[0, 0].plot(
             modepsdiff[1][indmod],
             modepsdiff[0][indmod],
-            fmt[0],
+            marker=splinemarkers[ll],
             color=colors["l%d" % ll],
         )
         ax[0, 0].plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
@@ -786,7 +794,7 @@ def epsilon_difference_all_diagram(
         (modobs,) = ax[0, 0].plot(
             obsepsdiff[1][indobs],
             spline(obsepsdiff[1][indobs]),
-            splinemarkers[ll],
+            marker=modmarkers["e0" + str(ll)],
             color="k",
             markeredgewidth=2,
             alpha=0.7,
@@ -796,8 +804,8 @@ def epsilon_difference_all_diagram(
         obsdot = ax[0, 0].errorbar(
             obsepsdiff[1][indobs],
             obsepsdiff[0][indobs],
-            yerr=uncert[indobs],
-            fmt=obsmarker,
+            yerr=obsepsdiff_err[indobs],
+            marker=obsmarker,
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",
@@ -812,8 +820,8 @@ def epsilon_difference_all_diagram(
         ax[1, 0].errorbar(
             obsepsdiff[1][indobs],
             obsepsdiff[0][indobs],
-            yerr=uncert[indobs],
-            fmt=fmt[ll],
+            yerr=obsepsdiff_err[indobs],
+            marker=obsmarker,
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",
@@ -835,7 +843,7 @@ def epsilon_difference_all_diagram(
             ax[1, 0].plot(
                 edextrapol[1][expol][edextrapol[2][expol] == ll],
                 edextrapol[0][expol][edextrapol[2][expol] == ll],
-                fmt[ll],
+                marker=modmarkers["e0" + str(ll)],
                 color="k",
                 label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
             )
@@ -853,9 +861,18 @@ def epsilon_difference_all_diagram(
 
         # Plot observed w. spline
         ax[2, 0].errorbar(
-            fre, eps, yerr=err, fmt=fmt[ll], color=colors["l%d" % ll], label=elab % ll
+            fre,
+            eps,
+            yerr=err,
+            fmt=modmarkers["e0" + str(ll)],
+            color=colors["l%d" % ll],
+            label=elab % ll
         )
-        ax[2, 0].plot(fnew, intpol(fnew), "-", color=colors["l%d" % ll])
+        ax[2, 0].plot(fnew,
+                intpol(fnew),
+                "-",
+                color=colors["l%d" % ll]
+                )
 
         # Extract model quantities
         indmod = modkey[0] == ll
@@ -867,7 +884,7 @@ def epsilon_difference_all_diagram(
 
         # Plot model w. spline
         ax[2, 1].errorbar(
-            fre, eps, yerr=err, fmt=fmt[ll], color=colors["l%d" % ll], label=elab % ll
+            fre, eps, yerr=err, fmt=splinemarkers[ll], color=colors["l%d" % ll], label=elab % ll
         )
         ax[2, 1].plot(fnew, intpol(fnew), "-", color=colors["l%d" % ll])
 
