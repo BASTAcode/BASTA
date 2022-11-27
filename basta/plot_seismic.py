@@ -263,7 +263,7 @@ def echelle(
                     linewidths=1,
                     edgecolors="k",
                     zorder=3,
-                    label=r"Best fit $\ell=0$",
+                    label=f"Best fit $\ell={l}$",
                 )
                 if duplicate:
                     ax.scatter(
@@ -284,7 +284,7 @@ def echelle(
                     mfc=colors["l" + l],
                     ecolor=colors["l" + l],
                     zorder=1,
-                    label=r"Measured $\ell=0$",
+                    label=f"Measured $\ell={l}$",
                 )
                 if duplicate:
                     ax.errorbar(
@@ -554,15 +554,13 @@ def epsilon_difference_diagram(
 
     epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
 
-    if output is not None:
-        pp = PdfPages(output)
-
     obsepsdiff = obsfreqdata[epsdifftype]["data"]
     obsepsdiff_covinv = obsfreqdata[epsdifftype]["covinv"]
     obsepsdiff_err = np.sqrt(np.diag(np.linalg.pinv(obsepsdiff_covinv, rcond=1e-12)))
 
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
     lindex = np.zeros(mod.shape[1], dtype=bool)
+
     for ll in [0, *l_available]:
         lindex |= modkey[0] == ll
     mod = mod[:, lindex]
@@ -647,9 +645,12 @@ def epsilon_difference_diagram(
     ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
 
     fig.tight_layout()
-    fig.savefig(output)
+    if output is not None:
+        print("Saved figure to " + output)
+        fig.savefig(output)
+    else:
+        return fig
 
-    print("Saved figure to " + output)
 
 
 def epsilon_difference_all_diagram(
