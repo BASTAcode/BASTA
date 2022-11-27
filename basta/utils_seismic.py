@@ -250,15 +250,15 @@ def prepare_obs(inputparams, verbose=False, debug=False):
 
     fitfreqs = inputparams.get("fitfreqs")
     (
-            freqfilename,
-            glitchfilename,
-            correlations,
-            bexp,
-            freqfits,
-            seisw,
-            threepoint,
-            readratios
-            ) = fitfreqs
+        freqfilename,
+        glitchfilename,
+        correlations,
+        bexp,
+        freqfits,
+        seisw,
+        threepoint,
+        readratios,
+    ) = fitfreqs
 
     # Get frequency correction method
     fcor = inputparams.get("fcor", "BG14")
@@ -525,25 +525,29 @@ def compute_cov_from_mc(nr, osckey, osc, ratiotype, args, nrealisations=10000):
     nvalues = np.zeros((nrealisations, nr))
     perturb_osc = deepcopy(osc)
     for i in tqdm(
-            range(nrealisations),
-            desc=f"Sampling {ratiotype} covariances",
-            ascii=True
-            ):
+        range(nrealisations), desc=f"Sampling {ratiotype} covariances", ascii=True
+    ):
         perturb_osc[0, :] = np.random.normal(osc[0, :], osc[1, :])
         if ratiotype in freqtypes.rtypes:
             tmp = freq_fit.compute_ratioseqs(
-                    osckey, perturb_osc, ratiotype, **args,
-                    )
+                osckey,
+                perturb_osc,
+                ratiotype,
+                **args,
+            )
             nvalues[i, :] = tmp[:, 1]
         elif ratiotype in freqtypes.epsdiff:
             tmp = freq_fit.compute_epsilondiffseqs(
-                osckey, perturb_osc, seq=ratiotype, **args,
+                osckey,
+                perturb_osc,
+                seq=ratiotype,
+                **args,
             )
             nvalues[i, :] = tmp[0]
         else:
             raise NotImplementedError(
-                    'Science case for covariance matrix is not implemented'
-                    )
+                "Science case for covariance matrix is not implemented"
+            )
 
     # Derive covariance matrix from MC-realisations and test convergence
     n = int(round(nrealisations / 2))
