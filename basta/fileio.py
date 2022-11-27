@@ -1252,7 +1252,6 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv):
 
     if freqplots[0] == True:
         getratios = True
-        getglitch = True
         getepsdiff = True
 
         fitratiotypes = freqtypes.defaultrtypes
@@ -1357,7 +1356,7 @@ def read_allseismic(
         Requested frequency-dependent data such as glitches, ratios, and
         epsilon difference. It also contains the covariance matrix and its
         inverse of the individual frequency modes.
-        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        The keys correspond to the science case, e.g. `r01`, `glitch`, or
         `e012`.
         Inside each case, you find the data (`data`), the covariance matrix
         (`cov`), and its inverse (`covinv`).
