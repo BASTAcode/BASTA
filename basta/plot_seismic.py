@@ -30,11 +30,13 @@ colors = {
     "r010": "#60AB9E",
     "r102": "#A778B4",
 }
-modmarker = {
+modmarkers = {
     "l0": "D",
     "l1": "^",
     "l2": "v",
     "ratio": "*",
+    "e01": "^",
+    "e02": "v",
 }
 obsmarker = "o"
 
@@ -233,7 +235,7 @@ def echelle(
             fmod_all[l],
             s=s[int(l)],
             c=colors["l" + l],
-            marker=modmarker["l" + l],
+            marker=modmarkers["l" + l],
             alpha=0.5,
             zorder=2,
         )
@@ -243,7 +245,7 @@ def echelle(
                 fmod_all[l],
                 s=s[int(l)],
                 c=colors["l" + l],
-                marker=modmarker["l" + l],
+                marker=modmarkers["l" + l],
                 alpha=0.5,
                 zorder=2,
             )
@@ -257,7 +259,7 @@ def echelle(
                     fmod[l],
                     s=sjoin[int(l)],
                     c=colors["l" + l],
-                    marker=modmarker["l" + l],
+                    marker=modmarkers["l" + l],
                     linewidths=1,
                     edgecolors="k",
                     zorder=3,
@@ -269,7 +271,7 @@ def echelle(
                         fmod[l],
                         s=sjoin[int(l)],
                         c=colors["l" + l],
-                        marker=modmarker["l" + l],
+                        marker=modmarkers["l" + l],
                         linewidths=1,
                         edgecolors="k",
                         zorder=3,
@@ -392,9 +394,17 @@ def ratioplot(
     ----------
     freqfile : str
         Name of file containing frequencies and ratio types
-    datos : array
-        Individual frequencies, uncertainties, and combinations read
-        directly from the observational input files
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
     joinkeys : array
         Array containing the mode identification of the matched observed
         and modelled modes.
@@ -426,7 +436,7 @@ def ratioplot(
         allax.scatter(
             modratio[:, 3],
             modratio[:, 1],
-            marker=modmarker["ratio"],
+            marker=modmarkers["ratio"],
             color=colors[ratiotype],
             edgecolors="k",
             zorder=3,
@@ -448,7 +458,7 @@ def ratioplot(
         ax.scatter(
             modratio[:, 3],
             modratio[:, 1],
-            marker=modmarker["ratio"],
+            marker=modmarkers["ratio"],
             color=colors[ratiotype],
             edgecolors="k",
             zorder=3,
@@ -508,8 +518,8 @@ def epsilon_difference_diagram(
     mod,
     modkey,
     moddnu,
-    obsepsdiff,
-    covinv,
+    obsfreqdata,
+    obsfreqmeta,
     output,
 ):
     """
@@ -524,35 +534,47 @@ def epsilon_difference_diagram(
         Array of mode identification of modes in the best-fit model.
     moddnu : float
         Average large frequency separation (dnufit) of best-fit model.
-    obsepsdiff : array
-        Array of computed observed epsilon differences, with mode
-        identification and related frequency.
-    covinv : array
-        Inverse covariance matrix of the observed epsilon differences.
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
     output : str
         Name and path of output plotfile.
     """
 
-    # Labels and markers
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
-    fmt = ["d", ".", "s"]
-    fmtev = [".", "1", "2"]
+    splinemarkers = [".", "1", "2"]
 
-    # Extract l degrees available and apply restriction to model
+    epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
+
+    if output is not None:
+        pp = PdfPages(output)
+
+    obsepsdiff = obsfreqdata[epsdifftype]["data"]
+    obsepsdiff_covinv = obsfreqdata[epsdifftype]["covinv"]
+    obsepsdiff_err = np.sqrt(np.diag(np.linalg.pinv(obsepsdiff_covinv, rcond=1e-12)))
+
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
-    index = np.zeros(mod.shape[1], dtype=bool)
+    lindex = np.zeros(mod.shape[1], dtype=bool)
     for ll in [0, *l_available]:
-        index |= modkey[0] == ll
-    mod = mod[:, index]
-    modkey = modkey[:, index]
+        lindex |= modkey[0] == ll
+    mod = mod[:, lindex]
+    modkey = modkey[:, lindex]
 
-    # Get model epsilon differences
-    modepsdiff = freq_fit.compute_epsilondiff(modkey, mod, moddnu)
+    modepsdiff = freq_fit.compute_epsilondiffseqs(
+        modkey,
+        mod,
+        moddnu,
+        epsdifftype,
+    )
 
-    # Uncertainty from inverse covariance
-    uncert = np.sqrt(np.diag(np.linalg.pinv(covinv, rcond=1e-12)))
-
-    # Start of figure
     fig, ax = plt.subplots(1, 1)
     handles, legends = [], []
     for ll in l_available:
@@ -567,7 +589,7 @@ def epsilon_difference_diagram(
         (moddot,) = ax.plot(
             modepsdiff[1][indmod],
             modepsdiff[0][indmod],
-            fmt[0],
+            marker=modmarkers["e0" + str(ll)],
             color=colors["l%d" % ll],
         )
         ax.plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
@@ -576,7 +598,7 @@ def epsilon_difference_diagram(
         (modobs,) = ax.plot(
             obsepsdiff[1][indobs],
             spline(obsepsdiff[1][indobs]),
-            fmtev[ll],
+            marker=splinemarkers[ll],
             color="k",
             markeredgewidth=2,
             alpha=0.7,
@@ -586,8 +608,8 @@ def epsilon_difference_diagram(
         obsdot = ax.errorbar(
             obsepsdiff[1][indobs],
             obsepsdiff[0][indobs],
-            yerr=uncert[indobs],
-            fmt=fmt[ll],
+            yerr=obsepsdiff_err[indobs],
+            marker=obsmarker,
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",
@@ -634,11 +656,11 @@ def epsilon_difference_all_diagram(
     mod,
     modkey,
     moddnu,
-    obsepsdiff,
-    covinv,
     obs,
     obskey,
     obsdnu,
+    obsfreqdata,
+    obsfreqmeta,
     output,
 ):
     """
@@ -653,17 +675,23 @@ def epsilon_difference_all_diagram(
         Array of mode identification of modes in the best-fit model.
     moddnu : float
         Average large frequency separation (dnufit) of best-fit model.
-    obsepsdiff : array
-        Array of computed observed epsilon differences, with mode
-        identification and related frequency.
-    covinv : array
-        Inverse covariance matrix of the observed epsilon differences.
     obs : array
         Array of observed frequency modes.
     obskey : array
         Array of mode identification of observed frequency modes.
     obsdnu : float
         Inputted average large frequency separation (dnu) of observations.
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
     output : str
         Name and path of output plotfile.
     """
@@ -673,15 +701,15 @@ def epsilon_difference_all_diagram(
     elab = r"$\epsilon_{%d}$"
     colab = r"$\delta\epsilon_{0%d}(%d)$"
     fmt = ["d", ".", "s"]
-    fmtev = [".", "1", "2"]
+    splinemarkers = [".", "1", "2"]
 
     # Extract l degrees available, and only work with these
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
-    index = np.zeros(mod.shape[1], dtype=bool)
+    lindex = np.zeros(mod.shape[1], dtype=bool)
     for ll in [0, *l_available]:
-        index |= modkey[0] == ll
-    mod = mod[:, index]
-    modkey = modkey[:, index]
+        lindex |= modkey[0] == ll
+    mod = mod[:, lindex]
+    modkey = modkey[:, lindex]
 
     # Determine model epsilon differences
     modepsdiff = freq_fit.compute_epsilondiff(modkey, mod, moddnu)
@@ -757,7 +785,7 @@ def epsilon_difference_all_diagram(
         (modobs,) = ax[0, 0].plot(
             obsepsdiff[1][indobs],
             spline(obsepsdiff[1][indobs]),
-            fmtev[ll],
+            splinemarkers[ll],
             color="k",
             markeredgewidth=2,
             alpha=0.7,
@@ -768,7 +796,7 @@ def epsilon_difference_all_diagram(
             obsepsdiff[1][indobs],
             obsepsdiff[0][indobs],
             yerr=uncert[indobs],
-            fmt=fmt[ll],
+            fmt=obsmarker,
             color=colors["l%d" % ll],
             markeredgewidth=0.5,
             markeredgecolor="k",

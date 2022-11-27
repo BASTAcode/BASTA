@@ -913,22 +913,24 @@ def BASTA(
                 mod=maxmod,
                 modkey=maxmodkey,
                 moddnu=maxmoddnu,
-                obsepsdiff=obsfreqdata["e012"]["epsdiff"],
-                covinv=obsfreqdata["e012"]["epsdiff"],
+                obsfreqdata=obsfreqdata,
+                obsfreqmeta=obsfreqmeta,
                 output=plotfname.format("epsilon_differences"),
             )
+        """
         if allfplots or "allepsdiff" in freqplots:
             plot_seismic.epsilon_difference_all_diagram(
                 mod=maxmod,
                 modkey=maxmodkey,
                 moddnu=maxmoddnu,
-                obsepsdiff=obsfreqdata["e012"]["epsdiff"],
-                covinv=obsfreqdata["e012"]["epsdiff"],
+                obsepsdiff=obsfreqdata["e012"]["data"],
+                covinv=obsfreqdata["e012"]["data"],
                 obs=obs,
                 obskey=obskey,
                 obsdnu=dnudata,
                 output=plotfname.format("epsilon_differences_all"),
             )
+        """
     else:
         print(
             "Did not get any frequency file input, skipping ratios and echelle plots."
