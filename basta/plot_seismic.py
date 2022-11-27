@@ -684,10 +684,10 @@ def epsilon_difference_all_diagram(
     modkey = modkey[:, index]
 
     # Determine model epsilon differences
-    modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnu)
+    modepsdiff = freq_fit.compute_epsilondiff(modkey, mod, moddnu)
 
     # Recompute to determine if possible but extrapolated modes
-    edextrapol = freq_fit.compute_epsilon_diff(obskey, obs, obsdnu)
+    edextrapol = freq_fit.compute_epsilondiff(obskey, obs, obsdnu)
     nu12 = edextrapol[1][edextrapol[2] > 0]
     nu0 = obs[0][obskey[0] == 0]
     expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]

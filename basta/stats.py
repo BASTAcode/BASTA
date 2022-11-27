@@ -287,14 +287,22 @@ def chi2_astero(
 
         # Compute epsilon differences of the model
         # --> (0: deps, 1: nu, 2: l, 3: n)
-        modepsdiff = freq_fit.compute_epsilon_diff(modkey, mod, moddnufit)
+        modepsdiff = freq_fit.compute_epsilondiffseqs(
+                modkey,
+                mod,
+                moddnufit,
+                seq=epsdifftype,
+                )
 
         # Interpolate model epsdiff to the frequencies of the observations
         evalepsdiff = np.zeros(obsepsdiff.shape[1])
         for ll in l_available:
             indobs = obsepsdiff[2] == ll
             indmod = modepsdiff[2] == ll
-            spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
+            spline = CubicSpline(
+                    modepsdiff[1][indmod],
+                    modepsdiff[0][indmod]
+                    )
             evalepsdiff[indobs] = spline(obsepsdiff[1][indobs])
 
         # Compute chi^2 of epsilon contribution
@@ -302,7 +310,7 @@ def chi2_astero(
         x = obsepsdiff[0] - evalepsdiff
         w = _weight(len(evalepsdiff), seisw)
         covinv = obsfreqdata[epsdifftype]["covinv"]
-        chi2rut += (x.T.dot(covinv[8]).dot(x)) / w
+        chi2rut += (x.T.dot(covinv).dot(x)) / w
 
         # Check extreme values
         if ~np.isfinite(chi2rut):

@@ -1013,10 +1013,15 @@ def compute_epsilondiff(
         osc = osc[:, indall]
         osckey = osckey[:, indall]
 
-    epsdiff = compute_epsilondiffseqs(osckey, osc, avgdnu, seq=seq, nsorting=nsorting)
-    print(epsdiff.shape)
+    epsdiff = compute_epsilondiffseqs(
+            osckey,
+            osc,
+            avgdnu,
+            seq=seq,
+            nsorting=nsorting
+            )
     epsdiff_cov, epsdiff_covinv = su.compute_cov_from_mc(
-        epsdiff.shape[0],
+        epsdiff.shape[1],
         osckey,
         osc,
         seq,

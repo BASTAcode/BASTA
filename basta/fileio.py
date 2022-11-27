@@ -1288,9 +1288,11 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv):
                         plotepsdifftypes.append(plot)
 
     if getratios:
+        obsfreqmeta["ratios"] = {}
         obsfreqmeta["ratios"]["fit"] = fitratiotypes
         obsfreqmeta["ratios"]["plot"] = plotratiotypes
     if getepsdiff:
+        obsfreqmeta["epsdiff"] = {}
         obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
         obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
 
