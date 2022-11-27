@@ -35,10 +35,9 @@ modmarkers = {
     "l1": "^",
     "l2": "v",
     "ratio": "*",
-    "e01": "^",
-    "e02": "v",
 }
 obsmarker = "o"
+splinemarkers = [".", "2", "1"]
 
 
 def echelle(
@@ -427,8 +426,8 @@ def ratioplot(
         fig, ax = plt.subplots(1, 1)
 
         obsratio = obsfreqdata[ratiotype]["data"]
-        obsratio_covinv = obsfreqdata[ratiotype]["covinv"]
-        obsratio_err = np.sqrt(np.diag(np.linalg.pinv(obsratio_covinv, rcond=1e-12)))
+        obsratio_cov = obsfreqdata[ratiotype]["covinv"]
+        obsratio_err = np.sqrt(np.diag(obsratio_cov))
         modratio = freq_fit.compute_ratioseqs(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
         )
@@ -550,12 +549,11 @@ def epsilon_difference_diagram(
     """
 
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
-    splinemarkers = [".", "1", "2"]
 
     epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
 
     obsepsdiff = obsfreqdata[epsdifftype]["data"]
-    obsepsdiff_covinv = obsfreqdata[epsdifftype]["covinv"]
+    obsepsdiff_cov = obsfreqdata[epsdifftype]["cov"]
     obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
 
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
@@ -587,10 +585,10 @@ def epsilon_difference_diagram(
         (moddot,) = ax.plot(
             modepsdiff[1][indmod],
             modepsdiff[0][indmod],
-            marker=modmarkers["e0" + str(ll)],
-            color=colors["l%d" % ll],
+            marker=modmarkers["l" + str(ll)],
+            color=colors["l" + str(ll)],
         )
-        ax.plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
+        ax.plot(fnew, spline(fnew), "-", color=colors["l" + str(ll)])
 
         # Model at observed
         (modobs,) = ax.plot(
@@ -608,7 +606,7 @@ def epsilon_difference_diagram(
             obsepsdiff[0][indobs],
             yerr=obsepsdiff_err[indobs],
             marker=obsmarker,
-            color=colors["l%d" % ll],
+            color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
             zorder=-1,
@@ -701,13 +699,11 @@ def epsilon_difference_all_diagram(
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
     elab = r"$\epsilon_{%d}$"
     colab = r"$\delta\epsilon_{0%d}(%d)$"
-    splinemarkers = [".", "1", "2"]
 
     epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
 
     obsepsdiff = obsfreqdata[epsdifftype]["data"]
     obsepsdiff_cov = obsfreqdata[epsdifftype]["cov"]
-    obsepsdiff_covinv = obsfreqdata[epsdifftype]["covinv"]
     obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
 
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
@@ -726,7 +722,12 @@ def epsilon_difference_all_diagram(
     )
 
     # Recompute to determine if possible but extrapolated modes
-    edextrapol = freq_fit.compute_epsilondiff(obskey, obs, obsdnu)
+    edextrapol = freq_fit.compute_epsilondiffseqs(
+            obskey,
+            obs,
+            obsdnu,
+            epsdifftype,
+            )
     nu12 = edextrapol[1][edextrapol[2] > 0]
     nu0 = obs[0][obskey[0] == 0]
     expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
@@ -767,13 +768,13 @@ def epsilon_difference_all_diagram(
             modepsdiff[1][indmod],
             modepsdiff[0][indmod],
             yerr=np.zeros(sum(indmod)),
-            marker=modmarkers["e0" + str(ll)],
-            color=colors["l%d" % ll],
+            marker=modmarkers["l" + str(ll)],
+            color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
             label=delab % ("", ll),
         )
-        ax[1, 1].plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
+        ax[1, 1].plot(fnew, spline(fnew), "-", color=colors["l" + str(ll)])
 
         # Constrained model range
         indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
@@ -781,20 +782,20 @@ def epsilon_difference_all_diagram(
         spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
         fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100)
 
-        # Model with spline
+        # Model 
         (moddot,) = ax[0, 0].plot(
             modepsdiff[1][indmod],
             modepsdiff[0][indmod],
-            marker=splinemarkers[ll],
-            color=colors["l%d" % ll],
+            marker=modmarkers["l" + str(ll)],
+            color=colors["l" + str(ll)],
         )
-        ax[0, 0].plot(fnew, spline(fnew), "-", color=colors["l%d" % ll])
+        ax[0, 0].plot(fnew, spline(fnew), "-", color=colors["l" + str(ll)])
 
         # Model at observed
         (modobs,) = ax[0, 0].plot(
             obsepsdiff[1][indobs],
             spline(obsepsdiff[1][indobs]),
-            marker=modmarkers["e0" + str(ll)],
+            marker=splinemarkers[ll],
             color="k",
             markeredgewidth=2,
             alpha=0.7,
@@ -806,7 +807,7 @@ def epsilon_difference_all_diagram(
             obsepsdiff[0][indobs],
             yerr=obsepsdiff_err[indobs],
             marker=obsmarker,
-            color=colors["l%d" % ll],
+            color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
             zorder=-1,
@@ -822,7 +823,7 @@ def epsilon_difference_all_diagram(
             obsepsdiff[0][indobs],
             yerr=obsepsdiff_err[indobs],
             marker=obsmarker,
-            color=colors["l%d" % ll],
+            color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
         )
@@ -843,7 +844,8 @@ def epsilon_difference_all_diagram(
             ax[1, 0].plot(
                 edextrapol[1][expol][edextrapol[2][expol] == ll],
                 edextrapol[0][expol][edextrapol[2][expol] == ll],
-                marker=modmarkers["e0" + str(ll)],
+                marker='.',
+                ls=None,
                 color="k",
                 label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
             )
@@ -864,14 +866,15 @@ def epsilon_difference_all_diagram(
             fre,
             eps,
             yerr=err,
-            fmt=modmarkers["e0" + str(ll)],
-            color=colors["l%d" % ll],
+            fmt=obsmarker,
+            color=colors["l" + str(ll)],
             label=elab % ll
         )
-        ax[2, 0].plot(fnew,
+        ax[2, 0].plot(
+                fnew,
                 intpol(fnew),
                 "-",
-                color=colors["l%d" % ll]
+                color=colors["l" + str(ll)]
                 )
 
         # Extract model quantities
@@ -884,9 +887,14 @@ def epsilon_difference_all_diagram(
 
         # Plot model w. spline
         ax[2, 1].errorbar(
-            fre, eps, yerr=err, fmt=splinemarkers[ll], color=colors["l%d" % ll], label=elab % ll
+            fre,
+            eps,
+            yerr=err,
+            fmt=modmarkers["l" + str(ll)],
+            color=colors["l" + str(ll)],
+            label=elab % ll
         )
-        ax[2, 1].plot(fnew, intpol(fnew), "-", color=colors["l%d" % ll])
+        ax[2, 1].plot(fnew, intpol(fnew), "-", color=colors["l" + str(ll)])
 
     # Limits in the bottom plots
     for i in [0, 1]:
@@ -1043,14 +1051,14 @@ def epsilon_diff_and_correlation(
             eps,
             yerr=err,
             fmt=".",
-            color=colors["l%d" % ll],
+            color=colors["l" + str(ll)],
             label=r"$\epsilon_{%d}$" % (ll),
         )
         intpol = CubicSpline(fre, eps)
         if ll == 0:
             fnew = np.linspace(min(osc[0]) - avgdnu, max(osc[0]) + avgdnu, 100)
 
-            ax[1, 0].plot(fnew, intpol(fnew), "-", color=colors["l%d" % ll])
+            ax[1, 0].plot(fnew, intpol(fnew), "-", color=colors["l" + str(ll)])
         else:
             fnew = np.linspace(fre[0], fre[-1], 100)
             ax[1, 0].plot(fnew, intpol(fnew), "--k", alpha=0.7)
@@ -1073,7 +1081,7 @@ def epsilon_diff_and_correlation(
             deps,
             yerr=err,
             fmt=".",
-            color=colors["l%d" % ll],
+            color=colors["l" + str(ll)],
             label=r"$\delta\epsilon_{0%d}$" % (ll),
         )
         ax[1, 1].plot(fnew, intpol(fnew), "--", color="k", alpha=0.7)
