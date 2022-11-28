@@ -296,7 +296,7 @@ def echelle(
                         zorder=1,
                     )
 
-        linelimit = 0.75
+        linelimit = 0.75 * modx
         for l in obsls:
             fm = fmod[l]
             fo = fobs[l]
@@ -308,7 +308,6 @@ def echelle(
                         c=colors["l" + str(l)],
                         alpha=0.7,
                         zorder=10,
-                        lw=lw,
                     )
                 elif (
                     duplicate
@@ -318,7 +317,7 @@ def echelle(
                     ax.plot(
                         (fo[i] % modx - modx, fm[i] % modx),
                         (fo[i], fm[i]),
-                        c=colors["l" + str(l)],
+                        c='r', #colors["l" + str(l)],
                         alpha=0.7,
                         zorder=10,
                         lw=lw,
@@ -327,7 +326,7 @@ def echelle(
                     ax.plot(
                         (fm[i] % modx, fo[i] % modx),
                         (fm[i], fo[i]),
-                        c=colors["l" + str(l)],
+                        c='g', #colors["l" + str(l)],
                         alpha=0.7,
                         zorder=10,
                         lw=lw,
@@ -336,7 +335,7 @@ def echelle(
                         ax.plot(
                             (fm[i] % modx - modx, fo[i] % modx - modx),
                             (fm[i], fo[i]),
-                            c=colors["l" + str(l)],
+                            c='m', #colors["l" + str(l)],
                             alpha=0.7,
                             zorder=10,
                             lw=lw,
@@ -426,7 +425,7 @@ def ratioplot(
         fig, ax = plt.subplots(1, 1)
 
         obsratio = obsfreqdata[ratiotype]["data"]
-        obsratio_cov = obsfreqdata[ratiotype]["covinv"]
+        obsratio_cov = obsfreqdata[ratiotype]["cov"]
         obsratio_err = np.sqrt(np.diag(obsratio_cov))
         modratio = freq_fit.compute_ratioseqs(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
@@ -772,6 +771,7 @@ def epsilon_difference_all_diagram(
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
+            ls=None,
             label=delab % ("", ll),
         )
         ax[1, 1].plot(fnew, spline(fnew), "-", color=colors["l" + str(ll)])
@@ -799,6 +799,7 @@ def epsilon_difference_all_diagram(
             color="k",
             markeredgewidth=2,
             alpha=0.7,
+            ls=None,
         )
 
         # Observed with uncertainties
@@ -868,6 +869,7 @@ def epsilon_difference_all_diagram(
             yerr=err,
             fmt=obsmarker,
             color=colors["l" + str(ll)],
+            ls=None,
             label=elab % ll
         )
         ax[2, 0].plot(
