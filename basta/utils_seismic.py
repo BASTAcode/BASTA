@@ -514,33 +514,49 @@ def scale_by_inertia(osckey, osc):
     return s
 
 
-def compute_cov_from_mc(nr, osckey, osc, ratiotype, args, nrealisations=10000):
+def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
     """
     Compute covariance matrix (and its inverse) using Monte Carlo realisations.
 
-
-
+    Parameters
+    ----------
+    nr : int
+        Size of covariance matrix
+    osckey : array
+        Harmonic degrees, radial orders and radial orders of frequencies.
+    osc : array
+        Frequencies and their error, following the structure of obs.
+    fittype : str
+        Which sequence to determine, see `constants.freqtypes.rtypes` and
+        `constants.freqtypes.epsdiff` for possible sequences.
+    args : dict
+        Set of arguments to pass on to the function that computes the fitting
+        sequences, i.e. `freq_fit.compute_ratioseqs` and
+        `freq_fit.compute_epsilondiffseqs`.
+    nrealisations : int
+        Number of realisations of the sampling for the computation of the
+        covariance matrix.
     """
     # Compute different perturbed realisations (Monte Carlo) for covariances
     nvalues = np.zeros((nrealisations, nr))
     perturb_osc = deepcopy(osc)
     for i in tqdm(
-        range(nrealisations), desc=f"Sampling {ratiotype} covariances", ascii=True
+        range(nrealisations), desc=f"Sampling {fittype} covariances", ascii=True
     ):
         perturb_osc[0, :] = np.random.normal(osc[0, :], osc[1, :])
-        if ratiotype in freqtypes.rtypes:
+        if fittype in freqtypes.rtypes:
             tmp = freq_fit.compute_ratioseqs(
                 osckey,
                 perturb_osc,
-                ratiotype,
+                fittype,
                 **args,
             )
             nvalues[i, :] = tmp[:, 1]
-        elif ratiotype in freqtypes.epsdiff:
+        elif fittype in freqtypes.epsdiff:
             tmp = freq_fit.compute_epsilondiffseqs(
                 osckey,
                 perturb_osc,
-                seq=ratiotype,
+                seq=fittype,
                 **args,
             )
             nvalues[i, :] = tmp[0]

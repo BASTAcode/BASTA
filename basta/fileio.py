@@ -36,7 +36,7 @@ def _export_selectedmodels(selectedmodels):
 def _import_selectedmodels(data):
     res = {}
     for trackno, ts in data.items():
-        index = np.zeros(ts["n"], dtype=np.bool)
+        index = np.zeros(ts["n"], dtype=bool)
         index[ts["index"]] = True
         res[trackno] = stats.Trackstats(
             chi2=np.asarray(ts["chi2"]), index=index, logPDF=np.asarray(ts["logPDF"])
