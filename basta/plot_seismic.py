@@ -38,6 +38,7 @@ modmarkers = {
 }
 obsmarker = "o"
 splinemarkers = [".", "2", "1"]
+splinecolor = "0.7"
 
 
 def echelle(
@@ -586,8 +587,9 @@ def epsilon_difference_diagram(
             modepsdiff[0][indmod],
             marker=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
+            lw=0,
         )
-        ax.plot(fnew, spline(fnew), "-", color=colors["l" + str(ll)])
+        ax.plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
 
         # Model at observed
         (modobs,) = ax.plot(
@@ -597,6 +599,7 @@ def epsilon_difference_diagram(
             color="k",
             markeredgewidth=2,
             alpha=0.7,
+            lw=0,
         )
 
         # Observed with uncertainties
@@ -771,10 +774,10 @@ def epsilon_difference_all_diagram(
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
-            ls=None,
+            linestyle='',
             label=delab % ("", ll),
         )
-        ax[1, 1].plot(fnew, spline(fnew), "-", color=colors["l" + str(ll)])
+        ax[1, 1].plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
 
         # Constrained model range
         indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
@@ -788,8 +791,9 @@ def epsilon_difference_all_diagram(
             modepsdiff[0][indmod],
             marker=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
+            lw=0,
         )
-        ax[0, 0].plot(fnew, spline(fnew), "-", color=colors["l" + str(ll)])
+        ax[0, 0].plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
 
         # Model at observed
         (modobs,) = ax[0, 0].plot(
@@ -799,7 +803,7 @@ def epsilon_difference_all_diagram(
             color="k",
             markeredgewidth=2,
             alpha=0.7,
-            ls=None,
+            lw=0,
         )
 
         # Observed with uncertainties
@@ -827,8 +831,9 @@ def epsilon_difference_all_diagram(
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
+            linestyle='',
         )
-        ax[1, 0].plot(fnew, spline(fnew), "--k")
+        ax[1, 0].plot(fnew, spline(fnew), "-", color="0.7", zorder=-1)
 
         handles.extend([moddot, obsdot, modobs])
 
@@ -846,7 +851,7 @@ def epsilon_difference_all_diagram(
                 edextrapol[1][expol][edextrapol[2][expol] == ll],
                 edextrapol[0][expol][edextrapol[2][expol] == ll],
                 marker='.',
-                ls=None,
+                lw=0,
                 color="k",
                 label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
             )
@@ -867,16 +872,16 @@ def epsilon_difference_all_diagram(
             fre,
             eps,
             yerr=err,
+            linestyle='',
             fmt=obsmarker,
             color=colors["l" + str(ll)],
-            ls=None,
             label=elab % ll
         )
         ax[2, 0].plot(
                 fnew,
                 intpol(fnew),
                 "-",
-                color=colors["l" + str(ll)]
+                color=splinecolor,
                 )
 
         # Extract model quantities
@@ -892,11 +897,12 @@ def epsilon_difference_all_diagram(
             fre,
             eps,
             yerr=err,
+            linestyle='',
             fmt=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
             label=elab % ll
         )
-        ax[2, 1].plot(fnew, intpol(fnew), "-", color=colors["l" + str(ll)])
+        ax[2, 1].plot(fnew, intpol(fnew), "-", color=splinecolor)
 
     # Limits in the bottom plots
     for i in [0, 1]:
