@@ -933,9 +933,10 @@ def epsilon_difference_all_diagram(
             ax[1, 0].plot(
                 edextrapol[1][expol][edextrapol[2][expol] == ll],
                 edextrapol[0][expol][edextrapol[2][expol] == ll],
-                marker=modmarkers["l" + str(ll)],
+                marker=obsmarker,
                 lw=0,
-                color="k",
+                alpha=0.5,
+                color=colors["l" + str(ll)],
                 label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
             )
         ax[1, 0].legend()
@@ -955,7 +956,7 @@ def epsilon_difference_all_diagram(
             fre,
             eps,
             yerr=err,
-            linestyle='',
+            linestyle=None,
             fmt=obsmarker,
             color=colors["l" + str(ll)],
             label=elab % ll
@@ -980,7 +981,7 @@ def epsilon_difference_all_diagram(
             fre,
             eps,
             yerr=err,
-            linestyle='',
+            linestyle=None,
             fmt=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
             label=elab % ll
