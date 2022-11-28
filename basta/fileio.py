@@ -1188,7 +1188,7 @@ def compute_obsdnu(obskey, obs, numax):
     return obsdnu, obsdnu_err
 
 
-def makeobsfreqs(allfits, freqplots, obscov, obscovinv):
+def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
     """
     Make a dictionary of frequency-dependent data
 
@@ -1198,6 +1198,12 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv):
         Type of fits available for individual frequencies
     freqplots : list
         List of frequency-dependent fits
+    obscov : array
+        Covariance matrix of the individual frequencies
+    obscovinv : array
+        The inverse of the ovariance matrix of the individual frequencies
+    debug : bool, optional
+        Activate additional output for debugging (for developers)
 
     Returns
     -------
@@ -1285,6 +1291,12 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv):
                         plotepsdifftypes.append(plot)
 
     if getratios:
+        # As r01 and r10 contains the same information, we only plot one of them
+        if all(x in plotratiotypes for x in ['r01', 'r10']):
+            if debug:
+                print('* BASTA removes r10 from list of plotted ratios')
+            plotratiotypes.remove('r10')
+
         obsfreqmeta["ratios"] = {}
         obsfreqmeta["ratios"]["fit"] = fitratiotypes
         obsfreqmeta["ratios"]["plot"] = plotratiotypes
@@ -1381,6 +1393,7 @@ def read_allseismic(
         freqplots,
         obscov,
         obscovinv,
+        debug=debug,
     )
 
     # Compute or dataread in required ratios

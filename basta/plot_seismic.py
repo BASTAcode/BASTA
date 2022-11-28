@@ -499,7 +499,7 @@ def ratioplot(
             modratio[:, 3],
             modratio[:, 1],
             '-',
-            color=splinecolor,
+            color=colors[ratiotype],
             zorder=-1,
             )
 
@@ -518,7 +518,7 @@ def ratioplot(
             obsratio[:, 3],
             obsratio[:, 1],
             '-',
-            color=splinecolor,
+            color=colors[ratiotype],
             zorder=-1,
             )
 
@@ -535,7 +535,7 @@ def ratioplot(
             modratio[:, 3],
             modratio[:, 1],
             '-',
-            color=splinecolor,
+            color=colors[ratiotype],
             zorder=-1,
             )
 
@@ -554,7 +554,7 @@ def ratioplot(
             obsratio[:, 3],
             obsratio[:, 1],
             '-',
-            color=splinecolor,
+            color=colors[ratiotype],
             zorder=-1,
             )
 
