@@ -1254,9 +1254,7 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv):
         getratios = True
         getepsdiff = True
 
-        fitratiotypes = freqtypes.defaultrtypes
         plotratiotypes = freqtypes.defaultrtypes
-        fitepsdifftypes = freqtypes.defaultepstypes
         plotepsdifftypes = freqtypes.defaultepstypes
     else:
         for plot in allplots:
