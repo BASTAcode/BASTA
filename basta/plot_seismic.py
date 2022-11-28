@@ -302,65 +302,63 @@ def echelle(
                     fm = fmod[l]
                     fo = fobs[l]
                     for i in range(len(fm)):
-                        if (
-                                ((fm[i] % modx) > linelimit)
-                                & ((fo[i] % modx) < (modx - linelimit))
-                            ):
-                            a = ((fm[i] - fo[i])/((fm[i] - fo[i]) % modx)) 
+                        if ((fm[i] % modx) > linelimit) & (
+                            (fo[i] % modx) < (modx - linelimit)
+                        ):
+                            a = (fm[i] - fo[i]) / ((fm[i] - fo[i]) % modx)
                             if duplicate:
                                 x0 = -1
                             else:
                                 x0 = 0
                             ax.plot(
-                                    (fm[i] % modx - modx, fo[i] % modx),
-                                    (fm[i], fo[i]),
-                                    c=colors["l" + str(l)],
-                                    alpha=0.7,
-                                    zorder=10,
+                                (fm[i] % modx - modx, fo[i] % modx),
+                                (fm[i], fo[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
                             )
                             ax.plot(
-                                    (fm[i] % modx, modx),
-                                    (fm[i], a * np.ceil(fm[i] / modx) * modx),
-                                    c=colors["l" + str(l)],
-                                    alpha=0.7,
-                                    zorder=10,
+                                (fm[i] % modx, modx),
+                                (fm[i], a * np.ceil(fm[i] / modx) * modx),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
                             )
                             ax.plot(
-                                    (x0, fo[i] % modx - modx),
-                                    (a * np.ceil(fm[i] / modx) * modx, fo[i]),
-                                    c=colors["l" + str(l)],
-                                    alpha=0.7,
-                                    zorder=10,
+                                (x0, fo[i] % modx - modx),
+                                (a * np.ceil(fm[i] / modx) * modx, fo[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
                             )
-                        elif (
-                                ((fo[i] % modx) > linelimit)
-                                & ((fm[i] % modx) < (modx - linelimit))
-                            ):
+                        elif ((fo[i] % modx) > linelimit) & (
+                            (fm[i] % modx) < (modx - linelimit)
+                        ):
                             if duplicate:
                                 x0 = -1
                             else:
                                 x0 = 0
-                            a = ((fm[i] - fo[i])/((fm[i] - fo[i]) % modx)) 
+                            a = (fm[i] - fo[i]) / ((fm[i] - fo[i]) % modx)
                             ax.plot(
-                                    (fo[i] % modx - modx, fm[i] % modx),
-                                    (fo[i], fm[i]),
-                                    c=colors["l" + str(l)],
-                                    alpha=0.7,
-                                    zorder=10,
+                                (fo[i] % modx - modx, fm[i] % modx),
+                                (fo[i], fm[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
                             )
                             ax.plot(
-                                    (fo[i] % modx, modx),
-                                    (fo[i], a * np.ceil(fo[i] / modx) * modx),
-                                    c=colors["l" + str(l)],
-                                    alpha=0.7,
-                                    zorder=10,
+                                (fo[i] % modx, modx),
+                                (fo[i], a * np.ceil(fo[i] / modx) * modx),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
                             )
                             ax.plot(
-                                    (x0, fm[i] % modx - modx),
-                                    (a * np.ceil(fo[i] / modx) * modx, fm[i]),
-                                    c=colors["l" + str(l)],
-                                    alpha=0.7,
-                                    zorder=10,
+                                (x0, fm[i] % modx - modx),
+                                (a * np.ceil(fo[i] / modx) * modx, fm[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
                             )
                         else:
                             ax.plot(
@@ -498,10 +496,10 @@ def ratioplot(
         allax.plot(
             modratio[:, 3],
             modratio[:, 1],
-            '-',
+            "-",
             color=colors[ratiotype],
             zorder=-1,
-            )
+        )
 
         allax.errorbar(
             obsratio[:, 3],
@@ -512,15 +510,16 @@ def ratioplot(
             mec="k",
             mew=0.5,
             linestyle="None",
+            zorder=3,
             label=f"Measured ({ratiotype[1:]})",
         )
         allax.plot(
             obsratio[:, 3],
             obsratio[:, 1],
-            '-',
+            "-",
             color=colors[ratiotype],
             zorder=-1,
-            )
+        )
 
         ax.scatter(
             modratio[:, 3],
@@ -534,10 +533,10 @@ def ratioplot(
         ax.plot(
             modratio[:, 3],
             modratio[:, 1],
-            '-',
+            "-",
             color=colors[ratiotype],
             zorder=-1,
-            )
+        )
 
         ax.errorbar(
             obsratio[:, 3],
@@ -548,16 +547,16 @@ def ratioplot(
             mec="k",
             mew=0.5,
             linestyle="None",
+            zorder=3,
             label=f"Measured ({ratiotype[1:]})",
         )
         ax.plot(
             obsratio[:, 3],
             obsratio[:, 1],
-            '-',
+            "-",
             color=colors[ratiotype],
             zorder=-1,
-            )
-
+        )
 
         lgnd = ax.legend(
             bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
@@ -694,7 +693,7 @@ def epsilon_difference_diagram(
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
-            zorder=-1,
+            zorder=3,
         )
 
         handles.extend([moddot, obsdot, modobs])
@@ -733,7 +732,6 @@ def epsilon_difference_diagram(
         fig.savefig(output)
     else:
         return fig
-
 
 
 def epsilon_difference_all_diagram(
@@ -808,11 +806,11 @@ def epsilon_difference_all_diagram(
 
     # Recompute to determine if possible but extrapolated modes
     edextrapol = freq_fit.compute_epsilondiffseqs(
-            obskey,
-            obs,
-            obsdnu,
-            epsdifftype,
-            )
+        obskey,
+        obs,
+        obsdnu,
+        epsdifftype,
+    )
     nu12 = edextrapol[1][edextrapol[2] > 0]
     nu0 = obs[0][obskey[0] == 0]
     expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
@@ -857,7 +855,8 @@ def epsilon_difference_all_diagram(
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
-            linestyle='',
+            zorder=3,
+            linestyle="",
             label=delab % ("", ll),
         )
         ax[1, 1].plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
@@ -868,7 +867,7 @@ def epsilon_difference_all_diagram(
         spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
         fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100)
 
-        # Model 
+        # Model
         (moddot,) = ax[0, 0].plot(
             modepsdiff[1][indmod],
             modepsdiff[0][indmod],
@@ -898,7 +897,7 @@ def epsilon_difference_all_diagram(
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
-            zorder=-1,
+            zorder=3,
         )
 
         # Spline observed for separate plot
@@ -914,7 +913,8 @@ def epsilon_difference_all_diagram(
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
-            linestyle='',
+            linestyle="",
+            zorder=3,
         )
         ax[1, 0].plot(fnew, spline(fnew), "-", color="0.7", zorder=-1)
 
@@ -959,14 +959,15 @@ def epsilon_difference_all_diagram(
             linestyle=None,
             fmt=obsmarker,
             color=colors["l" + str(ll)],
-            label=elab % ll
+            zorder=3,
+            label=elab % ll,
         )
         ax[2, 0].plot(
-                fnew,
-                intpol(fnew),
-                "-",
-                color=splinecolor,
-                )
+            fnew,
+            intpol(fnew),
+            "-",
+            color=splinecolor,
+        )
 
         # Extract model quantities
         indmod = modkey[0] == ll
@@ -984,7 +985,8 @@ def epsilon_difference_all_diagram(
             linestyle=None,
             fmt=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
-            label=elab % ll
+            zorder=3,
+            label=elab % ll,
         )
         ax[2, 1].plot(fnew, intpol(fnew), "-", color=splinecolor)
 
@@ -1144,6 +1146,7 @@ def epsilon_diff_and_correlation(
             yerr=err,
             fmt=".",
             color=colors["l" + str(ll)],
+            zorder=3,
             label=r"$\epsilon_{%d}$" % (ll),
         )
         intpol = CubicSpline(fre, eps)
@@ -1174,6 +1177,7 @@ def epsilon_diff_and_correlation(
             yerr=err,
             fmt=".",
             color=colors["l" + str(ll)],
+            zorder=3,
             label=r"$\delta\epsilon_{0%d}$" % (ll),
         )
         ax[1, 1].plot(fnew, intpol(fnew), "--", color="k", alpha=0.7)

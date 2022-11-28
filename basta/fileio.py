@@ -1292,10 +1292,10 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
 
     if getratios:
         # As r01 and r10 contains the same information, we only plot one of them
-        if all(x in plotratiotypes for x in ['r01', 'r10']):
+        if all(x in plotratiotypes for x in ["r01", "r10"]):
             if debug:
-                print('* BASTA removes r10 from list of plotted ratios')
-            plotratiotypes.remove('r10')
+                print("* BASTA removes r10 from list of plotted ratios")
+            plotratiotypes.remove("r10")
 
         obsfreqmeta["ratios"] = {}
         obsfreqmeta["ratios"]["fit"] = fitratiotypes
