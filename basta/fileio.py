@@ -1256,13 +1256,14 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
             print(f"Fittype {fit} not recognised")
             raise ValueError
 
-    if freqplots[0] == True:
+    if freqplots[0] if len(freqplots) else False:
         getratios = True
         getepsdiff = True
 
         plotratiotypes = freqtypes.defaultrtypes
         plotepsdifftypes = freqtypes.defaultepstypes
-    else:
+
+    elif len(freqplots):
         for plot in allplots:
             # Look for ratios
             if plot in ["ratios", *freqtypes.rtypes]:
