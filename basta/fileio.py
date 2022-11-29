@@ -1444,8 +1444,6 @@ def read_allseismic(
                     obsfreqdata[ratiotype]["data"] = None
                     obsfreqdata[ratiotype]["cov"] = None
                     obsfreqdata[ratiotype]["covinv"] = None
-            print(datos)
-            raise SystemExit
 
     # Get glitches
     if obsfreqmeta["getglitch"]:

@@ -237,7 +237,6 @@ def chi2_astero(
         x = obsfreqdata[ratiotype]["data"][:, 1] - modratio[:, 1]
         w = _weight(len(x), seisw)
         covinv = obsfreqdata[ratiotype]["covinv"]
-        print('covinv', covinv)
         if x.shape[0] == covinv.shape[0]:
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
