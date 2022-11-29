@@ -1237,11 +1237,11 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     dnudata, dnudata_err = compute_dnudata(obskey, obs, numax)
     obsls = np.unique(obskey[0, :])
     obsfreqdata["freqs"] = {
-            "cov": obscov,
-            "covinv": obscovinv,
-            "dnudata": dnudata,
-            "dnudata_err": dnudata_err,
-            }
+        "cov": obscov,
+        "covinv": obscovinv,
+        "dnudata": dnudata,
+        "dnudata_err": dnudata_err,
+    }
 
     for fit in allfits:
         obsfreqdata[fit] = {}
@@ -1304,7 +1304,7 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         for fittype in set(fitratiotypes) | set(fitepsdifftypes):
             if not all(x in obsls.astype(str) for x in fittype[1:]):
                 for l in fittype[1:]:
-                    if not l in obsls.astype(str): 
+                    if not l in obsls.astype(str):
                         print(f"* No l={l} modes were found in the observations")
                         print(f"* It is not possible to fit {fittype}")
                         raise ValueError
@@ -1316,13 +1316,9 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
                     plotratiotypes.remove(fittype)
                 if fittype in plotepsdifftypes:
                     plotepsdifftypes.remove(fittype)
-        if getratios and (
-                (len(fitratiotypes) == 0) &
-                (len(plotratiotypes) == 0)):
+        if getratios and ((len(fitratiotypes) == 0) & (len(plotratiotypes) == 0)):
             getratios = False
-        if getepsdiff and (
-                (len(fitepsdifftypes) == 0) &
-                (len(plotepsdifftypes) == 0)):
+        if getepsdiff and ((len(fitepsdifftypes) == 0) & (len(plotepsdifftypes) == 0)):
             getepsdiff = False
 
     if getratios:
@@ -1339,8 +1335,6 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         obsfreqmeta["epsdiff"] = {}
         obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
         obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
-
-
 
     obsfreqmeta["getratios"] = getratios
     obsfreqmeta["getglitch"] = getglitch
@@ -1423,13 +1417,13 @@ def read_allseismic(
     # Ratios and covariances
     # Check if it is unnecesarry to compute ratios
     obsfreqdata, obsfreqmeta = make_obsfreqs(
-            obskey,
-            obs,
-            obscov,
-            allfits,
-            freqplots,
-            numax=numax,
-            debug=debug,
+        obskey,
+        obs,
+        obscov,
+        allfits,
+        freqplots,
+        numax=numax,
+        debug=debug,
     )
 
     # Compute or dataread in required ratios

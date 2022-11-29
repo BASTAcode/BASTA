@@ -248,15 +248,15 @@ def BASTA(
     # Prepare asteroseismic quantities if required
     if fitfreqs:
         (
-                freqfilename,
-                glitchfilename,
-                correlations,
-                bexp,
-                freqfits,
-                seisw,
-                threepoint,
-                readratios
-                ) = fitfreqs
+            freqfilename,
+            glitchfilename,
+            correlations,
+            bexp,
+            freqfits,
+            seisw,
+            threepoint,
+            readratios,
+        ) = fitfreqs
 
         if not all(x in freqtypes.alltypes for x in freqfits):
             raise ValueError("Unrecognized frequency fitting parameters!")
@@ -341,7 +341,8 @@ def BASTA(
         else:
             print(
                 "* Fitting of frequency ratios {{{0}}} activated!".format(
-                    ", ".join(freqfits))
+                    ", ".join(freqfits)
+                )
             )
 
         if bexp is not None:
