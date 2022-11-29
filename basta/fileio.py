@@ -1268,8 +1268,8 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         getratios = True
         getepsdiff = True
 
-        plotratiotypes = freqtypes.defaultrtypes
-        plotepsdifftypes = freqtypes.defaultepstypes
+        plotratiotypes = list(set(freqtypes.defaultrtypes) | set(fitratiotypes))
+        plotepsdifftypes = list(set(freqtypes.defaultepstypes) | set(fitepsdifftypes))
 
     elif len(freqplots):
         for plot in allplots:

@@ -632,7 +632,7 @@ def epsilon_difference_diagram(
 
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
 
-    epsdifftype = obsfreqmeta["epsdiff"]["plot"]
+    epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
 
     obsepsdiff = obsfreqdata[epsdifftype]["data"]
     obsepsdiff_cov = obsfreqdata[epsdifftype]["cov"]
