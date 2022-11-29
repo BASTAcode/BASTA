@@ -1236,12 +1236,6 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
     dnudata, dnudata_err = compute_dnudata(obskey, obs, numax)
     obsls = np.unique(obskey[0, :])
-    obsfreqdata["freqs"] = {
-        "cov": obscov,
-        "covinv": obscovinv,
-        "dnudata": dnudata,
-        "dnudata_err": dnudata_err,
-    }
 
     for fit in allfits:
         obsfreqdata[fit] = {}
@@ -1263,6 +1257,13 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         elif fit not in freqtypes.freqs:
             print(f"Fittype {fit} not recognised")
             raise ValueError
+
+    obsfreqdata["freqs"] = {
+        "cov": obscov,
+        "covinv": obscovinv,
+        "dnudata": dnudata,
+        "dnudata_err": dnudata_err,
+    }
 
     if freqplots[0] if len(freqplots) else False:
         getratios = True
