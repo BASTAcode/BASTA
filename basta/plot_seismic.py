@@ -1199,3 +1199,19 @@ def epsilon_diff_and_correlation(
     fig.tight_layout()
     fig.savefig(filename)
     plt.close(fig)
+
+
+def ratio_cormap(obsfreqmeta, obsfreqdata, output):
+    data = obsfreqdata[obsfreqmeta["ratios"]["fit"][0]]["data"]
+    cov = obsfreqdata[obsfreqmeta["ratios"]["fit"][0]]["cov"]
+    print(cov)
+    Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
+    cor = Dinv @ cov @ Dinv
+
+    fig, ax = plt.subplots(1, 1)
+    im = ax.imshow(cor, cmap="RdBu_r", vmin=-1, vmax=1)
+    plt.colorbar(im)
+    ax.set_yticks(range(data.shape[0]))
+    ax.set_yticklabels([r"$n= {:d}$".format(int(n)) for n in data[:, 0]])
+    fig.tight_layout()
+    fig.savefig(output)

@@ -248,15 +248,15 @@ def BASTA(
     # Prepare asteroseismic quantities if required
     if fitfreqs:
         (
-                freqfilename,
-                glitchfilename,
-                correlations,
-                bexp,
-                freqfits,
-                seisw,
-                threepoint,
-                readratios
-                ) = fitfreqs
+            freqfilename,
+            glitchfilename,
+            correlations,
+            bexp,
+            freqfits,
+            seisw,
+            threepoint,
+            readratios,
+        ) = fitfreqs
 
         if not all(x in freqtypes.alltypes for x in freqfits):
             raise ValueError("Unrecognized frequency fitting parameters!")
@@ -343,7 +343,8 @@ def BASTA(
         else:
             print(
                 "* Fitting of frequency ratios {{{0}}} activated!".format(
-                    ", ".join(freqfits))
+                    ", ".join(freqfits)
+                )
             )
 
         if bexp is not None:
@@ -799,6 +800,8 @@ def BASTA(
         allfplots = freqplots[0] == True
         if any(x == "echelle" for x in freqplots):
             freqplots += ["dupechelle", "echelle"]
+        if any(x in freqtypes.rtypes for x in freqplots):
+            freqplots += ["ratios"]
 
         # Naming of plots preparation
         # NOTE: Ratios are hardwired as pdf because they use PdfPages as backend
@@ -942,6 +945,9 @@ def BASTA(
                 maxjoin,
                 output=ratioplotname,
                 threepoint=threepoint,
+            )
+            plot_seismic.ratio_cormap(
+                obsfreqmeta, obsfreqdata, output=outfilename + "_ratio_cormap.pdf"
             )
         if allfplots or "epsdiff" in freqplots:
             plot_seismic.epsilon_difference_diagram(

@@ -1256,7 +1256,7 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
             print(f"Fittype {fit} not recognised")
             raise ValueError
 
-    if freqplots[0] if len(freqplots) else False:
+    if freqplots[0] == True if len(freqplots) else False:
         getratios = True
         getepsdiff = True
 
