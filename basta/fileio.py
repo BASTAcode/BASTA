@@ -1260,7 +1260,7 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
             fitepsdifftypes.append(fit)
             if not "epsdiff" in obsfreqmeta.keys():
                 obsfreqmeta["epsdiff"] = {}
-        else:
+        elif fit not in freqtypes.freqs:
             print(f"Fittype {fit} not recognised")
             raise ValueError
 
