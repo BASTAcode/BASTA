@@ -929,7 +929,7 @@ def BASTA(
                 pair=True,
                 output=plotfname.format("dupechelle"),
             )
-        if allfplots or "ratios" in freqplots:
+        if len(obsfreqmeta["ratios"]["plot"]) > 0:
             plot_seismic.ratioplot(
                 freqfilename,
                 obsfreqdata,
@@ -939,7 +939,7 @@ def BASTA(
                 output=ratioplotname,
                 threepoint=threepoint,
             )
-        if allfplots or "epsdiff" in freqplots:
+        if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
             plot_seismic.epsilon_difference_diagram(
                 mod=maxmod,
                 modkey=maxmodkey,
@@ -948,7 +948,7 @@ def BASTA(
                 obsfreqmeta=obsfreqmeta,
                 output=plotfname.format("epsilon_differences"),
             )
-        if allfplots or "allepsdiff" in freqplots:
+        if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
             plot_seismic.epsilon_difference_all_diagram(
                 mod=maxmod,
                 modkey=maxmodkey,

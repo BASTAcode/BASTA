@@ -665,7 +665,6 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     ratio_covinv : array
         The inverse of the covariance matrix of the requested ratio.
     """
-    print('DEBUG compute_ratios', ratiotype)
     ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
 
     ratio_cov, ratio_covinv = su.compute_cov_from_mc(

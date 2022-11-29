@@ -1236,6 +1236,12 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
     dnudata, dnudata_err = compute_dnudata(obskey, obs, numax)
     obsls = np.unique(obskey[0, :])
+    obsfreqdata["freqs"] = {
+            "cov": obscov,
+            "covinv": obscovinv,
+            "dnudata": dnudata,
+            "dnudata_err": dnudata_err,
+            }
 
     for fit in allfits:
         obsfreqdata[fit] = {}
@@ -1254,13 +1260,6 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
             fitepsdifftypes.append(fit)
             if not "epsdiff" in obsfreqmeta.keys():
                 obsfreqmeta["epsdiff"] = {}
-        elif fit in freqtypes.freqs:
-            obsfreqdata["freqs"] = {
-                    "cov": obscov,
-                    "covinv": obscovinv,
-                    "dnudata": dnudata,
-                    "dnudata_err": dnudata_err,
-                    }
         else:
             print(f"Fittype {fit} not recognised")
             raise ValueError
@@ -1311,10 +1310,20 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
                         raise ValueError
         for fittype in set(plotratiotypes) | set(plotepsdifftypes):
             if not all(x in obsls.astype(str) for x in fittype[1:]):
+                if debug:
+                    print(f"*BASTA {fittype} cannot be plotted")
                 if fittype in plotratiotypes:
                     plotratiotypes.remove(fittype)
                 if fittype in plotepsdifftypes:
                     plotepsdifftypes.remove(fittype)
+        if getratios and (
+                (len(fitratiotypes) == 0) &
+                (len(plotratiotypes) == 0)):
+            getratios = False
+        if getepsdiff and (
+                (len(fitepsdifftypes) == 0) &
+                (len(plotepsdifftypes) == 0)):
+            getepsdiff = False
 
     if getratios:
         # As r01 and r10 contains the same information, we only plot one of them
