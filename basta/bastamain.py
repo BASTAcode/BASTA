@@ -930,37 +930,40 @@ def BASTA(
                 pair=True,
                 output=plotfname.format("dupechelle"),
             )
-        if len(obsfreqmeta["ratios"]["plot"]) > 0:
-            plot_seismic.ratioplot(
-                freqfilename,
-                obsfreqdata,
-                obsfreqmeta,
-                maxjoinkeys,
-                maxjoin,
-                output=ratioplotname,
-                threepoint=threepoint,
-            )
-        if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
-            plot_seismic.epsilon_difference_diagram(
-                mod=maxmod,
-                modkey=maxmodkey,
-                moddnu=maxmoddnu,
-                obsfreqdata=obsfreqdata,
-                obsfreqmeta=obsfreqmeta,
-                output=plotfname.format("epsilon_differences"),
-            )
-        if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
-            plot_seismic.epsilon_difference_all_diagram(
-                mod=maxmod,
-                modkey=maxmodkey,
-                moddnu=maxmoddnu,
-                obs=obs,
-                obskey=obskey,
-                dnudata=obsfreqdata["freqs"]["dnudata"],
-                obsfreqdata=obsfreqdata,
-                obsfreqmeta=obsfreqmeta,
-                output=plotfname.format("epsilon_differences_all"),
-            )
+        if obsfreqmeta["getratios"]:
+            if len(obsfreqmeta["ratios"]["plot"]) > 0:
+                plot_seismic.ratioplot(
+                    freqfilename,
+                    obsfreqdata,
+                    obsfreqmeta,
+                    maxjoinkeys,
+                    maxjoin,
+                    output=ratioplotname,
+                    threepoint=threepoint,
+                )
+        if obsfreqmeta["getepsdiff"]:
+            if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
+                plot_seismic.epsilon_difference_diagram(
+                    mod=maxmod,
+                    modkey=maxmodkey,
+                    moddnu=maxmoddnu,
+                    obsfreqdata=obsfreqdata,
+                    obsfreqmeta=obsfreqmeta,
+                    output=plotfname.format("epsilon_differences"),
+                )
+        if obsfreqmeta["getepsdiff"]:
+            if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
+                plot_seismic.epsilon_difference_all_diagram(
+                    mod=maxmod,
+                    modkey=maxmodkey,
+                    moddnu=maxmoddnu,
+                    obs=obs,
+                    obskey=obskey,
+                    dnudata=obsfreqdata["freqs"]["dnudata"],
+                    obsfreqdata=obsfreqdata,
+                    obsfreqmeta=obsfreqmeta,
+                    output=plotfname.format("epsilon_differences_all"),
+                )
     else:
         print(
             "Did not get any frequency file input, skipping ratios and echelle plots."
