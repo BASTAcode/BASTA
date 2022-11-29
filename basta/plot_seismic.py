@@ -740,7 +740,7 @@ def epsilon_difference_all_diagram(
     moddnu,
     obs,
     obskey,
-    obsdnu,
+    dnudata,
     obsfreqdata,
     obsfreqmeta,
     output,
@@ -761,7 +761,7 @@ def epsilon_difference_all_diagram(
         Array of observed frequency modes.
     obskey : array
         Array of mode identification of observed frequency modes.
-    obsdnu : float
+    dnudata : float
         Inputted average large frequency separation (dnu) of observations.
     obsfreqdata : dict
         Requested frequency-dependent data such as glitches, ratios, and
@@ -808,7 +808,7 @@ def epsilon_difference_all_diagram(
     edextrapol = freq_fit.compute_epsilondiffseqs(
         obskey,
         obs,
-        obsdnu,
+        dnudata,
         epsdifftype,
     )
     nu12 = edextrapol[1][edextrapol[2] > 0]
@@ -946,8 +946,8 @@ def epsilon_difference_all_diagram(
         # Extract observed quantities
         indobs = obskey[0] == ll
         fre = obs[0][indobs]
-        eps = fre / obsdnu - obskey[1][indobs] - ll / 2
-        err = obs[1][indobs] / obsdnu
+        eps = fre / dnudata - obskey[1][indobs] - ll / 2
+        err = obs[1][indobs] / dnudata
         intpol = CubicSpline(fre, eps)
         fnew = np.linspace(min(fre), max(fre), 100)
 

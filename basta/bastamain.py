@@ -271,8 +271,6 @@ def BASTA(
             obsfreqdata,
             obsfreqmeta,
             obsintervals,
-            dnudata,
-            dnudata_err,
         ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
 
     # Check if grid is interpolated
@@ -641,8 +639,6 @@ def BASTA(
                             obsfreqdata,
                             freqfits,
                             obsintervals,
-                            dnudata,
-                            dnudata_err,
                             moddnufit,
                             tau0=tau0,
                             tauhe=tauhe,
@@ -959,7 +955,7 @@ def BASTA(
                 moddnu=maxmoddnu,
                 obs=obs,
                 obskey=obskey,
-                obsdnu=dnudata,
+                dnudata=obsfreqdata["freqs"]["dnudata"],
                 obsfreqdata=obsfreqdata,
                 obsfreqmeta=obsfreqmeta,
                 output=plotfname.format("epsilon_differences_all"),
