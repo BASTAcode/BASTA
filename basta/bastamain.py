@@ -106,6 +106,7 @@ def BASTA(
     print("\nRun started on {0}.\n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
     if experimental:
         print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
+    print(f"Random numbers initialised with seed {seed}")
 
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(gridfile, "r")
