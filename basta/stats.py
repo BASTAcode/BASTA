@@ -229,7 +229,7 @@ def chi2_astero(
         modratio = freq_fit.compute_ratioseqs(
             joinkeys, join, ratiotype, threepoint=threepoint
         )
-        x = obsfreqdata[ratiotype]["data"][:, 1] - modratio[:, 1]
+        x = obsfreqdata[ratiotype]["data"][0, :] - modratio[0, :]
         w = _weight(len(x), seisw)
         covinv = obsfreqdata[ratiotype]["covinv"]
         if x.shape[0] == covinv.shape[0]:

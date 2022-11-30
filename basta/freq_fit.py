@@ -419,7 +419,7 @@ def cubicBG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
     def l2(params, data, labels):
         prediction = np.dot(data, params.reshape(-1, 1))
         dist = prediction - labels
-        return (dist ** 2).sum()
+        return (dist**2).sum()
 
     if method == "ransac":
         np.random.seed(5)
@@ -559,7 +559,7 @@ def BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
     def l2(params, data, labels):
         prediction = np.dot(data, params.reshape(-1, 1))
         dist = prediction - labels
-        return (dist ** 2).sum()
+        return (dist**2).sum()
 
     if method == "ransac":
         np.random.seed(5)
@@ -668,7 +668,7 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
 
     ratio_cov, ratio_covinv = su.compute_cov_from_mc(
-        ratio.shape[0],
+        ratio.shape[1],
         obskey,
         obs,
         ratiotype,
@@ -678,7 +678,7 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     return ratio, ratio_cov, ratio_covinv
 
 
-def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
+def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
     frequencies, and return the desired ratio sequence, both individual
@@ -694,7 +694,7 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
         Harmonic degrees, radial orders and radial orders of frequencies
     obs : array
         Frequencies and their error, following the structure of obs
-    ratiotype : str
+    sequence : str
         Which ratio sequence to determine, see constants.freqtypes.rtypes
         for possible sequences.
     threepoint : bool
@@ -704,7 +704,11 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
     Returns
     -------
     ratio : array
-        Ratio requested from `ratiotype`
+        Ratio requested from `sequence`. First index correspond to:
+        0 - Frequency ratios
+        1 - Defining/corresponding frequency
+        2 - Identifying integer (r01: 1, r02: 2, r10: 10)
+        3 - Identifying radial order n
     """
     r01, r10, r02 = True, True, True
 
@@ -728,7 +732,7 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
 
     # Two-point frequency ratio R02
     # -----------------------------
-    if r02 and ratiotype in ["r02", "r012", "r102"]:
+    if r02 and sequence in ["r02", "r012", "r102"]:
         lowest_n0 = (n0[0] - 1, n1[0], n2[0])
         l0 = lowest_n0.index(max(lowest_n0))
 
@@ -757,17 +761,18 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
             nr02 = n2[-1] - n2[i02] + 1
 
         # R02
-        r02 = np.zeros((nr02, 4))
+        r02 = np.zeros((4, nr02))
+        r02[2, :] = 2
         for i in range(nr02):
-            r02[i, 0] = n0[i00 + i]
-            r02[i, 3] = f0[i00 + i]
-            r02[i, 1] = f0[i00 + i] - f2[i02 + i]
-            r02[i, 1] /= f1[i01 + i + 1] - f1[i01 + i]
+            r02[3, i] = n0[i00 + i]
+            r02[1, i] = f0[i00 + i]
+            r02[0, i] = f0[i00 + i] - f2[i02 + i]
+            r02[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
 
     # Five-point frequency ratio R01
     # ------------------------------
     if not threepoint:
-        if r01 and ratiotype in ["r01", "r012", "r010"]:
+        if r01 and sequence in ["r01", "r012", "r010"]:
             # Find lowest indices for l = 0 and 1
             if n0[0] >= n1[0]:
                 i00 = 0
@@ -783,15 +788,16 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
                 nr01 = n0[-1] - n0[i00] - 1
 
             # R01
-            r01 = np.zeros((nr01, 4))
+            r01 = np.zeros((4, nr01))
+            r01[2, :] = 1
             for i in range(nr01):
-                r01[i, 0] = n0[i00 + i + 1]
-                r01[i, 3] = f0[i00 + i + 1]
-                r01[i, 1] = f0[i00 + i] + 6.0 * f0[i00 + i + 1] + f0[i00 + i + 2]
-                r01[i, 1] -= 4.0 * (f1[i01 + i + 1] + f1[i01 + i])
-                r01[i, 1] /= 8.0 * (f1[i01 + i + 1] - f1[i01 + i])
+                r01[3, i] = n0[i00 + i + 1]
+                r01[1, i] = f0[i00 + i + 1]
+                r01[0, i] = f0[i00 + i] + 6.0 * f0[i00 + i + 1] + f0[i00 + i + 2]
+                r01[0, i] -= 4.0 * (f1[i01 + i + 1] + f1[i01 + i])
+                r01[0, i] /= 8.0 * (f1[i01 + i + 1] - f1[i01 + i])
 
-        if r10 and ratiotype in ["r10", "r102", "r010"]:
+        if r10 and sequence in ["r10", "r102", "r010"]:
             # Find lowest indices for l = 0 and 1
             if n0[0] - 1 >= n1[0]:
                 i00 = 0
@@ -807,18 +813,19 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
                 nr10 = n0[-1] - n0[i00]
 
             # R10
-            r10 = np.zeros((nr10, 4))
+            r10 = np.zeros((4, nr10))
+            r10[2, :] = 10
             for i in range(nr10):
-                r10[i, 0] = n1[i01 + i + 1]
-                r10[i, 3] = f1[i01 + i + 1]
-                r10[i, 1] = f1[i01 + i] + 6.0 * f1[i01 + i + 1] + f1[i01 + i + 2]
-                r10[i, 1] -= 4.0 * (f0[i00 + i + 1] + f0[i00 + i])
-                r10[i, 1] /= -8.0 * (f0[i00 + i + 1] - f0[i00 + i])
+                r10[3, i] = n1[i01 + i + 1]
+                r10[1, i] = f1[i01 + i + 1]
+                r10[0, i] = f1[i01 + i] + 6.0 * f1[i01 + i + 1] + f1[i01 + i + 2]
+                r10[0, i] -= 4.0 * (f0[i00 + i + 1] + f0[i00 + i])
+                r10[0, i] /= -8.0 * (f0[i00 + i + 1] - f0[i00 + i])
 
     # Three-point frequency ratios
     # ----------------------------
     else:
-        if r01 and ratiotype in ["r01", "r012", "r010"]:
+        if r01 and sequence in ["r01", "r012", "r010"]:
             # Find lowest indices for l = 0 and 1
             # i01 point to one n-value lower than i00
             if n0[0] - 1 >= n1[0]:
@@ -835,15 +842,16 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
                 nr01 = n0[-1] - n0[i00] + 1
 
             # R01
-            r01 = np.zeros((nr01, 4))
+            r01 = np.zeros((4, nr01))
+            r01[2, :] = 1
             for i in range(nr01):
-                r01[i, 0] = n0[i00 + i]
-                r01[i, 3] = f0[i00 + i]
-                r01[i, 1] = f0[i00 + i]
-                r01[i, 1] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
-                r01[i, 1] /= f1[i01 + i + 1] - f1[i01 + i]
+                r01[3, i] = n0[i00 + i]
+                r01[1, i] = f0[i00 + i]
+                r01[0, i] = f0[i00 + i]
+                r01[0, i] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
+                r01[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
 
-        elif r10 and ratiotype in ["r10", "r102", "r010"]:
+        elif r10 and sequence in ["r10", "r102", "r010"]:
             # Find lowest indices for l = 0 and 1
             if n0[0] >= n1[0]:
                 i00 = 0
@@ -859,69 +867,40 @@ def compute_ratioseqs(obskey, obs, ratiotype, threepoint=False):
                 nr10 = n0[-1] - n0[i00]
 
             # R10
-            r10 = np.zeros((nr10, 4))
+            r10 = np.zeros((4, nr10))
+            r10[2, :] = 10
             for i in range(nr10):
-                r10[i, 0] = n1[i01 + i]
-                r10[i, 3] = f1[i01 + i]
-                r10[i, 1] = f1[i01 + i]
-                r10[i, 1] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
-                r10[i, 1] /= f0[i00 + i] - f0[i00 + i + 1]
+                r10[3, i] = n1[i01 + i]
+                r10[1, i] = f1[i01 + i]
+                r10[0, i] = f1[i01 + i]
+                r10[0, i] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
+                r10[0, i] /= f0[i00 + i] - f0[i00 + i + 1]
 
-    if ratiotype == "r02":
+    if sequence == "r02":
         return r02
 
-    elif ratiotype == "r01":
+    elif sequence == "r01":
         return r01
 
-    elif ratiotype == "r10":
+    elif sequence == "r10":
         return r10
 
-    elif ratiotype == "r012":
-        # Number of ratios
-        n02 = r02.shape[0]
-        n01 = r01.shape[0]
-        n012 = n01 + n02
-
-        # R012 (R01 followed by R02)
-        r012 = np.zeros((n012, 4))
-        r012[0:n01, :] = r01[:, :]
-        r012[n01 : n01 + n02, 0] = r02[:, 0] + 0.1
-        r012[n01 : n01 + n02, 1:4] = r02[:, 1:4]
-        r012 = r012[r012[:, 0].argsort()]
-        r012[:, 0] = np.round(r012[:, 0])
-
+    elif sequence == "r012":
+        # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
+        mask = np.argsort(np.append(r01[3, :], r02[3, :] + 0.1))
+        r012 = np.hstack((r01, r02))[:, mask]
         return r012
 
-    elif ratiotype == "r102":
-        # Number of ratios
-        n02 = r02.shape[0]
-        n10 = r10.shape[0]
-        n102 = n10 + n02
-
-        # R102 (R10 followed by R02)
-        r102 = np.zeros((n102, 4))
-        r102[0:n10, :] = r10[:, :]
-        r102[n10 : n10 + n02, 0] = r02[:, 0] + 0.1
-        r102[n10 : n10 + n02, 1:4] = r02[:, 1:4]
-        r102 = r102[r102[:, 0].argsort()]
-        r102[:, 0] = np.round(r102[:, 0])
-
+    elif sequence == "r102":
+        # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
+        mask = np.argsort(np.append(r10[3, :], r02[3, :] + 0.1))
+        r102 = np.hstack((r10, r02))[:, mask]
         return r102
 
-    elif ratiotype == "r010":
-        # Number of ratios
-        n01 = r01.shape[0]
-        n10 = r10.shape[0]
-        n010 = n01 + n10
-
-        # R010 (R01 followed by R10)
-        r010 = np.zeros((n010, 4))
-        r010[0:n01, :] = r01[:, :]
-        r010[n01 : n01 + n10, 0] = r10[:, 0] + 0.1
-        r010[n01 : n01 + n10, 1:4] = r10[:, 1:4]
-        r010 = r010[r010[:, 0].argsort()]
-        r010[:, 0] = np.round(r010[:, 0])
-
+    elif sequence == "r010":
+        # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
+        mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
+        r010 = np.hstack((r01, r10))[:, mask]
         return r010
 
 
@@ -934,7 +913,7 @@ def compute_epsilondiff(
     osckey,
     osc,
     avgdnu,
-    seq="e012",
+    sequence="e012",
     nsorting=True,
     extrapolation=False,
     nrealisations=20000,
@@ -967,7 +946,7 @@ def compute_epsilondiff(
         Array containing the modes (and inertias).
     avgdnu : float
         Average value of the large frequency separation.
-    seq : str, optional
+    sequence : str, optional
         Similar to ratios, what sequence of epsilon differences to be computed.
         Can be e01, e02 or e012 for a combination of the two first.
     nsorting : bool, optional
@@ -1014,17 +993,13 @@ def compute_epsilondiff(
         osckey = osckey[:, indall]
 
     epsdiff = compute_epsilondiffseqs(
-            osckey,
-            osc,
-            avgdnu,
-            seq=seq,
-            nsorting=nsorting
-            )
+        osckey, osc, avgdnu, sequence=sequence, nsorting=nsorting
+    )
     epsdiff_cov, epsdiff_covinv = su.compute_cov_from_mc(
         epsdiff.shape[1],
         osckey,
         osc,
-        seq,
+        fittype=sequence,
         args={"avgdnu": avgdnu, "nsorting": nsorting},
         nrealisations=nrealisations,
     )
@@ -1036,7 +1011,7 @@ def compute_epsilondiffseqs(
     osckey,
     osc,
     avgdnu,
-    seq="e012",
+    sequence,
     nsorting=True,
 ):
     """
@@ -1062,7 +1037,7 @@ def compute_epsilondiffseqs(
         Array containing the modes (and inertias)
     avgdnu : float
         Average large frequency separation
-    seq : str
+    sequence : str
         Similar to ratios, what sequence of epsilon differences to be computed.
         Can be 01, 02 or 012 for a combination of the two first.
     nsorting : bool
@@ -1072,16 +1047,19 @@ def compute_epsilondiffseqs(
     Returns
     -------
     deps : array
-        Array containing epsilon differences (0), and the according frequencies (1),
-        l different from 0 (2) and n (3).
+        Array containing epsilon differences. First index correpsonds to:
+        0 - Epsilon differences
+        1 - Indentifying frequencies
+        2 - Identifying degree l
+        3 - Radial degree n of identifying l={1,2} mode
     """
 
     # Select the sequence(s) to use
-    if seq == "e012":
+    if sequence == "e012":
         l_used = [1, 2]
-    elif seq == "e02":
+    elif sequence == "e02":
         l_used = [2]
-    elif seq == "e01":
+    elif sequence == "e01":
         l_used = [1]
     else:
         raise KeyError("Undefined epsilon difference sequence requested!")

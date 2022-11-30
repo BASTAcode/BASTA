@@ -944,7 +944,9 @@ def BASTA(
                     threepoint=threepoint,
                 )
                 plot_seismic.ratio_cormap(
-                    obsfreqmeta, obsfreqdata, output=outfilename + "_ratio_cormap.pdf"
+                    obsfreqmeta,
+                    obsfreqdata,
+                    output=plotfname.format("ratio_cormap"),
                 )
 
         if obsfreqmeta["getepsdiff"]:

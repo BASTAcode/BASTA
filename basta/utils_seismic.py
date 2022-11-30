@@ -527,6 +527,16 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         Number of realisations of the sampling for the computation of the
         covariance matrix.
     """
+    # Determine the function used to sample the corresponding sequence type
+    if fittype in freqtypes.rtypes:
+        seqs_function = freq_fit.compute_ratioseqs
+    elif fittype in freqtypes.epsdiff:
+        seqs_function = freq_fit.compute_epsilondiffseqs
+    else:
+        raise NotImplementedError(
+            "Science case for covariance matrix is not implemented"
+        )
+
     # Compute different perturbed realisations (Monte Carlo) for covariances
     nvalues = np.zeros((nrealisations, nr))
     perturb_osc = deepcopy(osc)
@@ -534,32 +544,19 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         range(nrealisations), desc=f"Sampling {fittype} covariances", ascii=True
     ):
         perturb_osc[0, :] = np.random.normal(osc[0, :], osc[1, :])
-        if fittype in freqtypes.rtypes:
-            tmp = freq_fit.compute_ratioseqs(
-                osckey,
-                perturb_osc,
-                fittype,
-                **args,
-            )
-            nvalues[i, :] = tmp[:, 1]
-        elif fittype in freqtypes.epsdiff:
-            tmp = freq_fit.compute_epsilondiffseqs(
-                osckey,
-                perturb_osc,
-                seq=fittype,
-                **args,
-            )
-            nvalues[i, :] = tmp[0]
-        else:
-            raise NotImplementedError(
-                "Science case for covariance matrix is not implemented"
-            )
+        tmp = seqs_function(
+            osckey,
+            perturb_osc,
+            sequence=fittype,
+            **args,
+        )
+        nvalues[i, :] = tmp[0]
 
     # Derive covariance matrix from MC-realisations and test convergence
     n = int(round(nrealisations / 2))
     cov = np.cov(nvalues[:n, :], rowvar=False)
     n_cov = np.cov(nvalues, rowvar=False)
-    fnorm = np.linalg.norm(n_cov - cov) / (nr ** 2)
+    fnorm = np.linalg.norm(n_cov - cov) / (nr**2)
 
     if fnorm > 1.0e-6:
         print(f"Frobenius norm {fnorm} > 1e-6")

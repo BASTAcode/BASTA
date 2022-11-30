@@ -1265,7 +1265,7 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         "dnudata_err": dnudata_err,
     }
 
-    if freqplots[0] == True if len(freqplots) else False:
+    if len(freqplots) and freqplots[0] == True:
         getratios = True
         getepsdiff = True
 
@@ -1509,7 +1509,7 @@ def read_allseismic(
                     obskey,
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
-                    seq=epsdifffit,
+                    sequence=epsdifffit,
                     nrealisations=2000,
                 )
                 obsfreqdata[epsdifffit]["data"] = datos[0]

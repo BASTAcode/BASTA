@@ -485,8 +485,8 @@ def ratioplot(
         )
 
         allax.scatter(
-            modratio[:, 3],
-            modratio[:, 1],
+            modratio[1, :],
+            modratio[1, :],
             marker=modmarkers["ratio"],
             color=colors[ratiotype],
             edgecolors="k",
@@ -494,16 +494,16 @@ def ratioplot(
             label=f"Best fit ({ratiotype[1:]})",
         )
         allax.plot(
-            modratio[:, 3],
-            modratio[:, 1],
+            modratio[1, :],
+            modratio[0, :],
             "-",
             color=colors[ratiotype],
             zorder=-1,
         )
 
         allax.errorbar(
-            obsratio[:, 3],
-            obsratio[:, 1],
+            obsratio[1, :],
+            obsratio[0, :],
             yerr=obsratio_err,
             marker=obsmarker,
             color=colors[ratiotype],
@@ -514,16 +514,16 @@ def ratioplot(
             label=f"Measured ({ratiotype[1:]})",
         )
         allax.plot(
-            obsratio[:, 3],
-            obsratio[:, 1],
+            obsratio[1, :],
+            obsratio[0, :],
             "-",
             color=colors[ratiotype],
             zorder=-1,
         )
 
         ax.scatter(
-            modratio[:, 3],
-            modratio[:, 1],
+            modratio[1, :],
+            modratio[0, :],
             marker=modmarkers["ratio"],
             color=colors[ratiotype],
             edgecolors="k",
@@ -531,16 +531,16 @@ def ratioplot(
             label=f"Best fit ({ratiotype[1:]})",
         )
         ax.plot(
-            modratio[:, 3],
-            modratio[:, 1],
+            modratio[1, :],
+            modratio[0, :],
             "-",
             color=colors[ratiotype],
             zorder=-1,
         )
 
         ax.errorbar(
-            obsratio[:, 3],
-            obsratio[:, 1],
+            obsratio[1, :],
+            obsratio[0, :],
             yerr=obsratio_err,
             marker=obsmarker,
             color=colors[ratiotype],
@@ -551,8 +551,8 @@ def ratioplot(
             label=f"Measured ({ratiotype[1:]})",
         )
         ax.plot(
-            obsratio[:, 3],
-            obsratio[:, 1],
+            obsratio[1, :],
+            obsratio[0, :],
             "-",
             color=colors[ratiotype],
             zorder=-1,
@@ -1204,7 +1204,7 @@ def epsilon_diff_and_correlation(
 def ratio_cormap(obsfreqmeta, obsfreqdata, output):
     data = obsfreqdata[obsfreqmeta["ratios"]["fit"][0]]["data"]
     cov = obsfreqdata[obsfreqmeta["ratios"]["fit"][0]]["cov"]
-    print(cov)
+
     Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
     cor = Dinv @ cov @ Dinv
 
