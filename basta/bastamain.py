@@ -884,7 +884,11 @@ def BASTA(
                 joinkeys=maxjoinkeys, join=maxjoin, scalnu=numax
             )
 
-        print("The surface correction coefficients are", *coeffs)
+        if len(coeffs) > 1:
+            print("The surface correction coefficients are", *coeffs)
+        else:
+            print("The surface correction coefficient is", *coeffs)
+
         if allfplots or "echelle" in freqplots:
             plot_seismic.echelle(
                 selectedmodels,
