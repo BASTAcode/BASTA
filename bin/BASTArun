@@ -75,7 +75,6 @@ def main():
         verbose=args.verbose,
         experimental=args.experimental,
         validationmode=args.validation,
-        seed=seed,
     )
 
 
