@@ -486,7 +486,7 @@ def ratioplot(
 
         allax.scatter(
             modratio[1, :],
-            modratio[1, :],
+            modratio[0, :],
             marker=modmarkers["ratio"],
             color=colors[ratiotype],
             edgecolors="k",
