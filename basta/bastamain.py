@@ -948,8 +948,8 @@ def BASTA(
                     threepoint=threepoint,
                 )
                 plot_seismic.ratio_cormap(
-                    obsfreqmeta,
                     obsfreqdata,
+                    obsfreqmeta,
                     output=plotfname.format("ratio_cormap"),
                 )
 

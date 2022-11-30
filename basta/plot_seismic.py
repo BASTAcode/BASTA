@@ -1201,9 +1201,10 @@ def epsilon_diff_and_correlation(
     plt.close(fig)
 
 
-def ratio_cormap(obsfreqmeta, obsfreqdata, output):
-    data = obsfreqdata[obsfreqmeta["ratios"]["fit"][0]]["data"]
-    cov = obsfreqdata[obsfreqmeta["ratios"]["fit"][0]]["cov"]
+def ratio_cormap(obsfreqdata, obsfreqmeta, output):
+    sequence = obsfreqmeta["ratios"]["plot"][0]
+    data = obsfreqdata[sequence]["data"]
+    cov = obsfreqdata[sequence]["cov"]
 
     Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
     cor = Dinv @ cov @ Dinv
