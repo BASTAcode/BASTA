@@ -52,12 +52,16 @@ def main():
 
     # Set the random seed if given
     if args.seed is not None:
-        print(
-            "\n*** BASTA: Random-numbers initialised with seed {0} ***\n".format(
-                args.seed
-            )
+        seed = args.seed
+    else:
+        seed = np.random.randint(5000)
+
+    print(
+        "\n*** BASTA: Random-numbers initialised with seed {0} ***\n".format(
+            seed
         )
-        np.random.seed(args.seed)
+    )
+    np.random.seed(seed)
 
     # Flag the user if running in validation mode
     if args.validation:

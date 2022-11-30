@@ -271,8 +271,6 @@ def BASTA(
             obsfreqdata,
             obsfreqmeta,
             obsintervals,
-            dnudata,
-            dnudata_err,
         ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
 
     # Check if grid is interpolated
@@ -642,8 +640,6 @@ def BASTA(
                             obsfreqdata,
                             freqfits,
                             obsintervals,
-                            dnudata,
-                            dnudata_err,
                             moddnufit,
                             tau0=tau0,
                             tauhe=tauhe,
@@ -936,40 +932,44 @@ def BASTA(
                 pair=True,
                 output=plotfname.format("dupechelle"),
             )
-        if allfplots or "ratios" in freqplots:
-            plot_seismic.ratioplot(
-                freqfilename,
-                obsfreqdata,
-                obsfreqmeta,
-                maxjoinkeys,
-                maxjoin,
-                output=ratioplotname,
-                threepoint=threepoint,
-            )
-            plot_seismic.ratio_cormap(
-                obsfreqmeta, obsfreqdata, output=outfilename + "_ratio_cormap.pdf"
-            )
-        if allfplots or "epsdiff" in freqplots:
-            plot_seismic.epsilon_difference_diagram(
-                mod=maxmod,
-                modkey=maxmodkey,
-                moddnu=maxmoddnu,
-                obsfreqdata=obsfreqdata,
-                obsfreqmeta=obsfreqmeta,
-                output=plotfname.format("epsilon_differences"),
-            )
-        if allfplots or "allepsdiff" in freqplots:
-            plot_seismic.epsilon_difference_all_diagram(
-                mod=maxmod,
-                modkey=maxmodkey,
-                moddnu=maxmoddnu,
-                obs=obs,
-                obskey=obskey,
-                obsdnu=dnudata,
-                obsfreqdata=obsfreqdata,
-                obsfreqmeta=obsfreqmeta,
-                output=plotfname.format("epsilon_differences_all"),
-            )
+        if obsfreqmeta["getratios"]:
+            if len(obsfreqmeta["ratios"]["plot"]) > 0:
+                plot_seismic.ratioplot(
+                    freqfilename,
+                    obsfreqdata,
+                    obsfreqmeta,
+                    maxjoinkeys,
+                    maxjoin,
+                    output=ratioplotname,
+                    threepoint=threepoint,
+                )
+                plot_seismic.ratio_cormap(
+                    obsfreqmeta, obsfreqdata, output=outfilename + "_ratio_cormap.pdf"
+                )
+
+        if obsfreqmeta["getepsdiff"]:
+            if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
+                plot_seismic.epsilon_difference_diagram(
+                    mod=maxmod,
+                    modkey=maxmodkey,
+                    moddnu=maxmoddnu,
+                    obsfreqdata=obsfreqdata,
+                    obsfreqmeta=obsfreqmeta,
+                    output=plotfname.format("epsilon_differences"),
+                )
+        if obsfreqmeta["getepsdiff"]:
+            if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
+                plot_seismic.epsilon_difference_all_diagram(
+                    mod=maxmod,
+                    modkey=maxmodkey,
+                    moddnu=maxmoddnu,
+                    obs=obs,
+                    obskey=obskey,
+                    dnudata=obsfreqdata["freqs"]["dnudata"],
+                    obsfreqdata=obsfreqdata,
+                    obsfreqmeta=obsfreqmeta,
+                    output=plotfname.format("epsilon_differences_all"),
+                )
     else:
         print(
             "Did not get any frequency file input, skipping ratios and echelle plots."

@@ -1152,7 +1152,7 @@ def read_precomputedratios(
     return ratio, cov, covinv
 
 
-def compute_obsdnu(obskey, obs, numax):
+def compute_dnudata(obskey, obs, numax):
     """
     Compute large frequency separation (the same way as dnufit)
 
@@ -1167,11 +1167,11 @@ def compute_obsdnu(obskey, obs, numax):
 
     Returns
     -------
-    obsdnu : scalar
+    dnudata : scalar
         Large frequency separation obtained by fitting the radial mode observed
         frequencies. Similar to dnufit, but from data and not from the
         theoretical frequencies in the grid of models.
-    obsdnu_err : scalar
+    dnudata_err : scalar
         Uncertainty on dnudata.
     """
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
@@ -1183,12 +1183,12 @@ def compute_obsdnu(obskey, obs, numax):
         / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
     )
     fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-    obsdnu, obsdnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
 
-    return obsdnu, obsdnu_err
+    return dnudata, dnudata_err
 
 
-def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
+def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     """
     Make a dictionary of frequency-dependent data
 
@@ -1233,6 +1233,10 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
     getglitch = False
     getepsdiff = False
 
+    obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
+    dnudata, dnudata_err = compute_dnudata(obskey, obs, numax)
+    obsls = np.unique(obskey[0, :])
+
     for fit in allfits:
         obsfreqdata[fit] = {}
         # Look for ratios
@@ -1250,18 +1254,23 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
             fitepsdifftypes.append(fit)
             if not "epsdiff" in obsfreqmeta.keys():
                 obsfreqmeta["epsdiff"] = {}
-        elif fit in freqtypes.freqs:
-            obsfreqdata["freqs"] = {"cov": obscov, "covinv": obscovinv}
-        else:
+        elif fit not in freqtypes.freqs:
             print(f"Fittype {fit} not recognised")
             raise ValueError
+
+    obsfreqdata["freqs"] = {
+        "cov": obscov,
+        "covinv": obscovinv,
+        "dnudata": dnudata,
+        "dnudata_err": dnudata_err,
+    }
 
     if freqplots[0] == True if len(freqplots) else False:
         getratios = True
         getepsdiff = True
 
-        plotratiotypes = freqtypes.defaultrtypes
-        plotepsdifftypes = freqtypes.defaultepstypes
+        plotratiotypes = list(set(freqtypes.defaultrtypes) | set(fitratiotypes))
+        plotepsdifftypes = list(set(freqtypes.defaultepstypes) | set(fitepsdifftypes))
 
     elif len(freqplots):
         for plot in allplots:
@@ -1290,6 +1299,28 @@ def makeobsfreqs(allfits, freqplots, obscov, obscovinv, debug=False):
                 else:
                     if plot not in plotepsdifftypes:
                         plotepsdifftypes.append(plot)
+
+    # Check that there is observational data available for fits and plots
+    if getratios or getepsdiff:
+        for fittype in set(fitratiotypes) | set(fitepsdifftypes):
+            if not all(x in obsls.astype(str) for x in fittype[1:]):
+                for l in fittype[1:]:
+                    if not l in obsls.astype(str):
+                        print(f"* No l={l} modes were found in the observations")
+                        print(f"* It is not possible to fit {fittype}")
+                        raise ValueError
+        for fittype in set(plotratiotypes) | set(plotepsdifftypes):
+            if not all(x in obsls.astype(str) for x in fittype[1:]):
+                if debug:
+                    print(f"*BASTA {fittype} cannot be plotted")
+                if fittype in plotratiotypes:
+                    plotratiotypes.remove(fittype)
+                if fittype in plotepsdifftypes:
+                    plotepsdifftypes.remove(fittype)
+        if getratios and ((len(fitratiotypes) == 0) & (len(plotratiotypes) == 0)):
+            getratios = False
+        if getepsdiff and ((len(fitepsdifftypes) == 0) & (len(plotepsdifftypes) == 0)):
+            getepsdiff = False
 
     if getratios:
         # As r01 and r10 contains the same information, we only plot one of them
@@ -1383,17 +1414,16 @@ def read_allseismic(
     """
     # Observed frequencies
     obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
-    obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-
-    obsdnu, obsdnu_err = compute_obsdnu(obskey, obs, numax)
 
     # Ratios and covariances
     # Check if it is unnecesarry to compute ratios
-    obsfreqdata, obsfreqmeta = makeobsfreqs(
+    obsfreqdata, obsfreqmeta = make_obsfreqs(
+        obskey,
+        obs,
+        obscov,
         allfits,
         freqplots,
-        obscov,
-        obscovinv,
+        numax=numax,
         debug=debug,
     )
 
@@ -1466,7 +1496,7 @@ def read_allseismic(
                 datos = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
-                    obsdnu,
+                    obsfreqdata["freqs"]["dnudata"],
                     seq=epsdifffit,
                 )
                 if debug:
@@ -1478,7 +1508,7 @@ def read_allseismic(
                 datos = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
-                    obsdnu,
+                    obsfreqdata["freqs"]["dnudata"],
                     seq=epsdifffit,
                     nrealisations=2000,
                 )
@@ -1495,7 +1525,7 @@ def read_allseismic(
                 dbg_epsdiff, dbg_covepsdiff, _ = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
-                    obsdnu,
+                    obsfreqdata["freqs"]["dnudata"],
                     seq=epsdifffit,
                     nsorting=False,
                     debug=debug,
@@ -1511,7 +1541,7 @@ def read_allseismic(
                     dbg_covepsdiff,
                     obs,
                     obskey,
-                    obsdnu,
+                    obsfreqdata["freqs"]["dnudata"],
                     epsdiff_plotname,
                 )
                 print(
@@ -1519,7 +1549,7 @@ def read_allseismic(
                     epsdiff_plotname,
                 )
 
-    return obskey, obs, obsfreqdata, obsfreqmeta, obsdnu, obsdnu_err
+    return obskey, obs, obsfreqdata, obsfreqmeta
 
 
 def get_freq_ranges(filename):

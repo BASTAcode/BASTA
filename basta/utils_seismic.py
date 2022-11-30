@@ -240,11 +240,6 @@ def prepare_obs(inputparams, verbose=False, debug=False):
         As it is the same in all iterations for the observed frequencies,
         this is computed in util.prepare_obs once and given as an argument
         in order to save time and memory.
-    dnudata : float
-        Large frequency separation obtained by fitting the radial mode observed
-        frequencies (like dnufit, but for the data). Used for fitting ratios.
-    dnudata_err : float
-        Uncertainty on dnudata
     """
     print("\nPreparing asteroseismic input ...")
 
@@ -294,7 +289,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     freqplots = inputparams.get("freqplots")
 
     # Load or compute frequency-dependent products
-    obskey, obs, obsfreqdata, obsfreqmeta, dnudata, dnudata_err = fio.read_allseismic(
+    obskey, obs, obsfreqdata, obsfreqmeta = fio.read_allseismic(
         freqfilename,
         glitchfilename,
         freqfits,
@@ -314,9 +309,6 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     else:
         obsintervals = None
 
-    # Return 'dnudata' as well, which is determined in a similar way as
-    # 'dnufit', but based on the observed frequencies of the data (where as
-    # 'dnufit' is from model frequencies in the grid)
     print("Done!")
     return (
         obskey,
@@ -327,8 +319,6 @@ def prepare_obs(inputparams, verbose=False, debug=False):
         obsfreqdata,
         obsfreqmeta,
         obsintervals,
-        dnudata,
-        dnudata_err,
     )
 
 

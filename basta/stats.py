@@ -61,8 +61,6 @@ def chi2_astero(
     obsfreqdata,
     tipo,
     obsintervals,
-    dnudata,
-    dnudata_err,
     moddnufit,
     tau0=3500.0,
     tauhe=800.0,
@@ -108,11 +106,6 @@ def chi2_astero(
         As it is the same in all iterations for the observed frequencies,
         this is computed in su.prepare_obs once and given as an argument
         in order to save time and memory.
-    dnudata : float
-        Large frequency separation obtained by fitting the radial mode observed
-        frequencies (like dnufit, but for the data). Used for fitting ratios.
-    dnudata_err : float
-        Uncertainty on dnudata
     tau0 : float, optional
         Total acoustic radius of the star.
     tauhe : float, optional
@@ -153,6 +146,8 @@ def chi2_astero(
     warnings : bool
         See 'warnings' above.
     """
+    dnudata = obsfreqdata["freqs"]["dnudata"]
+    dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
     if any(
         x in [*freqtypes.freqs, *freqtypes.rtypes, *freqtypes.glitches] for x in tipo
     ):
