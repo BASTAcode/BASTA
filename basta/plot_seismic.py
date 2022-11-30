@@ -1208,10 +1208,17 @@ def ratio_cormap(obsfreqmeta, obsfreqdata, output):
     Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
     cor = Dinv @ cov @ Dinv
 
+    labs = [
+        r"$r_{%02d}(%d)$" % (int(l), int(n)) for l, n in zip(data[2, :], data[3, :])
+    ]
+
     fig, ax = plt.subplots(1, 1)
     im = ax.imshow(cor, cmap="RdBu_r", vmin=-1, vmax=1)
     plt.colorbar(im)
-    ax.set_yticks(range(data.shape[0]))
-    ax.set_yticklabels([r"$n= {:d}$".format(int(n)) for n in data[:, 0]])
+    ax.set_xticks(range(data.shape[1]))
+    ax.set_xticklabels(labs, rotation=90)
+    ax.set_yticks(range(data.shape[1]))
+    ax.set_yticklabels(labs)
     fig.tight_layout()
     fig.savefig(output)
+    plt.close(fig)
