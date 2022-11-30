@@ -66,18 +66,16 @@ def main():
     # Flag the user if running in validation mode
     if args.validation:
         print("\n*** Running in VALIDATION MODE ", end="")
-        if args.seed:
-            print("with seed {0} ... ! ***\n".format(args.seed))
-        else:
-            print("... ! ***\n")
 
     # Call BASTA
     run_xml(
         vars(args)["inputfile"],
+        seed=seed,
         debug=args.debug,
         verbose=args.verbose,
         experimental=args.experimental,
         validationmode=args.validation,
+        seed=seed,
     )
 
 

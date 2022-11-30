@@ -368,7 +368,7 @@ def _get_intpol(root, gridfile, freqpath=None):
 # MAIN ROUTINE
 #####################
 def run_xml(
-    xmlfile, debug=False, verbose=False, experimental=False, validationmode=False
+    xmlfile, seed=None, debug=False, verbose=False, experimental=False, validationmode=False
 ):
     """
     Runs BASTA using an xml file as input. This is how you should run BASTA!
@@ -377,6 +377,8 @@ def run_xml(
     ----------
     xmlfile : str
         Absolute path to the xml file
+    seed : int, optional
+        The set seed of randomness
     debug : bool, optional
         Activate additional output for debugging (for developers)
     verbose : bool, optional
@@ -799,6 +801,7 @@ def run_xml(
                     usepriors=usepriors,
                     inputparams=inputparams,
                     optionaloutputs=useoptoutput,
+                    seed=seed,
                     debug=debug,
                     verbose=verbose,
                     experimental=experimental,

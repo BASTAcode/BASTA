@@ -37,6 +37,7 @@ def BASTA(
     usepriors=(None,),
     inputparams=False,
     optionaloutputs=False,
+    seed=None,
     debug=False,
     verbose=False,
     experimental=False,
@@ -71,6 +72,8 @@ def BASTA(
         output options.
     optionaloutputs : bool, optional
         If True, saves a 'json' file for each star with the global results and the PDF.
+    seed : int, optional
+        The seed of randomness 
     debug : bool, optional
         Activate additional output for debugging (for developers)
     verbose : bool, optional
