@@ -1202,20 +1202,39 @@ def epsilon_diff_and_correlation(
 
 
 def ratio_cormap(obsfreqdata, obsfreqmeta, output):
+    """
+    Routine for plotting a correlation map of the plotted ratios
+
+    Parameters
+    ----------
+    obsfreqdata : dict
+        All necessary frequency related data from observations
+    obsfreqmeta : dict
+        Metadata defining the content of `obsfreqdata`
+    output : str
+        Name and path to output figure
+    """
+
+    # Extract data
     sequence = obsfreqmeta["ratios"]["plot"][0]
     data = obsfreqdata[sequence]["data"]
     cov = obsfreqdata[sequence]["cov"]
 
+    # Compute correlations
     Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
     cor = Dinv @ cov @ Dinv
 
+    # Make labels
     labs = [
         r"$r_{%02d}(%d)$" % (int(l), int(n)) for l, n in zip(data[2, :], data[3, :])
     ]
 
-    fig, ax = plt.subplots(1, 1)
+    # Produce figure
+    fig, ax = plt.subplots(1, 1, figsize=(7.3, 6))
     im = ax.imshow(cor, cmap="RdBu_r", vmin=-1, vmax=1)
     plt.colorbar(im)
+
+    # Beautify
     ax.set_xticks(range(data.shape[1]))
     ax.set_xticklabels(labs, rotation=90)
     ax.set_yticks(range(data.shape[1]))
