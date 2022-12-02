@@ -244,68 +244,41 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     print("\nPreparing asteroseismic input ...")
 
     fitfreqs = inputparams.get("fitfreqs")
-    (
-        freqfilename,
-        glitchfilename,
-        correlations,
-        bexp,
-        freqfits,
-        seisw,
-        threepoint,
-        readratios,
-    ) = fitfreqs
 
     # Get frequency correction method
-    fcor = inputparams.get("fcor", "BG14")
+    fcor = fitfreqs.get("fcor", "BG14")
     if fcor not in ["None", *freqtypes.surfeffcorrs]:
         raise ValueError(
             f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}'
         )
 
     # Get numax
-    if inputparams.get("numax", False) is False:
+    numax = fitfreqs.get("numax", False)  # *numsun in solar units
+    if not numax:
         numaxerr = (
             "ERROR: numax must be specified when fitting individual"
             + " frequencies or ratios!"
         )
         raise ValueError(numaxerr)
-    numax = inputparams.get("numax")  # *numsun in solar units
 
     # Just check if 'dnufit' is specified, will be used otherwhere
-    if inputparams.get("dnufit", False) is False:
+    if fitfreqs.get("dnufit", False) is False:
         raise ValueError("ERROR: We need a deltanu value!")
 
-    # Read dnu-constraint value
-    dnufrac = inputparams.get("dnufrac", 0.15)
-
-    if "freqs" in freqfits and correlations:
-        getfreqcovar = True
-    else:
-        getfreqcovar = False
-
-    # Get the nottrustedfile for excempted modes
-    nottrustedfile = inputparams.get("nottrustedfile")
-
+    # Get freqplots for what additional to compute to generate plots
     freqplots = inputparams.get("freqplots")
 
     # Load or compute frequency-dependent products
     obskey, obs, obsfreqdata, obsfreqmeta = fio.read_allseismic(
-        freqfilename,
-        glitchfilename,
-        freqfits,
-        numax,
+        fitfreqs,
         freqplots,
-        getfreqcovar=getfreqcovar,
-        nottrustedfile=nottrustedfile,
-        threepoint=threepoint,
-        readratios=readratios,
         verbose=verbose,
         debug=debug,
     )
 
     # Compute the intervals used in frequency fitting
-    if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in freqfits]):
-        obsintervals = freq_fit.make_intervals(obs, obskey, dnu=inputparams["dnufit"])
+    if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]]):
+        obsintervals = freq_fit.make_intervals(obs, obskey, dnu=fitfreqs["dnufit"])
     else:
         obsintervals = None
 
@@ -313,9 +286,6 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     return (
         obskey,
         obs,
-        numax,
-        dnufrac,
-        fcor,
         obsfreqdata,
         obsfreqmeta,
         obsintervals,

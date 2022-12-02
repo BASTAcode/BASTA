@@ -1345,15 +1345,8 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
 
 
 def read_allseismic(
-    filename,
-    glitchfilename,
-    allfits,
-    numax,
+    fitfreqs,
     freqplots,
-    getfreqcovar=False,
-    nottrustedfile=None,
-    threepoint=False,
-    readratios=False,
     verbose=False,
     debug=False,
 ):
@@ -1363,26 +1356,10 @@ def read_allseismic(
 
     Parameters
     ----------
-    filename : string
-        Name of file to read
-    glitchfilename : str
-        Name of file containing glitch parameters and covariances.
-    allfits : list
-        Type of fits available for individual frequencies
-    numax : scalar
-        Frequency of maximum power
+    fitfreqs : dict
+        Contains all frequency related input needed for reading.
     freqplots : list
         List of frequency-dependent fits
-    getfreqcovar : bool
-        Whether to try to read frequency covariances from the input xml
-    nottrustedfile : str or None.
-        Name of file containing the (l, n) values of frequencies to be
-        omitted in the fit. If None, no modes will be excluded.
-    threepoint : bool
-        If True, use three point definition of r01 and r10 ratios
-        instead of default five point definition.
-    readratios : bool
-        If True, look in xml file for precomputed r010 and r02 ratios.
     verbose : bool, optional
         If True, extra text will be printed to log (for developers).
     debug : bool, optional
@@ -1412,8 +1389,17 @@ def read_allseismic(
     dnudata_err : scalar
         Uncertainty on dnudata.
     """
+
+    if "freqs" in fitfreqs["fittypes"] and fitfreqs["correlations"]:
+        obskey, obs, obscov = read_freq(
+            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=True
+        )
+    else:
+        obskey, obs, obscov = read_freq(
+            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=False
+        )
+
     # Observed frequencies
-    obskey, obs, obscov = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
 
     # Ratios and covariances
     # Check if it is unnecesarry to compute ratios
@@ -1421,18 +1407,18 @@ def read_allseismic(
         obskey,
         obs,
         obscov,
-        allfits,
+        fitfreqs["fittypes"],
         freqplots,
-        numax=numax,
+        numax=fitfreqs["numax"],
         debug=debug,
     )
 
     # Compute or dataread in required ratios
     if obsfreqmeta["getratios"]:
         readratiotypes = []
-        if readratios:
+        if fitfreqs["readratios"]:
             # Parse the XML file:
-            tree = ElementTree.parse(filename)
+            tree = ElementTree.parse(fitfreqs["freqfile"])
             root = tree.getroot()
 
             # Find a list of all available frequency ratios:
@@ -1442,9 +1428,9 @@ def read_allseismic(
                     obskey,
                     obs,
                     ratiotype,
-                    filename,
-                    nottrustedfile,
-                    threepoint=threepoint,
+                    fitfreqs["freqfile"],
+                    fitfreqs["nottrustedfile"],
+                    threepoint=fitfreqs["threepoint"],
                     verbose=verbose,
                 )
                 obsfreqdata[ratiotype] = {}
@@ -1457,7 +1443,7 @@ def read_allseismic(
         ) - set(readratiotypes):
             obsfreqdata[ratiotype] = {}
             datos = freq_fit.compute_ratios(
-                obskey, obs, ratiotype, threepoint=threepoint
+                obskey, obs, ratiotype, threepoint=fitfreqs["threepoint"]
             )
             if datos is not None:
                 obsfreqdata[ratiotype]["data"] = datos[0]
@@ -1479,7 +1465,7 @@ def read_allseismic(
     # Get glitches
     if obsfreqmeta["getglitch"]:
         obsfreqdata["glitches"] = {}
-        datos = read_glitch(glitchfilename)
+        datos = read_glitch(fitfreqs["glhfile"])
         obsfreqdata["glitches"]["data"] = datos[0]
         obsfreqdata["glitches"]["cov"] = datos[1]
         obsfreqdata["glitches"]["covinv"] = datos[2]
@@ -1491,16 +1477,13 @@ def read_allseismic(
         ):
             obsfreqdata[epsdifffit] = {}
             if epsdifffit in obsfreqmeta["epsdiff"]["fit"]:
-                if debug:
-                    print(f"* Computing epsilon differences sequence {epsdifffit}")
                 datos = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
-                    seq=epsdifffit,
+                    sequence=epsdifffit,
+                    debug=debug,
                 )
-                if debug:
-                    print("done!")
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
                 obsfreqdata[epsdifffit]["covinv"] = datos[2]
@@ -1520,13 +1503,15 @@ def read_allseismic(
             if debug:
                 print("* Resampling epsilon differences covariances for debug plot")
                 debugplotidstr = f"_{epsdifffit}_epsdiff_and_cov.png"
-                epsdiff_plotname = filename.split(".xml")[0] + debugplotidstr
+                epsdiff_plotname = (
+                    fitfreqs["freqfile"].split(".xml")[0] + debugplotidstr
+                )
                 # Get epsilon differences with reverse sorting
                 dbg_epsdiff, dbg_covepsdiff, _ = freq_fit.compute_epsilondiff(
                     obskey,
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
-                    seq=epsdifffit,
+                    sequence=epsdifffit,
                     nsorting=False,
                     debug=debug,
                 )

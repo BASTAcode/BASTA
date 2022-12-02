@@ -44,7 +44,8 @@ splinecolor = "0.7"
 def echelle(
     selectedmodels,
     Grid,
-    freqfile,
+    obs,
+    obskey,
     mod=None,
     modkey=None,
     dnu=None,
@@ -67,8 +68,10 @@ def echelle(
         Contains information on all models with a non-zero likelihood.
     Grid : hdf5 object
         The already loaded grid, containing the tracks/isochrones.
-    freqfile : str
-        Name of file containing frequencies
+    obs : array or None
+        Array of observed modes.
+    obskey : array or None
+        Array of mode identification observed modes.
     mod : array or None
         Array of modes in a given model.
         If None, `mod` will be found from the most likely model in
@@ -121,7 +124,6 @@ def echelle(
         modx = dnu
         scalex = 1
 
-    obskey, obs, _ = fio.read_freq(freqfile, nottrustedfile=None)
     obsls = np.unique(obskey[0, :]).astype(str)
 
     if (mod is None) and (modkey is None):
@@ -429,7 +431,6 @@ def echelle(
 
 
 def ratioplot(
-    freqfile,
     obsfreqdata,
     obsfreqmeta,
     joinkeys,
@@ -443,8 +444,6 @@ def ratioplot(
 
     Parameters
     ----------
-    freqfile : str
-        Name of file containing frequencies and ratio types
     obsfreqdata : dict
         Requested frequency-dependent data such as glitches, ratios, and
         epsilon difference. It also contains the covariance matrix and its
