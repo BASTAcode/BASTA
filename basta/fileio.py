@@ -1534,6 +1534,13 @@ def read_allseismic(
                     epsdiff_plotname,
                 )
 
+    # Diagonalise covariance matrices if correlations is set to False
+    if not fitfreqs["correlations"]:
+        for key in obsfreqdata.keys():
+            for mat in ["cov", "covinv"]:
+                full = obsfreqdata[key][mat]
+                obsfreqdata[key][mat] = np.identity(full.shape[0]) * full
+
     return obskey, obs, obsfreqdata, obsfreqmeta
 
 
