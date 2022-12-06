@@ -282,6 +282,7 @@ def chi2_astero(
             mod,
             libitem["dnufit"][ind],
             sequence=epsdifftype,
+            nsorting=fitfreqs["nsorting"],
         )
 
         # Interpolate model epsdiff to the frequencies of the observations

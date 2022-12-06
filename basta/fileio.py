@@ -1477,6 +1477,7 @@ def read_allseismic(
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
                     sequence=epsdifffit,
+                    nsorting=fitfreqs["nsorting"],
                     debug=debug,
                 )
                 obsfreqdata[epsdifffit]["data"] = datos[0]
@@ -1488,7 +1489,9 @@ def read_allseismic(
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
                     sequence=epsdifffit,
+                    nsorting=fitfreqs["nsorting"],
                     nrealisations=2000,
+                    debug=debug,
                 )
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]

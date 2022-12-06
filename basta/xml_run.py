@@ -514,6 +514,9 @@ def run_xml(
         fitfreqs["interp_ratios"] = strtobool(
             _find_get(root, "default/freqparams/interp_ratios", "value", defa="False")
         )
+        fitfreqs["nsorting"] = strtobool(
+            _find_get(root, "default/freqparams/nsorting", "value", defa="True")
+        )
 
         # Read seismic weight quantities
         dof = _find_get(root, "default/freqparams/dof", "value", None)
