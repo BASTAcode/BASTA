@@ -1323,15 +1323,10 @@ def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
             getepsdiff = False
 
     if getratios:
-        # As r01 and r10 contains the same information, we only plot one of them
-        if all(x in plotratiotypes for x in ["r01", "r10"]):
-            if debug:
-                print("* BASTA removes r10 from list of plotted ratios")
-            plotratiotypes.remove("r10")
-
         obsfreqmeta["ratios"] = {}
         obsfreqmeta["ratios"]["fit"] = fitratiotypes
         obsfreqmeta["ratios"]["plot"] = plotratiotypes
+
     if getepsdiff:
         obsfreqmeta["epsdiff"] = {}
         obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
@@ -1498,41 +1493,6 @@ def read_allseismic(
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
                 obsfreqdata[epsdifffit]["covinv"] = datos[2]
-
-            # Epsilon differences debug plot production
-            if debug:
-                print("* Resampling epsilon differences covariances for debug plot")
-                debugplotidstr = f"_{epsdifffit}_epsdiff_and_cov.png"
-                epsdiff_plotname = (
-                    fitfreqs["freqfile"].split(".xml")[0] + debugplotidstr
-                )
-                # Get epsilon differences with reverse sorting
-                dbg_epsdiff, dbg_covepsdiff, _ = freq_fit.compute_epsilondiff(
-                    obskey,
-                    obs,
-                    obsfreqdata["freqs"]["dnudata"],
-                    sequence=epsdifffit,
-                    nsorting=False,
-                    debug=debug,
-                )
-                # Make the plot of the correlation matrix
-                # --> Yes, importing here is dirty. but no need for a general import!
-                from basta.plot_seismic import epsilon_diff_and_correlation
-
-                epsilon_diff_and_correlation(
-                    datos[0],
-                    dbg_epsdiff,
-                    datos[1],
-                    dbg_covepsdiff,
-                    obs,
-                    obskey,
-                    obsfreqdata["freqs"]["dnudata"],
-                    epsdiff_plotname,
-                )
-                print(
-                    "* Saved correlation maps and epsilon differences as ",
-                    epsdiff_plotname,
-                )
 
     # Diagonalise covariance matrices if correlations is set to False
     if not fitfreqs["correlations"]:

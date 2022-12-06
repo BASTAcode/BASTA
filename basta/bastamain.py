@@ -251,16 +251,6 @@ def BASTA(
 
     # Prepare asteroseismic quantities if required
     if fitfreqs["active"]:
-        # (
-        #    glitchfilename,
-        #    correlations,
-        #    bexp,
-        #    freqfits,
-        #    seisw,
-        #    threepoint,
-        #    readratios,
-        # ) = fitfreqs
-        # TODO
         if not all(x in freqtypes.alltypes for x in fitfreqs["fittypes"]):
             print(fitfreqs["fittypes"])
             raise ValueError("Unrecognized frequency fitting parameters!")
@@ -339,9 +329,19 @@ def BASTA(
             print("* Fitting of frequency glitches activated!")
         elif "freqs" in fitfreqs["fittypes"]:
             print("* Fitting of individual frequencies activated!")
-        else:
+        elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
             print(
-                "* Fitting of frequency ratios {{{0}}} activated!".format(
+                "* Fitting of frequency ratios {0} activated!".format(
+                    ", ".join(fitfreqs["fittypes"])
+                )
+            )
+            if "r010" in fitfreqs["fittypes"]:
+                print(
+                    "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
+                )
+        elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
+            print(
+                "* Fitting of epsilon differences {0} activated!".format(
                     ", ".join(fitfreqs["fittypes"])
                 )
             )
@@ -788,10 +788,8 @@ def BASTA(
             freqplots += ["ratios"]
 
         # Naming of plots preparation
-        # NOTE: Ratios are hardwired as pdf because they use PdfPages as backend
         plotfmt = inputparams["plotfmt"]
         plotfname = outfilename + "_{0}." + plotfmt
-        ratioplotname = outfilename + "_ratios.pdf"
 
         rawmaxmod = Grid[maxPDF_path + "/osc"][maxPDF_ind]
         rawmaxmodkey = Grid[maxPDF_path + "/osckey"][maxPDF_ind]
@@ -933,35 +931,51 @@ def BASTA(
                 pair=True,
                 output=plotfname.format("dupechelle"),
             )
+        if "freqcormap" in freqplots or debug:
+            plot_seismic.correlation_map(
+                "freqs",
+                obsfreqdata,
+                plotfname.format("freqs_cormap"),
+                obskey=obskey,
+            )
         if obsfreqmeta["getratios"]:
-            if len(obsfreqmeta["ratios"]["plot"]) > 0:
+            for ratseq in obsfreqmeta["ratios"]["plot"]:
+                ratnamestr = "ratios_{0}".format(ratseq)
                 plot_seismic.ratioplot(
                     obsfreqdata,
-                    obsfreqmeta,
                     maxjoinkeys,
                     maxjoin,
-                    output=ratioplotname,
+                    ratseq,
+                    output=plotfname.format(ratnamestr),
                     threepoint=fitfreqs["threepoint"],
                 )
-                plot_seismic.ratio_cormap(
-                    obsfreqdata,
-                    obsfreqmeta,
-                    output=plotfname.format("ratios_cormap"),
-                )
+                if fitfreqs["correlations"]:
+                    plot_seismic.correlation_map(
+                        ratseq,
+                        obsfreqdata,
+                        output=plotfname.format(ratnamestr + "_cormap"),
+                    )
 
         if obsfreqmeta["getepsdiff"]:
-            if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
+            for epsseq in obsfreqmeta["epsdiff"]["plot"]:
+                epsnamestr = "epsdiff_{0}".format(epsseq)
                 plot_seismic.epsilon_difference_diagram(
                     mod=maxmod,
                     modkey=maxmodkey,
                     moddnu=maxmoddnu,
+                    sequence=epsseq,
                     obsfreqdata=obsfreqdata,
-                    obsfreqmeta=obsfreqmeta,
-                    output=plotfname.format("epsilon_differences"),
+                    output=plotfname.format(epsnamestr),
                 )
-        if obsfreqmeta["getepsdiff"]:
+                if fitfreqs["correlations"]:
+                    plot_seismic.correlation_map(
+                        epsseq,
+                        obsfreqdata,
+                        output=plotfname.format(epsnamestr + "_cormap"),
+                    )
+        if obsfreqmeta["getepsdiff"] and debug:
             if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
-                plot_seismic.epsilon_difference_all_diagram(
+                plot_seismic.epsilon_difference_components_diagram(
                     mod=maxmod,
                     modkey=maxmodkey,
                     moddnu=maxmoddnu,
@@ -970,7 +984,7 @@ def BASTA(
                     dnudata=obsfreqdata["freqs"]["dnudata"],
                     obsfreqdata=obsfreqdata,
                     obsfreqmeta=obsfreqmeta,
-                    output=plotfname.format("epsilon_differences_all"),
+                    output=plotfname.format("DEBUG_epsdiff_components"),
                 )
     else:
         print(
