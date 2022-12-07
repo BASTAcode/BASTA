@@ -535,3 +535,49 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
     n_covinv = np.linalg.pinv(n_cov, rcond=1e-8)
 
     return n_cov, n_covinv
+
+
+def extend_modjoin(joinkey, join, modkey, mod):
+    """
+    Re-determines modkey and mod for an extended range of model frequencies.
+    Needed for constructing ratios that are interpolated at observed
+    frequencies, to avoid extrapolation.
+    For each degree l it finds a mode n lower and higher, and appends these.
+
+    Parameters
+    ----------
+    joinkey : array
+        Joined frequency identification keys of observations and model.
+    join : array
+        Joined frequencies of observations and model.
+    modkey : array
+        All frequency identification keys of the model.
+    mod : array
+        All frequencies of the model.
+
+    Returns
+    -------
+    key : array
+        The extended array of frequency identification keys.
+    osc : array
+        The extended array of frequencies.
+    """
+    key = deepcopy(joinkey[:2])
+    osc = deepcopy(join[:2])
+    # We need additional of each degree
+    for ll in set(key[0, :]):
+        modkey_gl, mod_gl = get_givenl(l=ll, osc=mod, osckey=modkey)
+        key_gl, _ = get_givenl(l=ll, osc=osc, osckey=key)
+        # Check we can extend
+        if min(modkey_gl[1]) >= min(key_gl[1]) or max(modkey_gl[1]) <= max(key_gl[1]):
+            return None, None
+        # Find and append one below and one above
+        for target in [min(key_gl[1]) - 1, max(key_gl[1]) + 1]:
+            ind = np.where(modkey_gl[1] == target)[0]
+            key = np.hstack((key, modkey_gl[:, ind]))
+            osc = np.hstack((osc, mod_gl[:, ind]))
+    # Sort by l then n
+    mask = np.lexsort((key[1], key[0]))
+    key = key[:, mask]
+    osc = osc[:, mask]
+    return key, osc

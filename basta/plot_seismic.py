@@ -5,7 +5,7 @@ import os
 import numpy as np
 import matplotlib
 
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import interp1d, CubicSpline
 
 import basta.fileio as fio
 from basta import utils_seismic as su
@@ -438,6 +438,7 @@ def ratioplot(
     ratiotype,
     output=None,
     threepoint=False,
+    interp_ratios=True,
 ):
     """
     Plot frequency ratios.
@@ -467,6 +468,10 @@ def ratioplot(
     threepoint : bool
         If True, use three point definition of r01 and r10 ratios instead
         of default five point definition.
+    interp_ratios : bool
+        If True (default), plot how the model ratios are linearly interpolated
+        to the frequencies of the observed ratios, in order to compare the
+        sequences at the same frequencies.
     """
     fig, ax = plt.subplots(1, 1)
 
@@ -517,10 +522,28 @@ def ratioplot(
             zorder=-1,
         )
 
+        if interp_ratios:
+            intfunc = interp1d(
+                modratio[1, modmask], modratio[0, modmask], kind="linear"
+            )
+            newmod = intfunc(obsratio[1, obsmask])
+            marker = splinemarkers[1] if "1" in rtype else splinemarkers[2]
+            ax.plot(
+                obsratio[1, obsmask],
+                newmod,
+                marker=marker,
+                color="k",
+                markeredgewidth=2,
+                alpha=0.7,
+                lw=0,
+                label=r"$r_{{{:02d}}}(\nu^{\mathrm{obs}}$".format(int(rtype)),
+            )
+
+    nbase = 3 if interp_ratios else 2
     lgnd = ax.legend(
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
-        ncol=2 * len(set(obsratio[2, :])),
+        ncol=nbase * len(set(obsratio[2, :])),
         mode="expand",
         borderaxespad=0.0,
     )

@@ -633,6 +633,7 @@ def BASTA(
                         chi2_freq, warn, shapewarn = stats.chi2_astero(
                             obskey,
                             obs,
+                            obsfreqmeta,
                             obsfreqdata,
                             obsintervals,
                             libitem,
@@ -948,6 +949,7 @@ def BASTA(
                     ratseq,
                     output=plotfname.format(ratnamestr),
                     threepoint=fitfreqs["threepoint"],
+                    interp_ratios=fitfreqs["interp_ratios"],
                 )
                 if fitfreqs["correlations"]:
                     plot_seismic.correlation_map(

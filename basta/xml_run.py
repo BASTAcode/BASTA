@@ -512,7 +512,7 @@ def run_xml(
             )
         )
         fitfreqs["interp_ratios"] = strtobool(
-            _find_get(root, "default/freqparams/interp_ratios", "value", defa="False")
+            _find_get(root, "default/freqparams/interp_ratios", "value", defa="True")
         )
         fitfreqs["nsorting"] = strtobool(
             _find_get(root, "default/freqparams/nsorting", "value", defa="True")

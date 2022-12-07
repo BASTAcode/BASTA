@@ -1,6 +1,7 @@
 """
 Key statistics functions
 """
+import copy
 import math
 import collections
 
@@ -56,6 +57,7 @@ def _weight(N, seisw):
 def chi2_astero(
     obskey,
     obs,
+    obsfreqmeta,
     obsfreqdata,
     obsintervals,
     libitem,
@@ -76,6 +78,9 @@ def chi2_astero(
         Array containing the angular degrees and radial orders of obs
     obs : array
         Array containing the modes in the observed data
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
     obsfreqdata : dict
         Combinations of frequencies read from the frequency input files.
         Contains ratios, glitches, epsilon differences and covariance matrices.
@@ -207,15 +212,39 @@ def chi2_astero(
             chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
 
         # Add frequency ratios terms
-        ratiotype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.rtypes))[0]
-        modratio = freq_fit.compute_ratioseqs(
-            joinkeys, join, ratiotype, threepoint=fitfreqs["threepoint"]
-        )
+        ratiotype = obsfreqmeta["ratios"]["fit"][0]
 
         # Interpolate model ratios to observed frequencies
         if fitfreqs["interp_ratios"]:
-            intfunc = interp1d(modratio[1, :], modratio[0, :], kind="linear")
-            modratio[0, :] = intfunc(obsfreqdata[ratiotype]["data"][1, :])
+            # Get extended frequency modes to provide interpolation range of ratios
+            broad_key, broad_osc = su.extend_modjoin(joinkeys, join, modkey, mod)
+            if interp_key is None:
+                shapewarn = True
+                chi2rut = np.inf
+                return chi2rut, warnings, shapewarn
+            # Get model ratios
+            broadratio = freq_fit.compute_ratioseqs(
+                broad_key,
+                broad_osc,
+                ratiotype,
+                threepoint=fitfreqs["threepoint"],
+            )
+            modratio = copy.deepcopy(obsfreqdata[ratiotype]["data"])
+            # Seperate and interpolate within the separate r01, r10 and r02 sequences
+            for rtype in set(obsfreqdata[ratiotype]["data"][2, :]):
+                obsmask = obsfreqdata[ratiotype]["data"][2, :] == rtype
+                modmask = broadratio[2, :] == rtype
+                intfunc = interp1d(
+                    broadratio[1, modmask], broadratio[0, modmask], kind="linear"
+                )
+                modratio[0, obsmask] = intfunc(
+                    obsfreqdata[ratiotype]["data"][1, obsmask]
+                )
+
+        else:
+            modratio = freq_fit.compute_ratioseqs(
+                joinkeys, join, ratiotype, threepoint=fitfreqs["threepoint"]
+            )
 
         # Calculate chi square with chosen asteroseismic weight
         x = obsfreqdata[ratiotype]["data"][0, :] - modratio[0, :]
