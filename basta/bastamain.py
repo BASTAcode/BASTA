@@ -946,6 +946,8 @@ def BASTA(
                     obsfreqdata,
                     maxjoinkeys,
                     maxjoin,
+                    maxmodkey,
+                    maxmod,
                     ratseq,
                     output=plotfname.format(ratnamestr),
                     threepoint=fitfreqs["threepoint"],

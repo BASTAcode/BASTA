@@ -218,7 +218,7 @@ def chi2_astero(
         if fitfreqs["interp_ratios"]:
             # Get extended frequency modes to provide interpolation range of ratios
             broad_key, broad_osc = su.extend_modjoin(joinkeys, join, modkey, mod)
-            if interp_key is None:
+            if broad_key is None:
                 shapewarn = True
                 chi2rut = np.inf
                 return chi2rut, warnings, shapewarn

@@ -435,6 +435,8 @@ def ratioplot(
     obsfreqdata,
     joinkeys,
     join,
+    modkey,
+    mod,
     ratiotype,
     output=None,
     threepoint=False,
@@ -458,6 +460,10 @@ def ratioplot(
         and modelled modes.
     join : array
         Array containing the matched observed and modelled modes.
+    modkey : array
+        Array containing the mode identification of the modelled modes.
+    mod : array
+        Array containing the modelled modes.
     ratiotype : str
         Key for the ratio sequence to be plotted (e.g. `r01`, `r02`, `r012`)
     output : str or None, optional
@@ -478,9 +484,16 @@ def ratioplot(
     obsratio = obsfreqdata[ratiotype]["data"]
     obsratio_cov = obsfreqdata[ratiotype]["cov"]
     obsratio_err = np.sqrt(np.diag(obsratio_cov))
-    modratio = freq_fit.compute_ratioseqs(
-        joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
-    )
+
+    if interp_ratios:
+        broad_key, broad_osc = su.extend_modjoin(joinkeys, join, modkey, mod)
+        modratio = freq_fit.compute_ratioseqs(
+            broad_key, broad_osc, ratiotype, threepoint=threepoint
+        )
+    else:
+        modratio = freq_fit.compute_ratioseqs(
+            joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
+        )
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
@@ -527,7 +540,7 @@ def ratioplot(
                 modratio[1, modmask], modratio[0, modmask], kind="linear"
             )
             newmod = intfunc(obsratio[1, obsmask])
-            marker = splinemarkers[1] if "1" in rtype else splinemarkers[2]
+            marker = splinemarkers[1] if "1" in str(rtype) else splinemarkers[2]
             ax.plot(
                 obsratio[1, obsmask],
                 newmod,
@@ -536,7 +549,8 @@ def ratioplot(
                 markeredgewidth=2,
                 alpha=0.7,
                 lw=0,
-                label=r"$r_{{{:02d}}}(\nu^{\mathrm{obs}}$".format(int(rtype)),
+                zorder=5,
+                label=r"$r_{{{:02d}}}(\nu^{{\mathrm{{obs}}}})$".format(int(rtype)),
             )
 
     nbase = 3 if interp_ratios else 2
