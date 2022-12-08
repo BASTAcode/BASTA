@@ -494,11 +494,13 @@ def ratioplot(
         modratio = freq_fit.compute_ratioseqs(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
         )
+
+    handles = []
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
         rtname = "r{:02d}".format(int(rtype))
-        ax.scatter(
+        modp = ax.scatter(
             modratio[1, modmask],
             modratio[0, modmask],
             marker=modmarkers["ratio"],
@@ -511,11 +513,12 @@ def ratioplot(
             modratio[1, modmask],
             modratio[0, modmask],
             "-",
-            color=colors[rtname],
+            color="darkgrey",
+            alpha=0.9,
             zorder=-1,
         )
 
-        ax.errorbar(
+        obsp = ax.errorbar(
             obsratio[1, obsmask],
             obsratio[0, obsmask],
             yerr=obsratio_err[obsmask],
@@ -541,7 +544,7 @@ def ratioplot(
             )
             newmod = intfunc(obsratio[1, obsmask])
             marker = splinemarkers[1] if "1" in str(rtype) else splinemarkers[2]
-            ax.plot(
+            (intp,) = ax.plot(
                 obsratio[1, obsmask],
                 newmod,
                 marker=marker,
@@ -552,9 +555,14 @@ def ratioplot(
                 zorder=5,
                 label=r"$r_{{{:02d}}}(\nu^{{\mathrm{{obs}}}})$".format(int(rtype)),
             )
+            handles.extend([modp, intp, obsp])
+        else:
+            handles.extend([modp, obsp])
 
     nbase = 3 if interp_ratios else 2
     lgnd = ax.legend(
+        handles,
+        [h.get_label() for h in handles],
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
         ncol=nbase * len(set(obsratio[2, :])),
