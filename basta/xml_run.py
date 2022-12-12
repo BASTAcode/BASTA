@@ -725,8 +725,8 @@ def run_xml(
                 fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
                 fitfreqs["numax"] = float(_find_get(star, "numax", "value"))
 
-                # Add to inputparams
-                inputparams["fitfreqs"] = fitfreqs
+            # Add to inputparams
+            inputparams["fitfreqs"] = fitfreqs
 
             # Add parameters to inputparams
             inputparams["fitparams"] = starfitparams

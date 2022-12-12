@@ -324,7 +324,7 @@ def BASTA(
         print("  - {0}: {1}".format(fpstr, fitparams[fp]))
 
     # Fitting info: Frequencies
-    if fitfreqs:
+    if fitfreqs["active"]:
         if "glitches" in fitfreqs["fittypes"]:
             print("* Fitting of frequency glitches activated!")
         elif "freqs" in fitfreqs["fittypes"]:
@@ -628,7 +628,7 @@ def BASTA(
                         paramvalues[param] = libitem[param][index]
 
                 # Frequency (and/or ratio and/or glitch) fitting
-                if fitfreqs:
+                if fitfreqs["active"]:
                     for indd, ind in enumerate(np.where(index)[0]):
                         chi2_freq, warn, shapewarn = stats.chi2_astero(
                             obskey,
@@ -780,7 +780,7 @@ def BASTA(
 
     # Make frequency-related plots
     freqplots = inputparams.get("freqplots")
-    if fitfreqs and len(freqplots):
+    if fitfreqs["active"] and len(freqplots):
         # Check which plots to create
         allfplots = freqplots[0] == True
         if any(x == "echelle" for x in freqplots):

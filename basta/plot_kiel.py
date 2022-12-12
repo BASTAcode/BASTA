@@ -460,7 +460,7 @@ def kiel(
 
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
-        if fitfreqs and toggle_freqs:
+        if fitfreqs["active"] and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
             dnufrac = fitfreqs.get("dnufrac", 0.15)
