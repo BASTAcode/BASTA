@@ -371,7 +371,12 @@ def _get_intpol(root, gridfile, freqpath=None):
 # MAIN ROUTINE
 #####################
 def run_xml(
-    xmlfile, debug=False, verbose=False, experimental=False, validationmode=False
+    xmlfile,
+    seed=None,
+    debug=False,
+    verbose=False,
+    experimental=False,
+    validationmode=False,
 ):
     """
     Runs BASTA using an xml file as input. This is how you should run BASTA!
@@ -380,6 +385,8 @@ def run_xml(
     ----------
     xmlfile : str
         Absolute path to the xml file
+    seed : int, optional
+        The set seed of randomness
     debug : bool, optional
         Activate additional output for debugging (for developers)
     verbose : bool, optional
@@ -408,7 +415,7 @@ def run_xml(
     defaultfit = {}
     overwriteparams = {}
     fitparams = []
-    fitfreqs = False
+    fitfreqs = {"active": False}
     fitdist = False
     stdout = sys.stdout
 
@@ -443,12 +450,15 @@ def run_xml(
     # Type of reported values for centroid and reported uncertainties
     inputparams = _centroid_and_uncert(root, inputparams)
 
-    # Get the fit parameters
-    freqfittypes = ()
+    # Check for frequency fitting and activate
+    if any(x.tag in freqtypes.alltypes for x in root.findall("default/fitparams/")):
+        fitfreqs["active"] = True
+        fitfreqs["fittypes"] = []
+
+    # Extract and classify fitparameters
     for param in root.findall("default/fitparams/"):
         if param.tag in freqtypes.alltypes:
-            fitfreqs = True
-            freqfittypes += (param.tag,)
+            fitfreqs["fittypes"].append(param.tag)
         if param.tag == "parallax":
             fitdist = True
         fitparams.append(param.tag)
@@ -478,22 +488,38 @@ def run_xml(
         fitdist = True
 
     # Extract parameters for frequency fitting
-    if fitfreqs:
-        freqpath = _find_get(root, "default/freqparams/freqpath", "value")
-        fcor = _find_get(root, "default/freqparams/fcor", "value", "cubicBG14")
-        if fcor == "HK08":
-            bexp = float(_find_get(root, "default/freqparams/bexp", "value"))
+    if fitfreqs["active"]:
+        fitfreqs["freqpath"] = _find_get(root, "default/freqparams/freqpath", "value")
+        fitfreqs["fcor"] = _find_get(
+            root, "default/freqparams/fcor", "value", "cubicBG14"
+        )
+        if fitfreqs["fcor"] == "HK08":
+            fitfreqs["bexp"] = float(
+                _find_get(root, "default/freqparams/bexp", "value")
+            )
         else:
-            bexp = None
-        correlations = strtobool(
+            fitfreqs["bexp"] = None
+        fitfreqs["correlations"] = strtobool(
             _find_get(root, "default/freqparams/correlations", "value", "False")
         )
-        threepoint = strtobool(
+        fitfreqs["threepoint"] = strtobool(
             _find_get(root, "default/freqparams/threepoint", "value", "False")
         )
-        dnufrac = float(_find_get(root, "default/freqparams/dnufrac", "value", 0.15))
-        inputparams["fcor"] = fcor
-        inputparams["dnufrac"] = dnufrac
+        fitfreqs["readratios"] = strtobool(
+            _find_get(root, "default/freqparams/readratios", "value", "False")
+        )
+        fitfreqs["dnufrac"] = float(
+            _find_get(root, "default/freqparams/dnufrac", "value", 0.15)
+        )
+        fitfreqs["dnufit_in_ratios"] = strtobool(
+            _find_get(root, "default/freqparams/dnufit_in_ratios", "value", "False")
+        )
+        fitfreqs["interp_ratios"] = strtobool(
+            _find_get(root, "default/freqparams/interp_ratios", "value", "True")
+        )
+        fitfreqs["nsorting"] = strtobool(
+            _find_get(root, "default/freqparams/nsorting", "value", "True")
+        )
 
         # Read seismic weight quantities
         dof = _find_get(root, "default/freqparams/dof", "value", None)
@@ -506,7 +532,7 @@ def run_xml(
 
         # Fill weight related things into one dict  to not spam other routines with
         # redundant input
-        seismicweights = {"weight": seisw, "dof": dof, "N": N}
+        fitfreqs["seismicweights"] = {"weight": seisw, "dof": dof, "N": N}
 
     # Get bayesian weights
     # --> If not provided by the user, assume them to be active
@@ -564,8 +590,8 @@ def run_xml(
                 "compile the external modules? Aborting...",
             )
             sys.exit(1)
-        elif fitfreqs:
-            allintpol = _get_intpol(root, grid, freqpath)
+        elif fitfreqs["active"]:
+            allintpol = _get_intpol(root, grid, fitfreqs["freqpath"])
         else:
             allintpol = _get_intpol(root, grid)
     else:
@@ -680,30 +706,30 @@ def run_xml(
                         starfitparams[param] = (float(gparams[0]), float(gparams[1]))
 
             # Collect by-star frequency fit information
-            if fitfreqs:
-                glhfile = None
-                if "glitches" in freqfittypes:
-                    glhfile = os.path.join(freqpath, starid + ".glh")
-
-                freqfile = os.path.join(freqpath, starid + ".xml")
-                freqinput = (
-                    freqfile,
-                    glhfile,
-                    correlations,
-                    bexp,
-                    freqfittypes,
-                    seismicweights,
-                    threepoint,
+            if fitfreqs["active"]:
+                # Input files
+                fitfreqs["freqfile"] = os.path.join(
+                    fitfreqs["freqpath"], starid + ".xml"
                 )
-
-                inputparams["fitfreqs"] = freqinput
-                inputparams["numax"] = float(_find_get(star, "numax", "value"))
-                inputparams["dnufit"] = float(_find_get(star, "dnu", "value"))
+                if "glitches" in fitfreqs["fittypes"]:
+                    fitfreqs["glhfile"] = os.path.join(
+                        fitfreqs["freqpath"], starid + ".glh"
+                    )
+                else:
+                    fitfreqs["glhfile"] = None
                 try:
-                    nottrustedfile = star.find("nottrustedfile").get("value")
+                    fitfreqs["nottrustedfile"] = star.find("nottrustedfile").get(
+                        "value"
+                    )
                 except AttributeError:
-                    nottrustedfile = None
-                inputparams["nottrustedfile"] = nottrustedfile
+                    fitfreqs["nottrustedfile"] = None
+
+                # dnufit for prior, numax for scaling
+                fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
+                fitfreqs["numax"] = float(_find_get(star, "numax", "value"))
+
+            # Add to inputparams
+            inputparams["fitfreqs"] = fitfreqs
 
             # Add parameters to inputparams
             inputparams["fitparams"] = starfitparams
@@ -798,6 +824,7 @@ def run_xml(
                     usepriors=usepriors,
                     inputparams=inputparams,
                     optionaloutputs=useoptoutput,
+                    seed=seed,
                     debug=debug,
                     verbose=verbose,
                     experimental=experimental,

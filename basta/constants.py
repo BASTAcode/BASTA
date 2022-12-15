@@ -24,7 +24,12 @@ class freqtypes:
     rtypes = ["r010", "r02", "r01", "r10", "r012", "r102"]
     freqs = ["freqs"]
     glitches = ["glitches"]
-    alltypes = [*freqs, *glitches, *rtypes]
+    epsdiff = ["e01", "e02", "e012"]
+    alltypes = [*freqs, *glitches, *rtypes, *epsdiff]
+    defaultrtypes = ["r012"]
+    defaultepstypes = ["e012"]
+
+    surfeffcorrs = ["HK08", "BG14", "cubicBG14"]
 
 
 @dataclass
@@ -43,6 +48,8 @@ class parameters:
     # fmt: off
     params = [
               ('modnum', None, r'Model', r'Model number', pcol),
+              ('d02fit', r'microHz', r'$d_{02,{\rm fit}}$ ($\mu$Hz)', r'Weighted mean small frequency separation', '#D36E70'),
+              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)', r'Simple mean small frequency separation', '#D36E70'),
               ('ove', None, r'$\xi_\mathrm{ove}$', r'Overshooting efficiency', pcol),
               ('gcut', None, r'$g_\mathrm{cut}$', r'Geometric cutoff', pcol),
               ('eta', None, r'$\eta$', r'Reimers mass loss', '#858FC2'),

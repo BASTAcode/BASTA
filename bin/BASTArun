@@ -52,24 +52,25 @@ def main():
 
     # Set the random seed if given
     if args.seed is not None:
+        seed = args.seed
         print(
             "\n*** BASTA: Random-numbers initialised with seed {0} ***\n".format(
-                args.seed
+                seed
             )
         )
-        np.random.seed(args.seed)
+    else:
+        seed = np.random.randint(5000)
+
+    np.random.seed(seed)
 
     # Flag the user if running in validation mode
     if args.validation:
         print("\n*** Running in VALIDATION MODE ", end="")
-        if args.seed:
-            print("with seed {0} ... ! ***\n".format(args.seed))
-        else:
-            print("... ! ***\n")
 
     # Call BASTA
     run_xml(
         vars(args)["inputfile"],
+        seed=seed,
         debug=args.debug,
         verbose=args.verbose,
         experimental=args.experimental,

@@ -37,6 +37,7 @@ def BASTA(
     usepriors=(None,),
     inputparams=False,
     optionaloutputs=False,
+    seed=None,
     debug=False,
     verbose=False,
     experimental=False,
@@ -71,6 +72,8 @@ def BASTA(
         output options.
     optionaloutputs : bool, optional
         If True, saves a 'json' file for each star with the global results and the PDF.
+    seed : int, optional
+        The seed of randomness
     debug : bool, optional
         Activate additional output for debugging (for developers)
     verbose : bool, optional
@@ -103,6 +106,7 @@ def BASTA(
     print("\nRun started on {0}.\n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
     if experimental:
         print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
+    print(f"Random numbers initialised with seed {seed}")
 
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(gridfile, "r")
@@ -238,7 +242,7 @@ def BASTA(
 
     # Create list of all available input parameters
     fitparams = inputparams.get("fitparams")
-    fitfreqs = inputparams.get("fitfreqs", False)
+    fitfreqs = inputparams["fitfreqs"]
     distparams = inputparams.get("distanceparams", False)
     limits = inputparams.get("limits")
 
@@ -246,24 +250,19 @@ def BASTA(
     inputparams = su.solar_scaling(Grid, inputparams, diffusion=difsolarmodel)
 
     # Prepare asteroseismic quantities if required
-    if fitfreqs:
-        (freqxml, glhtxt, correlations, bexp, rt, seisw, threepoint) = fitfreqs
-        if not all(x in freqtypes.alltypes for x in rt):
-            raise ValueError("Unrecognized fitting parameters!")
+    if fitfreqs["active"]:
+        if not all(x in freqtypes.alltypes for x in fitfreqs["fittypes"]):
+            print(fitfreqs["fittypes"])
+            raise ValueError("Unrecognized frequency fitting parameters!")
 
         # Obtain/calculate all frequency related quantities
         (
             obskey,
             obs,
-            numax,
-            dnufrac,
-            datos,
-            covinv,
-            fcor,
+            obsfreqdata,
+            obsfreqmeta,
             obsintervals,
-            dnudata,
-            dnudata_err,
-        ) = su.prepare_obs(inputparams, verbose=verbose)
+        ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
 
     # Check if grid is interpolated
     try:
@@ -325,21 +324,33 @@ def BASTA(
         print("  - {0}: {1}".format(fpstr, fitparams[fp]))
 
     # Fitting info: Frequencies
-    if fitfreqs:
-        if "glitches" in rt:
+    if fitfreqs["active"]:
+        if "glitches" in fitfreqs["fittypes"]:
             print("* Fitting of frequency glitches activated!")
-        elif "freqs" in rt:
+        elif "freqs" in fitfreqs["fittypes"]:
             print("* Fitting of individual frequencies activated!")
-        else:
+        elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
             print(
-                "* Fitting of frequency ratios {{{0}}} activated!".format(", ".join(rt))
+                "* Fitting of frequency ratios {0} activated!".format(
+                    ", ".join(fitfreqs["fittypes"])
+                )
+            )
+            if "r010" in fitfreqs["fittypes"]:
+                print(
+                    "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
+                )
+        elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
+            print(
+                "* Fitting of epsilon differences {0} activated!".format(
+                    ", ".join(fitfreqs["fittypes"])
+                )
             )
 
-        if bexp is not None:
-            bexpstr = " with b = {0}".format(bexp)
+        if fitfreqs["bexp"] is not None:
+            bexpstr = " with b = {0}".format(fitfreqs["bexp"])
         else:
             bexpstr = ""
-        if correlations > 0:
+        if fitfreqs["correlations"]:
             corrstr = "Yes"
         else:
             corrstr = "No"
@@ -348,20 +359,22 @@ def BASTA(
                 obskey[1, 0], obs[0, 0]
             ),
             "{0:.3f} muHz to within {1:.1f} % of dnu ({2:.3f} microHz)".format(
-                obs[1, 0], dnufrac * 100, dnufrac * inputparams["dnufit"]
+                obs[1, 0],
+                fitfreqs["dnufrac"] * 100,
+                fitfreqs["dnufrac"] * fitfreqs["dnufit"],
             ),
         )
         print("  - Correlations: {0}".format(corrstr))
-        print("  - Frequency input data: {0}".format(freqxml))
+        print("  - Frequency input data: {0}".format(fitfreqs["freqfile"]))
         print(
             "  - Frequency input data (list of ignored modes): {0}".format(
-                inputparams["nottrustedfile"]
+                fitfreqs["nottrustedfile"]
             )
         )
-        print("  - Surface effect correction: {0}{1}".format(fcor, bexpstr))
-        print("  - Value of dnu: {0:.3f} microHz".format(inputparams["dnufit"]))
-        print("  - Value of numax: {0:.3f} microHz".format(inputparams["numax"]))
-        print("  - Weighting scheme: {0}".format(seisw))
+        print("  - Surface effect correction: {0}{1}".format(fitfreqs["fcor"], bexpstr))
+        print("  - Value of dnu: {0:.3f} microHz".format(fitfreqs["dnufit"]))
+        print("  - Value of numax: {0:.3f} microHz".format(fitfreqs["numax"]))
+        print("  - Weighting scheme: {0}".format(fitfreqs["seismicweights"]["weight"]))
 
     # Fitting info: Distance
     if distparams:
@@ -566,7 +579,7 @@ def BASTA(
                     index &= libitem["phase"][:] == iphase
 
             # Check which models have l=0, lowest n within tolerance
-            if fitfreqs:
+            if fitfreqs["active"]:
                 indexf = np.zeros(len(index), dtype=bool)
                 for ind in np.where(index)[0]:
                     rawmod = libitem["osc"][ind]
@@ -587,10 +600,13 @@ def BASTA(
                         >= (
                             obs[0, 0]
                             - min(
-                                (dnufrac / 2 * inputparams["dnufit"]), (3 * obs[1, 0])
+                                (fitfreqs["dnufrac"] / 2 * fitfreqs["dnufit"]),
+                                (3 * obs[1, 0]),
                             )
                         )
-                    ) and (cl0 - obs[0, 0]) <= (dnufrac * inputparams["dnufit"]):
+                    ) and (cl0 - obs[0, 0]) <= (
+                        fitfreqs["dnufrac"] * fitfreqs["dnufit"]
+                    ):
                         indexf[ind] = True
                 index &= indexf
 
@@ -612,39 +628,21 @@ def BASTA(
                         paramvalues[param] = libitem[param][index]
 
                 # Frequency (and/or ratio and/or glitch) fitting
-                if fitfreqs:
+                if fitfreqs["active"]:
                     for indd, ind in enumerate(np.where(index)[0]):
-                        rawmod = libitem["osc"][ind]
-                        rawmodkey = libitem["osckey"][ind]
-                        mod = su.transform_obj_array(rawmod)
-                        modkey = su.transform_obj_array(rawmodkey)
-                        tau0 = libitem["tau0"][ind]
-                        tauhe = libitem["tauhe"][ind]
-                        taubcz = libitem["taubcz"][ind]
                         chi2_freq, warn, shapewarn = stats.chi2_astero(
-                            modkey,
-                            mod,
                             obskey,
                             obs,
-                            datos,
-                            rt,
-                            covinv,
+                            obsfreqmeta,
+                            obsfreqdata,
                             obsintervals,
-                            dnudata,
-                            dnudata_err,
-                            tau0=tau0,
-                            tauhe=tauhe,
-                            taubcz=taubcz,
-                            useint=False,
-                            numax=numax,
-                            bfit=bexp,
-                            fcor=fcor,
-                            seisw=seisw,
-                            shapewarn=shapewarn,
+                            libitem,
+                            ind,
+                            fitfreqs,
                             warnings=warn,
+                            shapewarn=shapewarn,
                             debug=debug,
                             verbose=verbose,
-                            threepoint=threepoint,
                         )
                         chi2[indd] += chi2_freq
 
@@ -782,17 +780,17 @@ def BASTA(
 
     # Make frequency-related plots
     freqplots = inputparams.get("freqplots")
-    if fitfreqs and len(freqplots):
+    if fitfreqs["active"] and len(freqplots):
         # Check which plots to create
         allfplots = freqplots[0] == True
         if any(x == "echelle" for x in freqplots):
-            freqplots += ["dupechelle", "pairechelle"]
+            freqplots += ["dupechelle", "echelle"]
+        if any(x in freqtypes.rtypes for x in freqplots):
+            freqplots += ["ratios"]
 
         # Naming of plots preparation
-        # NOTE: Ratios are hardwired as pdf because they use PdfPages as backend
         plotfmt = inputparams["plotfmt"]
         plotfname = outfilename + "_{0}." + plotfmt
-        ratioplotname = outfilename + "_ratios.pdf"
 
         rawmaxmod = Grid[maxPDF_path + "/osc"][maxPDF_ind]
         rawmaxmodkey = Grid[maxPDF_path + "/osckey"][maxPDF_ind]
@@ -808,87 +806,190 @@ def BASTA(
             obsintervals=obsintervals,
         )
         maxjoinkeys, maxjoin = maxjoins
-        if allfplots or "pairechelle" in freqplots:
-            plot_seismic.pairechelle(
+        maxmoddnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
+
+        if allfplots or "echelle" in freqplots:
+            plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                obs,
+                obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=inputparams["dnufit"],
+                dnu=fitfreqs["dnufit"],
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
+                pair=False,
+                duplicate=False,
+                output=plotfname.format("echelle_uncorrected"),
+            )
+        if allfplots or "pairechelle" in freqplots:
+            plot_seismic.echelle(
+                selectedmodels,
+                Grid,
+                obs,
+                obskey,
+                mod=maxmod,
+                modkey=maxmodkey,
+                dnu=fitfreqs["dnufit"],
+                join=maxjoin,
+                joinkeys=maxjoinkeys,
+                pair=True,
+                duplicate=False,
                 output=plotfname.format("pairechelle_uncorrected"),
             )
         if allfplots or "dupechelle" in freqplots:
-            plot_seismic.duplicateechelle(
+            plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                obs,
+                obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=inputparams["dnufit"],
+                dnu=fitfreqs["dnufit"],
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
+                duplicate=True,
+                pair=True,
                 output=plotfname.format("dupechelle_uncorrected"),
             )
 
-        if fcor == "None":
+        if fitfreqs["fcor"] == "None":
             corjoin = maxjoin
             coeffs = [1]
-        elif fcor == "HK08":
+        elif fitfreqs["fcor"] == "HK08":
             corjoin, coeffs = freq_fit.HK08(
-                joinkeys=maxjoinkeys, join=maxjoin, nuref=numax, bcor=bexp
+                joinkeys=maxjoinkeys,
+                join=maxjoin,
+                nuref=fitfreqs["numax"],
+                bcor=fitfreqs["bexp"],
             )
-        elif fcor == "BG14":
+        elif fitfreqs["fcor"] == "BG14":
             corjoin, coeffs = freq_fit.BG14(
-                joinkeys=maxjoinkeys, join=maxjoin, scalnu=numax
+                joinkeys=maxjoinkeys, join=maxjoin, scalnu=fitfreqs["numax"]
             )
-        elif fcor == "cubicBG14":
+        elif fitfreqs["fcor"] == "cubicBG14":
             corjoin, coeffs = freq_fit.cubicBG14(
-                joinkeys=maxjoinkeys, join=maxjoin, scalnu=numax
+                joinkeys=maxjoinkeys, join=maxjoin, scalnu=fitfreqs["numax"]
             )
 
-        print("The surface correction coefficients are", *coeffs)
-        if allfplots or "dupechelle" in freqplots:
-            plot_seismic.duplicateechelle(
+        if len(coeffs) > 1:
+            print("The surface correction coefficients are", *coeffs)
+        else:
+            print("The surface correction coefficient is", *coeffs)
+
+        if allfplots or "echelle" in freqplots:
+            plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                obs,
+                obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=inputparams["dnufit"],
+                dnu=fitfreqs["dnufit"],
                 join=corjoin,
                 joinkeys=maxjoinkeys,
-                freqcor=fcor,
+                freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
-                scalnu=numax,
-                output=plotfname.format("dupechelle"),
+                scalnu=fitfreqs["numax"],
+                pair=False,
+                duplicate=False,
+                output=plotfname.format("echelle"),
             )
         if allfplots or "pairechelle" in freqplots:
-            plot_seismic.pairechelle(
+            plot_seismic.echelle(
                 selectedmodels,
                 Grid,
-                freqxml,
+                obs,
+                obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=inputparams["dnufit"],
+                dnu=fitfreqs["dnufit"],
                 join=corjoin,
                 joinkeys=maxjoinkeys,
-                freqcor=fcor,
+                freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
-                scalnu=numax,
+                scalnu=fitfreqs["numax"],
+                pair=True,
+                duplicate=False,
                 output=plotfname.format("pairechelle"),
             )
-        if allfplots or "ratios" in freqplots:
-            plot_seismic.ratioplot(
-                freqxml,
-                datos,
-                maxjoinkeys,
-                maxjoin,
-                output=ratioplotname,
-                threepoint=threepoint,
+        if allfplots or "dupechelle" in freqplots:
+            plot_seismic.echelle(
+                selectedmodels,
+                Grid,
+                obs,
+                obskey,
+                mod=maxmod,
+                modkey=maxmodkey,
+                dnu=fitfreqs["dnufit"],
+                join=corjoin,
+                joinkeys=maxjoinkeys,
+                freqcor=fitfreqs["fcor"],
+                coeffs=coeffs,
+                scalnu=fitfreqs["numax"],
+                duplicate=True,
+                pair=True,
+                output=plotfname.format("dupechelle"),
             )
+        if "freqcormap" in freqplots or debug:
+            plot_seismic.correlation_map(
+                "freqs",
+                obsfreqdata,
+                plotfname.format("freqs_cormap"),
+                obskey=obskey,
+            )
+        if obsfreqmeta["getratios"]:
+            for ratseq in obsfreqmeta["ratios"]["plot"]:
+                ratnamestr = "ratios_{0}".format(ratseq)
+                plot_seismic.ratioplot(
+                    obsfreqdata,
+                    maxjoinkeys,
+                    maxjoin,
+                    maxmodkey,
+                    maxmod,
+                    ratseq,
+                    output=plotfname.format(ratnamestr),
+                    threepoint=fitfreqs["threepoint"],
+                    interp_ratios=fitfreqs["interp_ratios"],
+                )
+                if fitfreqs["correlations"]:
+                    plot_seismic.correlation_map(
+                        ratseq,
+                        obsfreqdata,
+                        output=plotfname.format(ratnamestr + "_cormap"),
+                    )
+
+        if obsfreqmeta["getepsdiff"]:
+            for epsseq in obsfreqmeta["epsdiff"]["plot"]:
+                epsnamestr = "epsdiff_{0}".format(epsseq)
+                plot_seismic.epsilon_difference_diagram(
+                    mod=maxmod,
+                    modkey=maxmodkey,
+                    moddnu=maxmoddnu,
+                    sequence=epsseq,
+                    obsfreqdata=obsfreqdata,
+                    output=plotfname.format(epsnamestr),
+                )
+                if fitfreqs["correlations"]:
+                    plot_seismic.correlation_map(
+                        epsseq,
+                        obsfreqdata,
+                        output=plotfname.format(epsnamestr + "_cormap"),
+                    )
+        if obsfreqmeta["getepsdiff"] and debug:
+            if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
+                plot_seismic.epsilon_difference_components_diagram(
+                    mod=maxmod,
+                    modkey=maxmodkey,
+                    moddnu=maxmoddnu,
+                    obs=obs,
+                    obskey=obskey,
+                    dnudata=obsfreqdata["freqs"]["dnudata"],
+                    obsfreqdata=obsfreqdata,
+                    obsfreqmeta=obsfreqmeta,
+                    output=plotfname.format("DEBUG_epsdiff_components"),
+                )
     else:
         print(
             "Did not get any frequency file input, skipping ratios and echelle plots."

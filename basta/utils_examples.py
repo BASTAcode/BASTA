@@ -9,11 +9,11 @@ from basta.constants import freqtypes
 from basta.xml_create import generate_xml
 
 
-def _run_sanity_checks(
+def _run_consistency_checks(
     define_io, define_fit, define_output, define_plots, define_intpol
 ):
     """
-    Run sanity checks.
+    Run consistency checks.
 
     Parameters
     ----------
@@ -300,7 +300,7 @@ def _print_summary(
 # Main routine for running! Will be imported by specific examples
 def make_basta_input(define_user_input):
     """
-    Get user input, run sanity checks, produce files, print summary.
+    Get user input, run consistency checks, produce files, print summary.
 
     Parameters
     ----------
@@ -348,9 +348,9 @@ def make_basta_input(define_user_input):
     )
     print("Done!")
 
-    # Run sanity checks !
-    print("\nRunning sanity checks ...")
-    errcode, numstars = _run_sanity_checks(
+    # Run consistency checks !
+    print("\nRunning consistency checks ...")
+    errcode, numstars = _run_consistency_checks(
         define_io=infodict_io,
         define_fit=infodict_fit,
         define_output=infodict_output,

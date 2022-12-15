@@ -5,9 +5,12 @@ import os
 import numpy as np
 import matplotlib
 
+from scipy.interpolate import interp1d, CubicSpline
+
 import basta.fileio as fio
 from basta import utils_seismic as su
 from basta import stats, freq_fit
+from basta.constants import freqtypes
 
 # Set the style of all plots
 matplotlib.use("Agg")
@@ -17,13 +20,33 @@ from matplotlib.backends.backend_pdf import PdfPages
 plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
 
 # Define a color dictionary for easier change of color
-colors = {"l0": "#D55E00", "l1": "#009E73", "l2": "#0072B2"}
+colors = {
+    "l0": "#D55E00",
+    "l1": "#009E73",
+    "l2": "#0072B2",
+    "r01": "#D36E70",
+    "r10": "#CCBB44",
+    "r02": "#228833",
+    "r012": "#549EB3",
+    "r010": "#60AB9E",
+    "r102": "#A778B4",
+}
+modmarkers = {
+    "l0": "D",
+    "l1": "^",
+    "l2": "v",
+    "ratio": "d",
+}
+obsmarker = "o"
+splinemarkers = [".", "2", "1"]
+splinecolor = "0.7"
 
 
-def duplicateechelle(
+def echelle(
     selectedmodels,
     Grid,
-    freqfile,
+    obs,
+    obskey,
     mod=None,
     modkey=None,
     dnu=None,
@@ -32,11 +55,13 @@ def duplicateechelle(
     coeffs=None,
     scalnu=None,
     freqcor="BG14",
+    pair=False,
+    duplicate=False,
     output=None,
 ):
     """
-    Echelle diagram that is place twice so patterns across the moduli-limit
-    is easier seen.
+    Echelle diagram. It is possible to either make a single Echelle diagram
+    or plot it twice making patterns across the moduli-limit easier to see.
 
     Parameters
     ----------
@@ -44,8 +69,10 @@ def duplicateechelle(
         Contains information on all models with a non-zero likelihood.
     Grid : hdf5 object
         The already loaded grid, containing the tracks/isochrones.
-    freqfile : str
-        Name of file containing frequencies
+    obs : array or None
+        Array of observed modes.
+    obskey : array or None
+        Array of mode identification observed modes.
     mod : array or None
         Array of modes in a given model.
         If None, `mod` will be found from the most likely model in
@@ -72,381 +99,305 @@ def duplicateechelle(
         `numax` is often used.
     freqcor : str {'None', 'HK08', 'BG14', 'cubicBG14'}
         Flag determining the frequency correction.
+    pair : bool
+        Flag determining whether to link matched observed and modelled
+        frequencies.
+    duplicate : bool
+        Flag determining whether to plot two echelle diagrams next to one
+        another.
     output : str or None
         Filename for saving the figure.
     """
+    if pair:
+        lw = 1
+    else:
+        lw = 0
+
     if dnu is None:
         print("Note: No deltanu specified, using dnufit for echelle diagram.")
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
         dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
+
+    if duplicate:
+        modx = 1
+        scalex = dnu
+    else:
+        modx = dnu
+        scalex = 1
+
+    obsls = np.unique(obskey[0, :]).astype(str)
+
     if (mod is None) and (modkey is None):
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
         rawmod = Grid[maxPDF_path + "/osc"][maxPDF_ind]
         rawmodkey = Grid[maxPDF_path + "/osckey"][maxPDF_ind]
         mod = su.transform_obj_array(rawmod)
         modkey = su.transform_obj_array(rawmodkey)
-        mod = mod[:, modkey[0, :] < 2.5]
-        modkey = modkey[:, modkey[0, :] < 2.5]
+        mod = mod[:, modkey[0, :] <= np.amax(obsls.astype(int))]
+        modkey = modkey[:, modkey[0, :] <= np.amax(obsls)]
+
     cormod = np.copy(mod)
+
     if coeffs is not None:
         if freqcor == "HK08":
             corosc = freq_fit.apply_HK08(
                 modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
             )
-            cormod[0, :] = corosc
         elif freqcor == "BG14":
             corosc = freq_fit.apply_BG14(
                 modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
             )
-            cormod[0, :] = corosc
         elif freqcor == "cubicBG14":
             corosc = freq_fit.apply_cubicBG14(
                 modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
             )
-            cormod[0, :] = corosc
+        cormod[0, :] = corosc
 
-    obskey, obs, _ = fio.read_freq(freqfile, nottrustedfile=None)
-    _, modl0 = su.get_givenl(l=0, osc=cormod, osckey=modkey)
-    _, modl1 = su.get_givenl(l=1, osc=cormod, osckey=modkey)
-    _, modl2 = su.get_givenl(l=2, osc=cormod, osckey=modkey)
-    fmodl0_all = modl0[0, :] / dnu
-    fmodl1_all = modl1[0, :] / dnu
-    fmodl2_all = modl2[0, :] / dnu
     s = su.scale_by_inertia(modkey, cormod)
-
-    # Get all observation including the not-trusted ones
-    obskey, obs, _ = fio.read_freq(freqfile, nottrustedfile=None)
-    _, obsl0 = su.get_givenl(l=0, osc=obs, osckey=obskey)
-    _, obsl1 = su.get_givenl(l=1, osc=obs, osckey=obskey)
-    _, obsl2 = su.get_givenl(l=2, osc=obs, osckey=obskey)
-    fobsl0_all = obsl0[0, :] / dnu
-    fobsl1_all = obsl1[0, :] / dnu
-    fobsl2_all = obsl2[0, :] / dnu
-    eobsl0_all = obsl0[1, :] / dnu
-    eobsl1_all = obsl1[1, :] / dnu
-    eobsl2_all = obsl2[1, :] / dnu
-
     if join is not None:
-        _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-        _, joinl1 = su.get_givenl(l=1, osc=join, osckey=joinkeys)
-        _, joinl2 = su.get_givenl(l=2, osc=join, osckey=joinkeys)
-
-        fmodl0 = joinl0[0, :] / dnu
-        fmodl1 = joinl1[0, :] / dnu
-        fmodl2 = joinl2[0, :] / dnu
-        fobsl0 = joinl0[2, :] / dnu
-        fobsl1 = joinl1[2, :] / dnu
-        fobsl2 = joinl2[2, :] / dnu
-        eobsl0 = joinl0[3, :] / dnu
-        eobsl1 = joinl1[3, :] / dnu
-        eobsl2 = joinl2[3, :] / dnu
         sjoin = su.scale_by_inertia(joinkeys[0:2], join[0:2])
+
+    fmod = {}
+    fmod_all = {}
+    fobs = {}
+    fobs_all = {}
+    eobs = {}
+    eobs_all = {}
+    for l in np.arange(np.amax(obsls.astype(int)) + 1):
+        _, mod = su.get_givenl(l=l, osc=cormod, osckey=modkey)
+        _, lobs = su.get_givenl(l=l, osc=obs, osckey=obskey)
+        fmod_all[str(l)] = mod[0, :] / scalex
+        fobs_all[str(l)] = lobs[0, :] / scalex
+        eobs_all[str(l)] = lobs[1, :] / scalex
+        if join is not None:
+            _, ljoin = su.get_givenl(l=l, osc=join, osckey=joinkeys)
+            fmod[str(l)] = ljoin[0, :] / scalex
+            fobs[str(l)] = ljoin[2, :] / scalex
+            eobs[str(l)] = ljoin[3, :] / scalex
 
     # Create plot
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
-    # Plot something to set the scale on one y-axis
-    ax1.errorbar(
-        fobsl0_all % 1,
-        fobsl0_all * dnu,
-        xerr=eobsl0_all,
-        fmt="o",
-        mfc=colors["l0"],
-        ecolor=colors["l0"],
-        alpha=0.5,
-        zorder=0,
-    )
-
-    ax2.axvline(x=0, linestyle="--", color="0.8", zorder=0)
+    if duplicate:
+        # Plot something to set the scale on one y-axis
+        ax1.errorbar(
+            fobs_all[obsls[0]] % modx,
+            fobs_all[obsls[0]] * dnu,
+            xerr=eobs_all[obsls[0]],
+            fmt=obsmarker,
+            mfc=colors["l" + obsls[0]],
+            ecolor=colors["l" + obsls[0]],
+            alpha=0.5,
+            zorder=0,
+        )
+        ax1.axvline(x=0, linestyle="--", color="0.8", zorder=0)
+        ax = ax2
+        aax = ax1
+    else:
+        ax2.errorbar(
+            fobs_all[obsls[0]],
+            fobs_all[obsls[0]] / dnu,
+            xerr=eobs_all[obsls[0]],
+            fmt=obsmarker,
+            mfc=colors["l" + obsls[0]],
+            ecolor=colors["l" + obsls[0]],
+            alpha=0.5,
+            zorder=0,
+        )
+        ax = ax1
+        aax = ax2
 
     # Plot all observed modes
-    if len(fobsl0_all) != 0:
-        ax2.errorbar(
-            fobsl0_all % 1,
-            fobsl0_all,
-            xerr=eobsl0_all,
-            fmt="o",
-            mfc=colors["l0"],
-            ecolor=colors["l0"],
+    for l in obsls:
+        ax.errorbar(
+            fobs_all[l] % modx,
+            fobs_all[l],
+            xerr=eobs_all[l],
+            fmt=obsmarker,
+            mfc=colors["l" + l],
+            ecolor=colors["l" + l],
             zorder=1,
             alpha=0.5,
         )
-        ax2.errorbar(
-            fobsl0_all % 1 - 1,
-            fobsl0_all,
-            xerr=eobsl0_all,
-            fmt="o",
-            mfc=colors["l0"],
-            ecolor=colors["l0"],
-            zorder=1,
-            alpha=0.5,
-        )
-    if len(fobsl1_all) != 0:
-        ax2.errorbar(
-            fobsl1_all % 1,
-            fobsl1_all,
-            xerr=eobsl1_all,
-            fmt="o",
-            mfc=colors["l1"],
-            ecolor=colors["l1"],
-            zorder=1,
-            alpha=0.5,
-        )
-        ax2.errorbar(
-            fobsl1_all % 1 - 1,
-            fobsl1_all,
-            xerr=eobsl1_all,
-            fmt="o",
-            mfc=colors["l1"],
-            ecolor=colors["l1"],
-            zorder=1,
-            alpha=0.5,
-        )
-    if len(fobsl2_all) != 0:
-        ax2.errorbar(
-            fobsl2_all % 1,
-            fobsl2_all,
-            xerr=eobsl2_all,
-            fmt="o",
-            mfc=colors["l2"],
-            ecolor=colors["l2"],
-            zorder=1,
-            alpha=0.5,
-        )
-        ax2.errorbar(
-            fobsl2_all % 1 - 1,
-            fobsl2_all,
-            xerr=eobsl2_all,
-            fmt="o",
-            mfc=colors["l2"],
-            ecolor=colors["l2"],
-            zorder=1,
-            alpha=0.5,
-        )
+        if duplicate:
+            ax.errorbar(
+                fobs_all[l] % modx - modx,
+                fobs_all[l],
+                xerr=eobs_all[l],
+                fmt=obsmarker,
+                mfc=colors["l" + l],
+                ecolor=colors["l" + l],
+                zorder=1,
+                alpha=0.5,
+            )
 
-    # Plot all modes in the model
-    ax2.scatter(
-        fmodl0_all % 1,
-        fmodl0_all,
-        s=s[0],
-        c=colors["l0"],
-        marker="D",
-        alpha=0.5,
-        zorder=2,
-    )
-    ax2.scatter(
-        fmodl1_all % 1,
-        fmodl1_all,
-        s=s[1],
-        c=colors["l1"],
-        marker="^",
-        alpha=0.5,
-        zorder=2,
-    )
-    ax2.scatter(
-        fmodl2_all % 1,
-        fmodl2_all,
-        s=s[2],
-        c=colors["l2"],
-        marker="v",
-        alpha=0.5,
-        zorder=2,
-    )
-    ax2.scatter(
-        fmodl0_all % 1 - 1,
-        fmodl0_all,
-        s=s[0],
-        c=colors["l0"],
-        marker="D",
-        alpha=0.5,
-        zorder=2,
-    )
-    ax2.scatter(
-        fmodl1_all % 1 - 1,
-        fmodl1_all,
-        s=s[1],
-        c=colors["l1"],
-        marker="^",
-        alpha=0.5,
-        zorder=2,
-    )
-    ax2.scatter(
-        fmodl2_all % 1 - 1,
-        fmodl2_all,
-        s=s[2],
-        c=colors["l2"],
-        marker="v",
-        alpha=0.5,
-        zorder=2,
-    )
+    for l in np.arange(np.amax(obsls.astype(int)) + 1):
+        l = str(l)
+        ax.scatter(
+            fmod_all[l] % modx,
+            fmod_all[l],
+            s=s[int(l)],
+            c=colors["l" + l],
+            marker=modmarkers["l" + l],
+            alpha=0.5,
+            zorder=2,
+        )
+        if duplicate:
+            ax.scatter(
+                fmod_all[l] % modx - modx,
+                fmod_all[l],
+                s=s[int(l)],
+                c=colors["l" + l],
+                marker=modmarkers["l" + l],
+                alpha=0.5,
+                zorder=2,
+            )
 
     # Plot the matched modes in negative and positive side
+    linelimit = 0.75 * modx
     if join is not None:
-        if len(fmodl0) != 0:
-            ax2.scatter(
-                fmodl0 % 1 - 1,
-                fmodl0,
-                s=sjoin[0],
-                c=colors["l0"],
-                marker="D",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-            )
-            ax2.scatter(
-                fmodl0 % 1,
-                fmodl0,
-                s=sjoin[0],
-                c=colors["l0"],
-                marker="D",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-                label=r"Best fit $l=0$",
-            )
-            ax2.errorbar(
-                fobsl0 % 1,
-                fobsl0,
-                xerr=eobsl0,
-                fmt="o",
-                mfc=colors["l0"],
-                ecolor=colors["l0"],
-                zorder=1,
-                label=r"Measured $l=0$",
-            )
-            ax2.errorbar(
-                fobsl0 % 1 - 1,
-                fobsl0,
-                xerr=eobsl0,
-                fmt="o",
-                mfc=colors["l0"],
-                ecolor=colors["l0"],
-                zorder=1,
-            )
-        if len(fmodl1) != 0:
-            ax2.scatter(
-                fmodl1 % 1 - 1,
-                fmodl1,
-                s=sjoin[1],
-                c=colors["l1"],
-                marker="^",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-            )
-            ax2.scatter(
-                fmodl1 % 1,
-                fmodl1,
-                s=sjoin[1],
-                c=colors["l1"],
-                marker="^",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-                label=r"Best fit $l=1$",
-            )
-            ax2.errorbar(
-                fobsl1 % 1,
-                fobsl1,
-                xerr=eobsl1,
-                fmt="o",
-                mfc=colors["l1"],
-                ecolor=colors["l1"],
-                zorder=1,
-                label=r"Measured $l=1$",
-            )
-            ax2.errorbar(
-                fobsl1 % 1 - 1,
-                fobsl1,
-                xerr=eobsl1,
-                fmt="o",
-                mfc=colors["l1"],
-                ecolor=colors["l1"],
-                zorder=1,
-            )
-        if len(fmodl2) != 0:
-            ax2.scatter(
-                fmodl2 % 1 - 1,
-                fmodl2,
-                s=sjoin[2],
-                c=colors["l2"],
-                marker="v",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-            )
-            ax2.scatter(
-                fmodl2 % 1,
-                fmodl2,
-                s=sjoin[2],
-                c=colors["l2"],
-                marker="v",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-                label=r"Best fit $l=2$",
-            )
-            ax2.errorbar(
-                fobsl2 % 1,
-                fobsl2,
-                xerr=eobsl2,
-                fmt="o",
-                mfc=colors["l2"],
-                ecolor=colors["l2"],
-                zorder=1,
-                label=r"Measured $l=2$",
-            )
-            ax2.errorbar(
-                fobsl2 % 1 - 1,
-                fobsl2,
-                xerr=eobsl2,
-                fmt="o",
-                mfc=colors["l2"],
-                ecolor=colors["l2"],
-                zorder=1,
-            )
-
-        # Make line segments connecting the observed and associated mode
-        linelimit = 0.75
-        for l, (fmod, fobs) in enumerate(
-            zip([fmodl0, fmodl1, fmodl2], [fobsl0, fobsl1, fobsl2])
-        ):
-            for i in range(len(fmod)):
-                if ((fmod[i] % 1) > linelimit) & ((fobs[i] % 1) < (1 - linelimit)):
-                    ax2.plot(
-                        (fmod[i] % 1 - 1, fobs[i] % 1),
-                        (fmod[i], fobs[i]),
-                        c=colors["l" + str(l)],
-                        alpha=0.7,
-                        zorder=1,
+        for l in obsls:
+            if len(fmod[l]) > 0:
+                ax.scatter(
+                    fmod[l] % modx,
+                    fmod[l],
+                    s=sjoin[int(l)],
+                    c=colors["l" + l],
+                    marker=modmarkers["l" + l],
+                    linewidths=1,
+                    edgecolors="k",
+                    zorder=3,
+                    label=f"Best fit $\ell={l}$",
+                )
+                if duplicate:
+                    ax.scatter(
+                        fmod[l] % modx - modx,
+                        fmod[l],
+                        s=sjoin[int(l)],
+                        c=colors["l" + l],
+                        marker=modmarkers["l" + l],
+                        linewidths=1,
+                        edgecolors="k",
+                        zorder=3,
                     )
-                elif ((fobs[i] % 1) > linelimit) & ((fmod[i] % 1) < (1 - linelimit)):
-                    ax2.plot(
-                        (fobs[i] % 1 - 1, fmod[i] % 1),
-                        (fobs[i], fmod[i]),
-                        c=colors["l" + str(l)],
-                        alpha=0.7,
-                        zorder=1,
-                    )
-                else:
-                    ax2.plot(
-                        (fmod[i] % 1, fobs[i] % 1),
-                        (fmod[i], fobs[i]),
-                        c=colors["l" + str(l)],
-                        alpha=0.7,
-                        zorder=1,
-                    )
-                    ax2.plot(
-                        (fmod[i] % 1 - 1, fobs[i] % 1 - 1),
-                        (fmod[i], fobs[i]),
-                        c=colors["l" + str(l)],
-                        alpha=0.7,
+                ax.errorbar(
+                    fobs[l] % modx,
+                    fobs[l],
+                    xerr=eobs[l],
+                    fmt=obsmarker,
+                    mfc=colors["l" + l],
+                    ecolor=colors["l" + l],
+                    zorder=1,
+                    label=f"Measured $\ell={l}$",
+                )
+                if duplicate:
+                    ax.errorbar(
+                        fobs[l] % modx - modx,
+                        fobs[l],
+                        xerr=eobs[l],
+                        fmt=obsmarker,
+                        mfc=colors["l" + l],
+                        ecolor=colors["l" + l],
                         zorder=1,
                     )
 
-    ax1.set_xlim([-1, 1])
-    ax1.set_ylim(ax2.set_ylim()[0] * dnu, ax2.set_ylim()[1] * dnu)
-    lgnd = ax2.legend(
+                if pair:
+                    fm = fmod[l]
+                    fo = fobs[l]
+                    for i in range(len(fm)):
+                        if ((fm[i] % modx) > linelimit) & (
+                            (fo[i] % modx) < (modx - linelimit)
+                        ):
+                            a = (fm[i] - fo[i]) / ((fm[i] - fo[i]) % modx)
+                            if duplicate:
+                                x0 = -1
+                            else:
+                                x0 = 0
+                            ax.plot(
+                                (fm[i] % modx - modx, fo[i] % modx),
+                                (fm[i], fo[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
+                            )
+                            ax.plot(
+                                (fm[i] % modx, modx),
+                                (fm[i], a * np.ceil(fm[i] / modx) * modx),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
+                            )
+                            ax.plot(
+                                (x0, fo[i] % modx - modx),
+                                (a * np.ceil(fm[i] / modx) * modx, fo[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
+                            )
+                        elif ((fo[i] % modx) > linelimit) & (
+                            (fm[i] % modx) < (modx - linelimit)
+                        ):
+                            if duplicate:
+                                x0 = -1
+                            else:
+                                x0 = 0
+                            a = (fm[i] - fo[i]) / ((fm[i] - fo[i]) % modx)
+                            ax.plot(
+                                (fo[i] % modx - modx, fm[i] % modx),
+                                (fo[i], fm[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
+                            )
+                            ax.plot(
+                                (fo[i] % modx, modx),
+                                (fo[i], a * np.ceil(fo[i] / modx) * modx),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
+                            )
+                            ax.plot(
+                                (x0, fm[i] % modx - modx),
+                                (a * np.ceil(fo[i] / modx) * modx, fm[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
+                            )
+                        else:
+                            ax.plot(
+                                (fm[i] % modx, fo[i] % modx),
+                                (fm[i], fo[i]),
+                                c=colors["l" + str(l)],
+                                alpha=0.7,
+                                zorder=10,
+                                lw=lw,
+                            )
+                            if duplicate:
+                                ax.plot(
+                                    (fm[i] % modx - modx, fo[i] % modx - modx),
+                                    (fm[i], fo[i]),
+                                    c=colors["l" + str(l)],
+                                    alpha=0.7,
+                                    zorder=10,
+                                    lw=lw,
+                                )
+
+                    """
+                    elif (
+                        duplicate
+                        & ((fo[i] % modx) > linelimit)
+                        & ((fm[i] % modx) < (modx - linelimit))
+                    ):
+                        ax.plot(
+                            (fo[i] % modx - modx, fm[i] % modx),
+                            (fo[i], fm[i]),
+                            c=colors["l" + str(l)],
+                            alpha=0.7,
+                            zorder=10,
+                            lw=lw,
+                        )
+                    """
+    lgnd = ax.legend(
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
         ncol=6,
@@ -455,12 +406,25 @@ def duplicateechelle(
     )
     for i in range(len(lgnd.legendHandles)):
         lgnd.legendHandles[i]._sizes = [50]
-    ax2.set_ylabel(r"Frequency normalised by $\Delta \nu$")
-    ax1.set_xlabel(
-        r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
-        % dnu
-    )
-    ax1.set_ylabel(r"Frequency ($\mu$Hz)")
+
+    if duplicate:
+        ax.set_xlim([-1, 1])
+        aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
+        aax.set_xlabel(
+            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
+            % dnu
+        )
+        aax.set_ylabel(r"Frequency ($\mu$Hz)")
+        ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
+    else:
+        ax.set_xlim([0, modx])
+        aax.set_ylim(ax.set_ylim()[0] / dnu, ax.set_ylim()[1] / dnu)
+        ax.set_xlabel(
+            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
+            % dnu
+        )
+        ax.set_ylabel(r"Frequency ($\mu$Hz)")
+        aax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
 
     if output is not None:
         plt.savefig(output, bbox_inches="tight")
@@ -468,428 +432,568 @@ def duplicateechelle(
 
 
 def ratioplot(
-    freqfile, datos, joinkeys, join, output=None, nonewfig=False, threepoint=False
+    obsfreqdata,
+    joinkeys,
+    join,
+    modkey,
+    mod,
+    ratiotype,
+    output=None,
+    threepoint=False,
+    interp_ratios=True,
 ):
     """
     Plot frequency ratios.
 
     Parameters
     ----------
-    freqfile : str
-        Name of file containing frequencies and ratio types
-    datos : array
-        Individual frequencies, uncertainties, and combinations read
-        directly from the observational input files
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
     joinkeys : array
         Array containing the mode identification of the matched observed
         and modelled modes.
     join : array
         Array containing the matched observed and modelled modes.
+    modkey : array
+        Array containing the mode identification of the modelled modes.
+    mod : array
+        Array containing the modelled modes.
+    ratiotype : str
+        Key for the ratio sequence to be plotted (e.g. `r01`, `r02`, `r012`)
     output : str or None, optional
-        Filename for saving the plot. MUST BE PDF!
+        Filename for saving the plot.
     nonewfig : bool, optional
         If True, this creates a new canvas. Otherwise, the plot is added
         to the existing canvas.
     threepoint : bool
         If True, use three point definition of r01 and r10 ratios instead
         of default five point definition.
+    interp_ratios : bool
+        If True (default), plot how the model ratios are linearly interpolated
+        to the frequencies of the observed ratios, in order to compare the
+        sequences at the same frequencies.
     """
-    # Load input ratios
-    orders, ratio, ratio_types, errors, errors_m, errors_p = fio.read_ratios_xml(
-        freqfile
-    )
-    f, f_err, f_n, f_l = fio.read_freqs_xml(freqfile)
+    fig, ax = plt.subplots(1, 1)
 
-    # Observed ratios (prefer ratios from xml file)
-    # r02
-    if b"r02" in ratio_types:
-        nr = orders[ratio_types == b"r02"]
-        datos02 = np.zeros((3, len(nr)))
-        datos02[0, :] = ratio[ratio_types == b"r02"]
-        datos02[2, :] = errors[ratio_types == b"r02"]
-        for i, n in enumerate(nr):
-            ind = (f_n == n) & (f_l == 0)
-            datos02[1, i] = f[ind]
+    obsratio = obsfreqdata[ratiotype]["data"]
+    obsratio_cov = obsfreqdata[ratiotype]["cov"]
+    obsratio_err = np.sqrt(np.diag(obsratio_cov))
+
+    if interp_ratios:
+        broad_key, broad_osc = su.extend_modjoin(joinkeys, join, modkey, mod)
+        modratio = freq_fit.compute_ratioseqs(
+            broad_key, broad_osc, ratiotype, threepoint=threepoint
+        )
     else:
-        datos02 = datos[1]
+        modratio = freq_fit.compute_ratioseqs(
+            joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
+        )
 
-    # r01
-    if b"r01" in ratio_types:
-        nr = orders[ratio_types == b"r01"]
-        datos01 = np.zeros((3, len(nr)))
-        datos01[0, :] = ratio[ratio_types == b"r01"]
-        datos01[2, :] = errors[ratio_types == b"r01"]
-        for i, n in enumerate(nr):
-            ind = (f_n == n) & (f_l == 0)
-            datos01[1, i] = f[ind]
-    else:
-        datos01 = datos[3]
+    handles = []
+    for rtype in set(obsratio[2, :]):
+        obsmask = obsratio[2, :] == rtype
+        modmask = modratio[2, :] == rtype
+        rtname = "r{:02d}".format(int(rtype))
+        modp = ax.scatter(
+            modratio[1, modmask],
+            modratio[0, modmask],
+            marker=modmarkers["ratio"],
+            color=colors[rtname],
+            edgecolors="k",
+            zorder=3,
+            label=r"Best fit ($r_{{{:02d}}}$)".format(int(rtype)),
+        )
+        ax.plot(
+            modratio[1, modmask],
+            modratio[0, modmask],
+            "-",
+            color="darkgrey",
+            alpha=0.9,
+            zorder=-1,
+        )
 
-    # r10
-    if b"r10" in ratio_types:
-        nr = orders[ratio_types == b"r10"]
-        datos10 = np.zeros((3, len(nr)))
-        datos10[0, :] = ratio[ratio_types == b"r10"]
-        datos10[2, :] = errors[ratio_types == b"r10"]
-        for i, n in enumerate(nr):
-            ind = (f_n == n) & (f_l == 1)
-            datos10[1, i] = f[ind]
-    else:
-        datos10 = datos[4]
+        obsp = ax.errorbar(
+            obsratio[1, obsmask],
+            obsratio[0, obsmask],
+            yerr=obsratio_err[obsmask],
+            marker=obsmarker,
+            color=colors[rtname],
+            mec="k",
+            mew=0.5,
+            linestyle="None",
+            zorder=3,
+            label=r"Measured ($r_{{{:02d}}}$)".format(int(rtype)),
+        )
+        ax.plot(
+            obsratio[1, obsmask],
+            obsratio[0, obsmask],
+            "-",
+            color=colors[rtname],
+            zorder=-1,
+        )
 
-    # Best fit model ratios
-    names = ["l", "n", "freq", "err"]  # 'err' is redundant here!
-    fmts = [int, int, float, float]
-    nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
-    freq = np.zeros(nmodes, dtype={"names": names, "formats": fmts})
-    freq[:]["l"] = joinkeys[0, joinkeys[0, :] < 3]
-    freq[:]["n"] = joinkeys[1, joinkeys[0, :] < 3]
-    freq[:]["freq"] = join[0, joinkeys[0, :] < 3]
-    r02, r01, r10 = freq_fit.ratios(freq, threepoint=threepoint)
-
-    if r02 is None:
-        print("WARNING: missing radial orders! Skipping ratios plot.")
-    else:
-        # Plotting...
-        if output is not None:
-            pp = PdfPages(output)
-
-        for ratio_type in ["r02", "r01", "r10"]:
-            if ratio_type == "r02":
-                obsratio = datos02
-                modratio = r02
-            elif ratio_type == "r01":
-                obsratio = datos01
-                modratio = r01
-            elif ratio_type == "r10":
-                obsratio = datos10
-                modratio = r10
-
-            # Open figure and set style
-            if nonewfig is False:
-                plt.figure()
-
-            plt.plot(
-                modratio[:, 3], modratio[:, 1], "*", markersize=20, label="Best fit"
+        if interp_ratios:
+            intfunc = interp1d(
+                modratio[1, modmask], modratio[0, modmask], kind="linear"
             )
-            plt.errorbar(
-                obsratio[1, :],
-                obsratio[0, :],
-                yerr=obsratio[2, :],
-                marker="o",
-                linestyle="None",
-                label="Measured",
+            newmod = intfunc(obsratio[1, obsmask])
+            marker = splinemarkers[1] if "1" in str(rtype) else splinemarkers[2]
+            (intp,) = ax.plot(
+                obsratio[1, obsmask],
+                newmod,
+                marker=marker,
+                color="k",
+                markeredgewidth=2,
+                alpha=0.7,
+                lw=0,
+                zorder=5,
+                label=r"$r_{{{:02d}}}(\nu^{{\mathrm{{obs}}}})$".format(int(rtype)),
             )
-            plt.legend(frameon=False)
-            plt.xlabel(r"Frequency ($\mu$Hz)")
-            plt.ylabel('Ratio type "{0}"'.format(ratio_type[1:]))
-
-            if output is not None:
-                pp.savefig(bbox_inches="tight")
-
-        if output is not None:
-            print("Saved figure to " + output)
-            pp.close()
-
-
-def pairechelle(
-    selectedmodels,
-    Grid,
-    freqfile,
-    mod=None,
-    modkey=None,
-    dnu=None,
-    join=False,
-    joinkeys=False,
-    coeffs=None,
-    freqcor="BG14",
-    scalnu=None,
-    output=None,
-    plotlines=False,
-):
-    """
-    Echelle diagram that is either a normal Echelle diagram or where
-    matched/paired model and observed modes are connected with a line for
-    easier visual inspection.
-
-    Parameters
-    ----------
-    selectedmodels : dict
-        Contains information on all models with a non-zero likelihood.
-    Grid : hdf5 object
-        The already loaded grid, containing the tracks/isochrones.
-    freqfile : str
-        Name of file containing frequencies
-    mod : array or None
-        Array of modes in a given model.
-        If None, `mod` will be found from the most likely model in
-        `selectedmodels`.
-    modkey : array or None
-        Array of mode identification of modes from the model.
-        If None, `modkey` will be found from the most likely model in
-        `selectedmodels`.
-    dnu : float or None
-        The large frequency separation. If None, `dnufit` will be used.
-    join : array or None
-        Array containing the matched observed and modelled modes.
-        If None, this information is not added to the plot.
-    joinkeys : array or None
-        Array containing the mode identification of the matched observed
-        and modelled modes.
-        If None, this information is not added to the plot.
-    coeffs : array or None
-        Coefficients for the near-surface frequency correction specified
-        in `freqcor`. If None, the frequencies on the plot will not
-        be corrected.
-    scalnu : float or None
-        Value used to scale frequencies in frequencies correction.
-        `numax` is often used.
-    freqcor : str {'None', 'HK08', 'BG14', 'cubicBG14'}
-        Flag determining the frequency correction.
-    output : str or None
-        Filename for saving the figure.
-    plotlines : bool
-        Flag determinning whether the matched modes should be connected with
-        a line segment.
-    """
-    if dnu is None:
-        print("Note: No deltanu specified, using dnufit for echelle diagram.")
-        maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
-        dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
-    if (mod is None) and (modkey is None):
-        maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
-        # Find most likely model and compute join
-        rawmod = Grid[maxPDF_path + "/osc"][maxPDF_ind]
-        rawmodkey = Grid[maxPDF_path + "/osckey"][maxPDF_ind]
-        mod = su.transform_obj_array(rawmod)
-        modkey = su.transform_obj_array(rawmodkey)
-        mod = mod[:, modkey[0, :] < 2.5]
-        modkey = modkey[:, modkey[0, :] < 2.5]
-    cormod = np.copy(mod)
-    if coeffs is not None:
-        if freqcor == "HK08":
-            corosc = freq_fit.apply_HK08(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
-            )
-            cormod[0, :] = corosc
-        elif freqcor == "BG14":
-            corosc = freq_fit.apply_BG14(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
-            )
-            cormod[0, :] = corosc
-        elif freqcor == "cubicBG14":
-            corosc = freq_fit.apply_cubicBG14(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
-            )
-            cormod[0, :] = corosc
-
-    obskey, obs, _ = fio.read_freq(freqfile, nottrustedfile=None)
-    _, modl0 = su.get_givenl(l=0, osc=cormod, osckey=modkey)
-    _, modl1 = su.get_givenl(l=1, osc=cormod, osckey=modkey)
-    _, modl2 = su.get_givenl(l=2, osc=cormod, osckey=modkey)
-    fmodl0_all = modl0[0, :]
-    fmodl1_all = modl1[0, :]
-    fmodl2_all = modl2[0, :]
-    s = su.scale_by_inertia(modkey, cormod)
-
-    # Get all observation including the not-trusted ones
-    _, obsl0 = su.get_givenl(l=0, osc=obs, osckey=obskey)
-    _, obsl1 = su.get_givenl(l=1, osc=obs, osckey=obskey)
-    _, obsl2 = su.get_givenl(l=2, osc=obs, osckey=obskey)
-    fobsl0_all = obsl0[0, :]
-    fobsl1_all = obsl1[0, :]
-    fobsl2_all = obsl2[0, :]
-    eobsl0_all = obsl0[1, :]
-    eobsl1_all = obsl1[1, :]
-    eobsl2_all = obsl2[1, :]
-
-    if join is False:
-        joins = freq_fit.calc_join(mod, modkey, obs, obskey)
-        if joins is None:
-            print("No associated_model_index found!")
-            return
+            handles.extend([modp, intp, obsp])
         else:
-            joinkeys, join = joins
-    if join is not None:
-        _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-        _, joinl1 = su.get_givenl(l=1, osc=join, osckey=joinkeys)
-        _, joinl2 = su.get_givenl(l=2, osc=join, osckey=joinkeys)
+            handles.extend([modp, obsp])
 
-        fmodl0 = joinl0[0, :]
-        fmodl1 = joinl1[0, :]
-        fmodl2 = joinl2[0, :]
-        fobsl0 = joinl0[2, :]
-        fobsl1 = joinl1[2, :]
-        fobsl2 = joinl2[2, :]
-        eobsl0 = joinl0[3, :]
-        eobsl1 = joinl1[3, :]
-        eobsl2 = joinl2[3, :]
-        sjoin = su.scale_by_inertia(joinkeys[0:2], join[0:2])
-
-    # Set style and open figure
-    plt.figure()
-
-    # Plot all observed modes
-    if len(fobsl0_all) != 0:
-        plt.errorbar(
-            fobsl0_all % dnu,
-            fobsl0_all,
-            xerr=eobsl0_all,
-            fmt="o",
-            mfc=colors["l0"],
-            ecolor=colors["l0"],
-            zorder=1,
-            alpha=0.5,
-        )
-    if len(fobsl1_all) != 0:
-        plt.errorbar(
-            fobsl1_all % dnu,
-            fobsl1_all,
-            xerr=eobsl1_all,
-            fmt="o",
-            mfc=colors["l1"],
-            ecolor=colors["l1"],
-            zorder=1,
-            alpha=0.5,
-        )
-    if len(fobsl2_all) != 0:
-        plt.errorbar(
-            fobsl2_all % dnu,
-            fobsl2_all,
-            xerr=eobsl2_all,
-            fmt="o",
-            mfc=colors["l2"],
-            ecolor=colors["l2"],
-            zorder=1,
-            alpha=0.5,
-        )
-
-    # Plot all modes in the model
-    plt.scatter(
-        fmodl0_all % dnu,
-        fmodl0_all,
-        s=s[0],
-        c=colors["l0"],
-        marker="D",
-        alpha=0.5,
-        zorder=2,
-    )
-    plt.scatter(
-        fmodl1_all % dnu,
-        fmodl1_all,
-        s=s[1],
-        c=colors["l1"],
-        marker="^",
-        alpha=0.5,
-        zorder=2,
-    )
-    plt.scatter(
-        fmodl2_all % dnu,
-        fmodl2_all,
-        s=s[2],
-        c=colors["l2"],
-        marker="v",
-        alpha=0.5,
-        zorder=2,
-    )
-
-    # Plot the matched modes
-    if join is not None:
-        if len(fmodl0) != 0:
-            plt.scatter(
-                fmodl0 % dnu,
-                fmodl0,
-                s=sjoin[0],
-                c=colors["l0"],
-                marker="D",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-                label=r"Best fit $l=0$",
-            )
-            plt.errorbar(
-                fobsl0 % dnu,
-                fobsl0,
-                xerr=eobsl0,
-                fmt="o",
-                mfc=colors["l0"],
-                ecolor=colors["l0"],
-                zorder=1,
-                label=r"Measured $l=0$",
-            )
-        if len(fmodl1) != 0:
-            plt.scatter(
-                fmodl1 % dnu,
-                fmodl1,
-                s=sjoin[1],
-                c=colors["l1"],
-                marker="^",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-                label=r"Best fit $l=1$",
-            )
-            plt.errorbar(
-                fobsl1 % dnu,
-                fobsl1,
-                xerr=eobsl1,
-                fmt="o",
-                mfc=colors["l1"],
-                ecolor=colors["l1"],
-                zorder=1,
-                label=r"Measured $l=1$",
-            )
-        if len(fmodl2) != 0:
-            plt.scatter(
-                fmodl2 % dnu,
-                fmodl2,
-                s=sjoin[2],
-                c=colors["l2"],
-                marker="v",
-                linewidths=1,
-                edgecolors="k",
-                zorder=3,
-                label=r"Best fit $l=2$",
-            )
-            plt.errorbar(
-                fobsl2 % dnu,
-                fobsl2,
-                xerr=eobsl2,
-                fmt="o",
-                mfc=colors["l2"],
-                ecolor=colors["l2"],
-                zorder=1,
-                label=r"Measured $l=2$",
-            )
-
-        # Make line segments connecting the observed and associated mode
-        if plotlines:
-            for l, (fmod, fobs) in enumerate(
-                zip([fmodl0, fmodl1, fmodl2], [fobsl0, fobsl1, fobsl2])
-            ):
-                for i in range(len(fmod)):
-                    plt.plot(
-                        (fmod[i] % dnu, fobs[i] % dnu),
-                        (fmod[i], fobs[i]),
-                        c=colors["l" + str(l)],
-                        alpha=0.7,
-                        zorder=1,
-                    )
-
-    # Decoration
-    lgnd = plt.legend(
+    nbase = 3 if interp_ratios else 2
+    lgnd = ax.legend(
+        handles,
+        [h.get_label() for h in handles],
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
-        ncol=6,
+        ncol=nbase * len(set(obsratio[2, :])),
         mode="expand",
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legendHandles)):
         lgnd.legendHandles[i]._sizes = [50]
-    plt.xlabel(r"Frequency modulo $\Delta \nu=$" + str(dnu) + r" $\mu$Hz")
-    plt.ylabel(r"Frequency ($\mu$Hz)")
-    plt.xlim(0, dnu)
+
+    ax.set_xlabel(r"Frequency ($\mu$Hz)")
+    ax.set_ylabel(f"Frequency ratio ({ratiotype})")
 
     if output is not None:
-        plt.savefig(output, bbox_inches="tight")
+        fig.savefig(output, bbox_inches="tight")
         print("Saved figure to " + output)
+        plt.close(fig)
+
+
+def epsilon_difference_diagram(
+    mod,
+    modkey,
+    moddnu,
+    sequence,
+    obsfreqdata,
+    output,
+):
+    """
+    Full comparison figure of observed and best-fit model epsilon
+    differences, with individual epsilons and correlation map.
+
+    Parameters
+    ----------
+    mod : array
+        Array of frequency modes in best-fit model.
+    modkey : array
+        Array of mode identification of modes in the best-fit model.
+    moddnu : float
+        Average large frequency separation (dnufit) of best-fit model.
+    sequence : str
+        The sequence to be plotted
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
+    output : str
+        Name and path of output plotfile.
+    """
+
+    delab = r"$\delta\epsilon^{%s}_{0%d}$"
+
+    obsepsdiff = obsfreqdata[sequence]["data"]
+    obsepsdiff_cov = obsfreqdata[sequence]["cov"]
+    obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
+
+    l_available = [int(ll) for ll in set(obsepsdiff[2])]
+    lindex = np.zeros(mod.shape[1], dtype=bool)
+
+    for ll in [0, *l_available]:
+        lindex |= modkey[0] == ll
+    mod = mod[:, lindex]
+    modkey = modkey[:, lindex]
+
+    modepsdiff = freq_fit.compute_epsilondiffseqs(
+        modkey,
+        mod,
+        moddnu,
+        sequence,
+    )
+
+    fig, ax = plt.subplots(1, 1)
+    handles, legends = [], []
+    for ll in l_available:
+        indobs = obsepsdiff[2] == ll
+        indmod = modepsdiff[2] == ll
+        indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
+        indmod &= modepsdiff[1] < max(obsepsdiff[1]) + 3 * moddnu
+        spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
+        fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100)
+
+        # Model with spline
+        (moddot,) = ax.plot(
+            modepsdiff[1][indmod],
+            modepsdiff[0][indmod],
+            marker=modmarkers["l" + str(ll)],
+            color=colors["l" + str(ll)],
+            lw=0,
+        )
+        ax.plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
+
+        # Model at observed
+        (modobs,) = ax.plot(
+            obsepsdiff[1][indobs],
+            spline(obsepsdiff[1][indobs]),
+            marker=splinemarkers[ll],
+            color="k",
+            markeredgewidth=2,
+            alpha=0.7,
+            lw=0,
+        )
+
+        # Observed with uncertainties
+        obsdot = ax.errorbar(
+            obsepsdiff[1][indobs],
+            obsepsdiff[0][indobs],
+            yerr=obsepsdiff_err[indobs],
+            marker=obsmarker,
+            color=colors["l" + str(ll)],
+            markeredgewidth=0.5,
+            markeredgecolor="k",
+            zorder=3,
+        )
+
+        handles.extend([moddot, obsdot, modobs])
+        legends.extend(
+            [
+                delab % ("mod", ll),
+                delab % ("obs", ll),
+                delab % ("mod", ll) + r"$(\nu^{obs})$",
+            ]
+        )
+
+    # To get the right order of entries in the legend
+    h, l = [], []
+    for i in range(3):
+        h.extend(handles[i::3])
+        l.extend(legends[i::3])
+
+    lgnd = ax.legend(
+        h,
+        l,
+        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+        loc=8,
+        ncol=9,
+        mode="expand",
+        borderaxespad=0.0,
+    )
+    for i in range(len(lgnd.legendHandles)):
+        lgnd.legendHandles[i]._sizes = [50]
+
+    ax.set_xlabel(r"Frequency ($\mu$Hz)")
+    ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
+
+    fig.tight_layout()
+    if output is not None:
+        print("Saved figure to " + output)
+        fig.savefig(output)
+    else:
+        return fig
+
+
+def correlation_map(fittype, obsfreqdata, output, obskey=None):
+    """
+    Routine for plotting a correlation map of the plotted ratios
+
+    Parameters
+    ----------
+    fittype : str
+        The type of frequency product (individual, ratios, epsilon
+        differences) for which to to the correlation map of.
+    obsfreqdata : dict
+        All necessary frequency related data from observations.
+    output : str
+        Name and path to output figure.
+    obskey : array, optional
+        Contains radial order and degree of frequencies, used if plotting
+        for individual frequencies.
+    """
+
+    # Determine information for constructing labels
+    if fittype in freqtypes.freqs:
+        fmtstr = r"$\nu({:d}, {:d})$"
+        ln_zip = zip(obskey[0, :], obskey[1, :])
+
+    elif fittype in freqtypes.rtypes:
+        data = obsfreqdata[fittype]["data"]
+        fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
+        ln_zip = zip(data[2, :], data[3, :])
+
+    elif fittype in freqtypes.epsdiff:
+        data = obsfreqdata[fittype]["data"]
+        fmtstr = r"$\delta\epsilon_{{{:02d}}}({{{:d}}})$"
+        ln_zip = zip(data[2, :], data[3, :])
+
+    # Construct labels
+    labs = []
+    for l, n in ln_zip:
+        labs.append(fmtstr.format(int(l), int(n)))
+
+    # Compute correlations
+    cov = obsfreqdata[fittype]["cov"]
+    Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
+    cor = Dinv @ cov @ Dinv
+
+    # Produce figure
+    fig, ax = plt.subplots(1, 1, figsize=(7.3, 6))
+    im = ax.imshow(cor, cmap="RdBu_r", vmin=-1, vmax=1)
+    plt.colorbar(im)
+
+    # Beautify
+    ax.set_xticks(range(cov.shape[1]))
+    ax.set_xticklabels(labs, rotation=90)
+    ax.set_yticks(range(cov.shape[1]))
+    ax.set_yticklabels(labs)
+    fig.tight_layout()
+
+    if output is not None:
+        fig.savefig(output, bbox_inches="tight")
+        plt.close(fig)
+        print("Saved figure to " + output)
+
+
+###############
+# DEBUG PLOTS #
+###############
+
+
+def epsilon_difference_components_diagram(
+    mod,
+    modkey,
+    moddnu,
+    obs,
+    obskey,
+    dnudata,
+    obsfreqdata,
+    obsfreqmeta,
+    output,
+):
+    """
+    Full comparison figure of observed and best-fit model epsilon
+    differences, with individual epsilons and correlation map.
+
+    Parameters
+    ----------
+    mod : array
+        Array of frequency modes in best-fit model.
+    modkey : array
+        Array of mode identification of modes in the best-fit model.
+    moddnu : float
+        Average large frequency separation (dnufit) of best-fit model.
+    obs : array
+        Array of observed frequency modes.
+    obskey : array
+        Array of mode identification of observed frequency modes.
+    dnudata : float
+        Inputted average large frequency separation (dnu) of observations.
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
+    output : str
+        Name and path of output plotfile.
+    """
+
+    # Prepared labels and markers
+    delab = r"$\delta\epsilon^{%s}_{0%d}$"
+    elab = r"$\epsilon_{%d}$"
+
+    epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
+
+    obsepsdiff = obsfreqdata[epsdifftype]["data"]
+    obsepsdiff_cov = obsfreqdata[epsdifftype]["cov"]
+    obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
+
+    l_available = [int(ll) for ll in set(obsepsdiff[2])]
+    lindex = np.zeros(mod.shape[1], dtype=bool)
+
+    for ll in [0, *l_available]:
+        lindex |= modkey[0] == ll
+    mod = mod[:, lindex]
+    modkey = modkey[:, lindex]
+
+    modepsdiff = freq_fit.compute_epsilondiffseqs(
+        modkey,
+        mod,
+        moddnu,
+        epsdifftype,
+    )
+
+    # Recompute to determine if possible but extrapolated modes
+    edextrapol = freq_fit.compute_epsilondiffseqs(
+        obskey,
+        obs,
+        dnudata,
+        epsdifftype,
+    )
+    nu12 = edextrapol[1][edextrapol[2] > 0]
+    nu0 = obs[0][obskey[0] == 0]
+    expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
+
+    # Definition of figure
+    fig, ax = plt.subplots(2, 2, figsize=(11, 9), sharex="col", sharey="row")
+
+    # Epsilon differences
+    for ll in l_available:
+
+        indobs = obsepsdiff[2] == ll
+        indmod = modepsdiff[2] == ll
+
+        # Constrained model range
+        indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
+        indmod &= modepsdiff[1] < max(obsepsdiff[1]) + 3 * moddnu
+        spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
+        fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 1000)
+
+        # Raw model with spline
+        ax[0, 1].errorbar(
+            modepsdiff[1][indmod],
+            modepsdiff[0][indmod],
+            yerr=np.zeros(sum(indmod)),
+            marker=modmarkers["l" + str(ll)],
+            color=colors["l" + str(ll)],
+            markeredgewidth=0.5,
+            markeredgecolor="k",
+            zorder=3,
+            linestyle="",
+            label=delab % ("", ll),
+        )
+        ax[0, 1].plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
+
+        # Spline observed for separate plot
+        spline = CubicSpline(obsepsdiff[1][indobs], obsepsdiff[0][indobs])
+        fnew = np.linspace(min(obsepsdiff[1][indobs]), max(obsepsdiff[1][indobs]), 100)
+
+        # Observed with uncertainties and spline
+        ax[0, 0].errorbar(
+            obsepsdiff[1][indobs],
+            obsepsdiff[0][indobs],
+            yerr=obsepsdiff_err[indobs],
+            marker=obsmarker,
+            color=colors["l" + str(ll)],
+            markeredgewidth=0.5,
+            markeredgecolor="k",
+            linestyle="",
+            zorder=3,
+        )
+        ax[0, 0].plot(fnew, spline(fnew), "-", color="0.7", zorder=-1)
+
+    # Potential extrapolated points
+    if len(expol):
+        for ll in set(edextrapol[2][expol].astype(int)):
+            ax[0, 0].plot(
+                edextrapol[1][expol][edextrapol[2][expol] == ll],
+                edextrapol[0][expol][edextrapol[2][expol] == ll],
+                marker=obsmarker,
+                lw=0,
+                alpha=0.5,
+                color=colors["l" + str(ll)],
+                label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
+            )
+        ax[0, 0].legend()
+
+    # Individual epsilons
+    for ll in [0, *l_available]:
+        # Extract observed quantities
+        indobs = obskey[0] == ll
+        fre = obs[0][indobs]
+        eps = fre / dnudata - obskey[1][indobs] - ll / 2
+        err = obs[1][indobs] / dnudata
+        intpol = CubicSpline(fre, eps)
+        fnew = np.linspace(min(fre), max(fre), 100)
+
+        # Plot observed w. spline
+        ax[1, 0].errorbar(
+            fre,
+            eps,
+            yerr=err,
+            linestyle=None,
+            fmt=obsmarker,
+            color=colors["l" + str(ll)],
+            zorder=3,
+            label=elab % ll,
+        )
+        ax[1, 0].plot(
+            fnew,
+            intpol(fnew),
+            "-",
+            color=splinecolor,
+        )
+
+        # Extract model quantities
+        indmod = modkey[0] == ll
+        indmod &= mod[0] > min(obsepsdiff[1]) - 3 * moddnu
+        indmod &= mod[0] < max(obsepsdiff[1]) + 3 * moddnu
+        fre = mod[0][indmod]
+        eps = fre / moddnu - modkey[1][indmod] - ll / 2
+        err = mod[1][indmod] / moddnu
+        intpol = CubicSpline(fre, eps)
+        fnew = np.linspace(min(fre), max(fre), 1000)
+
+        # Plot model w. spline
+        ax[1, 1].errorbar(
+            fre,
+            eps,
+            yerr=err,
+            linestyle=None,
+            fmt=modmarkers["l" + str(ll)],
+            color=colors["l" + str(ll)],
+            zorder=3,
+            label=elab % ll,
+        )
+        ax[1, 1].plot(fnew, intpol(fnew), "-", color=splinecolor)
+
+    ax[0, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.0)
+    ax[1, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2)
+
+    # Axes labels
+    ax[0, 0].set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
+    ax[1, 0].set_xlabel(r"Frequency ($\mu$Hz)")
+    ax[1, 0].set_ylabel(r"Epsilon $\epsilon_{\ell}$")
+    ax[1, 1].set_xlabel(r"Frequency ($\mu$Hz)")
+
+    # Titles
+    ax[0, 0].set_title(r"Observed", fontsize=18)
+    ax[0, 1].set_title(r"Model", fontsize=18)
+
+    fig.tight_layout()
+    # fig.subplots_adjust(wspace=0.2, hspace=0.4)
+
+    fig.savefig(output)
+    print("Saved figure to " + output)
