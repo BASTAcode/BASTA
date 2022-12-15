@@ -47,9 +47,12 @@ that showcases these applications. If your paper using BASTA results is missing 
 
 Authors
 -------
-The core developing team are:
+The original author of the code is:
 
 * Víctor Aguirre Børsen-Koch
+
+The current core developing team are:
+
 * Jakob Lysgaard Rørsted
 * Mark Lykke Winther
 * Amalie Stokholm

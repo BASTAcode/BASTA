@@ -28,7 +28,7 @@ else:
     INTPOL_AVAIL = True
 
 
-def _find_get(root, path, value, defa=False):
+def _find_get(root, path, value, *default):
     """
     Error catching of things required to be set in xml. Gives useful
     errormessage instead of stuff like "AttributeError: 'NoneType' object
@@ -42,7 +42,7 @@ def _find_get(root, path, value, defa=False):
         What path in the xml-tree the wanted value should be at
     value : str
         Name of the value to be extracted, e.g. "value", "path", "error"
-    defa : str, int, None
+    default : str, int, None, bool
         Default to return if not set
 
     Returns
@@ -50,16 +50,19 @@ def _find_get(root, path, value, defa=False):
     val : str
         Extracted value upon location in xml
     """
+    # Protect against calls like
+    # _find_get(root, path, value, 0, "foo", 42, None, True, [1, 2])
+    assert len(default) <= 1
     tag = path.split("/")[-1]
     place = root.find(path)
     if place == None:
-        if defa != False:
-            return defa
+        if default:
+            return default[0]
         raise KeyError("Missing tag '{0}' in input!".format(tag))
     val = place.get(value)
     if val == None:
-        if defa != False:
-            return defa
+        if default:
+            return default[0]
         raise ValueError("Missing '{0}' in tag '{1}'!".format(value, tag))
     return val
 
@@ -487,7 +490,9 @@ def run_xml(
     # Extract parameters for frequency fitting
     if fitfreqs["active"]:
         fitfreqs["freqpath"] = _find_get(root, "default/freqparams/freqpath", "value")
-        fitfreqs["fcor"] = _find_get(root, "default/freqparams/fcor", "value")
+        fitfreqs["fcor"] = _find_get(
+            root, "default/freqparams/fcor", "value", "cubicBG14"
+        )
         if fitfreqs["fcor"] == "HK08":
             fitfreqs["bexp"] = float(
                 _find_get(root, "default/freqparams/bexp", "value")
@@ -495,27 +500,25 @@ def run_xml(
         else:
             fitfreqs["bexp"] = None
         fitfreqs["correlations"] = strtobool(
-            _find_get(root, "default/freqparams/correlations", "value")
+            _find_get(root, "default/freqparams/correlations", "value", "False")
         )
         fitfreqs["threepoint"] = strtobool(
-            _find_get(root, "default/freqparams/threepoint", "value", defa="False")
+            _find_get(root, "default/freqparams/threepoint", "value", "False")
         )
         fitfreqs["readratios"] = strtobool(
-            _find_get(root, "default/freqparams/readratios", "value", defa="False")
+            _find_get(root, "default/freqparams/readratios", "value", "False")
         )
         fitfreqs["dnufrac"] = float(
-            _find_get(root, "default/freqparams/dnufrac", "value", defa=0.15)
+            _find_get(root, "default/freqparams/dnufrac", "value", 0.15)
         )
         fitfreqs["dnufit_in_ratios"] = strtobool(
-            _find_get(
-                root, "default/freqparams/dnufit_in_ratios", "value", defa="False"
-            )
+            _find_get(root, "default/freqparams/dnufit_in_ratios", "value", "False")
         )
         fitfreqs["interp_ratios"] = strtobool(
-            _find_get(root, "default/freqparams/interp_ratios", "value", defa="True")
+            _find_get(root, "default/freqparams/interp_ratios", "value", "True")
         )
         fitfreqs["nsorting"] = strtobool(
-            _find_get(root, "default/freqparams/nsorting", "value", defa="True")
+            _find_get(root, "default/freqparams/nsorting", "value", "True")
         )
 
         # Read seismic weight quantities
