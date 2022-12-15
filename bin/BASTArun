@@ -42,6 +42,7 @@ def main():
 
     # Add optional argument: Set random seed
     parser.add_argument(
+        "-s",
         "--seed",
         type=int,
         help="Set random seed to ensure deterministic behavior for debugging",
@@ -53,11 +54,6 @@ def main():
     # Set the random seed if given
     if args.seed is not None:
         seed = args.seed
-        print(
-            "\n*** BASTA: Random-numbers initialised with seed {0} ***\n".format(
-                seed
-            )
-        )
     else:
         seed = np.random.randint(5000)
 

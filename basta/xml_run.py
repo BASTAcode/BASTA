@@ -612,11 +612,6 @@ def run_xml(
 
     # Make sure the output path exists
     if not os.path.exists(inputparams["output"]):
-        print(
-            "Output dir '{0}' does not exist! Creating it...".format(
-                inputparams["output"]
-            )
-        )
         os.makedirs(inputparams["output"])
 
     # First, delete any existing file, then open file for appending

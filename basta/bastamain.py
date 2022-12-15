@@ -103,10 +103,10 @@ def BASTA(
     util.prt_center("(c) 2022, The BASTA Team", linelen)
     util.prt_center("https://github.com/BASTAcode/BASTA", linelen)
     print(linelen * "=")
-    print("\nRun started on {0}.\n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
+    print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
     if experimental:
         print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
-    print(f"Random numbers initialised with seed {seed}")
+    print(f"Random numbers initialised with seed: {seed} .")
 
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(gridfile, "r")
@@ -346,14 +346,8 @@ def BASTA(
                 )
             )
 
-        if fitfreqs["bexp"] is not None:
-            bexpstr = " with b = {0}".format(fitfreqs["bexp"])
-        else:
-            bexpstr = ""
-        if fitfreqs["correlations"]:
-            corrstr = "Yes"
-        else:
-            corrstr = "No"
+        # Translate True/False to Yes/No
+        strmap = ("No", "Yes")
         print(
             "  - Constraining lowest l = 0 (n = {0}) with f = {1:.3f} +/-".format(
                 obskey[1, 0], obs[0, 0]
@@ -364,17 +358,44 @@ def BASTA(
                 fitfreqs["dnufrac"] * fitfreqs["dnufit"],
             ),
         )
-        print("  - Correlations: {0}".format(corrstr))
+        if fitfreqs["bexp"] is not None:
+            bexpstr = " with b = {0}".format(fitfreqs["bexp"])
+        else:
+            bexpstr = ""
+        print("  - Correlations: {0}".format(strmap[fitfreqs["correlations"]]))
         print("  - Frequency input data: {0}".format(fitfreqs["freqfile"]))
         print(
             "  - Frequency input data (list of ignored modes): {0}".format(
                 fitfreqs["nottrustedfile"]
             )
         )
+        print(
+            "  - Inclusion of dnu in ratios fit: {0}".format(
+                strmap[fitfreqs["dnufit_in_ratios"]]
+            )
+        )
+        print(
+            "  - Interpolation in ratios: {0}".format(strmap[fitfreqs["interp_ratios"]])
+        )
         print("  - Surface effect correction: {0}{1}".format(fitfreqs["fcor"], bexpstr))
+        print(
+            "  - Use alternative ratios (3-point): {0}".format(
+                strmap[fitfreqs["threepoint"]]
+            )
+        )
         print("  - Value of dnu: {0:.3f} microHz".format(fitfreqs["dnufit"]))
         print("  - Value of numax: {0:.3f} microHz".format(fitfreqs["numax"]))
-        print("  - Weighting scheme: {0}".format(fitfreqs["seismicweights"]["weight"]))
+
+        weightcomment = ""
+        if fitfreqs["seismicweights"]["dof"]:
+            weightcomment += "  |  dof = {0}".format(fitfreqs["seismicweights"]["dof"])
+        if fitfreqs["seismicweights"]["N"]:
+            weightcomment += "  |  N = {0}".format(fitfreqs["seismicweights"]["N"])
+        print(
+            "  - Weighting scheme: {0}{1}".format(
+                fitfreqs["seismicweights"]["weight"], weightcomment
+            )
+        )
 
     # Fitting info: Distance
     if distparams:

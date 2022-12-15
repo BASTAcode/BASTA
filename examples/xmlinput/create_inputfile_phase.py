@@ -110,7 +110,8 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #
     # Important note on keywords:
     # --> To fit frequencies add "freqs"
-    # --> To fit ratios add "r012" (or whichever type(s) you want to fit)
+    # --> To fit ratios add "r012" (or whichever type you want to fit)
+    # --> To fit epsilon differences add "e012" (or whichever type you want to fit)
     # --> To fit parallax/magnitude/distance, add "parallax"
     # --> If activating any special fits, remember to look in the corresponding block
     #     below to set additional required settings!! E.g., for frequencies/ratios, look
@@ -120,7 +121,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> BASTA can use different determinations of the large frequency separation
     #     (dnu). The one provided must match the one you add to fitting parameters in
     #     the next block. If present in the grid, "dnufit" is the most reliable one.
-    #     The full list is available in REMEMBER TO ADD LINK !
+    #     The full list is available in constants.py
     define_fit["fitparams"] = ("Teff", "FeH", "dnuSer", "numax", "phase")
 
     # ------------------------------------------------------------
@@ -211,7 +212,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #                     input frequencies have already been corrected.
     #
     # - "correlations": To include the correlations between the frequencies/ratios in
-    #                   the fit. Currently correlations are only supported for ratios.
+    #                   the fit. Should always be set for ratios!
     #
     # - "dnufrac": Only model matching the lowest observed l=0 within this fraction is
     #              considered. This is useful when fitting ratios. It is also for
@@ -366,7 +367,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
         # As interpolation is time consuming, it is normal procedure to define a 'box'
         # around the target star and only construct the interpolated grid in this
-        # region. This will yield higher resolution in the important region of the grid,
+        # box. This will yield higher resolution in the important region of the grid,
         # while reducing the computation time and keeping the size of the interpolated
         # grid as low as possible.
         # Please set limits for the parameters (same syntax as for the flat priors) to
