@@ -202,7 +202,8 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #                     input frequencies have already been corrected.
     #
     # - "correlations": To include the correlations between the frequencies/ratios in
-    #                   the fit. Should always be set for ratios!
+    #                   the fit. Should always be set to True for surface-independent
+    #                   fitting (ratios or epsilon differences)!
     #
     # - "dnufrac": Only model matching the lowest observed l=0 within this fraction is
     #              considered. This is useful when fitting ratios. It is also for

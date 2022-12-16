@@ -3,6 +3,8 @@
 Spectroscopy and global asteroseismic parameters
 ================================================
 
+*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
+
 This example describes the fitting of what we call global parameters of the grid, with a specific application to
 asteroseismology for illustration purposes. As a general recommendation, the user should explore the
 :py:meth:`constants.parameters` (in ``${BASTADIR}/basta/constants.py``) function for a complete list of available fitting parameters.

@@ -3,6 +3,9 @@
 Individual frequencies, ratios, glitches
 ========================================
 
+*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
+
+
 Using grids that include theoretically computed oscillation frequencies (see :ref:`grids`) BASTA can fit these
 individual frequencies with a surface correction, as well as combination of frequencies. In the following we show
 examples of the blocks that must be modified in :py:meth:`create_inputfile.define_input` to produce these types of fits.
