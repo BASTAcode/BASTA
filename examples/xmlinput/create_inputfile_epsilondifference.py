@@ -318,19 +318,19 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     define_plots["kielplots"] = True
 
     # When fitting frequencies or frequency ratios, BASTA can generate echelle diagrams
-    # and plots of the ratios. Setting True will produce all plots. Setting "echelle"
-    # will skip the plot of ratios, which might be useful to save time when fitting
-    # individual frequencies (as ratios can take a while to compute)
-    # --> All possible options: ("echelle", "dupechelle", "pairechelle", "ratios",
-    #                            True, False)
+    # and plots of the surface independent quantities (ratios, epsilon differences).
+    # - Setting True will produce *all* plots.
+    # - Setting "allechelle" will skip the plot of ratios and/or epsilon differences,
+    #   which might be useful to save time when fitting individual frequencies (as the
+    #   surface independent parameters can take a while to compute).
+    # - It can be a bool, a string or a list.
+    # --> Commonly used options: ("allechelle", "ratios", "epsdiff", True, False)
     define_plots["freqplots"] = True
 
     # By default BASTA will save plots in png format, as they are much faster to
     # produce. This can be changed to pdf to obtain higher quality plots at the cost of
     # speed. For fitting a single star (especially with frequencies/ratios), pdf is
     # usually preferred.
-    # --> Note that the ratios plot will always be pdf, because it is using a multipage
-    #     pdf backend.
     define_plots["plotfmt"] = "pdf"
 
     # ==================================================================================

@@ -804,8 +804,8 @@ def BASTA(
     if fitfreqs["active"] and len(freqplots):
         # Check which plots to create
         allfplots = freqplots[0] == True
-        if any(x == "echelle" for x in freqplots):
-            freqplots += ["dupechelle", "echelle"]
+        if any(x == "allechelle" for x in freqplots):
+            freqplots += ["dupechelle", "echelle", "pairechelle"]
         if any(x in freqtypes.rtypes for x in freqplots):
             freqplots += ["ratios"]
 
