@@ -36,7 +36,7 @@ def _export_selectedmodels(selectedmodels):
 def _import_selectedmodels(data):
     res = {}
     for trackno, ts in data.items():
-        index = np.zeros(ts["n"], dtype=np.bool)
+        index = np.zeros(ts["n"], dtype=bool)
         index[ts["index"]] = True
         res[trackno] = stats.Trackstats(
             chi2=np.asarray(ts["chi2"]), index=index, logPDF=np.asarray(ts["logPDF"])
@@ -730,29 +730,6 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
 
     if covarfre:
         corrfre, covarfreq = read_freq_cov_xml(filename, obskey)
-        """
-        # Read covariances of individual frequency pairs from .cov file
-        # These covariances are not (yet) implemented in the xml file
-        covfile = os.path.splitext(filename)[0] + ".cov"
-        if os.path.isfile(covfile):
-            cov = read_cov_freqs(covfile)
-            covarfre = np.zeros((len(obs[0, :]), len(obs[0, :])))
-
-            nldata = list(zip(obskey[0], obskey[1]))
-            for i, (l1, n1) in enumerate(nldata):
-                for j, (n2, l2) in enumerate(nldata[i:], start=i):
-                    cov_index = np.where(
-                        (cov["n1"] == n1)
-                        & (cov["l1"] == l1)
-                        & (cov["n2"] == n2)
-                        & (cov["l2"] == l2)
-                    )[0][0]
-
-                    covarfre[i, j] = covarfre[j, i] = cov["covariance"][cov_index]
-        else:
-            print(covfile + " not found!")
-            return
-        """
     else:
         covarfreq = np.diag(obs[1, :]) ** 2
 
@@ -1111,7 +1088,7 @@ def read_r02(filename, rrange, nottrustedfile):
     return r02var, covar02
 
 
-def read_glh(filename):
+def read_glitch(filename):
     """
     Read glitch parameters.
 
@@ -1122,39 +1099,251 @@ def read_glh(filename):
 
     Returns
     -------
-    glhParams : array
+    glitchparams : array
         Array of median glitch parameters
     glhCov : array
         Covariance matrix
     """
     # Extract glitch parameters
-    glhFit = np.genfromtxt(filename, skip_header=3)
-    glhParams = np.zeros(3)
-    glhParams[0] = np.median(glhFit[:, 8])
-    glhParams[1] = np.median(glhFit[:, 4])
-    glhParams[2] = np.median(glhFit[:, 5])
+    glitchfit = np.genfromtxt(filename, skip_header=3)
+    glitchparams = np.zeros(3)
+    glitchparams[0] = np.median(glitchfit[:, 8])
+    glitchparams[1] = np.median(glitchfit[:, 4])
+    glitchparams[2] = np.median(glitchfit[:, 5])
 
     # Compute covariance matrix
-    tmpFit = np.zeros((len(glhFit[:, 0]), 3))
-    tmpFit[:, 0] = glhFit[:, 8]
-    tmpFit[:, 1] = glhFit[:, 4]
-    tmpFit[:, 2] = glhFit[:, 5]
-    glhCov = MinCovDet().fit(tmpFit).covariance_
-    # iglhCov = np.linalg.pinv(glhCov, rcond=1e-8)
+    tmpFit = np.zeros((len(glitchfit[:, 0]), 3))
+    tmpFit[:, 0] = glitchfit[:, 8]
+    tmpFit[:, 1] = glitchfit[:, 4]
+    tmpFit[:, 2] = glitchfit[:, 5]
+    cov = MinCovDet().fit(tmpFit).covariance_
+    covinv = np.linalg.pinv(cov, rcond=1e-8)
 
-    return glhParams, glhCov
+    return glitchparams, cov, covinv
 
 
-def read_rt(
-    filename,
-    glhtxt,
-    rt,
-    numax,
-    plotratios,
-    getfreqcovar=False,
-    nottrustedfile=None,
-    threepoint=False,
+def read_precomputedratios(
+    obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False
+):
+    assert ratiotype in ["r010", "r02"]
+    r02, _, _ = freq_fit.compute_ratios(
+        obskey, obs, ratiotype="r02", threepoint=threepoint
+    )
+    r01, _, _ = freq_fit.compute_ratios(
+        obskey, obs, ratiotype="r01", threepoint=threepoint
+    )
+    r10, _, _ = freq_fit.compute_ratios(
+        obskey, obs, ratiotype="r10", threepoint=threepoint
+    )
+    rrange = (
+        int(round(r01[0, 0])),
+        int(round(r01[-1, 0])),
+        int(round(r10[0, 0])),
+        int(round(r10[-1, 0])),
+        int(round(r02[0, 0])),
+        int(round(r02[-1, 0])),
+    )
+
+    if ratiotype == "r010":
+        ratio, cov = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
+    elif ratiotype == "r02":
+        ratio, cov = read_r02(filename, rrange, nottrustedfile)
+    covinv = np.linalg.pinv(cov, rcond=1e-8)
+    return ratio, cov, covinv
+
+
+def compute_dnudata(obskey, obs, numax):
+    """
+    Compute large frequency separation (the same way as dnufit)
+
+    Parameters
+    ----------
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
+    obs : array
+        Individual frequencies and uncertainties.
+    numax : scalar
+        Frequency of maximum power
+
+    Returns
+    -------
+    dnudata : scalar
+        Large frequency separation obtained by fitting the radial mode observed
+        frequencies. Similar to dnufit, but from data and not from the
+        theoretical frequencies in the grid of models.
+    dnudata_err : scalar
+        Uncertainty on dnudata.
+    """
+    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+    yfitdnu = obs[0, obskey[0, :] == 0]
+    xfitdnu = np.arange(0, len(yfitdnu))
+    wfitdnu = np.exp(
+        -1.0
+        * np.power(yfitdnu - numax, 2)
+        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+    )
+    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
+    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+
+    return dnudata, dnudata_err
+
+
+def make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
+    """
+    Make a dictionary of frequency-dependent data
+
+    Parameters
+    ----------
+    allfits : list
+        Type of fits available for individual frequencies
+    freqplots : list
+        List of frequency-dependent fits
+    obscov : array
+        Covariance matrix of the individual frequencies
+    obscovinv : array
+        The inverse of the ovariance matrix of the individual frequencies
+    debug : bool, optional
+        Activate additional output for debugging (for developers)
+
+    Returns
+    -------
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01a, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
+    """
+    obsfreqdata = {}
+    obsfreqmeta = {}
+
+    allfits = np.asarray(list(allfits))
+    allplots = np.asarray(list(freqplots))
+    fitratiotypes = []
+    plotratiotypes = []
+    fitepsdifftypes = []
+    plotepsdifftypes = []
+
+    getratios = False
+    getglitch = False
+    getepsdiff = False
+
+    obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
+    dnudata, dnudata_err = compute_dnudata(obskey, obs, numax)
+    obsls = np.unique(obskey[0, :])
+
+    for fit in allfits:
+        obsfreqdata[fit] = {}
+        # Look for ratios
+        if fit in freqtypes.rtypes:
+            getratios = True
+            fitratiotypes.append(fit)
+            if not "ratios" in obsfreqmeta.keys():
+                obsfreqmeta["ratios"] = {}
+        # Look for glitches
+        elif fit in freqtypes.glitches:
+            getglitch = True
+        # Look for epsdiff
+        elif fit in freqtypes.epsdiff:
+            getepsdiff = True
+            fitepsdifftypes.append(fit)
+            if not "epsdiff" in obsfreqmeta.keys():
+                obsfreqmeta["epsdiff"] = {}
+        elif fit not in freqtypes.freqs:
+            print(f"Fittype {fit} not recognised")
+            raise ValueError
+
+    obsfreqdata["freqs"] = {
+        "cov": obscov,
+        "covinv": obscovinv,
+        "dnudata": dnudata,
+        "dnudata_err": dnudata_err,
+    }
+
+    if len(freqplots) and freqplots[0] == True:
+        getratios = True
+        getepsdiff = True
+
+        plotratiotypes = list(set(freqtypes.defaultrtypes) | set(fitratiotypes))
+        plotepsdifftypes = list(set(freqtypes.defaultepstypes) | set(fitepsdifftypes))
+
+    elif len(freqplots):
+        for plot in allplots:
+            # Look for ratios
+            if plot in ["ratios", *freqtypes.rtypes]:
+                getratios = True
+                if plot in [
+                    "ratios",
+                ]:
+                    for rtype in freqtypes.defaultrtypes:
+                        if rtype not in plotratiotypes:
+                            plotratiotypes.append(rtype)
+                else:
+                    if plot not in plotratiotypes:
+                        plotratiotypes.append(plot)
+            # Look for glitches
+            if plot in freqtypes.glitches:
+                getglitch = True
+            # Look for epsdiff
+            if plot in ["epsdiff", *freqtypes.epsdiff]:
+                getepsdiff = True
+                if plot in ["epsdiff"]:
+                    for etype in freqtypes.defaultepstypes:
+                        if etype not in plotepsdifftypes:
+                            plotepsdifftypes.append(etype)
+                else:
+                    if plot not in plotepsdifftypes:
+                        plotepsdifftypes.append(plot)
+
+    # Check that there is observational data available for fits and plots
+    if getratios or getepsdiff:
+        for fittype in set(fitratiotypes) | set(fitepsdifftypes):
+            if not all(x in obsls.astype(str) for x in fittype[1:]):
+                for l in fittype[1:]:
+                    if not l in obsls.astype(str):
+                        print(f"* No l={l} modes were found in the observations")
+                        print(f"* It is not possible to fit {fittype}")
+                        raise ValueError
+        for fittype in set(plotratiotypes) | set(plotepsdifftypes):
+            if not all(x in obsls.astype(str) for x in fittype[1:]):
+                if debug:
+                    print(f"*BASTA {fittype} cannot be plotted")
+                if fittype in plotratiotypes:
+                    plotratiotypes.remove(fittype)
+                if fittype in plotepsdifftypes:
+                    plotepsdifftypes.remove(fittype)
+        if getratios and ((len(fitratiotypes) == 0) & (len(plotratiotypes) == 0)):
+            getratios = False
+        if getepsdiff and ((len(fitepsdifftypes) == 0) & (len(plotepsdifftypes) == 0)):
+            getepsdiff = False
+
+    if getratios:
+        obsfreqmeta["ratios"] = {}
+        obsfreqmeta["ratios"]["fit"] = fitratiotypes
+        obsfreqmeta["ratios"]["plot"] = plotratiotypes
+
+    if getepsdiff:
+        obsfreqmeta["epsdiff"] = {}
+        obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
+        obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
+
+    obsfreqmeta["getratios"] = getratios
+    obsfreqmeta["getglitch"] = getglitch
+    obsfreqmeta["getepsdiff"] = getepsdiff
+
+    return obsfreqdata, obsfreqmeta
+
+
+def read_allseismic(
+    fitfreqs,
+    freqplots,
     verbose=False,
+    debug=False,
 ):
     """
     Routine to all necesary data from individual frequencies for the
@@ -1162,169 +1351,160 @@ def read_rt(
 
     Parameters
     ----------
-    filename : string
-        Name of file to read
-    glhtxt : str
-        Name of file containing glitch parameters and covariances.
-    rt : list
-        Type of fits available for individual frequencies
-    numax : scalar
-        Frequency of maximum power
-    plotratios : bool
-        Whether or not computation of ratios for plots is needed
-    getfreqcovar : bool
-        Whether to try to read frequency covariances from the input xml
-    nottrustedfile : str or None.
-        Name of file containing the (l, n) values of frequencies to be
-        omitted in the fit. If None, no modes will be excluded.
-    threepoint : bool
-        If True, use three point definition of r01 and r10 ratios
-        instead of default five point definition.
+    fitfreqs : dict
+        Contains all frequency related input needed for reading.
+    freqplots : list
+        List of frequency-dependent fits
     verbose : bool, optional
         If True, extra text will be printed to log (for developers).
+    debug : bool, optional
+        Activate additional output for debugging (for developers)
 
     Returns
     -------
-    datos : array
-        Individual frequencies, uncertainties, and combinations read
-        directly from the observational input files
-    cov : array
-        Covariances between individual frequencies and frequency ratios
-        read directly from the observational input files
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
     obs : array
-        Individual frequencies, uncertainties, and combinations computed
-        from these frequencies
+        Individual frequencies and uncertainties.
+    obsfreqdata : dict
+        Requested frequency-dependent data such as glitches, ratios, and
+        epsilon difference. It also contains the covariance matrix and its
+        inverse of the individual frequency modes.
+        The keys correspond to the science case, e.g. `r01`, `glitch`, or
+        `e012`.
+        Inside each case, you find the data (`data`), the covariance matrix
+        (`cov`), and its inverse (`covinv`).
+    obsfreqmeta : dict
+        The requested information about which frequency products to fit or
+        plot, unpacked for easier access later.
     dnudata : scalar
         Large frequency separation obtained by fitting the radial mode observed
         frequencies. Similar to dnufit, but from data and not from the
-        theoretical frequencies in the grid of models
+        theoretical frequencies in the grid of models.
     dnudata_err : scalar
-        Uncertainty on dnudata
+        Uncertainty on dnudata.
     """
-    # Observed frequencies
-    obskey, obs, covf = read_freq(filename, nottrustedfile, covarfre=getfreqcovar)
-    datos_f, cov_f = obs, covf
 
-    # Observed ratios and covariances
-    names = ["l", "n", "freq", "err"]
-    fmts = [int, int, float, float]
-    freq = np.zeros(obskey.shape[1], dtype={"names": names, "formats": fmts})
-    freq[:]["l"] = obskey[0, obskey[0, :] < 3]
-    freq[:]["n"] = obskey[1, obskey[0, :] < 3]
-    freq[:]["freq"] = obs[0, obskey[0, :] < 3]
-    freq[:]["err"] = obs[1, obskey[0, :] < 3]
+    if "freqs" in fitfreqs["fittypes"] and fitfreqs["correlations"]:
+        obskey, obs, obscov = read_freq(
+            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=True
+        )
+    else:
+        obskey, obs, obscov = read_freq(
+            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=False
+        )
+
+    # Observed frequencies
 
     # Ratios and covariances
-    datos010, datos02, datos01, datos10, datos012, datos102 = (
-        None,
-        None,
-        None,
-        None,
-        None,
-        None,
+    # Check if it is unnecesarry to compute ratios
+    obsfreqdata, obsfreqmeta = make_obsfreqs(
+        obskey,
+        obs,
+        obscov,
+        fitfreqs["fittypes"],
+        freqplots,
+        numax=fitfreqs["numax"],
+        debug=debug,
     )
-    cov010, cov02, cov01, cov10, cov012, cov102 = (None, None, None, None, None, None)
-    dnudata, dnudata_err = None, None
-    r02, r01, r10 = freq_fit.ratios(freq)
-    if r02 is None:
-        if any(x in freqtypes.rtypes for x in rt):
-            print("WARNING: Missing radial orders! Skipping ratios fitting!")
-    else:
-        # Compute large frequency separation (the same way as dnufit)
-        FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-        yfitdnu = freq[freq["l"] == 0]["freq"]
-        xfitdnu = np.arange(0, len(yfitdnu))
-        wfitdnu = np.exp(
-            -1.0
-            * np.power(yfitdnu - numax, 2)
-            / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-        )
-        fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-        dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
 
-        # Ratios and their covariances
-        r010, r012, r102 = su.combined_ratios(r02, r01, r10)
-        rrange = (
-            int(round(r01[0, 0])),
-            int(round(r01[-1, 0])),
-            int(round(r10[0, 0])),
-            int(round(r10[-1, 0])),
-            int(round(r02[0, 0])),
-            int(round(r02[-1, 0])),
-        )
+    # Compute or dataread in required ratios
+    if obsfreqmeta["getratios"]:
+        readratiotypes = []
+        if fitfreqs["readratios"]:
+            # Parse the XML file:
+            tree = ElementTree.parse(fitfreqs["freqfile"])
+            root = tree.getroot()
 
-        # R010
-        datos010, cov010 = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
-        if datos010 is None and "r010" in rt:
-            print("* r010 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov010 = su.ratio_and_cov(freq, rtype="R010", threepoint=threepoint)
-            datos010 = np.zeros((3, len(rat[:, 0])))
-            datos010[0, :] = rat[:, 1]
-            datos010[1, :] = rat[:, 3]
-            datos010[2, :] = rat[:, 2]
-            print("done!")
+            # Find a list of all available frequency ratios:
+            readratiotypes = list(root.findall("frequency_ratio"))
+            for ratiotype in readratiotypes:
+                datos = su.read_precomputedratios(
+                    obskey,
+                    obs,
+                    ratiotype,
+                    fitfreqs["freqfile"],
+                    fitfreqs["nottrustedfile"],
+                    threepoint=fitfreqs["threepoint"],
+                    verbose=verbose,
+                )
+                obsfreqdata[ratiotype] = {}
+                obsfreqdata[ratiotype]["data"] = datos[0]
+                obsfreqdata[ratiotype]["cov"] = datos[1]
+                obsfreqdata[ratiotype]["covinv"] = datos[2]
 
-        # R02
-        datos02, cov02 = read_r02(filename, rrange, nottrustedfile)
-        if datos02 is None and ("r02" in rt or plotratios):
-            print("* r02 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov02 = su.ratio_and_cov(freq, rtype="R02", threepoint=threepoint)
-            datos02 = np.zeros((3, len(rat[:, 0])))
-            datos02[0, :] = rat[:, 1]
-            datos02[1, :] = rat[:, 3]
-            datos02[2, :] = rat[:, 2]
-            print("done!")
+        for ratiotype in (
+            set(obsfreqmeta["ratios"]["fit"]) | set(obsfreqmeta["ratios"]["plot"])
+        ) - set(readratiotypes):
+            obsfreqdata[ratiotype] = {}
+            datos = freq_fit.compute_ratios(
+                obskey, obs, ratiotype, threepoint=fitfreqs["threepoint"]
+            )
+            if datos is not None:
+                obsfreqdata[ratiotype]["data"] = datos[0]
+                obsfreqdata[ratiotype]["cov"] = datos[1]
+                obsfreqdata[ratiotype]["covinv"] = datos[2]
+            else:
+                if ratiotype in obsfreqmeta["ratios"]["fit"]:
+                    # Fail
+                    raise ValueError(
+                        f"Fitting parameter {ratiotype} could not be computed."
+                    )
+                else:
+                    # Do not fail as much
+                    print(f"Ratio {ratiotype} could not be computed.")
+                    obsfreqdata[ratiotype]["data"] = None
+                    obsfreqdata[ratiotype]["cov"] = None
+                    obsfreqdata[ratiotype]["covinv"] = None
 
-        # R01
-        if datos01 is None and ("r01" in rt or plotratios):
-            print("* r01 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov01 = su.ratio_and_cov(freq, rtype="R01", threepoint=threepoint)
-            datos01 = np.zeros((3, len(rat[:, 0])))
-            datos01[0, :] = rat[:, 1]
-            datos01[1, :] = rat[:, 3]
-            datos01[2, :] = rat[:, 2]
-            print("done!")
+    # Get glitches
+    if obsfreqmeta["getglitch"]:
+        obsfreqdata["glitches"] = {}
+        datos = read_glitch(fitfreqs["glhfile"])
+        obsfreqdata["glitches"]["data"] = datos[0]
+        obsfreqdata["glitches"]["cov"] = datos[1]
+        obsfreqdata["glitches"]["covinv"] = datos[2]
 
-        # R10
-        if datos10 is None and ("r10" in rt or plotratios):
-            print("* r10 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov10 = su.ratio_and_cov(freq, rtype="R10", threepoint=threepoint)
-            datos10 = np.zeros((3, len(rat[:, 0])))
-            datos10[0, :] = rat[:, 1]
-            datos10[1, :] = rat[:, 3]
-            datos10[2, :] = rat[:, 2]
-            print("done!")
+    # Get epsilon differences
+    if obsfreqmeta["getepsdiff"]:
+        for epsdifffit in set(obsfreqmeta["epsdiff"]["fit"]) | set(
+            obsfreqmeta["epsdiff"]["plot"]
+        ):
+            obsfreqdata[epsdifffit] = {}
+            if epsdifffit in obsfreqmeta["epsdiff"]["fit"]:
+                datos = freq_fit.compute_epsilondiff(
+                    obskey,
+                    obs,
+                    obsfreqdata["freqs"]["dnudata"],
+                    sequence=epsdifffit,
+                    nsorting=fitfreqs["nsorting"],
+                    debug=debug,
+                )
+                obsfreqdata[epsdifffit]["data"] = datos[0]
+                obsfreqdata[epsdifffit]["cov"] = datos[1]
+                obsfreqdata[epsdifffit]["covinv"] = datos[2]
+            elif epsdifffit in obsfreqmeta["epsdiff"]["plot"]:
+                datos = freq_fit.compute_epsilondiff(
+                    obskey,
+                    obs,
+                    obsfreqdata["freqs"]["dnudata"],
+                    sequence=epsdifffit,
+                    nsorting=fitfreqs["nsorting"],
+                    nrealisations=2000,
+                    debug=debug,
+                )
+                obsfreqdata[epsdifffit]["data"] = datos[0]
+                obsfreqdata[epsdifffit]["cov"] = datos[1]
+                obsfreqdata[epsdifffit]["covinv"] = datos[2]
 
-        # R012
-        if datos012 is None and "r012" in rt:
-            print("* r012 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov012 = su.ratio_and_cov(freq, rtype="R012", threepoint=threepoint)
-            datos012 = np.zeros((3, len(rat[:, 0])))
-            datos012[0, :] = rat[:, 1]
-            datos012[1, :] = rat[:, 3]
-            datos012[2, :] = rat[:, 2]
-            print("done!")
+    # Diagonalise covariance matrices if correlations is set to False
+    if not fitfreqs["correlations"]:
+        for key in obsfreqdata.keys():
+            for mat in ["cov", "covinv"]:
+                full = obsfreqdata[key][mat]
+                obsfreqdata[key][mat] = np.identity(full.shape[0]) * full
 
-        # R102
-        if datos102 is None and "r102" in rt:
-            print("* r102 unavailable in xml. Computing it ... ", end="", flush=True)
-            rat, cov102 = su.ratio_and_cov(freq, rtype="R102", threepoint=threepoint)
-            datos102 = np.zeros((3, len(rat[:, 0])))
-            datos102[0, :] = rat[:, 1]
-            datos102[1, :] = rat[:, 3]
-            datos102[2, :] = rat[:, 2]
-            print("done!")
-
-    # Glitch
-    if "glitches" in rt:
-        datosglh, covglh = read_glh(glhtxt)
-    else:
-        datosglh, covglh = None, None
-
-    datos = (datos010, datos02, datos_f, datos01, datos10, datos012, datos102, datosglh)
-    cov = (cov010, cov02, cov_f, cov01, cov10, cov012, cov102, covglh)
-
-    return datos, cov, obskey, obs, dnudata, dnudata_err
+    return obskey, obs, obsfreqdata, obsfreqmeta
 
 
 def get_freq_ranges(filename):

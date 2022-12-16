@@ -3,6 +3,8 @@
 Isochrones, distances, and evolutionary phase
 =============================================
 
+*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
+
 BASTA is shipped with a complete set of isochrones from the
 `BaSTI library <http://basti-iac.oa-abruzzo.inaf.it/index.html>`_. The input physics, science cases, and mixtures are
 described in the `Solar scaled paper <https://ui.adsabs.harvard.edu/abs/2018ApJ...856..125H/abstract>`_ and the

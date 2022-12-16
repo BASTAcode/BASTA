@@ -292,6 +292,7 @@ def generate_xml(
     if freqparams and any(x in fitparams for x in freqtypes.alltypes):
         freqelement = SubElement(default, "freqparams")
         for param in freqparams:
+            # Nottrusted is handled in `create_xmltag`
             if param == "nottrustedfile":
                 continue
             SubElement(freqelement, param, {"value": str(freqparams[param])})

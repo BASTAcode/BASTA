@@ -1,211 +1,18 @@
 """
-Fitting of frequencies and frequency ratios. Surface-effect corrections.
+Fitting of frequencies and frequency-dependent properties.
 """
 import numpy as np
 import itertools
 from sklearn import linear_model
 from scipy.optimize import minimize
+from scipy.interpolate import CubicSpline
 
 from basta import utils_seismic as su
 
 
-def ratios(freq, threepoint=False):
-    """
-    Routine to compute the ratios (r02, r01 and r10) from oscillation
-    frequencies
-
-    Parameters
-    ----------
-    freq : array
-        Harmonic degrees, radial orders, frequencies
-    threepoint : bool
-        If True, use three point definition of r01 and r10 ratios
-        instead of default five point definition.
-
-    Returns
-    -------
-    r02 : array
-        radial orders, r02 ratios,
-        scratch for uncertainties (to be calculated), frequencies
-    r01 : array
-        radial orders, r01 ratios,
-        scratch for uncertainties (to be calculated), frequencies
-    r10 : array
-        radial orders, r10 ratios,
-        scratch for uncertainties (to be calculated), frequencies
-    """
-    # Isolate l = 0 modes
-    f0 = freq[freq[:]["l"] == 0]
-    if (len(f0) == 0) or (len(f0) != f0[-1]["n"] - f0[0]["n"] + 1):
-        # Missing modes detected (not implemented)!
-        r02, r01, r10 = None, None, None
-        return r02, r01, r10
-
-    # Isolate l = 1 modes
-    f1 = freq[freq[:]["l"] == 1]
-    if (len(f1) == 0) or (len(f1) != f1[-1]["n"] - f1[0]["n"] + 1):
-        # Missing modes detected (not implemented)!
-        r02, r01, r10 = None, None, None
-        return r02, r01, r10
-
-    # Isolate l = 2 modes
-    f2 = freq[freq[:]["l"] == 2]
-    if (len(f2) == 0) or (len(f2) != f2[-1]["n"] - f2[0]["n"] + 1):
-        # Missing modes detected (not implemented)!
-        r02, r01, r10 = None, None, None
-        return r02, r01, r10
-
-    # Two-point frequency ratio
-    # ---------------------------
-    n0 = (f0[0]["n"] - 1, f1[0]["n"], f2[0]["n"])
-    l0 = n0.index(max(n0))
-
-    # Find lowest indices for l = 0, 1, and 2
-    if l0 == 0:
-        i00 = 0
-        i01 = f0[0]["n"] - f1[0]["n"] - 1
-        i02 = f0[0]["n"] - f2[0]["n"] - 1
-    elif l0 == 1:
-        i00 = f1[0]["n"] - f0[0]["n"] + 1
-        i01 = 0
-        i02 = f1[0]["n"] - f2[0]["n"]
-    elif l0 == 2:
-        i00 = f2[0]["n"] - f0[0]["n"] + 1
-        i01 = f2[0]["n"] - f1[0]["n"]
-        i02 = 0
-
-    # Number of r02s
-    nn = (f0[-1]["n"], f1[-1]["n"], f2[-1]["n"] + 1)
-    ln = nn.index(min(nn))
-    if ln == 0:
-        nr02 = f0[-1]["n"] - f0[i00]["n"] + 1
-    elif ln == 1:
-        nr02 = f1[-1]["n"] - f1[i01]["n"]
-    elif ln == 2:
-        nr02 = f2[-1]["n"] - f2[i02]["n"] + 1
-
-    # R02
-    r02 = np.zeros((nr02, 4))
-    for i in range(nr02):
-        r02[i, 0] = f0[i00 + i]["n"]
-        r02[i, 3] = f0[i00 + i]["freq"]
-        r02[i, 1] = f0[i00 + i]["freq"] - f2[i02 + i]["freq"]
-        r02[i, 1] /= f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"]
-
-    if not threepoint:
-        # Five-point frequency ratio R01
-        # ---------------------------------
-        # Find lowest indices for l = 0 and 1
-        if f0[0]["n"] >= f1[0]["n"]:
-            i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"]
-        else:
-            i00 = f1[0]["n"] - f0[0]["n"]
-            i01 = 0
-
-        # Number of r01s
-        if f0[-1]["n"] - 1 >= f1[-1]["n"]:
-            nr01 = f1[-1]["n"] - f1[i01]["n"]
-        else:
-            nr01 = f0[-1]["n"] - f0[i00]["n"] - 1
-
-        # R01
-        r01 = np.zeros((nr01, 4))
-        for i in range(nr01):
-            r01[i, 0] = f0[i00 + i + 1]["n"]
-            r01[i, 3] = f0[i00 + i + 1]["freq"]
-            r01[i, 1] = (
-                f0[i00 + i]["freq"]
-                + 6.0 * f0[i00 + i + 1]["freq"]
-                + f0[i00 + i + 2]["freq"]
-            )
-            r01[i, 1] -= 4.0 * (f1[i01 + i + 1]["freq"] + f1[i01 + i]["freq"])
-            r01[i, 1] /= 8.0 * (f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"])
-
-    elif threepoint:
-        # Five-point frequency ratio R01
-        # ---------------------------------
-        # Find lowest indices for l = 0 and 1
-        # i01 point to one n-value lower than i00
-        if f0[0]["n"] - 1 >= f1[0]["n"]:
-            i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"] - 1
-        else:
-            i00 = f1[0]["n"] - f0[0]["n"] + 1
-            i01 = 0
-
-        # Number of r01s
-        if f0[-1]["n"] >= f1[-1]["n"]:
-            nr01 = f1[-1]["n"] - f1[i01]["n"]
-        else:
-            nr01 = f0[-1]["n"] - f0[i00]["n"] + 1
-
-        # R01
-        r01 = np.zeros((nr01, 4))
-        for i in range(nr01):
-            r01[i, 0] = f0[i00 + i]["n"]
-            r01[i, 3] = f0[i00 + i]["freq"]
-            r01[i, 1] = f0[i00 + i]["freq"]
-            r01[i, 1] -= (f1[i01 + i + 1]["freq"] + f1[i01 + i]["freq"]) / 2.0
-            r01[i, 1] /= f1[i01 + i + 1]["freq"] - f1[i01 + i]["freq"]
-
-    if not threepoint:
-        # Five point frequency ratio R10
-        # ---------------------------------
-        # Find lowest indices for l = 0 and 1
-        if f0[0]["n"] - 1 >= f1[0]["n"]:
-            i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"] - 1
-        else:
-            i00 = f1[0]["n"] - f0[0]["n"] + 1
-            i01 = 0
-
-        # Number of r10s
-        if f0[-1]["n"] >= f1[-1]["n"]:
-            nr10 = f1[-1]["n"] - f1[i01]["n"] - 1
-        else:
-            nr10 = f0[-1]["n"] - f0[i00]["n"]
-
-        # R10
-        r10 = np.zeros((nr10, 4))
-        for i in range(nr10):
-            r10[i, 0] = f1[i01 + i + 1]["n"]
-            r10[i, 3] = f1[i01 + i + 1]["freq"]
-            r10[i, 1] = (
-                f1[i01 + i]["freq"]
-                + 6.0 * f1[i01 + i + 1]["freq"]
-                + f1[i01 + i + 2]["freq"]
-            )
-            r10[i, 1] -= 4.0 * (f0[i00 + i + 1]["freq"] + f0[i00 + i]["freq"])
-            r10[i, 1] /= -8.0 * (f0[i00 + i + 1]["freq"] - f0[i00 + i]["freq"])
-
-    elif threepoint:
-        # Three point frequency ratio R10
-        # ---------------------------------
-        # Find lowest indices for l = 0 and 1
-        if f0[0]["n"] >= f1[0]["n"]:
-            i00 = 0
-            i01 = f0[0]["n"] - f1[0]["n"]
-        else:
-            i00 = f1[0]["n"] - f0[0]["n"]
-            i01 = 0
-
-        # Number of r10s
-        if f0[-1]["n"] >= f1[-1]["n"]:
-            nr10 = f1[-1]["n"] - f1[i01]["n"]
-        else:
-            nr10 = f0[-1]["n"] - f0[i00]["n"]
-
-        # R10
-        r10 = np.zeros((nr10, 4))
-        for i in range(nr10):
-            r10[i, 0] = f1[i01 + i]["n"]
-            r10[i, 3] = f1[i01 + i]["freq"]
-            r10[i, 1] = f1[i01 + i]["freq"]
-            r10[i, 1] -= (f0[i00 + i]["freq"] + f0[i00 + i + 1]["freq"]) / 2.0
-            r10[i, 1] /= f0[i00 + i]["freq"] - f0[i00 + i + 1]["freq"]
-
-    return r02, r01, r10
+"""
+Individual frequencies
+"""
 
 
 def make_intervals(osc, osckey, dnu=None):
@@ -815,3 +622,485 @@ def apply_BG14(modkey, mod, coeffs, scalnu):
         corosc.append(mod[0, lmask] + df)
     corosc = np.asarray(np.concatenate(corosc))
     return corosc
+
+
+"""
+Frequency ratios
+"""
+
+
+def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False):
+    """
+    Routine to compute the ratios r02, r01 and r10 from oscillation
+    frequencies, and return the desired ratio sequence, both individual
+    and combined sequences, along with their covariance matrix and its
+    inverse.
+
+    Developers note: We currently do not store identifying information
+    of the sequence origin in the combined sequences. We rely on them
+    being constructed/sorted identically when computed.
+
+    Parameters
+    ----------
+    obskey : array
+        Harmonic degrees, radial orders and radial orders of frequencies.
+    obs : array
+        Frequencies and their error, following the structure of obs.
+    ratiotype : str
+        Which ratio sequence to determine, see constants.freqtypes.rtypes
+        for possible sequences.
+    nrealizations : int
+        Number of realizations of the sampling for the computation of the
+        covariance matrix.
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios
+        instead of default five point definition.
+
+    Returns
+    -------
+    ratio : array
+        Ratio requested from `ratiotype`.
+    ratio_cov : array
+        Covariance matrix of the requested ratio.
+    ratio_covinv : array
+        The inverse of the covariance matrix of the requested ratio.
+    """
+    ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
+
+    ratio_cov, ratio_covinv = su.compute_cov_from_mc(
+        ratio.shape[1],
+        obskey,
+        obs,
+        ratiotype,
+        args={"threepoint": threepoint},
+        nrealisations=nrealisations,
+    )
+    return ratio, ratio_cov, ratio_covinv
+
+
+def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
+    """
+    Routine to compute the ratios r02, r01 and r10 from oscillation
+    frequencies, and return the desired ratio sequence, both individual
+    and combined sequences.
+
+    Developers note: We currently do not store identifying information
+    of the sequence origin in the combined sequences. We rely on them
+    being constructed/sorted identically when computed.
+
+    Parameters
+    ----------
+    obskey : array
+        Harmonic degrees, radial orders and radial orders of frequencies
+    obs : array
+        Frequencies and their error, following the structure of obs
+    sequence : str
+        Which ratio sequence to determine, see constants.freqtypes.rtypes
+        for possible sequences.
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios
+        instead of default five point definition.
+
+    Returns
+    -------
+    ratio : array
+        Ratio requested from `sequence`. First index correspond to:
+        0 - Frequency ratios
+        1 - Defining/corresponding frequency
+        2 - Identifying integer (r01: 1, r02: 2, r10: 10)
+        3 - Identifying radial order n
+    """
+    r01, r10, r02 = True, True, True
+
+    f0 = obs[0, obskey[0, :] == 0]
+    n0 = obskey[1, obskey[0, :] == 0]
+    f1 = obs[0, obskey[0, :] == 1]
+    n1 = obskey[1, obskey[0, :] == 1]
+    f2 = obs[0, obskey[0, :] == 2]
+    n2 = obskey[1, obskey[0, :] == 2]
+
+    if (len(f0) == 0) or (len(f0) != (n0[-1] - n0[0] + 1)):
+        r01 = False
+        r10 = False
+
+    if (len(f1) == 0) or (len(f1) != (n1[-1] - n1[0] + 1)):
+        r01 = False
+        r10 = False
+
+    if (len(f2) == 0) or (len(f2) != (n2[-1] - n2[0] + 1)):
+        r02 = False
+
+    # Two-point frequency ratio R02
+    # -----------------------------
+    if r02 and sequence in ["r02", "r012", "r102"]:
+        lowest_n0 = (n0[0] - 1, n1[0], n2[0])
+        l0 = lowest_n0.index(max(lowest_n0))
+
+        # Find lowest indices for l = 0, 1, and 2
+        if l0 == 0:
+            i00 = 0
+            i01 = n0[0] - n1[0] - 1
+            i02 = n0[0] - n2[0] - 1
+        elif l0 == 1:
+            i00 = n1[0] - n0[0] + 1
+            i01 = 0
+            i02 = n1[0] - n2[0]
+        elif l0 == 2:
+            i00 = n2[0] - n0[0] + 1
+            i01 = n2[0] - n1[0]
+            i02 = 0
+
+        # Number of r02s
+        nn = (n0[-1], n1[-1], n2[-1] + 1)
+        ln = nn.index(min(nn))
+        if ln == 0:
+            nr02 = n0[-1] - n0[i00] + 1
+        elif ln == 1:
+            nr02 = n1[-1] - n1[i01]
+        elif ln == 2:
+            nr02 = n2[-1] - n2[i02] + 1
+
+        # R02
+        r02 = np.zeros((4, nr02))
+        r02[2, :] = 2
+        for i in range(nr02):
+            r02[3, i] = n0[i00 + i]
+            r02[1, i] = f0[i00 + i]
+            r02[0, i] = f0[i00 + i] - f2[i02 + i]
+            r02[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
+
+    # Five-point frequency ratio R01
+    # ------------------------------
+    if not threepoint:
+        if r01 and sequence in ["r01", "r012", "r010"]:
+            # Find lowest indices for l = 0 and 1
+            if n0[0] >= n1[0]:
+                i00 = 0
+                i01 = n0[0] - n1[0]
+            else:
+                i00 = n1[0] - n0[0]
+                i01 = 0
+
+            # Number of r01s
+            if n0[-1] - 1 >= n1[-1]:
+                nr01 = n1[-1] - n1[i01]
+            else:
+                nr01 = n0[-1] - n0[i00] - 1
+
+            # R01
+            r01 = np.zeros((4, nr01))
+            r01[2, :] = 1
+            for i in range(nr01):
+                r01[3, i] = n0[i00 + i + 1]
+                r01[1, i] = f0[i00 + i + 1]
+                r01[0, i] = f0[i00 + i] + 6.0 * f0[i00 + i + 1] + f0[i00 + i + 2]
+                r01[0, i] -= 4.0 * (f1[i01 + i + 1] + f1[i01 + i])
+                r01[0, i] /= 8.0 * (f1[i01 + i + 1] - f1[i01 + i])
+
+        if r10 and sequence in ["r10", "r102", "r010"]:
+            # Find lowest indices for l = 0 and 1
+            if n0[0] - 1 >= n1[0]:
+                i00 = 0
+                i01 = n0[0] - n1[0] - 1
+            else:
+                i00 = n1[0] - n0[0] + 1
+                i01 = 0
+
+            # Number of r10s
+            if n0[-1] >= n1[-1]:
+                nr10 = n1[-1] - n1[i01] - 1
+            else:
+                nr10 = n0[-1] - n0[i00]
+
+            # R10
+            r10 = np.zeros((4, nr10))
+            r10[2, :] = 10
+            for i in range(nr10):
+                r10[3, i] = n1[i01 + i + 1]
+                r10[1, i] = f1[i01 + i + 1]
+                r10[0, i] = f1[i01 + i] + 6.0 * f1[i01 + i + 1] + f1[i01 + i + 2]
+                r10[0, i] -= 4.0 * (f0[i00 + i + 1] + f0[i00 + i])
+                r10[0, i] /= -8.0 * (f0[i00 + i + 1] - f0[i00 + i])
+
+    # Three-point frequency ratios
+    # ----------------------------
+    else:
+        if r01 and sequence in ["r01", "r012", "r010"]:
+            # Find lowest indices for l = 0 and 1
+            # i01 point to one n-value lower than i00
+            if n0[0] - 1 >= n1[0]:
+                i00 = 0
+                i01 = n0[0] - n1[0] - 1
+            else:
+                i00 = n1[0] - n0[0] + 1
+                i01 = 0
+
+            # Number of r01s
+            if n0[-1] >= n1[-1]:
+                nr01 = n1[-1] - n1[i01]
+            else:
+                nr01 = n0[-1] - n0[i00] + 1
+
+            # R01
+            r01 = np.zeros((4, nr01))
+            r01[2, :] = 1
+            for i in range(nr01):
+                r01[3, i] = n0[i00 + i]
+                r01[1, i] = f0[i00 + i]
+                r01[0, i] = f0[i00 + i]
+                r01[0, i] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
+                r01[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
+
+        elif r10 and sequence in ["r10", "r102", "r010"]:
+            # Find lowest indices for l = 0 and 1
+            if n0[0] >= n1[0]:
+                i00 = 0
+                i01 = n0[0] - n1[0]
+            else:
+                i00 = n1[0] - n0[0]
+                i01 = 0
+
+            # Number of r10s
+            if n0[-1] >= n1[-1]:
+                nr10 = n1[-1] - n1[i01]
+            else:
+                nr10 = n0[-1] - n0[i00]
+
+            # R10
+            r10 = np.zeros((4, nr10))
+            r10[2, :] = 10
+            for i in range(nr10):
+                r10[3, i] = n1[i01 + i]
+                r10[1, i] = f1[i01 + i]
+                r10[0, i] = f1[i01 + i]
+                r10[0, i] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
+                r10[0, i] /= f0[i00 + i] - f0[i00 + i + 1]
+
+    if sequence == "r02":
+        return r02
+
+    elif sequence == "r01":
+        return r01
+
+    elif sequence == "r10":
+        return r10
+
+    elif sequence == "r012":
+        # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
+        mask = np.argsort(np.append(r01[3, :], r02[3, :] + 0.1))
+        r012 = np.hstack((r01, r02))[:, mask]
+        return r012
+
+    elif sequence == "r102":
+        # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
+        mask = np.argsort(np.append(r10[3, :], r02[3, :] + 0.1))
+        r102 = np.hstack((r10, r02))[:, mask]
+        return r102
+
+    elif sequence == "r010":
+        # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
+        mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
+        r010 = np.hstack((r01, r10))[:, mask]
+        return r010
+
+
+"""
+Epsilon difference fitting
+"""
+
+
+def compute_epsilondiff(
+    osckey,
+    osc,
+    avgdnu,
+    sequence="e012",
+    nsorting=True,
+    extrapolation=False,
+    nrealisations=20000,
+    debug=False,
+):
+    """
+    Compute epsilon differences and covariances.
+
+    From Roxburgh 2016:
+     - Eq. 1 -> Epsilon(n,l)
+     - Eq. 4 -> EpsilonDifference(l=0,l={1,2})
+
+    Epsilon differences are independent of surface phase shift/outer
+    layers when the epsilons are evaluated at the same frequency. It
+    therefore relies on splining from epsilons at the observed frequencies
+    of the given degree and order to the frequency of the compared/subtracted
+    epsilon. See function `compute_epsilondiffseqs' for further clarification.
+
+    For MonteCarlo sampling of the covariances, it is replicated from the
+    covariance determination of frequency ratios in BASTA, (sec 4.1.3 of
+    Aguirre Børsen-Koch et al. 2022). A number of realisations of the
+    epsilon differences are drawn from random Gaussian distributions of the
+    individual frequencies within their uncertainty.
+
+    Parameters
+    ----------
+    osckey : array
+        Array containing the angular degrees and radial orders of the modes.
+    osc : array
+        Array containing the modes (and inertias).
+    avgdnu : float
+        Average value of the large frequency separation.
+    sequence : str, optional
+        Similar to ratios, what sequence of epsilon differences to be computed.
+        Can be e01, e02 or e012 for a combination of the two first.
+    nsorting : bool, optional
+        If True (default), the sequences are sorted by n-value of the frequencies. If
+        False, the entire 01 sequence is followed by the 02 sequence.
+    extrapolation : bool, optional
+        If False (default), modes outside the range of the l=0 modes are discarded to
+        avoid extrapolation.
+    nrealisations : int or bool, optional
+        If int: number of realisations used for MC-sampling the covariances
+        If bool: Whether to use MC (True) or analytic (False) deternubation
+        of covariances. If True, nrealisations of 20,000 is used.
+    debug : bool, optional
+        Print additional output and make plots for debugging (incl. a plot of the
+        correlation matrix).
+
+    Returns
+    -------
+    epsdiff : array
+        Array containing the modes in the observed data.
+    epsdiff_cov : array
+        Covariances matrix.
+    epsdiff_covinv : array
+        The inverse of the covariance matrix.
+    """
+
+    # Remove modes outside of l=0 range
+    if not extrapolation:
+        indall = osckey[0, :] > -1
+        ind0 = osckey[0, :] == 0
+        ind12 = osckey[0, :] > 0
+        mask = np.logical_and(
+            osc[0, ind12] < max(osc[0, ind0]), osc[0, ind12] > min(osc[0, ind0])
+        )
+        indall[ind12] = mask
+        if debug and any(mask):
+            print(
+                "The following modes have been skipped from epsilon differences to avoid extrapolation:"
+            )
+            for f, (l, n) in zip(osc[0, ~indall], osckey[:, ~indall].T):
+                print(" - (l,n,f) = ({0}, {1:02d}, {2:.3f})".format(l, n, f))
+
+        osc = osc[:, indall]
+        osckey = osckey[:, indall]
+
+    epsdiff = compute_epsilondiffseqs(
+        osckey, osc, avgdnu, sequence=sequence, nsorting=nsorting
+    )
+    epsdiff_cov, epsdiff_covinv = su.compute_cov_from_mc(
+        epsdiff.shape[1],
+        osckey,
+        osc,
+        fittype=sequence,
+        args={"avgdnu": avgdnu, "nsorting": nsorting},
+        nrealisations=nrealisations,
+    )
+
+    return epsdiff, epsdiff_cov, epsdiff_covinv
+
+
+def compute_epsilondiffseqs(
+    osckey,
+    osc,
+    avgdnu,
+    sequence,
+    nsorting=True,
+):
+    """
+    Computed epsilon differences, based on Roxburgh 2016 (eq. 1 and 4)
+
+    Epsilons E of frequency v with order n and degree l is determined as:
+    E(n,l) = E(v(n,l)) = v(n,l)/dnu - n - l/2
+
+    From this, an epsilon is determined for each original frequncy. These
+    are not independent on the surface layers, but their differences
+    between different degrees are, if evaluated at the same frequency.
+    Therefore, the epsilon differences dE of e.g. E(n,l=0) and E(n,l=2),
+    dE(02) is determined from interpolating/splining the l=0 epsilon sequence
+    SE0 and evaluating it at v(n,l=2), and subtracting the corresponding
+    E(n,l=2). Therefore, the epsilon difference can be summarised as
+    dE(0l) = SE0(v(n,l)) - E(n,l)
+
+    Parameters
+    ----------
+    osckey : array
+        Array containing the angular degrees and radial orders of the modes
+    osc : array
+        Array containing the modes (and inertias)
+    avgdnu : float
+        Average large frequency separation
+    sequence : str
+        Similar to ratios, what sequence of epsilon differences to be computed.
+        Can be 01, 02 or 012 for a combination of the two first.
+    nsorting : bool
+        If True (default), the sequences are sorted by n-value of the frequencies.
+        If False, the entire 01 sequence is followed by the 02 sequence.
+
+    Returns
+    -------
+    deps : array
+        Array containing epsilon differences. First index correpsonds to:
+        0 - Epsilon differences
+        1 - Indentifying frequencies
+        2 - Identifying degree l
+        3 - Radial degree n of identifying l={1,2} mode
+    """
+
+    # Select the sequence(s) to use
+    if sequence == "e012":
+        l_used = [1, 2]
+    elif sequence == "e02":
+        l_used = [2]
+    elif sequence == "e01":
+        l_used = [1]
+    else:
+        raise KeyError("Undefined epsilon difference sequence requested!")
+
+    # Epsilon is computed analytically from the frequency information
+    epsilon = np.zeros(osc.shape[1])
+
+    for i, freq in enumerate(osc[0, :]):
+        ll, nn = osckey[:, i]
+        epsilon[i] = freq / avgdnu - nn - ll / 2
+
+    # Setup base l=0 interpolater object
+    nu0 = osc[0, osckey[0, :] == 0]
+    eps0 = epsilon[osckey[0, :] == 0]
+    eps0_intpol = CubicSpline(nu0, eps0)
+
+    # Compute the epsilon differences of the selected sequence(s)
+    nmodes = sum([sum(osckey[0] == ll) for ll in l_used])
+    deps = np.zeros((4, nmodes))
+    Niter = 0
+    for ll in l_used:
+        # Extract freq and epsilon for l=ll modes
+        nul = osc[0, osckey[0] == ll]
+        epsl = epsilon[osckey[0] == ll]
+
+        # Evaluate epsilon(l=0) at nu(l=ll)
+        eps0_at_nul = eps0_intpol(nul)
+
+        # Difference
+        diff_eps0l = eps0_at_nul - epsl
+
+        # Store 0: difference, 1: freq, 2: l, 3: n
+        deps[0, Niter : Niter + len(diff_eps0l)] = diff_eps0l
+        deps[1, Niter : Niter + len(diff_eps0l)] = nul
+        deps[2, Niter : Niter + len(diff_eps0l)] = ll
+        deps[3, Niter : Niter + len(diff_eps0l)] = osckey[1][osckey[0] == ll]
+
+        Niter += len(diff_eps0l)
+
+    # Sort according to n if flagged (ensure l=1 before l=2 with 0.1)
+    if nsorting:
+        mask = np.argsort(deps[3, :] + deps[2, :] * 0.1)
+        deps = deps[:, mask]
+    return deps

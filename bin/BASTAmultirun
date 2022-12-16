@@ -85,6 +85,7 @@ if __name__ == "__main__":
         "--debug", action="store_true", help="Additional output for debugging."
     )
     parser.add_argument(
+        "-s",
         "--seed",
         type=int,
         help="Set random seed to ensure deterministic behavior for debugging",

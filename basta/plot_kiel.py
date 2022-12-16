@@ -460,11 +460,11 @@ def kiel(
 
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
-        if fitfreqs and toggle_freqs:
+        if fitfreqs["active"] and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
-            dnufrac = inputparams.get("dnufrac", 0.15)
-            obskey, obs, _ = fio.read_freq(fitfreqs[0])
+            dnufrac = fitfreqs.get("dnufrac", 0.15)
+            obskey, obs, _ = fio.read_freq(fitfreqs["freqfile"])
 
             for track in tracks:
                 libitem = Grid[track]
@@ -487,12 +487,12 @@ def kiel(
                             >= (
                                 obs[0, 0]
                                 - max(
-                                    (dnufrac / 2 * inputparams["dnufit"]),
+                                    (dnufrac / 2 * fitfreqs["dnufit"]),
                                     (3 * obs[1, 0]),
                                 )
                             )
                         )
-                        and ((cl0 - obs[0, 0]) <= (dnufrac * inputparams["dnufit"]))
+                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs["dnufit"]))
                     ):
                         index[ind] = False
 

@@ -31,10 +31,10 @@ copyright = "2022, The BASTA Team"
 author = "The BASTA Team"
 
 # The short X.Y version.
-version = "1.1.6"
+version = "1.2.0"
 
 # The full version, including alpha/beta/rc tags.
-release = "1.1.6"
+release = "1.2.0"
 
 
 # -- General configuration ------------------------------------------------
