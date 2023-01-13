@@ -47,6 +47,13 @@ def main():
         help="Set random seed to ensure deterministic behavior for debugging",
     )
 
+    # Add optional argument: Use sorting of grid
+    parser.add_argument(
+        "--sorting",
+        action="store_true",
+        help="Use if models have been sorted in grid --- included if entrance in column named USE is True",
+    )
+
     # Parse the arguments
     args = parser.parse_args()
 
@@ -67,6 +74,10 @@ def main():
         else:
             print("... ! ***\n")
 
+    # Flag the user if running with sorting enabled
+    if args.sorting:
+        print("\n*** BASTA is using sorting of models found in grid ***\n")
+
     # Call BASTA
     run_xml(
         vars(args)["inputfile"],
@@ -74,6 +85,7 @@ def main():
         verbose=args.verbose,
         experimental=args.experimental,
         validationmode=args.validation,
+        sorting=args.sorting,
     )
 
 

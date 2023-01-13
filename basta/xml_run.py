@@ -368,7 +368,12 @@ def _get_intpol(root, gridfile, freqpath=None):
 # MAIN ROUTINE
 #####################
 def run_xml(
-    xmlfile, debug=False, verbose=False, experimental=False, validationmode=False
+    xmlfile,
+    debug=False,
+    verbose=False,
+    experimental=False,
+    validationmode=False,
+    sorting=False,
 ):
     """
     Runs BASTA using an xml file as input. This is how you should run BASTA!
@@ -385,6 +390,8 @@ def run_xml(
         Activate experimental features (for developers)
     validationmode : bool, optional
         Activate validation mode features (for validation purposes only)
+    sorting: bool, optional
+        Activate sorting mode (for use in specific projects)
     """
 
     # Get path and change dir
@@ -799,6 +806,7 @@ def run_xml(
                     verbose=verbose,
                     experimental=experimental,
                     validationmode=validationmode,
+                    sorting=sorting,
                 )
             except KeyboardInterrupt:
                 print("BASTA stopped manually. Goodbye!")

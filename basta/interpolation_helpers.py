@@ -149,7 +149,9 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
             if show_progress:
                 pbar.update(1)
             # If empty, skip
-            if not len(libitem) or libitem["FeHini_weight"][()] == -1:
+            if (
+                not len(libitem) or libitem["FeHini_weight"][()] == -1
+            ):  # I HAVE EDITED HERE!!!
                 continue
 
             # Full list of indexes, set False if model outside limits

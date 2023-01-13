@@ -3,6 +3,7 @@ Interpolation for BASTA: Along a track
 """
 import os
 import time
+import sys
 
 import h5py
 import numpy as np
@@ -136,6 +137,72 @@ def _calc_npoints(libitem, index, resolution, verbose=False, debug=False):
         print("DELTA = {0:6.2f} ==> Npoints = {1:4}".format(DELTA, Npoints))
 
     return Npoints
+
+
+def _dnufrac_intmesh(libitem, index, resolution):
+    """
+    Calculate the interpolation mesh given a fractional resolution in dnufit
+    for a given track.
+
+    Parameters
+    ----------
+    libitem : h5py_group
+        A track in the form of an HDF5 group from a BASTA grid
+
+    index : array
+        Mask for libitem to obtain selected model entries
+
+    resolution : dict
+       Required resolution. Must contain "param" = "dnufrac" and "value" with
+       the desired fractional (percentage) precision/resolution in decimal form.
+
+    Returns
+    -------
+    intpolmesh : array
+        The mesh containing the required number of points for fractional interpolation
+
+    """
+    # ========== VERSION 2 = CHANGE START STEP AND DNUFRAC EVERY TIME =================
+    # Extract the desired fractional dnu resolution
+    DnuFracRes = resolution["value"]
+    # Initialise random generator
+    rng = np.random.default_rng()
+    # Limits on dnu
+    rangeDnu = 0.5 * DnuFracRes
+    lowDnu = DnuFracRes - rangeDnu
+    highDnu = DnuFracRes + rangeDnu
+    # Get the dnufit array for track=index
+    DnuFit = libitem[resolution["baseparam"]][index]
+    Start = DnuFit[0]
+    End = min(x for x in DnuFit if x != 0)
+    # Initialize mesh with start value
+    intpolmesh = [Start]
+    LastDnu = Start
+    while LastDnu > End:
+        # Offset the starting value by some fraction of the intended step
+        if LastDnu == Start:
+            DnuMod = LastDnu - rng.uniform(
+                low=0.01, high=1.5
+            )  # Start shift is allowed to be very small to very large
+            LastDnu = DnuMod
+            intpolmesh.append(DnuMod)
+        # Draw the DnuFrac from uniform distribution between min and max criterias
+        else:
+            # Calculate new mesh point based on last appended point
+            DnuFrac = rng.uniform(low=lowDnu, high=highDnu)
+            DnuAppend = (
+                LastDnu - LastDnu * DnuFrac
+            )  # Dnu decreases during evolution, hence minus
+            LastDnu = DnuAppend
+            intpolmesh.append(DnuAppend)
+
+    # Last appended LastDnu is extrapolating, delete and append last value in dnufit to mesh instead
+    intpolmesh = intpolmesh[:-1]
+    intpolmesh.append(End)
+    # Code needs mesh size
+    Npoints = len(intpolmesh)
+
+    return intpolmesh, Npoints
 
 
 # ======================================================================================
@@ -321,7 +388,10 @@ def _interpolate_along(
                 continue
             # Make sure the user provides a valid parameter as resolution requirement
             # --> In case of failure, assume the user wanted a dnu-related parameter
-            if resolution["param"].lower() not in freqres:
+            if (
+                resolution["param"].lower() not in freqres
+                and resolution["param"].lower() != "dnufrac"
+            ):
                 try:
                     libitem[resolution["param"]]
                 except KeyError:
@@ -359,42 +429,59 @@ def _interpolate_along(
 
                 #
                 # *** BLOCK 2: Define interpolation mesh ***
-                #
-                # Calc number of points required and make uniform mesh
-                if resolution["param"].lower() in freqres:
-                    Npoints = _calc_npoints_freqs(
-                        libitem=libitem,
-                        index2d=index2d,
-                        freq_resolution=resolution["value"],
-                        verbose=verbose,
-                        debug=debug,
-                    )
+                # The interpolation mesh is split into 2 cases
+                # 1 utilizes a fractional mesh sampling based on dnufit
+                # 2 assumes uniform mesh sampling for all other possible fitting options
+
+                # Case 1:
+                if resolution["param"].lower() == "dnufrac":
+                    intpolmesh, Npoints = _dnufrac_intmesh(libitem, index, resolution)
+                    basevec = libitem[baseparam][index]
+                # Case 2:
                 else:
-                    Npoints = _calc_npoints(
-                        libitem=libitem,
-                        index=index,
-                        resolution=resolution,
-                        verbose=verbose,
-                        debug=debug,
-                    )
-                if Npoints < sum(index):
-                    print(
-                        "Stopped interpolation along {0} as the number of points would decrease from {1} to {2}".format(
-                            name, sum(index), Npoints
+                    # Calc number of points required and make uniform mesh
+                    if resolution["param"].lower() in freqres:
+                        Npoints = _calc_npoints_freqs(
+                            libitem=libitem,
+                            index2d=index2d,
+                            freq_resolution=resolution["value"],
+                            verbose=verbose,
+                            debug=debug,
                         )
-                    )
-                    continue
-                # Isochrones: mass | Tracks: age
-                basevec = libitem[baseparam][index]
-                intpolmesh = np.linspace(
-                    start=basevec[0], stop=basevec[-1], num=Npoints
-                )
-                if debug:
-                    print(
-                        "{0}Range in {1} = [{2:4.3f}, {3:4.3f}]".format(
-                            4 * " ", baseparam, basevec[0], basevec[-1]
+                    else:
+                        Npoints = _calc_npoints(
+                            libitem=libitem,
+                            index=index,
+                            resolution=resolution,
+                            verbose=verbose,
+                            debug=debug,
                         )
+                    # I HAVE OUTCOMMENTED HERE
+                    """
+                    if Npoints < sum(index):
+                        print(
+                            "Stopped interpolation along {0} as the number of points would decrease from {1} to {2}".format(
+                                name, sum(index), Npoints
+                            )
+                        )
+                        continue
+                    """
+                    if Npoints < 2:
+                        print("Hit Lowest Resolution")
+                        continue
+
+                    # Isochrones: mass | Tracks: age
+                    basevec = libitem[baseparam][index]
+                    intpolmesh = np.linspace(
+                        start=basevec[0], stop=basevec[-1], num=Npoints
                     )
+                    if debug:
+                        print(
+                            "{0}Range in {1} = [{2:4.3f}, {3:4.3f}]".format(
+                                4 * " ", baseparam, basevec[0], basevec[-1]
+                            )
+                        )
+                # print(f'===== Block 2 inpolmesh length = {len(intpolmesh)} ============')
 
                 #
                 # *** BLOCK 3: Interpolate in all quantities but frequencies ***
@@ -532,6 +619,7 @@ def _interpolate_along(
             #
             # *** STOP! HERE THE TRACK LOOP IS FINISHED!
             #
+            # sys.exit()
 
     pbar.close()
 

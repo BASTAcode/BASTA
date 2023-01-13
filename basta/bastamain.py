@@ -41,6 +41,7 @@ def BASTA(
     verbose=False,
     experimental=False,
     validationmode=False,
+    sorting=False,
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
@@ -79,6 +80,8 @@ def BASTA(
         Activate experimental features (for developers)
     validationmode : bool, optional
         Activate validation mode features (for validation purposes only)
+    sorting: bool, optional
+        Activate sorting mode (for use in specific projects)
     """
     # Set output directory and filenames
     t0 = time.localtime()
@@ -104,6 +107,8 @@ def BASTA(
     if experimental:
         print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
 
+    if sorting:
+        print("RUNNING WITH SORTING OF MODELS FOUND IN GRID")
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(gridfile, "r")
     try:
@@ -534,8 +539,14 @@ def BASTA(
                     noofskips[0] += 1
                     continue
 
-            # Check which models have parameters within limits
+            # Make indexes for included models
             index = np.ones(len(libitem["age"][:]), dtype=bool)
+
+            # Check which models are included based on model sorting in grid
+            if sorting:
+                index &= libitem["USE"][:] == True
+
+            # Check which models have parameters within limits
             for param in limits:
                 index &= libitem[param][:] >= limits[param][0]
                 index &= libitem[param][:] <= limits[param][1]
@@ -778,6 +789,7 @@ def BASTA(
         debug=debug,
         experimental=experimental,
         validationmode=validationmode,
+        # sorting=sorting,
     )
 
     # Make frequency-related plots

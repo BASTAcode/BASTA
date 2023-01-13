@@ -39,7 +39,7 @@ def _rescale_param(param, value, dnu):
     """
 
     # Only run for dnu params, do nothing for other parameters
-    if param.startswith("dnu") and param != "dnufit":
+    if param.startswith("dnu") and param != "dnufit" and param != "dnufrac":
         print(
             "Note: {0} converted to solar units from {1} muHz".format(param, value),
             "assuming dnusun = {0:.2f} muHz".format(dnu),
