@@ -508,8 +508,6 @@ def kiel(
             ncol=ncol,
             mode="expand",
             borderaxespad=0.0,
-            handletextpad=0.2,
-            fontsize=16,
         )
         _, axlabels, _, _ = parameters.get_keys(["Teff", "logg"])
         ax.set_xlabel(axlabels[0])
