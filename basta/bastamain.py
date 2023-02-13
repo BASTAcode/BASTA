@@ -503,7 +503,7 @@ def BASTA(
         trackcounter += len(group.items())
 
     # Prepare the main loop
-    shapewarn = False
+    shapewarn = 0
     warn = True
     selectedmodels = {}
     noofind = 0
@@ -754,7 +754,7 @@ def BASTA(
         )
 
     # Raise possible warnings
-    if shapewarn:
+    if shapewarn == 1:
         print(
             "Warning: Found models with fewer frequencies than observed!",
             "These were set to zero likelihood!",
@@ -764,6 +764,11 @@ def BASTA(
                 "This is probably due to the interpolation scheme. Lookup",
                 "`interpolate_frequencies` for more details.",
             )
+    if shapewarn == 2:
+        print(
+            "Warning: Models without frequencies overlapping with observed",
+            "ignored due to interpolation of ratios being impossible.",
+        )
     if noofposind == 0:
         fio.no_models(starid, inputparams, "No models found")
         return

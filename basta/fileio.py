@@ -1500,9 +1500,12 @@ def read_allseismic(
     # Diagonalise covariance matrices if correlations is set to False
     if not fitfreqs["correlations"]:
         for key in obsfreqdata.keys():
-            for mat in ["cov", "covinv"]:
-                full = obsfreqdata[key][mat]
-                obsfreqdata[key][mat] = np.identity(full.shape[0]) * full
+            obsfreqdata[key]["cov"] = (
+                np.identity(obsfreqdata[key]["cov"].shape[0]) * obsfreqdata[key]["cov"]
+            )
+            obsfreqdata[key]["covinv"] = np.linalg.pinv(
+                obsfreqdata[key]["cov"], rcond=1e-8
+            )
 
     return obskey, obs, obsfreqdata, obsfreqmeta
 

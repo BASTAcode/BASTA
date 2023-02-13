@@ -119,7 +119,7 @@ def echelle(
         dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
 
     if duplicate:
-        modx = 1
+        modx = 1.0
         scalex = dnu
     else:
         modx = dnu
@@ -308,11 +308,13 @@ def echelle(
                         if ((fm[i] % modx) > linelimit) & (
                             (fo[i] % modx) < (modx - linelimit)
                         ):
-                            a = (fm[i] - fo[i]) / ((fm[i] - fo[i]) % modx)
                             if duplicate:
                                 x0 = -1
                             else:
                                 x0 = 0
+                            a = (fo[i] - fm[i]) / abs(
+                                fo[i] % modx - (fm[i] % modx - modx)
+                            )
                             ax.plot(
                                 (fm[i] % modx - modx, fo[i] % modx),
                                 (fm[i], fo[i]),
@@ -322,14 +324,14 @@ def echelle(
                             )
                             ax.plot(
                                 (fm[i] % modx, modx),
-                                (fm[i], a * np.ceil(fm[i] / modx) * modx),
+                                (fm[i], fm[i] + a * (modx - fm[i] % modx)),
                                 c=colors["l" + str(l)],
                                 alpha=0.7,
                                 zorder=10,
                             )
                             ax.plot(
                                 (x0, fo[i] % modx - modx),
-                                (a * np.ceil(fm[i] / modx) * modx, fo[i]),
+                                (fm[i] + a * (modx - fm[i] % modx), fo[i]),
                                 c=colors["l" + str(l)],
                                 alpha=0.7,
                                 zorder=10,
@@ -341,7 +343,9 @@ def echelle(
                                 x0 = -1
                             else:
                                 x0 = 0
-                            a = (fm[i] - fo[i]) / ((fm[i] - fo[i]) % modx)
+                            a = (fm[i] - fo[i]) / abs(
+                                fm[i] % modx - (fo[i] % modx - modx)
+                            )
                             ax.plot(
                                 (fo[i] % modx - modx, fm[i] % modx),
                                 (fo[i], fm[i]),
@@ -351,14 +355,14 @@ def echelle(
                             )
                             ax.plot(
                                 (fo[i] % modx, modx),
-                                (fo[i], a * np.ceil(fo[i] / modx) * modx),
+                                (fo[i], fo[i] + a * (modx - fo[i] % modx)),
                                 c=colors["l" + str(l)],
                                 alpha=0.7,
                                 zorder=10,
                             )
                             ax.plot(
                                 (x0, fm[i] % modx - modx),
-                                (a * np.ceil(fo[i] / modx) * modx, fm[i]),
+                                (fo[i] + a * (modx - fo[i] % modx), fm[i]),
                                 c=colors["l" + str(l)],
                                 alpha=0.7,
                                 zorder=10,
@@ -429,6 +433,7 @@ def echelle(
     if output is not None:
         plt.savefig(output, bbox_inches="tight")
         print("Saved figure to " + output)
+        plt.close(fig)
 
 
 def ratioplot(
@@ -482,13 +487,16 @@ def ratioplot(
     fig, ax = plt.subplots(1, 1)
 
     obsratio = obsfreqdata[ratiotype]["data"]
+    if obsratio is None:
+        plt.close(fig)
+        return
+
     obsratio_cov = obsfreqdata[ratiotype]["cov"]
     obsratio_err = np.sqrt(np.diag(obsratio_cov))
 
     if interp_ratios:
-        broad_key, broad_osc = su.extend_modjoin(joinkeys, join, modkey, mod)
         modratio = freq_fit.compute_ratioseqs(
-            broad_key, broad_osc, ratiotype, threepoint=threepoint
+            modkey, mod, ratiotype, threepoint=threepoint
         )
     else:
         modratio = freq_fit.compute_ratioseqs(
@@ -542,10 +550,14 @@ def ratioplot(
             intfunc = interp1d(
                 modratio[1, modmask], modratio[0, modmask], kind="linear"
             )
-            newmod = intfunc(obsratio[1, obsmask])
+            # When only plotting, not fitting, model freqs can be outside observed range
+            rangemask = np.ones(sum(obsmask), dtype=bool)
+            rangemask &= obsratio[1, obsmask] > min(modratio[1, modmask])
+            rangemask &= obsratio[1, obsmask] < max(modratio[1, modmask])
+            newmod = intfunc(obsratio[1, obsmask][rangemask])
             marker = splinemarkers[1] if "1" in str(rtype) else splinemarkers[2]
             (intp,) = ax.plot(
-                obsratio[1, obsmask],
+                obsratio[1, obsmask][rangemask],
                 newmod,
                 marker=marker,
                 color="k",
@@ -574,6 +586,8 @@ def ratioplot(
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(f"Frequency ratio ({ratiotype})")
+    ylim = ax.get_ylim()
+    ax.set_ylim(max(ylim[0], 0), ylim[1])
 
     if output is not None:
         fig.savefig(output, bbox_inches="tight")
@@ -711,11 +725,14 @@ def epsilon_difference_diagram(
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
+    ylim = ax.get_ylim()
+    ax.set_ylim(max(ylim[0], 0), ylim[1])
 
     fig.tight_layout()
     if output is not None:
         print("Saved figure to " + output)
         fig.savefig(output)
+        plt.close(fig)
     else:
         return fig
 
@@ -745,11 +762,15 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
 
     elif fittype in freqtypes.rtypes:
         data = obsfreqdata[fittype]["data"]
+        if data is None:
+            return
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
     elif fittype in freqtypes.epsdiff:
         data = obsfreqdata[fittype]["data"]
+        if data is None:
+            return
         fmtstr = r"$\delta\epsilon_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
@@ -777,8 +798,8 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
 
     if output is not None:
         fig.savefig(output, bbox_inches="tight")
-        plt.close(fig)
         print("Saved figure to " + output)
+        plt.close(fig)
 
 
 ###############
@@ -997,3 +1018,4 @@ def epsilon_difference_components_diagram(
 
     fig.savefig(output)
     print("Saved figure to " + output)
+    plt.close(fig)

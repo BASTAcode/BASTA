@@ -64,7 +64,7 @@ def chi2_astero(
     ind,
     fitfreqs,
     warnings=True,
-    shapewarn=False,
+    shapewarn=0,
     debug=False,
     verbose=False,
 ):
@@ -99,10 +99,10 @@ def chi2_astero(
         Contains all user inputted frequency fitting options.
     warnings : bool
         If True, print something when it fails.
-    shapewarn : bool
-        If a mismatch in array dimensions of the fitted parameters is
-        encountered, this is set to True in order to warn the user at the end
-        of the run.
+    shapewarn : int
+        If a mismatch in array dimensions of the fitted parameters, or range
+        of frequencies is encountered, this is set to corresponding integer
+        in order to warn the user at the end of the run.
     debug : str
         Flag for print control.
     verbose : str
@@ -216,30 +216,31 @@ def chi2_astero(
 
         # Interpolate model ratios to observed frequencies
         if fitfreqs["interp_ratios"]:
-            # Get extended frequency modes to provide interpolation range of ratios
-            broad_key, broad_osc = su.extend_modjoin(joinkeys, join, modkey, mod)
-            if broad_key is None:
-                shapewarn = True
-                chi2rut = np.inf
-                return chi2rut, warnings, shapewarn
-            # Get model ratios
+            # Get all available model ratios
             broadratio = freq_fit.compute_ratioseqs(
-                broad_key,
-                broad_osc,
+                modkey,
+                mod,
                 ratiotype,
                 threepoint=fitfreqs["threepoint"],
             )
             modratio = copy.deepcopy(obsfreqdata[ratiotype]["data"])
+
             # Seperate and interpolate within the separate r01, r10 and r02 sequences
-            for rtype in set(obsfreqdata[ratiotype]["data"][2, :]):
-                obsmask = obsfreqdata[ratiotype]["data"][2, :] == rtype
+            for rtype in set(modratio[2, :]):
+                obsmask = modratio[2, :] == rtype
                 modmask = broadratio[2, :] == rtype
+                # Check we have the range to interpolate
+                if (
+                    modratio[1, obsmask][0] < broadratio[1, modmask][0]
+                    or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
+                ):
+                    chi2rut = np.inf
+                    shapewarn = 2
+                    return chi2rut, warnings, shapewarn
                 intfunc = interp1d(
                     broadratio[1, modmask], broadratio[0, modmask], kind="linear"
                 )
-                modratio[0, obsmask] = intfunc(
-                    obsfreqdata[ratiotype]["data"][1, obsmask]
-                )
+                modratio[0, obsmask] = intfunc(modratio[1, obsmask])
 
         else:
             modratio = freq_fit.compute_ratioseqs(
@@ -253,7 +254,7 @@ def chi2_astero(
         if x.shape[0] == covinv.shape[0]:
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
-            shapewarn = True
+            shapewarn = 1
             chi2rut = np.inf
 
     # Add contribution from glitches
@@ -286,8 +287,8 @@ def chi2_astero(
             if x.shape[0] == covinv.shape[0]:
                 chi2rut += (x.T.dot(covinv).dot(x)) / w
             else:
-                shapewarn = True
-                chirut = np.inf
+                shapewarn = 1
+                chi2rut = np.inf
         else:
             chi2rut = np.inf
             return chi2rut, warnings, shapewarn

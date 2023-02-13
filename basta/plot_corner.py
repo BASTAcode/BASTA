@@ -353,6 +353,7 @@ def corner(
                     ax.set_title(labels[i], y=1.25, **label_kwargs)
                 else:
                     ax.set_xlabel(labels[i], **label_kwargs)
+                    ax.xaxis.set_label_coords(0.5, -0.35)
 
             # use MathText for axes ticks
             ax.xaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))
