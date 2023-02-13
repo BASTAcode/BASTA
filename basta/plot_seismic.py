@@ -119,7 +119,7 @@ def echelle(
         dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
 
     if duplicate:
-        modx = 1.0
+        modx = 1
         scalex = dnu
     else:
         modx = dnu
@@ -487,6 +487,7 @@ def ratioplot(
     fig, ax = plt.subplots(1, 1)
 
     obsratio = obsfreqdata[ratiotype]["data"]
+    # Exit if there are no ratios to plot
     if obsratio is None:
         plt.close(fig)
         return
