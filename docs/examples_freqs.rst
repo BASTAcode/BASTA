@@ -1,6 +1,6 @@
 .. _example_freqs:
 
-Individual frequencies, ratios, glitches
+Methods using individual frequencies
 ========================================
 
 *We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
@@ -136,6 +136,42 @@ as follows:
 BASTA uses by default the five-point small frequency separation formulation for computing the ratios, which is the
 recommended option. If the user should want to use the three-point formulation instead, this can be done by adding
 ``"threepoint": True`` in the ``define_fit["freqparams"]`` dictionary.
+
+Epsilon differences
+-------------------
+
+Similar to frequency ratios, BASTA can also fit the surface-independent frequency phase differences, commonly
+referred to as epsilon differences (Winther et. al, in preparation). The individual set of differences
+(:math:`\delta\epsilon_{01}, \delta\epsilon_{02}`) as well as the combined set can be fitted by adding the
+correpsonding keyword to ``fitparams`` (here for the case :math:`\delta\epsilon_{012}`):
+
+.. code-block:: python
+
+    # ==================================================================================
+    # BLOCK 2: Fitting control
+    # ==================================================================================
+    define_fit["fitparams"] = ("Teff", "FeH", "e012")
+
+    # ==================================================================================
+    # BLOCK 4: Plotting control
+    # ==================================================================================
+    define_plots["freqplots"] = "epsdiff"
+
+Adding ``epsdiff`` to ``freqplots`` produces the corresponding figure, which can also generally be produced when
+individual frequencies are available. An example of how to run this fit is provided in
+``${BASTADIR}/examples/xmlinput/create_inputfile_epsilondifference.py`` which produces the file ``input_epsilondifference.xml``.
+Running this file stores the results of the fit in ``${BASTADIR}/examples/output/epsilon/``, and the resulting
+epsilon differences should look as follows:
+
+.. figure:: ../examples/reference/epsilon/16CygA_epsdiff_e012.png
+    :alt: Epsilon differences of the best fit model to 16 Cyg A in the grid.
+
+    Epsilon differences of the best fit model to 16 Cyg A in the grid.
+
+Note that since the determination of epsilon differences relies on interpolating the :math:`\ell=0` epsilons to the frequency locations
+of the :math:`\ell=1,2` modes, one would extrapolate the :math:`\ell=0` epsilons if the frequency locations of the
+:math:`\ell=1,2` goes outside the interval of the frequency locations of the :math:`\ell=0` modes. These are therefore
+excluded, and thus the number of epsilon differences may not be equal to the number of :math:`\ell=1,2` frequencies.
 
 Frequency glitches
 ------------------
