@@ -532,9 +532,7 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         print(f"Frobenius norm {fnorm} > 1e-6")
         print("Warning: Covariance failed to converge")
 
-    n_covinv = np.linalg.pinv(n_cov, rcond=1e-8)
-
-    return n_cov, n_covinv
+    return n_cov
 
 
 def extend_modjoin(joinkey, join, modkey, mod):

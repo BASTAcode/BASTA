@@ -662,8 +662,6 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
         Ratio requested from `ratiotype`.
     ratio_cov : array
         Covariance matrix of the requested ratio.
-    ratio_covinv : array
-        The inverse of the covariance matrix of the requested ratio.
     """
     ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
 
@@ -671,7 +669,7 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     if ratio is None:
         return None
 
-    ratio_cov, ratio_covinv = su.compute_cov_from_mc(
+    ratio_cov = su.compute_cov_from_mc(
         ratio.shape[1],
         obskey,
         obs,
@@ -679,7 +677,7 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
         args={"threepoint": threepoint},
         nrealisations=nrealisations,
     )
-    return ratio, ratio_cov, ratio_covinv
+    return ratio, ratio_cov
 
 
 def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
@@ -979,8 +977,6 @@ def compute_epsilondiff(
         Array containing the modes in the observed data.
     epsdiff_cov : array
         Covariances matrix.
-    epsdiff_covinv : array
-        The inverse of the covariance matrix.
     """
 
     # Remove modes outside of l=0 range
@@ -1005,7 +1001,7 @@ def compute_epsilondiff(
     epsdiff = compute_epsilondiffseqs(
         osckey, osc, avgdnu, sequence=sequence, nsorting=nsorting
     )
-    epsdiff_cov, epsdiff_covinv = su.compute_cov_from_mc(
+    epsdiff_cov = su.compute_cov_from_mc(
         epsdiff.shape[1],
         osckey,
         osc,
@@ -1014,7 +1010,7 @@ def compute_epsilondiff(
         nrealisations=nrealisations,
     )
 
-    return epsdiff, epsdiff_cov, epsdiff_covinv
+    return epsdiff, epsdiff_cov
 
 
 def compute_epsilondiffseqs(
