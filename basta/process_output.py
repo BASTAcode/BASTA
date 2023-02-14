@@ -341,8 +341,6 @@ def compute_posterior(
     for numpar, param in enumerate(params):
         # Generate list of x values
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
-        if "age" in param:
-            x = x * 1e-3
 
         # Scale back to muHz before output/plot
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
