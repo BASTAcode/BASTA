@@ -163,7 +163,7 @@ individual frequencies are available. An example of how to run this fit is provi
 Running this file stores the results of the fit in ``${BASTADIR}/examples/output/epsilon/``, and the resulting
 epsilon differences should look as follows:
 
-.. figure:: ../examples/reference/epsilon/16CygA_epsdiff_e012.png
+.. figure:: figures/epsilon/16CygA_epsdiff_e012.png
     :alt: Epsilon differences of the best fit model to 16 Cyg A in the grid.
 
     Epsilon differences of the best fit model to 16 Cyg A in the grid.
