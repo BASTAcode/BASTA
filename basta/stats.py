@@ -12,7 +12,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 from basta import freq_fit, glitch
 from basta import utils_seismic as su
-from basta.constants import freqtypes
+from basta.constants import freqtypes, statdata
 
 # Define named tuple used in selectedmodels
 Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
@@ -617,15 +617,14 @@ def calc_key_stats(x, centroid, uncert, weights=None):
         84'th percentile if quantile selected, None for standard
         deviation.
     """
-    # Definition of Bayesian 16, 50, and 84 percentiles
-    qs = [0.5, 0.158655, 0.841345]
+
     xp = None
 
     # Handling af all different combinations of input
     if uncert == "quantiles" and not type(weights) == type(None):
-        xcen, xm, xp = quantile_1D(x, weights, qs)
+        xcen, xm, xp = quantile_1D(x, weights, statdata.quantiles)
     elif uncert == "quantiles":
-        xcen, xm, xp = np.quantile(x, qs)
+        xcen, xm, xp = np.quantile(x, statdata.quantiles)
     else:
         xm = np.std(x)
     if centroid == "mean" and not type(weights) == type(None):
