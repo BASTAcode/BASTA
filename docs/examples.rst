@@ -3,8 +3,6 @@
 Examples of fits
 ================
 
-*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
-
 The following sections give practical examples of commonly used fits with BASTA, and explain the options in the code following the template given in :py:func:`define_input` in ``${BASTADIR}/examples/create_inputfile.py`` (in the following this will be denoted as :py:meth:`create_inputfile.define_input`).
 
 The fitting examples are located in ``${BASTADIR}/examples/xmlinput/`` and a reference set of output can be found in ``${BASTADIR}/examples/reference/``, which includes all fits described in the following sections. These can be compared to the output you obtain when running the code as a further sanity check. Overview of fitting examples:
