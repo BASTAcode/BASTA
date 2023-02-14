@@ -312,7 +312,7 @@ def kiel(
         )
         iteration = zip(axis, tefflim, logglim)
     else:
-        fig, axis = plt.subplots(1, 1)
+        fig, axis = plt.subplots(1, 1, figsize=(8.47, 6))
         iteration = zip([axis], tefflim, logglim)
 
     # Iteration over the subplots, the same is done with different limits

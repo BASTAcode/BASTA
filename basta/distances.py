@@ -60,8 +60,8 @@ def LOS_reddening(distanceparams):
     if "EBV" in distanceparams:
         return lambda x: np.asarray(
             np.random.normal(
-                distanceparams["EBV"][1],
-                distanceparams["EBV"][2] - distanceparams["EBV"][1],
+                distanceparams["EBV"][0],
+                distanceparams["EBV"][2] - distanceparams["EBV"][0],
                 size=[
                     len(i) if isinstance(i, collections.Iterable) else 1 for i in [x]
                 ][0],
@@ -275,7 +275,6 @@ def add_absolute_magnitudes(
 
     print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
-    qs = [0.158655, 0.5, 0.841345]
     fitparams = inputparams["fitparams"]
     distanceparams = inputparams["distanceparams"]
 
@@ -387,22 +386,28 @@ def add_absolute_magnitudes(
             plt.savefig(outfilename + "_DEBUG_absms_%s.png" % filt)
             plt.close()
 
-        absms_qs = stats.quantile_1D(absms, labsms, qs)
-        distanceparams["As"][filt] = list(stats.quantile_1D(As, labsms, qs))
+        absms_qs = stats.quantile_1D(absms, labsms, cnsts.statdata.quantiles)
+        distanceparams["As"][filt] = list(
+            stats.quantile_1D(As, labsms, cnsts.statdata.quantiles)
+        )
 
         # Extended dictionary for use in Kiel diagram, and clarifying it as a prior
         inputparams["magnitudes"][filt] = {
             "prior": M_prior,
-            "median": absms_qs[1],
-            "errp": np.abs(absms_qs[2] - absms_qs[1]),
-            "errm": np.abs(absms_qs[1] - absms_qs[0]),
+            "median": absms_qs[0],
+            "errp": np.abs(absms_qs[2] - absms_qs[0]),
+            "errm": np.abs(absms_qs[0] - absms_qs[1]),
         }
 
     # Get an estimate from all filters
     labsms_joined = np.exp(llabsms_joined - np.log(np.sum(np.exp(llabsms_joined))))
 
-    distanceparams["EBV"] = list(stats.quantile_1D(EBVs, labsms_joined, qs))
-    distanceparams["priordistance"] = list(stats.quantile_1D(dists, labsms_joined, qs))
+    distanceparams["EBV"] = list(
+        stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles)
+    )
+    distanceparams["priordistance"] = list(
+        stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
+    )
 
     # Constrain metallicity within the limits of the color transformations
     metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"

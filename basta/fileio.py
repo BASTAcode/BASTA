@@ -1117,9 +1117,8 @@ def read_glitch(filename):
     tmpFit[:, 1] = glitchfit[:, 4]
     tmpFit[:, 2] = glitchfit[:, 5]
     cov = MinCovDet().fit(tmpFit).covariance_
-    covinv = np.linalg.pinv(cov, rcond=1e-8)
 
-    return glitchparams, cov, covinv
+    return glitchparams, cov
 
 
 def read_precomputedratios(
@@ -1443,7 +1442,6 @@ def read_allseismic(
             if datos is not None:
                 obsfreqdata[ratiotype]["data"] = datos[0]
                 obsfreqdata[ratiotype]["cov"] = datos[1]
-                obsfreqdata[ratiotype]["covinv"] = datos[2]
             else:
                 if ratiotype in obsfreqmeta["ratios"]["fit"]:
                     # Fail
@@ -1463,7 +1461,6 @@ def read_allseismic(
         datos = read_glitch(fitfreqs["glhfile"])
         obsfreqdata["glitches"]["data"] = datos[0]
         obsfreqdata["glitches"]["cov"] = datos[1]
-        obsfreqdata["glitches"]["covinv"] = datos[2]
 
     # Get epsilon differences
     if obsfreqmeta["getepsdiff"]:
@@ -1482,7 +1479,6 @@ def read_allseismic(
                 )
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
-                obsfreqdata[epsdifffit]["covinv"] = datos[2]
             elif epsdifffit in obsfreqmeta["epsdiff"]["plot"]:
                 datos = freq_fit.compute_epsilondiff(
                     obskey,
@@ -1495,14 +1491,18 @@ def read_allseismic(
                 )
                 obsfreqdata[epsdifffit]["data"] = datos[0]
                 obsfreqdata[epsdifffit]["cov"] = datos[1]
-                obsfreqdata[epsdifffit]["covinv"] = datos[2]
 
+    # As the inverse covariance matrix is actually what is used, compute it once
     # Diagonalise covariance matrices if correlations is set to False
-    if not fitfreqs["correlations"]:
-        for key in obsfreqdata.keys():
-            for mat in ["cov", "covinv"]:
-                full = obsfreqdata[key][mat]
-                obsfreqdata[key][mat] = np.identity(full.shape[0]) * full
+    for key in obsfreqdata.keys():
+        if not fitfreqs["correlations"]:
+            obsfreqdata[key]["cov"] = (
+                np.identity(obsfreqdata[key]["cov"].shape[0]) * obsfreqdata[key]["cov"]
+            )
+        if "covinv" not in obsfreqdata[key].keys():
+            obsfreqdata[key]["covinv"] = np.linalg.pinv(
+                obsfreqdata[key]["cov"], rcond=1e-8
+            )
 
     return obskey, obs, obsfreqdata, obsfreqmeta
 
