@@ -3,9 +3,6 @@
 Individual frequencies, ratios, glitches
 ========================================
 
-*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
-
-
 Using grids that include theoretically computed oscillation frequencies (see :ref:`grids`) BASTA can fit these
 individual frequencies with a surface correction, as well as combination of frequencies. In the following we show
 examples of the blocks that must be modified in :py:meth:`create_inputfile.define_input` to produce these types of fits.
@@ -93,12 +90,12 @@ The fit should take less than a minute and the output is stored in ``${BASTADIR}
 corner plot and Kiel diagrams, the code produces output of the fit to the individual frequencies in form of echelle
 diagrams for both corrected and uncorrected frequencies:
 
-.. figure:: ../examples/reference/freqs/16CygA_pairechelle_uncorrected.pdf
+.. figure:: figures/freqs/16CygA_pairechelle_uncorrected.png
    :alt: Echelle diagram showing the uncorrected frequencies of the best fit model to 16 Cyg A in the grid.
 
    Echelle diagram showing the uncorrected frequencies of the best fit model to 16 Cyg A in the grid.
 
-.. figure:: ../examples/reference/freqs/16CygA_pairechelle.pdf
+.. figure:: figures/freqs/16CygA_pairechelle.png
    :alt: Echelle diagram after the BG14 frequency correction to the best fit model to 16 Cyg A in the grid.
 
    Echelle diagram after the BG14 frequency correction to the best fit model to 16 Cyg A in the grid.
@@ -128,7 +125,7 @@ diagrams even though individual frequencies are not fitted. We provide an exampl
 this file stores the results of the fit in ``${BASTADIR}/examples/output/ratios/``, and the resulting ratios should look
 as follows:
 
-.. figure:: ../examples/reference/ratios/16CygA_ratios.pdf
+.. figure:: figures/ratios/16CygA_ratios_r012.png
    :alt: Frequency ratios of the best fit model to 16 Cyg A in the grid.
 
    Frequency ratios of the best fit model to 16 Cyg A in the grid.
@@ -184,7 +181,7 @@ Since the ``.glh`` file is located in the same folder as the individual frequenc
 You can find the corresponding python script to produce the input file for this fit in
 ``${BASTADIR}/examples/xmlinput/create_inputfiles_glitches.py``. The output should look as follows:
 
-.. figure:: ../examples/reference/glitches/16CygA_corner.pdf
+.. figure:: figures/glitches/16CygA_corner.png
    :alt: Corner plot of the 16 Cyg A fit using glitches.
 
    Corner plot of the 16 Cyg A fit using glitches.
@@ -264,7 +261,7 @@ simply be run as
 
 The resulting duplicated echelle diagram should look as like the following.
 
-.. figure:: ../examples/reference/subgiant/Valid_245_dupechelle.pdf
+.. figure:: figures/subgiant/Valid_245_dupechelle.png
    :alt: Echelle diagram after the BG14 frequency correction to the best fit model to Validation star 245.
 
    Echelle diagram after the BG14 frequency correction to the best fit model to Validation star 245.
