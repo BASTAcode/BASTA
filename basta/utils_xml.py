@@ -139,7 +139,12 @@ def create_xmltag(
                 raise ValueError("Nottrustedfile is neither a dict or a str")
         if not nuset["dnu"]:
             dnu = _get_param(paramvals, params, "dnu")
-            SubElement(star, "dnu", {"value": str(dnu)})
+            try:
+                dnu_err = _get_param(paramvals, params, "dnu_err")
+                SubElement(star, "dnu", {"value": str(dnu), "error": str(dnu_err)})
+            except IndexError:
+                SubElement(star, "dnu", {"value": str(dnu)})
+
         if not nuset["numax"]:
             numax = _get_param(paramvals, params, "numax")
             SubElement(star, "numax", {"value": str(numax)})

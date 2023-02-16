@@ -520,6 +520,9 @@ def run_xml(
         fitfreqs["nsorting"] = strtobool(
             _find_get(root, "default/freqparams/nsorting", "value", "True")
         )
+        fitfreqs["dnuprior"] = strtobool(
+            _find_get(root, "default/freqparams/dnuprior", "value", "True")
+        )
 
         # Read seismic weight quantities
         dof = _find_get(root, "default/freqparams/dof", "value", None)
@@ -721,6 +724,7 @@ def run_xml(
 
                 # dnufit for prior, numax for scaling
                 fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
+                fitfreqs["dnufit_err"] = float(_find_get(star, "dnu", "error"))
                 fitfreqs["numax"] = float(_find_get(star, "numax", "value"))
 
             # Add to inputparams
