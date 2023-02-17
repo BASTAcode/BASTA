@@ -724,8 +724,11 @@ def run_xml(
 
                 # dnufit for prior, numax for scaling
                 fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
-                fitfreqs["dnufit_err"] = float(_find_get(star, "dnu", "error"))
                 fitfreqs["numax"] = float(_find_get(star, "numax", "value"))
+                try:
+                    fitfreqs["dnufit_err"] = float(_find_get(star, "dnu", "error"))
+                except ValueError:
+                    pass
 
             # Add to inputparams
             inputparams["fitfreqs"] = fitfreqs
