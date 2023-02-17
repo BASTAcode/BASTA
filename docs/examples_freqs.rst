@@ -121,7 +121,7 @@ one simply adds the following ``fitparam`` (for the case of :math:`r_{012}` as a
 
 The variable ``freqplots`` can also be set to ``True``, which will produce plots of the ratios and corresponding echelle
 diagrams even though individual frequencies are not fitted. We provide an example to run this fit in
-``${BASTADIR}/examples/xmlinput/create_inputfiles_ratios.py`` which produces the file ``input_ratios.xml``. Running
+``${BASTADIR}/examples/xmlinput/create_inputfile_ratios.py`` which produces the file ``input_ratios.xml``. Running
 this file stores the results of the fit in ``${BASTADIR}/examples/output/ratios/``, and the resulting ratios should look
 as follows:
 
@@ -131,8 +131,10 @@ as follows:
    Frequency ratios of the best fit model to 16 Cyg A in the grid.
 
 BASTA uses by default the five-point small frequency separation formulation for computing the ratios, which is the
-recommended option. If the user should want to use the three-point formulation instead, this can be done by adding
-``"threepoint": True`` in the ``define_fit["freqparams"]`` dictionary.
+recommended option. Additionally, interpolation of the model ratios to the observed frequencies are applied in the fit.
+Finally, the correlations between the ratios are taken into account by using the full covariance matrix. Any of these
+settings can of cource be changed should the user wish to do so.
+
 
 Epsilon differences
 -------------------
@@ -169,6 +171,9 @@ Note that since the determination of epsilon differences relies on interpolating
 of the :math:`\ell=1,2` modes, one would extrapolate the :math:`\ell=0` epsilons if the frequency locations of the
 :math:`\ell=1,2` goes outside the interval of the frequency locations of the :math:`\ell=0` modes. These are therefore
 excluded, and thus the number of epsilon differences may not be equal to the number of :math:`\ell=1,2` frequencies.
+
+As noted above for the ratios, correlations/covariances are taken into account in the fit.
+
 
 Frequency glitches
 ------------------
@@ -215,7 +220,7 @@ Since the ``.glh`` file is located in the same folder as the individual frequenc
     }
 
 You can find the corresponding python script to produce the input file for this fit in
-``${BASTADIR}/examples/xmlinput/create_inputfiles_glitches.py``. The output should look as follows:
+``${BASTADIR}/examples/xmlinput/create_inputfile_glitches.py``. The output should look as follows:
 
 .. figure:: figures/glitches/16CygA_corner.png
    :alt: Corner plot of the 16 Cyg A fit using glitches.

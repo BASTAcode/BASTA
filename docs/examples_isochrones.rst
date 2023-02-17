@@ -30,8 +30,8 @@ are the following:
         "DEC",
         "Teff",
         "Teff_err",
-        "MeH",
-        "MeH_err",
+        "FeH",
+        "FeH_err",
         "dnu",
         "dnu_err",
         "numax",
@@ -71,7 +71,7 @@ The first fit in this example will include spectroscopy, global asteroseismic pa
     # ==================================================================================
     # BLOCK 2: Fitting control
     # ==================================================================================
-    define_fit["fitparams"] = ("Teff", "MeH", "dnuSer", "numax", "parallax")
+    define_fit["fitparams"] = ("Teff", "FeH", "dnuSer", "numax", "parallax")
 
 Note that we fit the large frequency separation using the
 `Serenelli et al. 2017 correction <https://ui.adsabs.harvard.edu/abs/2017ApJS..233...23S/abstract>`_ (called ``dnuSer``)
@@ -149,7 +149,7 @@ parallax must not be present in ``fitparams``:
     # ==================================================================================
     # BLOCK 2: Fitting control
     # ==================================================================================
-    define_fit["fitparams"] = ("Teff", "MeH", "dnuSer", "numax")
+    define_fit["fitparams"] = ("Teff", "FeH", "dnuSer", "numax")
 
 At least one magnitude must be specified (and of course its observed value and uncertainty should be included in the
 ``ascii`` file containing the inout data). In this case we will use only the 2MASS *J* magnitude:
@@ -168,7 +168,7 @@ And finally the parameter ``distance`` must be included in the output parameters
     # ==================================================================================
     # BLOCK 3: Output control
     # ==================================================================================
-    define_output["outparams"] = ("Teff", "MeH", "rho", "radPhot", "massfin", "age", "distance")
+    define_output["outparams"] = ("Teff", "FeH", "dnuSer", "numax", "radPhot", "massfin", "age", "distance")
 
 The distance corner plot including only the *J* magnitude looks as follows:
 
@@ -206,7 +206,7 @@ procedure. The only difference (except for reading the pre-modified data file) i
 
 .. code-block:: python
 
-    define_fit["fitparams"] = ("Teff", "MeH", "dnuSer", "numax", "phase")
+    define_fit["fitparams"] = ("Teff", "FeH", "dnuSer", "numax", "phase")
 
 The resulting fit is displayed in the following Kiel diagram where it is clear that the red clump phase has been
 selected instead of the RGB

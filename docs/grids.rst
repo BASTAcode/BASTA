@@ -3,7 +3,7 @@
 Grids of models
 ===============
 
-BASTA runs over grids of stellar tracks or isochrones stored in hierarchical data format ``hdf5``. The list of
+BASTA uses grids of stellar tracks or isochrones stored in hierarchical data format ``hdf5``. The list of
 parameters included in our grids can be seen in :py:meth:`constants.parameters`, but one should keep in mind that
 not all parameters are included in all grids. As an example, isochrones do not contain individual frequencies of
 oscillations while stellar tracks do, and fits to e.g., frequency ratios can only be performed with grids of stellar

@@ -34,10 +34,9 @@ Now, assuming you have downloaded the code, run the following to setup the virtu
     cd BASTA
     python3 -m venv venv
     source venv/bin/activate
-    pip install --upgrade pip
+    pip install --upgrade pip setuptools wheel
     deactivate
     source venv/bin/activate
-    pip install wheel
     pip install -r requirements.txt
     deactivate
 
@@ -65,6 +64,8 @@ If your installation of BASTA is in a folder different than the default ``~/BAST
 
 Consistent f2py
 ---------------
+
+The following should not be necessary if you use *pyenv* or similar to manage your Python environment.
 
 BASTA needs the executable ``f2py3`` to exist in the path to be able to compile external Fortran routines required for
 different parts of the code. In order to avoid issues, this tool *must* match the version of NumPy used to run BASTA.
