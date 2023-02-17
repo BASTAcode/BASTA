@@ -1,6 +1,7 @@
 """
 Key statistics functions
 """
+import os
 import copy
 import math
 import collections
@@ -12,6 +13,7 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 from basta import freq_fit, glitch
 from basta import utils_seismic as su
+from basta.constants import sydsun as sydc
 from basta.constants import freqtypes, statdata
 
 # Define named tuple used in selectedmodels
@@ -416,7 +418,7 @@ def chi_for_plot(selectedmodels):
     return maxPDFchi2, minchi2
 
 
-def get_highest_likelihood(Grid, selectedmodels, outparams):
+def get_highest_likelihood(Grid, selectedmodels, inputparams):
     """
     Find highest likelihood model and print info.
 
@@ -426,8 +428,9 @@ def get_highest_likelihood(Grid, selectedmodels, outparams):
         The already loaded grid, containing the tracks/isochrones.
     selectedmodels : dict
         Contains information on all models with a non-zero likelihood.
-    outparams : dict
-        Dict containing the wanted output of the run.
+    inputparams : dict
+        The standard bundle of all fitting information
+
 
     Returns
     -------
@@ -449,18 +452,33 @@ def get_highest_likelihood(Grid, selectedmodels, outparams):
         print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
 
     # Print parameters
+    outparams = inputparams["asciiparams"]
+    dnu_scales = inputparams.get("dnu_scales", {})
     for param in outparams:
         if param == "distance":
             continue
-        print(
-            "  - {0:10}: {1:12.6f}".format(
-                param, Grid[maxPDF_path + "/" + param][maxPDF_ind]
-            )
-        )
+        paramval = Grid[os.path.join(maxPDF_path, param)][maxPDF_ind]
+
+        # Handle the scaled asteroseismic parameters
+        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
+            dnu_rescal = dnu_scales.get(param, 1.00)
+            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+        elif param.startswith("numax"):
+            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+        elif param in ["dnufit", "dnufitMos12"]:
+            scaleval = paramval / dnu_scales.get(param, 1.00)
+        else:
+            scaleval = None
+
+        if scaleval:
+            scaleprt = f"(after rescaling: {scaleval:12.6f})"
+        else:
+            scaleprt = ""
+        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
     return maxPDF_path, maxPDF_ind
 
 
-def get_lowest_chi2(Grid, selectedmodels, outparams):
+def get_lowest_chi2(Grid, selectedmodels, inputparams):
     """
     Find model with lowest chi2 value and print info.
 
@@ -470,8 +488,8 @@ def get_lowest_chi2(Grid, selectedmodels, outparams):
         The already loaded grid, containing the tracks/isochrones.
     selectedmodels : dict
         Contains information on all models with a non-zero likelihood.
-    outparams : dict
-        Dict containing the wanted output of the run.
+    inputparams : dict
+        The standard bundle of all fitting information
 
     Returns
     -------
@@ -490,14 +508,30 @@ def get_lowest_chi2(Grid, selectedmodels, outparams):
         print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
 
     # Print parameters
+    outparams = inputparams["asciiparams"]
+    dnu_scales = inputparams.get("dnu_scales", {})
     for param in outparams:
         if param == "distance":
             continue
-        print(
-            "  - {0:10}: {1:12.6f}".format(
-                param, Grid[minchi2_path + "/" + param][minchi2_ind]
-            )
-        )
+        paramval = Grid[os.path.join(minchi2_path, param)][minchi2_ind]
+
+        # Handle the scaled asteroseismic parameters
+        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
+            dnu_rescal = dnu_scales.get(param, 1.00)
+            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+        elif param.startswith("numax"):
+            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+        elif param in ["dnufit", "dnufitMos12"]:
+            scaleval = paramval / dnu_scales.get(param, 1.00)
+        else:
+            scaleval = None
+
+        if scaleval:
+            scaleprt = f"(after rescaling: {scaleval:12.6f})"
+        else:
+            scaleprt = ""
+        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+
     return minchi2_path, minchi2_ind
 
 

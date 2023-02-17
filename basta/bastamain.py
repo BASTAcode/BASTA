@@ -799,9 +799,9 @@ def BASTA(
 
     # Find and print highest likelihood model info
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(
-        Grid, selectedmodels, outparams
+        Grid, selectedmodels, inputparams
     )
-    stats.get_lowest_chi2(Grid, selectedmodels, outparams)
+    stats.get_lowest_chi2(Grid, selectedmodels, inputparams)
 
     # Generate posteriors of ascii- and plotparams
     # --> Print posteriors to console and log

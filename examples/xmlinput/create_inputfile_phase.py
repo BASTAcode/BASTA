@@ -293,6 +293,8 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     define_output["outparams"] = (
         "Teff",
         "FeH",
+        "dnuSer",
+        "numax",
         "radPhot",
         "massfin",
         "age",

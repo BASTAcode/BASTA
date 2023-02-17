@@ -277,7 +277,15 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> The names must match entries in the parameter list (basta/constants.py)
     # --> A reasonable choice is to (as a minimum) output the parameters used in the fit
     # --> If you want to predict distance, add the special keyword "distance".
-    define_output["outparams"] = ("Teff", "FeH", "radPhot", "massfin", "age")
+    define_output["outparams"] = (
+        "Teff",
+        "FeH",
+        "dnufit",
+        "numax",
+        "radPhot",
+        "massfin",
+        "age",
+    )
 
     # Name of the output file containing the results of the fit in ascii format.
     # --> A version in xml-format will be automatically created
