@@ -544,6 +544,9 @@ def _interpolate_across(
             keypath = os.path.join(libname, dname)
             outfile[keypath] = ih.bay_weights(outfile[parpath])
 
+            # Successfully interpolated, mark it as such
+            outfile[os.path.join(libname, "IntStatus")] = 0
+
             if debug:
                 debugnum = str(int(newnum + tracknum)).zfill(numfmt)
                 plotpath = os.path.join(
@@ -584,7 +587,7 @@ def _interpolate_across(
                 None
             success[tracknum] = False
             print("Error:", sys.exc_info()[1])
-            outfile[os.path.join(libname, "FeHini_weight")] = -1
+            outfile[os.path.join(libname, "IntStatus")] = -1
             print("Interpolation failed for {0}".format(libname))
             if debug:
                 print("Point at:")

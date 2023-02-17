@@ -142,6 +142,14 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
             trackcount += len(tracks.items())
         pbar = tqdm(total=trackcount, desc="--> Transversing grid", ascii=True)
 
+    # Check if grid is interpolated
+    try:
+        grid["header/interpolation_time"][()]
+    except KeyError:
+        grid_is_intpol = False
+    else:
+        grid_is_intpol = True
+
     # The dictionary with the given information, stored as {name: indexes}
     selectedmodels = {}
     for gname, tracks in grid[basepath].items():
@@ -149,8 +157,12 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
             if show_progress:
                 pbar.update(1)
             # If empty, skip
-            if not len(libitem) or libitem["FeHini_weight"][()] == -1:
+            if not len(libitem):
                 continue
+            # If previously interpolated, and track failed
+            if grid_is_intpol:
+                if libitem["IntStatus"][()] < 0:
+                    continue
 
             # Full list of indexes, set False if model outside limits
             index = np.ones(len(libitem["age"][:]), dtype=bool)

@@ -240,6 +240,14 @@ def _interpolate_along(
 
     overwrite = grid == outfile
 
+    # Check if grid is interpolated
+    try:
+        grid["header/interpolation_time"][()]
+    except KeyError:
+        grid_is_intpol = False
+    else:
+        grid_is_intpol = True
+
     if debug:
         verbose = True
     if verbose:
@@ -317,8 +325,11 @@ def _interpolate_along(
             # Update progress bar in the start of the loop to count skipped tracks
             pbar.update(1)
 
-            if libitem["FeHini_weight"][()] < 0:
-                continue
+            # Skip failed input tracks
+            if grid_is_intpol:
+                if libitem["IntStatus"][()] < 0:
+                    continue
+
             # Make sure the user provides a valid parameter as resolution requirement
             # --> In case of failure, assume the user wanted a dnu-related parameter
             if resolution["param"].lower() not in freqres:
@@ -479,17 +490,16 @@ def _interpolate_along(
                         dsetosc[i] = osclist[i]
                         dsetosckey[i] = osckeylist[i]
 
+                # Successfully interpolated, mark it as such
+                outfile[os.path.join(libitem.name, "IntStatus")] = 0
                 trackcounter += 1
 
             #
             # *** BLOCK 1b: Handle tracks without any models inside selection ***
             #
             else:
-                # Flag the empty tracks with a single entry: A negative weight
-                # (note: requires at least BASTA v0.28 to be useful)
-                if overwrite:
-                    del outfile[os.path.join(libitem.name, "FeHini_weight")]
-                outfile[os.path.join(libitem.name, "FeHini_weight")] = -1
+                # Flag the empty track as "failed", to avoid errors in the main BASTA loop
+                outfile[os.path.join(libitem.name, "IntStatus")] = -1
                 if verbose:
                     print()
 
