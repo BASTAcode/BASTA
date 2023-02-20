@@ -544,7 +544,7 @@ def BASTA(
 
             # For grid with interpolated tracks, skip tracks flagged as empty
             if grid_is_intpol:
-                if libitem["FeHini_weight"][()] < 0:
+                if libitem["IntStatus"][()] < 0:
                     continue
 
             # Check for diffusion

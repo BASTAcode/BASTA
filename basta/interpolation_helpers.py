@@ -142,14 +142,6 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
             trackcount += len(tracks.items())
         pbar = tqdm(total=trackcount, desc="--> Transversing grid", ascii=True)
 
-    # Check if grid is interpolated
-    try:
-        grid["header/interpolation_time"][()]
-    except KeyError:
-        grid_is_intpol = False
-    else:
-        grid_is_intpol = True
-
     # The dictionary with the given information, stored as {name: indexes}
     selectedmodels = {}
     for gname, tracks in grid[basepath].items():
@@ -160,9 +152,8 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
             if not len(libitem):
                 continue
             # If previously interpolated, and track failed
-            if grid_is_intpol:
-                if libitem["IntStatus"][()] < 0:
-                    continue
+            if "IntStatus" in libitem and libitem["IntStatus"][()] < 0:
+                continue
 
             # Full list of indexes, set False if model outside limits
             index = np.ones(len(libitem["age"][:]), dtype=bool)
@@ -550,7 +541,7 @@ def _extend_header(outfile, basepath, headvars):
             values = np.zeros(ltracks)
             for _, group in outfile[basepath].items():
                 for n, (_, libitem) in enumerate(group.items()):
-                    if libitem["FeHini_weight"][()] != -1:
+                    if libitem["IntStatus"][()] != -1:
                         values[n] = libitem[var][0]
             del outfile[headpath]
             outfile[headpath] = values.tolist()
@@ -618,7 +609,7 @@ def _write_header(grid, outfile, basepath):
 def _recalculate_weights(outfile, basepath, headvars):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
-    Tracks not transferred from old grid has FeHini_weight = -1.
+    Tracks not transferred from old grid has IntStatus = -1.
 
     Parameters
     ----------
@@ -646,9 +637,9 @@ def _recalculate_weights(outfile, basepath, headvars):
     for nogroup, (gname, group) in enumerate(outfile[basepath].items()):
         # Determine which tracks are actually present
         for name, libitem in group.items():
-            mask.append(libitem["FeHini_weight"][()])
+            mask.append(libitem["IntStatus"][()])
             names.append(os.path.join(gname, name))
-    mask = np.where(np.array(mask) > 0)[0]
+    mask = np.where(np.array(mask) >= 0)[0]
     active = np.asarray(names)[mask]
 
     # For each parameter, collect values, recalculate weights, and replace old weight

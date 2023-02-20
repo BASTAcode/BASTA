@@ -15,6 +15,8 @@ from basta import sobol_numbers
 from basta import interpolation_helpers as ih
 from basta import plot_interp as ip
 
+import traceback
+
 # ======================================================================================
 # Interpolation helper routines
 # ======================================================================================
@@ -344,7 +346,7 @@ def _interpolate_across(
             if not isomode:
                 index2d = np.array(np.transpose([index, index]))
             if not (any(index) and sum(index) > 2):
-                outfile[os.path.join(name, "FeHini_weight")] = -1
+                outfile[os.path.join(name, "IntStatus")] = -1
             else:
                 # Write everything from the old grid to the new in the region
                 for key in grid[name].keys():
@@ -433,7 +435,7 @@ def _interpolate_across(
             warstr += " of the enveloping {0}!".format(modestr)
             print(warstr)
             success[tracknum] = False
-            outfile[os.path.join(libname, "FeHini_weight")] = -1
+            outfile[os.path.join(libname, "IntStatus")] = -1
             continue
 
         # Assume equal spacing, but approximately the same number of points
@@ -522,7 +524,6 @@ def _interpolate_across(
                     dsetosckey[i] = newosckey[i]
 
             # Dealing with constants of the track
-            outfile[os.path.join(libname, "FeHini_weight")] = 1.0
             for par, parval in zip(baseparams, point):
                 keypath = os.path.join(libname, par)
                 try:

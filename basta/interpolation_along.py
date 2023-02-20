@@ -491,6 +491,8 @@ def _interpolate_along(
                         dsetosckey[i] = osckeylist[i]
 
                 # Successfully interpolated, mark it as such
+                if "IntStatus" in outfile[libitem.name]:
+                    del outfile[os.path.join(libitem.name, "IntStatus")]
                 outfile[os.path.join(libitem.name, "IntStatus")] = 0
                 trackcounter += 1
 
@@ -499,6 +501,8 @@ def _interpolate_along(
             #
             else:
                 # Flag the empty track as "failed", to avoid errors in the main BASTA loop
+                if "IntStatus" in outfile[libitem.name]:
+                    del outfile[os.path.join(libitem.name, "IntStatus")]
                 outfile[os.path.join(libitem.name, "IntStatus")] = -1
                 if verbose:
                     print()
