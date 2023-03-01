@@ -46,11 +46,6 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     """
     print("\nTransforming solar-based asteroseismic quantities:", flush=True)
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # BLOCK 1: Conversion into solar units
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    print("* Converting to solar units if needed...")
-
     # Check for solar values, if not set then use default
     dnusun = inputparams.get("dnusun", sydc.SUNdnu)
     numsun = inputparams.get("numsun", sydc.SUNnumax)
@@ -59,6 +54,15 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     fitparams = inputparams.get("fitparams")
     fitfreqs = inputparams.get("fitfreqs", {})
     limits = inputparams.get("limits")
+
+    # If fitting frequencies, make sure to keep a copy of the original deltaNu
+    if fitfreqs["dnufit"]:
+        fitfreqs["dnu_obs"] = fitfreqs["dnufit"]
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # BLOCK 1: Conversion into solar units
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    print("* Converting to solar units if needed...")
 
     # ----------------------------------
     # TASK 1.1: Conversion of parameters
