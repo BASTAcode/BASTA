@@ -309,7 +309,6 @@ def generate_xml(
         or ("distance" in outparams)
         or ("distance" in cornerplots)
     ):
-
         # Convert to tuple if the user specified only one filter as a sting
         if isinstance(filters, str):
             filters = (filters,)

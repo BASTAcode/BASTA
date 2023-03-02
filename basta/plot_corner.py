@@ -188,6 +188,13 @@ def corner(
         for i, x in enumerate(xs):
             try:
                 xbin = np.histogram_bin_edges(x, bins="auto", range=np.sort(prange[i]))
+                if len(xbin) > 1000:
+                    print(
+                        "Parameter {0} resulted in {1} bins, raising MemoryError".format(
+                            labels[i], len(xbin)
+                        )
+                    )
+                    raise MemoryError
             except MemoryError:
                 print(
                     "WARNING! Using 'auto' as bin-rule causes a memory crash!"
@@ -353,6 +360,7 @@ def corner(
                     ax.set_title(labels[i], y=1.25, **label_kwargs)
                 else:
                     ax.set_xlabel(labels[i], **label_kwargs)
+                    ax.xaxis.set_label_coords(0.5, -0.35)
 
             # use MathText for axes ticks
             ax.xaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))

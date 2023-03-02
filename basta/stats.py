@@ -1,6 +1,7 @@
 """
 Key statistics functions
 """
+import os
 import copy
 import math
 import collections
@@ -12,7 +13,8 @@ from scipy.ndimage.filters import gaussian_filter1d
 
 from basta import freq_fit, glitch
 from basta import utils_seismic as su
-from basta.constants import freqtypes
+from basta.constants import sydsun as sydc
+from basta.constants import freqtypes, statdata
 
 # Define named tuple used in selectedmodels
 Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
@@ -64,7 +66,7 @@ def chi2_astero(
     ind,
     fitfreqs,
     warnings=True,
-    shapewarn=False,
+    shapewarn=0,
     debug=False,
     verbose=False,
 ):
@@ -99,10 +101,10 @@ def chi2_astero(
         Contains all user inputted frequency fitting options.
     warnings : bool
         If True, print something when it fails.
-    shapewarn : bool
-        If a mismatch in array dimensions of the fitted parameters is
-        encountered, this is set to True in order to warn the user at the end
-        of the run.
+    shapewarn : int
+        If a mismatch in array dimensions of the fitted parameters, or range
+        of frequencies is encountered, this is set to corresponding integer
+        in order to warn the user at the end of the run.
     debug : str
         Flag for print control.
     verbose : str
@@ -216,30 +218,31 @@ def chi2_astero(
 
         # Interpolate model ratios to observed frequencies
         if fitfreqs["interp_ratios"]:
-            # Get extended frequency modes to provide interpolation range of ratios
-            broad_key, broad_osc = su.extend_modjoin(joinkeys, join, modkey, mod)
-            if broad_key is None:
-                shapewarn = True
-                chi2rut = np.inf
-                return chi2rut, warnings, shapewarn
-            # Get model ratios
+            # Get all available model ratios
             broadratio = freq_fit.compute_ratioseqs(
-                broad_key,
-                broad_osc,
+                modkey,
+                mod,
                 ratiotype,
                 threepoint=fitfreqs["threepoint"],
             )
             modratio = copy.deepcopy(obsfreqdata[ratiotype]["data"])
+
             # Seperate and interpolate within the separate r01, r10 and r02 sequences
-            for rtype in set(obsfreqdata[ratiotype]["data"][2, :]):
-                obsmask = obsfreqdata[ratiotype]["data"][2, :] == rtype
+            for rtype in set(modratio[2, :]):
+                obsmask = modratio[2, :] == rtype
                 modmask = broadratio[2, :] == rtype
+                # Check we have the range to interpolate
+                if (
+                    modratio[1, obsmask][0] < broadratio[1, modmask][0]
+                    or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
+                ):
+                    chi2rut = np.inf
+                    shapewarn = 2
+                    return chi2rut, warnings, shapewarn
                 intfunc = interp1d(
                     broadratio[1, modmask], broadratio[0, modmask], kind="linear"
                 )
-                modratio[0, obsmask] = intfunc(
-                    obsfreqdata[ratiotype]["data"][1, obsmask]
-                )
+                modratio[0, obsmask] = intfunc(modratio[1, obsmask])
 
         else:
             modratio = freq_fit.compute_ratioseqs(
@@ -253,7 +256,7 @@ def chi2_astero(
         if x.shape[0] == covinv.shape[0]:
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
-            shapewarn = True
+            shapewarn = 1
             chi2rut = np.inf
 
     # Add contribution from glitches
@@ -286,14 +289,13 @@ def chi2_astero(
             if x.shape[0] == covinv.shape[0]:
                 chi2rut += (x.T.dot(covinv).dot(x)) / w
             else:
-                shapewarn = True
-                chirut = np.inf
+                shapewarn = 1
+                chi2rut = np.inf
         else:
             chi2rut = np.inf
             return chi2rut, warnings, shapewarn
 
     if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
-
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
         # Purge model freqs of unused modes
@@ -415,7 +417,7 @@ def chi_for_plot(selectedmodels):
     return maxPDFchi2, minchi2
 
 
-def get_highest_likelihood(Grid, selectedmodels, outparams):
+def get_highest_likelihood(Grid, selectedmodels, inputparams):
     """
     Find highest likelihood model and print info.
 
@@ -425,8 +427,9 @@ def get_highest_likelihood(Grid, selectedmodels, outparams):
         The already loaded grid, containing the tracks/isochrones.
     selectedmodels : dict
         Contains information on all models with a non-zero likelihood.
-    outparams : dict
-        Dict containing the wanted output of the run.
+    inputparams : dict
+        The standard bundle of all fitting information
+
 
     Returns
     -------
@@ -448,18 +451,33 @@ def get_highest_likelihood(Grid, selectedmodels, outparams):
         print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
 
     # Print parameters
+    outparams = inputparams["asciiparams"]
+    dnu_scales = inputparams.get("dnu_scales", {})
     for param in outparams:
         if param == "distance":
             continue
-        print(
-            "  - {0:10}: {1:12.6f}".format(
-                param, Grid[maxPDF_path + "/" + param][maxPDF_ind]
-            )
-        )
+        paramval = Grid[os.path.join(maxPDF_path, param)][maxPDF_ind]
+
+        # Handle the scaled asteroseismic parameters
+        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
+            dnu_rescal = dnu_scales.get(param, 1.00)
+            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+        elif param.startswith("numax"):
+            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+        elif param in ["dnufit", "dnufitMos12"]:
+            scaleval = paramval / dnu_scales.get(param, 1.00)
+        else:
+            scaleval = None
+
+        if scaleval:
+            scaleprt = f"(after rescaling: {scaleval:12.6f})"
+        else:
+            scaleprt = ""
+        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
     return maxPDF_path, maxPDF_ind
 
 
-def get_lowest_chi2(Grid, selectedmodels, outparams):
+def get_lowest_chi2(Grid, selectedmodels, inputparams):
     """
     Find model with lowest chi2 value and print info.
 
@@ -469,8 +487,8 @@ def get_lowest_chi2(Grid, selectedmodels, outparams):
         The already loaded grid, containing the tracks/isochrones.
     selectedmodels : dict
         Contains information on all models with a non-zero likelihood.
-    outparams : dict
-        Dict containing the wanted output of the run.
+    inputparams : dict
+        The standard bundle of all fitting information
 
     Returns
     -------
@@ -489,14 +507,30 @@ def get_lowest_chi2(Grid, selectedmodels, outparams):
         print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
 
     # Print parameters
+    outparams = inputparams["asciiparams"]
+    dnu_scales = inputparams.get("dnu_scales", {})
     for param in outparams:
         if param == "distance":
             continue
-        print(
-            "  - {0:10}: {1:12.6f}".format(
-                param, Grid[minchi2_path + "/" + param][minchi2_ind]
-            )
-        )
+        paramval = Grid[os.path.join(minchi2_path, param)][minchi2_ind]
+
+        # Handle the scaled asteroseismic parameters
+        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
+            dnu_rescal = dnu_scales.get(param, 1.00)
+            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+        elif param.startswith("numax"):
+            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+        elif param in ["dnufit", "dnufitMos12"]:
+            scaleval = paramval / dnu_scales.get(param, 1.00)
+        else:
+            scaleval = None
+
+        if scaleval:
+            scaleprt = f"(after rescaling: {scaleval:12.6f})"
+        else:
+            scaleprt = ""
+        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+
     return minchi2_path, minchi2_ind
 
 
@@ -616,15 +650,14 @@ def calc_key_stats(x, centroid, uncert, weights=None):
         84'th percentile if quantile selected, None for standard
         deviation.
     """
-    # Definition of Bayesian 16, 50, and 84 percentiles
-    qs = [0.5, 0.158655, 0.841345]
+
     xp = None
 
     # Handling af all different combinations of input
     if uncert == "quantiles" and not type(weights) == type(None):
-        xcen, xm, xp = quantile_1D(x, weights, qs)
+        xcen, xm, xp = quantile_1D(x, weights, statdata.quantiles)
     elif uncert == "quantiles":
-        xcen, xm, xp = np.quantile(x, qs)
+        xcen, xm, xp = np.quantile(x, statdata.quantiles)
     else:
         xm = np.std(x)
     if centroid == "mean" and not type(weights) == type(None):

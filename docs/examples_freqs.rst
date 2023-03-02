@@ -1,10 +1,7 @@
 .. _example_freqs:
 
-Individual frequencies, ratios, glitches
+Methods using individual frequencies
 ========================================
-
-*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
-
 
 Using grids that include theoretically computed oscillation frequencies (see :ref:`grids`) BASTA can fit these
 individual frequencies with a surface correction, as well as combination of frequencies. In the following we show
@@ -93,12 +90,12 @@ The fit should take less than a minute and the output is stored in ``${BASTADIR}
 corner plot and Kiel diagrams, the code produces output of the fit to the individual frequencies in form of echelle
 diagrams for both corrected and uncorrected frequencies:
 
-.. figure:: ../examples/reference/freqs/16CygA_pairechelle_uncorrected.pdf
+.. figure:: figures/freqs/16CygA_pairechelle_uncorrected.png
    :alt: Echelle diagram showing the uncorrected frequencies of the best fit model to 16 Cyg A in the grid.
 
    Echelle diagram showing the uncorrected frequencies of the best fit model to 16 Cyg A in the grid.
 
-.. figure:: ../examples/reference/freqs/16CygA_pairechelle.pdf
+.. figure:: figures/freqs/16CygA_pairechelle.png
    :alt: Echelle diagram after the BG14 frequency correction to the best fit model to 16 Cyg A in the grid.
 
    Echelle diagram after the BG14 frequency correction to the best fit model to 16 Cyg A in the grid.
@@ -124,18 +121,59 @@ one simply adds the following ``fitparam`` (for the case of :math:`r_{012}` as a
 
 The variable ``freqplots`` can also be set to ``True``, which will produce plots of the ratios and corresponding echelle
 diagrams even though individual frequencies are not fitted. We provide an example to run this fit in
-``${BASTADIR}/examples/xmlinput/create_inputfiles_ratios.py`` which produces the file ``input_ratios.xml``. Running
+``${BASTADIR}/examples/xmlinput/create_inputfile_ratios.py`` which produces the file ``input_ratios.xml``. Running
 this file stores the results of the fit in ``${BASTADIR}/examples/output/ratios/``, and the resulting ratios should look
 as follows:
 
-.. figure:: ../examples/reference/ratios/16CygA_ratios.pdf
+.. figure:: figures/ratios/16CygA_ratios_r012.png
    :alt: Frequency ratios of the best fit model to 16 Cyg A in the grid.
 
    Frequency ratios of the best fit model to 16 Cyg A in the grid.
 
 BASTA uses by default the five-point small frequency separation formulation for computing the ratios, which is the
-recommended option. If the user should want to use the three-point formulation instead, this can be done by adding
-``"threepoint": True`` in the ``define_fit["freqparams"]`` dictionary.
+recommended option. Additionally, interpolation of the model ratios to the observed frequencies are applied in the fit.
+Finally, the correlations between the ratios are taken into account by using the full covariance matrix. Any of these
+settings can of cource be changed should the user wish to do so.
+
+
+Epsilon differences
+-------------------
+
+Similar to frequency ratios, BASTA can also fit the surface-independent frequency phase differences, commonly
+referred to as epsilon differences (Winther et. al, in preparation). The individual set of differences
+(:math:`\delta\epsilon_{01}, \delta\epsilon_{02}`) as well as the combined set can be fitted by adding the
+correpsonding keyword to ``fitparams`` (here for the case :math:`\delta\epsilon_{012}`):
+
+.. code-block:: python
+
+    # ==================================================================================
+    # BLOCK 2: Fitting control
+    # ==================================================================================
+    define_fit["fitparams"] = ("Teff", "FeH", "e012")
+
+    # ==================================================================================
+    # BLOCK 4: Plotting control
+    # ==================================================================================
+    define_plots["freqplots"] = "epsdiff"
+
+Adding ``epsdiff`` to ``freqplots`` produces the corresponding figure, which can also generally be produced when
+individual frequencies are available. An example of how to run this fit is provided in
+``${BASTADIR}/examples/xmlinput/create_inputfile_epsilondifference.py`` which produces the file ``input_epsilondifference.xml``.
+Running this file stores the results of the fit in ``${BASTADIR}/examples/output/epsilon/``, and the resulting
+epsilon differences should look as follows:
+
+.. figure:: figures/epsilon/16CygA_epsdiff_e012.png
+    :alt: Epsilon differences of the best fit model to 16 Cyg A in the grid.
+
+    Epsilon differences of the best fit model to 16 Cyg A in the grid.
+
+Note that since the determination of epsilon differences relies on interpolating the :math:`\ell=0` epsilons to the frequency locations
+of the :math:`\ell=1,2` modes, one would extrapolate the :math:`\ell=0` epsilons if the frequency locations of the
+:math:`\ell=1,2` goes outside the interval of the frequency locations of the :math:`\ell=0` modes. These are therefore
+excluded, and thus the number of epsilon differences may not be equal to the number of :math:`\ell=1,2` frequencies.
+
+As noted above for the ratios, correlations/covariances are taken into account in the fit.
+
 
 Frequency glitches
 ------------------
@@ -182,9 +220,9 @@ Since the ``.glh`` file is located in the same folder as the individual frequenc
     }
 
 You can find the corresponding python script to produce the input file for this fit in
-``${BASTADIR}/examples/xmlinput/create_inputfiles_glitches.py``. The output should look as follows:
+``${BASTADIR}/examples/xmlinput/create_inputfile_glitches.py``. The output should look as follows:
 
-.. figure:: ../examples/reference/glitches/16CygA_corner.pdf
+.. figure:: figures/glitches/16CygA_corner.png
    :alt: Corner plot of the 16 Cyg A fit using glitches.
 
    Corner plot of the 16 Cyg A fit using glitches.
@@ -264,7 +302,7 @@ simply be run as
 
 The resulting duplicated echelle diagram should look as like the following.
 
-.. figure:: ../examples/reference/subgiant/Valid_245_dupechelle.pdf
+.. figure:: figures/subgiant/Valid_245_dupechelle.png
    :alt: Echelle diagram after the BG14 frequency correction to the best fit model to Validation star 245.
 
    Echelle diagram after the BG14 frequency correction to the best fit model to Validation star 245.

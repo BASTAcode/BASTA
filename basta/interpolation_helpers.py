@@ -149,7 +149,10 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
             if show_progress:
                 pbar.update(1)
             # If empty, skip
-            if not len(libitem) or libitem["FeHini_weight"][()] == -1:
+            if not len(libitem):
+                continue
+            # If previously interpolated, and track failed
+            if "IntStatus" in libitem and libitem["IntStatus"][()] < 0:
                 continue
 
             # Full list of indexes, set False if model outside limits
@@ -493,8 +496,8 @@ def interpolate_frequencies(
             ]
 
         # Add the stacked ".obs-style" lists with all freq information to storage arrays
-        osckeylist.append(np.array([lf, nf], dtype=np.int))
-        osclist.append(np.array([ff, ef], dtype=np.float))
+        osckeylist.append(np.array([lf, nf], dtype=int))
+        osclist.append(np.array([ff, ef], dtype=float))
 
     return osckeylist, osclist
 
@@ -538,7 +541,7 @@ def _extend_header(outfile, basepath, headvars):
             values = np.zeros(ltracks)
             for _, group in outfile[basepath].items():
                 for n, (_, libitem) in enumerate(group.items()):
-                    if libitem["FeHini_weight"][()] != -1:
+                    if libitem["IntStatus"][()] != -1:
                         values[n] = libitem[var][0]
             del outfile[headpath]
             outfile[headpath] = values.tolist()
@@ -603,10 +606,10 @@ def _write_header(grid, outfile, basepath):
     return grid, outfile
 
 
-def _recalculate_weights(outfile, basepath, headvars):
+def _recalculate_param_weights(outfile, basepath):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
-    Tracks not transferred from old grid has FeHini_weight = -1.
+    Tracks not transferred from old grid has IntStatus = -1.
 
     Parameters
     ----------
@@ -627,6 +630,7 @@ def _recalculate_weights(outfile, basepath, headvars):
 
     """
     isomode = False if "grid" in basepath else True
+    headvars = outfile["header/active_weights"][()]
 
     # Collect the relevant tracks/isochrones
     mask = []
@@ -634,9 +638,9 @@ def _recalculate_weights(outfile, basepath, headvars):
     for nogroup, (gname, group) in enumerate(outfile[basepath].items()):
         # Determine which tracks are actually present
         for name, libitem in group.items():
-            mask.append(libitem["FeHini_weight"][()])
+            mask.append(libitem["IntStatus"][()])
             names.append(os.path.join(gname, name))
-    mask = np.where(np.array(mask) > 0)[0]
+    mask = np.where(np.array(mask) >= 0)[0]
     active = np.asarray(names)[mask]
 
     # For each parameter, collect values, recalculate weights, and replace old weight
@@ -658,4 +662,87 @@ def _recalculate_weights(outfile, basepath, headvars):
             else:
                 del outfile[weight_path]
                 outfile[weight_path] = weights[i]
+    return outfile
+
+
+def _recalculate_volume_weights(outfile, basepath, sobnums):
+    """
+    Recalculates the weights of the tracks/isochrones, for the new grid.
+    Tracks not transferred from old grid has IntStatus = -1.
+
+    Parameters
+    ----------
+    outfile : hdf5 file
+        New grid file to write to.
+
+    basepath : str
+        Path in the grid where the tracks are stored. The default value given in
+        parent functions applies to standard grids of tracks.
+
+    sobnums : array
+        Sobol numbers used to generate new base
+
+    extend : bool
+        Whether the old tracks have been preserved, for which the Sobol numbers
+        needs to be recovered.
+
+    Returns
+    -------
+    outfile : hdf5 file
+        New grid file to write to.
+
+    """
+    # Collect the relevant tracks/isochrones
+    IntStatus = []
+    names = []
+    for gname, group in outfile[basepath].items():
+        # Determine which tracks are actually present
+        for name, libitem in group.items():
+            IntStatus.append(libitem["IntStatus"][()])
+            names.append(os.path.join(gname, name))
+    mask = np.where(np.array(IntStatus) >= 0)[0]
+    active = np.asarray(names)[mask]
+
+    # Import necessary packages only used here
+    import bottleneck as bn
+    from basta import sobol_numbers
+
+    # Use IntStatus mask, read key numbers
+    sobnums = sobnums[mask, :]
+    ntracks = sobnums.shape[0]
+    ndim = sobnums.shape[1]
+
+    # Generate oversampled grid
+    iseed = 2
+    osfactor = 100
+    osntracks = osfactor * ntracks
+    osbase = np.zeros((osntracks, ndim))
+    for i in range(osntracks):
+        iseed, osbase[i, :] = sobol_numbers.i8_sobol(ndim, iseed)
+
+    # For every track in the grid, gather all the points from the
+    # oversampled grid which are closest to the track at hand
+    npoints = np.zeros(ntracks, dtype=int)
+    for i in range(osntracks):
+        diff = osbase[i, :] - sobnums
+        distance2 = bn.nansum(diff**2, axis=-1)
+        nclosest = bn.nanargmin(distance2)
+        npoints[nclosest] += 1
+
+    # Transform to volume weight per track
+    weights = npoints / bn.nansum(npoints)
+
+    # Write the weights
+    for i, name in enumerate(active):
+        weight_path = os.path.join(basepath, name, "volume_weight")
+        try:
+            outfile[weight_path] = weights[i]
+        except:
+            del outfile[weight_path]
+            outfile[weight_path] = weights[i]
+
+    # Write the active weights as only volume
+    del outfile["header/active_weights"]
+    outfile["header/active_weights"] = ["volume"]
+
     return outfile

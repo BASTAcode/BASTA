@@ -15,6 +15,9 @@ from basta import sobol_numbers
 from basta import interpolation_helpers as ih
 from basta import plot_interp as ip
 
+import traceback
+
+
 # ======================================================================================
 # Interpolation helper routines
 # ======================================================================================
@@ -75,8 +78,8 @@ def _check_sobol(grid, res):
     return sobol
 
 
-def _calc_across_points(
-    base, baseparams, tri, sobol, outbasename, debug=False, verbose=False
+def _calc_cartesian_points(
+    base, baseparams, tri, outbasename, debug=False, verbose=False
 ):
     """
     Determine the new points for tracks in the base parameters, for either Cartesian
@@ -100,9 +103,6 @@ def _calc_across_points(
     tri : object
         Triangulation of the base.
 
-    sobol : float/bool
-        Scale resolution for Sobol-sampled interpolation, False for Cartesian.
-
     outbasename : str
         Name of the outputted plot of the base.
 
@@ -117,70 +117,125 @@ def _calc_across_points(
 
     """
 
-    if not sobol:
-        # Cartesian routine. Stores arrays of points to be added and all points
-        newbase = None
-        wholebase = copy.deepcopy(base)
+    # Stores arrays of points to be added and all points
+    newbase = None
+    wholebase = copy.deepcopy(base)
 
-        # For each interpolation parameter, add the desired number of points
-        for i, (par, res) in enumerate(baseparams.items()):
-            newpoints = None
-            # Unique values of the parameter
-            uniq = np.unique(wholebase[:, i])
-            # New spacing in parameter
-            diff = np.mean(np.diff(uniq)) / (res + 1)
-            # For each requested new point, add an offsetted copy of the base
-            for j in range(res):
-                points = wholebase.copy()
-                points[:, i] += diff * (j + 1)
-                if type(newpoints) != np.ndarray:
-                    newpoints = points
-                else:
-                    newpoints = np.vstack((newpoints, points))
-            # Update the arrays
-            wholebase = np.vstack((wholebase, newpoints))
-            if type(newbase) != np.ndarray:
-                newbase = newpoints
+    # For each interpolation parameter, add the desired number of points
+    for i, (par, res) in enumerate(baseparams.items()):
+        newpoints = None
+        # Unique values of the parameter
+        uniq = np.unique(wholebase[:, i])
+        # New spacing in parameter
+        diff = np.mean(np.diff(uniq)) / (res + 1)
+        # For each requested new point, add an offsetted copy of the base
+        for j in range(res):
+            points = wholebase.copy()
+            points[:, i] += diff * (j + 1)
+            if type(newpoints) != np.ndarray:
+                newpoints = points
             else:
-                newbase = np.vstack((newbase, newpoints))
+                newpoints = np.vstack((newpoints, points))
+        # Update the arrays
+        wholebase = np.vstack((wholebase, newpoints))
+        if type(newbase) != np.ndarray:
+            newbase = newpoints
+        else:
+            newbase = np.vstack((newbase, newpoints))
 
-        # Find all points within triangulation
+    # Find all points within triangulation
+    mask = tri.find_simplex(newbase)
+    newbase = newbase[mask != -1]
+    trindex = tri.find_simplex(newbase)
+
+    # Plot of old vs. new base of subgrid
+    if len(baseparams) > 1 and (debug or verbose):
+        outname = outbasename.split(".")[-2] + "_all"
+        outname += "." + outbasename.split(".")[-1]
+        success = ip.base_corner(baseparams, base, newbase, tri, False, outname)
+        if success:
+            print(
+                "Initial across interpolation base has been plotted in",
+                "figure",
+                outname,
+            )
+    return newbase, trindex
+
+
+def _calc_sobol_points(
+    base, baseparams, tri, sobol, outbasename, debug=False, verbose=False
+):
+    """
+    Determine the new points for tracks in the base parameters, for Sobol sampling.
+    It determines a new Sobol sampling which satisfy an increase in number of tracks,
+    given a scale value.
+
+    Also plots the old vs new base of the interpolation, no plot for dim(base) = 1,
+    corner plot for dim(base) > 2.
+
+    Parameters
+    ----------
+    base : array
+        The current base of the grid, formed as (number of tracks, parameters in base).
+
+    baseparams : dict
+        Dictionary of the parameters forming the grid, with the required resolution of
+        the parameters.
+
+    tri : object
+        Triangulation of the base.
+
+    sobol : float
+        Scale resolution for Sobol-sampled interpolation
+
+    outbasename : str
+        Name of the outputted plot of the base.
+
+    Returns
+    -------
+    newbase : array
+        A base of the new points in the base, same structure as input base.
+
+    trindex : array
+        List of simplexes of the new points, for determination of the enveloping
+        tracks.
+
+    sob_nums : array
+        Sobol numbers used to generate new base, which is needed for determining
+        volume weights of the tracks
+    """
+
+    # Check that we increase the number of tracks
+    lorgbase = len(base)
+    lnewbase = int(lorgbase * sobol)
+    assert lnewbase > lorgbase
+    ndim = len(baseparams)
+    l_trim = 1
+
+    # Try sampling the parameter space, and retry until increase met
+    while l_trim / sobol < lorgbase:
+        # Extract Sobol sequences
+        lnewbase = int(lnewbase * 1.2)
+        sob_nums = np.zeros((lnewbase, ndim))
+        iseed = 1
+        for i in range(lnewbase):
+            iseed, sob_nums[i, :] = sobol_numbers.i8_sobol(ndim, iseed)
+
+        # Assign parameter values by sequence
+        newbase = []
+        for npar in range(ndim):
+            Cmin = min(base[:, npar])
+            Cmax = max(base[:, npar])
+            newbase.append((Cmax - Cmin) * sob_nums[:, npar] + Cmin)
+
+        # Remove points outside subgrid
+        newbase = np.asarray(newbase).T
         mask = tri.find_simplex(newbase)
         newbase = newbase[mask != -1]
-        trindex = tri.find_simplex(newbase)
+        l_trim = len(newbase[:, 0])
 
-    elif sobol:
-        # Check that we increase the number of tracks
-        lorgbase = len(base)
-        lnewbase = int(lorgbase * sobol)
-        assert lnewbase > lorgbase
-        ndim = len(baseparams)
-        l_trim = 1
-
-        # Try sampling the parameter space, and retry until increase met
-        while l_trim / sobol < lorgbase:
-            # Extract Sobol sequences
-            lnewbase = int(lnewbase * 1.2)
-            sob_nums = np.zeros((lnewbase, ndim))
-            iseed = 1
-            for i in range(lnewbase):
-                iseed, sob_nums[i, :] = sobol_numbers.i8_sobol(ndim, iseed)
-
-            # Assign parameter values by sequence
-            newbase = []
-            for npar in range(ndim):
-                Cmin = min(base[:, npar])
-                Cmax = max(base[:, npar])
-                newbase.append((Cmax - Cmin) * sob_nums[:, npar] + Cmin)
-
-            # Remove points outside subgrid
-            newbase = np.asarray(newbase).T
-            mask = tri.find_simplex(newbase)
-            newbase = newbase[mask != -1]
-            l_trim = len(newbase[:, 0])
-
-        # Compute new simplex list
-        trindex = tri.find_simplex(newbase)
+    # Compute new simplex list
+    trindex = tri.find_simplex(newbase)
 
     # Plot of old vs. new base of subgrid
     if len(baseparams) > 1 and (debug or verbose):
@@ -193,7 +248,7 @@ def _calc_across_points(
                 "figure",
                 outname,
             )
-    return newbase, trindex
+    return newbase, trindex, sob_nums[mask != -1]
 
 
 # ======================================================================================
@@ -299,7 +354,7 @@ def _interpolate_across(
         numfmt = len(tracklist[0][0].split("track")[-1])
 
         # Form basis of varied parameters
-        bpars = [par.decode("UTF-8") for par in grid["header/active_weights"]]
+        bpars = [par.decode("UTF-8") for par in grid["header/pars_sampled"]]
         baseparams = {par: resolution[par] for par in bpars}
         const_vars = {}
         for par in headvars:
@@ -317,7 +372,7 @@ def _interpolate_across(
         newnum = 0
 
         # Parameters for forming basis
-        bpars = [par.decode("UTF-8") for par in grid["header/active_weights"]]
+        bpars = [par.decode("UTF-8") for par in grid["header/pars_sampled"]]
         baseparams = {par: resolution[par] for par in bpars}
         const_vars = {}
         isochhead = os.path.join("header", basepath)
@@ -344,7 +399,7 @@ def _interpolate_across(
             if not isomode:
                 index2d = np.array(np.transpose([index, index]))
             if not (any(index) and sum(index) > 2):
-                outfile[os.path.join(name, "FeHini_weight")] = -1
+                outfile[os.path.join(name, "IntStatus")] = -1
             else:
                 # Write everything from the old grid to the new in the region
                 for key in grid[name].keys():
@@ -367,9 +422,14 @@ def _interpolate_across(
     # Determine the base params for new tracks
     print("\nBuilding triangulation ... ", end="", flush=True)
     triangulation = spatial.Delaunay(base)
-    new_points, trindex = _calc_across_points(
-        base, baseparams, triangulation, sobol, outbasename, debug, verbose
-    )
+    if sobol:
+        new_points, trindex, sobnums = _calc_sobol_points(
+            base, baseparams, triangulation, sobol, outbasename, debug, verbose
+        )
+    else:
+        new_points, trindex = _calc_cartesian_points(
+            base, baseparams, triangulation, outbasename, debug, verbose
+        )
     print("done!")
 
     # List of tracknames for accessing grid
@@ -433,7 +493,7 @@ def _interpolate_across(
             warstr += " of the enveloping {0}!".format(modestr)
             print(warstr)
             success[tracknum] = False
-            outfile[os.path.join(libname, "FeHini_weight")] = -1
+            outfile[os.path.join(libname, "IntStatus")] = -1
             continue
 
         # Assume equal spacing, but approximately the same number of points
@@ -510,19 +570,18 @@ def _interpolate_across(
                 dsetosc = outfile.create_dataset(
                     name=os.path.join(libname, "osc"),
                     shape=(Npoints, 2),
-                    dtype=h5py.special_dtype(vlen=np.float),
+                    dtype=h5py.special_dtype(vlen=float),
                 )
                 dsetosckey = outfile.create_dataset(
                     name=os.path.join(libname, "osckey"),
                     shape=(Npoints, 2),
-                    dtype=h5py.special_dtype(vlen=np.int),
+                    dtype=h5py.special_dtype(vlen=int),
                 )
                 for i in range(Npoints):
                     dsetosc[i] = newosc[i]
                     dsetosckey[i] = newosckey[i]
 
             # Dealing with constants of the track
-            outfile[os.path.join(libname, "FeHini_weight")] = 1.0
             for par, parval in zip(baseparams, point):
                 keypath = os.path.join(libname, par)
                 try:
@@ -543,6 +602,9 @@ def _interpolate_across(
             parpath = os.path.join(libname, par)
             keypath = os.path.join(libname, dname)
             outfile[keypath] = ih.bay_weights(outfile[parpath])
+
+            # Successfully interpolated, mark it as such
+            outfile[os.path.join(libname, "IntStatus")] = 0
 
             if debug:
                 debugnum = str(int(newnum + tracknum)).zfill(numfmt)
@@ -584,7 +646,7 @@ def _interpolate_across(
                 None
             success[tracknum] = False
             print("Error:", sys.exc_info()[1])
-            outfile[os.path.join(libname, "FeHini_weight")] = -1
+            outfile[os.path.join(libname, "IntStatus")] = -1
             print("Interpolation failed for {0}".format(libname))
             if debug:
                 print("Point at:")
@@ -616,5 +678,8 @@ def _interpolate_across(
 
     # Write the new tracks to the header, and recalculate the weights
     outfile = ih._extend_header(outfile, basepath, headvars)
-    outfile = ih._recalculate_weights(outfile, basepath, headvars)
+    if "volume" in grid["header/active_weights"] or sobol:
+        outfile = ih._recalculate_volume_weights(outfile, basepath, sobnums)
+    else:
+        outfile = ih._recalculate_param_weights(outfile, basepath)
     return grid, outfile, fail

@@ -207,8 +207,8 @@ def compare_output_to_input(
         if "distance" in hout_dist:
             idx = np.nonzero([x == "distance_joint" for x in hout_dist])[0][0]
             priordistqs = inputparams["distanceparams"]["priordistance"]
-            priorerrm = priordistqs[1] - priordistqs[0]
-            priorerrp = priordistqs[2] - priordistqs[1]
+            priorerrm = priordistqs[0] - priordistqs[1]
+            priorerrp = priordistqs[2] - priordistqs[0]
             if uncert == "quantiles":
                 outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
             else:

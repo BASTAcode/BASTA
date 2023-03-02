@@ -3,8 +3,6 @@
 Interpolation of tracks and isochrones
 =======================================
 
-*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
-
 If the resolutions of a particular grid is considered insufficient for a particular fit, BASTA includes the option of
 performing interpolation across and/or along tracks and isochrones. What the procedure does is to produce a new
 interpolated grid of models, store it in ``hdf5`` format, and perform a fit to the input given in ``fitparams``. Since
@@ -74,12 +72,12 @@ Finally, we define the settings for the interpolation `across/between` tracks:
 Since the input grid we are using has been constructed using Sobol sampling, we define a ``scale`` parameter of 5 in
 ``["resolution"]``, which increases the number of tracks with respect to the original by a factor of 6. The following figures shows the new sampling, and compares the desired resolution to the `current` distributions of parameter values in the grid:
 
-.. figure:: ../examples/reference/preview_interp_MS/16CygA_interp_preview_across_resolution.pdf
+.. figure:: figures/preview_interp_MS/16CygA_interp_preview_across_resolution.png
    :alt: Distribution in mass and metallicity of the current grid and desired interpolated grid.
 
    Distribution in mass and metallicity of the current grid (base) and desired interpolated grid.
 
-.. figure:: ../examples/reference/preview_interp_MS/16CygA_interp_preview_along_resolution.pdf
+.. figure:: figures/preview_interp_MS/16CygA_interp_preview_along_resolution.png
    :alt: Distribution in individual frequency resolution of the current grid.
 
    Distribution in individual frequency resolution of the current grid.
@@ -152,22 +150,22 @@ After the interpolation and fit are performed the results are stored in ``${BAST
 including the new interpolated grid. The following figures compare the Kiel diagrams of the grids with and without
 interpolation, as well as the corner plots.
 
-.. figure:: ../examples/reference/freqs/16CygA_kiel.pdf
+.. figure:: figures/freqs/16CygA_kiel.png
    :alt: Kiel diagram of the 16 Cyg A fit using the original grid.
 
    Kiel diagram of the 16 Cyg A fit using the original grid.
 
-.. figure:: ../examples/reference/interp_MS/16CygA_kiel.pdf
+.. figure:: figures/interp_MS/16CygA_kiel.png
    :alt: Kiel diagram of the 16 Cyg A fit using the interpolated grid.
 
    Kiel diagram of the 16 Cyg A fit using the interpolated grid.
 
-.. figure:: ../examples/reference/freqs/16CygA_corner.pdf
+.. figure:: figures/freqs/16CygA_corner.png
    :alt: Corner plot of the 16 Cyg A fit using the original grid.
 
    Corner plot of the 16 Cyg A fit using the original grid.
 
-.. figure:: ../examples/reference/interp_MS/16CygA_corner.pdf
+.. figure:: figures/interp_MS/16CygA_corner.png
    :alt: Corner plot of the 16 Cyg A fit using the interpolated grid.
 
    Corner plot of the 16 Cyg A fit using the interpolated grid.

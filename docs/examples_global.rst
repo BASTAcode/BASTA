@@ -3,8 +3,6 @@
 Spectroscopy and global asteroseismic parameters
 ================================================
 
-*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
-
 This example describes the fitting of what we call global parameters of the grid, with a specific application to
 asteroseismology for illustration purposes. As a general recommendation, the user should explore the
 :py:meth:`constants.parameters` (in ``${BASTADIR}/basta/constants.py``) function for a complete list of available fitting parameters.
@@ -86,9 +84,9 @@ You should see the following output printed in your terminal:
 
     A total of 1 star(s) will be fitted with {Teff, FeH, dnufit, numax} to the grid 'BASTADIR/grids/Garstec_16CygA.hdf5'.
 
-    This will output {Teff, FeH, radPhot, massfin, age} to a results file.
+    This will output {Teff, FeH, dnufit, numax, radPhot, massfin, age} to a results file.
 
-    Corner plots include {Teff, FeH, radPhot, massfin, age} with observational bands on {Teff, FeH, dnufit, numax}.
+    Corner plots include {Teff, FeH, dnufit, numax, radPhot, massfin, age} with observational bands on {Teff, FeH, dnufit, numax}.
     Kiel diagrams will be made with observational bands on {Teff, FeH, dnufit, numax}.
 
     A restricted flat prior will be applied to: Teff, FeH.
@@ -106,7 +104,7 @@ Once the file is created, run BASTA as explained to perform the fit:
 The output of the fit can be found in ``${BASTADIR}/examples/output/global/``. It includes a Kiel diagram that should
 look like the following:
 
-.. figure:: ../examples/reference/global/16CygA_kiel.pdf
+.. figure:: figures/global/16CygA_kiel.png
    :alt: Kiel diagram plot of the 16 Cyg A fit using global asteroseismic quantities.
 
    Kiel diagram of the 16 Cyg A fit using global asteroseismic quantities.
@@ -117,7 +115,7 @@ and 84 percentiles mass and metallicity output of the solution, and are **not** 
 
 Finally, a corner plot of the parameters included in ``cornerplots`` is also part of the output:
 
-.. figure:: ../examples/reference/global/16CygA_corner.pdf
+.. figure:: figures/global/16CygA_corner.png
    :alt: Corner plot of the 16 Cyg A fit using global asteroseismic quantities.
 
    Corner plot of the 16 Cyg A fit using global asteroseismic quantities.

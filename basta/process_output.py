@@ -11,7 +11,7 @@ import matplotlib
 
 import basta.fileio as fio
 from basta.constants import sydsun as sydc
-from basta.constants import parameters
+from basta.constants import parameters, statdata
 from basta.utils_distances import distance_from_mag
 from basta.distances import get_absorption, LOS_reddening
 from basta import utils_general as util
@@ -92,17 +92,12 @@ def compute_posterior(
     hout_dist.append("starid")
     out_dist.append(starid)
 
-    # Settings for the quantiles and samples
-    qs = [0.5, 0.158655, 0.841345]
-    nsigma = 0.25
-    nsamples = 100000
-
     # Generate PDF values
     logy = np.concatenate([ts.logPDF for ts in selectedmodels.values()])
     noofind = len(logy)
     nonzeroprop = np.isfinite(logy)
     logy = logy[nonzeroprop]
-    nsamples = min(nsamples, noofind)
+    nsamples = min(statdata.nsamples, noofind)
 
     # Likelihood is only defined up to a multiplicative constant of
     # proportionality, therefore we subtract max(logy) from logy to make sure
@@ -124,7 +119,7 @@ def compute_posterior(
     # Corner plot kwargs
     ckwargs = {
         "show_titles": True,
-        "quantiles": qs,
+        "quantiles": statdata.quantiles,
         "smooth": 1,
         "smooth1d": "kde",
         "title_kwargs": {"fontsize": 10},
@@ -158,10 +153,14 @@ def compute_posterior(
 
             # Create posteriors from weighted histograms
             dinterp.append(
-                stats.posterior(d_all, nonzeroprop, sampled_indices, nsigma=nsigma)
+                stats.posterior(
+                    d_all, nonzeroprop, sampled_indices, nsigma=statdata.nsigma
+                )
             )
             EBVinterp.append(
-                stats.posterior(EBV_all, nonzeroprop, sampled_indices, nsigma=nsigma)
+                stats.posterior(
+                    EBV_all, nonzeroprop, sampled_indices, nsigma=statdata.nsigma
+                )
             )
 
             # Compute centroid and uncertainties and print them
@@ -469,16 +468,24 @@ def compute_posterior(
                 x = util.get_parameter_values(
                     library_param, Grid, selectedmodels, noofind
                 )
-                lp_interval = np.quantile(x[nonzeroprop][sampled_indices], qs[1:])
+                lp_interval = np.quantile(
+                    x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
+                )
 
                 x = util.get_parameter_values("FeH", Grid, selectedmodels, noofind)
-                feh_interval = np.quantile(x[nonzeroprop][sampled_indices], qs[1:])
+                feh_interval = np.quantile(
+                    x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
+                )
 
                 x = util.get_parameter_values("Teff", Grid, selectedmodels, noofind)
-                Teffout = np.quantile(x[nonzeroprop][sampled_indices], qs)
+                Teffout = np.quantile(
+                    x[nonzeroprop][sampled_indices], statdata.quantiles
+                )
 
                 x = util.get_parameter_values("logg", Grid, selectedmodels, noofind)
-                loggout = np.quantile(x[nonzeroprop][sampled_indices], qs)
+                loggout = np.quantile(
+                    x[nonzeroprop][sampled_indices], statdata.quantiles
+                )
 
                 try:
                     fig = plot_kiel.kiel(
@@ -556,18 +563,22 @@ def compute_posterior(
         # Find quantiles of massini/age and FeH to determine what tracks to plot
         library_param = "massini" if "tracks" in gridtype.lower() else "age"
         x = util.get_parameter_values(library_param, Grid, selectedmodels, noofind)
-        lp_interval = np.quantile(x[nonzeroprop][sampled_indices], qs[1:])
+        lp_interval = np.quantile(
+            x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
+        )
 
         # Use correct metallicity (only important for alpha enhancement)
         metalname = "MeH" if "MeH" in fitparams else "FeH"
         x = util.get_parameter_values(metalname, Grid, selectedmodels, noofind)
-        feh_interval = np.quantile(x[nonzeroprop][sampled_indices], qs[1:])
+        feh_interval = np.quantile(
+            x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
+        )
 
         x = util.get_parameter_values("Teff", Grid, selectedmodels, noofind)
-        Teffout = np.quantile(x[nonzeroprop][sampled_indices], qs)
+        Teffout = np.quantile(x[nonzeroprop][sampled_indices], statdata.quantiles)
 
         x = util.get_parameter_values("logg", Grid, selectedmodels, noofind)
-        loggout = np.quantile(x[nonzeroprop][sampled_indices], qs)
+        loggout = np.quantile(x[nonzeroprop][sampled_indices], statdata.quantiles)
 
         try:
             fig = plot_kiel.kiel(

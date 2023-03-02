@@ -231,13 +231,17 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #                    * "1/N-dof": Normalisation by number of frequencies minus the
     #                                 (user-specified) degrees of freedom. This option
     #                                 must be supplemented by a specification of "dof".
+    #
     # - "threepoint": Set 'True' to change to the three-point small frequency separation
     #                 formulation for the frequency ratios, instead of the five-point
     #                 small frequency separation. The default, if not set or set as
     #                 'False', is to use the five-point formulation.
+    #
+    # - "dnuprior": Set to 'False' to disable the automatic prior on dnu (mimicking the
+    #               range defined by dnufrac), which speeds up the computation of the
+    #               fit. Recommended to keep as 'True' (default).
 
     # Example of typical settings for a frequency fit (with default seismic weights):
-    # define_fit["freqparams"] = {
     # define_fit["freqparams"] = {
     #     "freqpath": os.path.join(BASTADIR, "examples/data/freqs"),
     #     "fcor": "BG14",
@@ -287,6 +291,8 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     define_output["outparams"] = (
         "Teff",
         "FeH",
+        "dnuSer",
+        "numax",
         "radPhot",
         "massfin",
         "age",

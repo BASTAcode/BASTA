@@ -3,8 +3,6 @@
 Isochrones, distances, and evolutionary phase
 =============================================
 
-*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
-
 BASTA is shipped with a complete set of isochrones from the
 `BaSTI library <http://basti-iac.oa-abruzzo.inaf.it/index.html>`_. The input physics, science cases, and mixtures are
 described in the `Solar scaled paper <https://ui.adsabs.harvard.edu/abs/2018ApJ...856..125H/abstract>`_ and the
@@ -32,8 +30,8 @@ are the following:
         "DEC",
         "Teff",
         "Teff_err",
-        "MeH",
-        "MeH_err",
+        "FeH",
+        "FeH_err",
         "dnu",
         "dnu_err",
         "numax",
@@ -73,7 +71,7 @@ The first fit in this example will include spectroscopy, global asteroseismic pa
     # ==================================================================================
     # BLOCK 2: Fitting control
     # ==================================================================================
-    define_fit["fitparams"] = ("Teff", "MeH", "dnuSer", "numax", "parallax")
+    define_fit["fitparams"] = ("Teff", "FeH", "dnuSer", "numax", "parallax")
 
 Note that we fit the large frequency separation using the
 `Serenelli et al. 2017 correction <https://ui.adsabs.harvard.edu/abs/2017ApJS..233...23S/abstract>`_ (called ``dnuSer``)
@@ -111,12 +109,12 @@ isochrones library:
 The file ``${BASTADIR}/examples/xmlinput/create_inputfile_parallax.py`` has been modified accordingly to produce a fit
 to the isochrones. After running the associated ``input_parallax.xml`` the output should look as follows:
 
-.. figure:: ../examples/reference/parallax/11129442_kiel.pdf
+.. figure:: figures/parallax/11129442_kiel.png
    :alt: Kiel diagram of the fit to KIC 11129442 including asteroseismology and parallaxes.
 
    Kiel diagram of the fit to KIC 11129442 including asteroseismology and parallaxes.
 
-.. figure:: ../examples/reference/parallax/11129442_corner.pdf
+.. figure:: figures/parallax/11129442_corner.png
    :alt: Corner plot of the fit to KIC 11129442 including asteroseismology and parallaxes.
 
    Corner plot of the fit to KIC 11129442 including asteroseismology and parallaxes.
@@ -124,7 +122,7 @@ to the isochrones. After running the associated ``input_parallax.xml`` the outpu
 You may have noticed that there is one additional figure to this fit that has not appeared before. This is the corner
 plot of the parameters associated to the distance called ``11129442_distance_corner.pdf`` and looks like this:
 
-.. figure:: ../examples/reference/parallax/11129442_distance_corner.pdf
+.. figure:: figures/parallax/11129442_distance_corner.png
    :alt: Corner plot of distance properties of the fit to KIC 11129442 including asteroseismology and parallaxes.
 
    Corner plot of distance properties of the fit to KIC 11129442 including asteroseismology and parallaxes.
@@ -151,7 +149,7 @@ parallax must not be present in ``fitparams``:
     # ==================================================================================
     # BLOCK 2: Fitting control
     # ==================================================================================
-    define_fit["fitparams"] = ("Teff", "MeH", "dnuSer", "numax")
+    define_fit["fitparams"] = ("Teff", "FeH", "dnuSer", "numax")
 
 At least one magnitude must be specified (and of course its observed value and uncertainty should be included in the
 ``ascii`` file containing the inout data). In this case we will use only the 2MASS *J* magnitude:
@@ -170,11 +168,11 @@ And finally the parameter ``distance`` must be included in the output parameters
     # ==================================================================================
     # BLOCK 3: Output control
     # ==================================================================================
-    define_output["outparams"] = ("Teff", "MeH", "rho", "radPhot", "massfin", "age", "distance")
+    define_output["outparams"] = ("Teff", "FeH", "dnuSer", "numax", "radPhot", "massfin", "age", "distance")
 
 The distance corner plot including only the *J* magnitude looks as follows:
 
-.. figure:: ../examples/reference/distance/11129442_distance_corner.pdf
+.. figure:: figures/distance/11129442_distance_corner.png
    :alt: Distance corner plot for KIC 11129442 estimated using asteroseismology, spectroscopy, and one apparent magnitude.
 
    Distance corner plot for KIC 11129442 estimated using asteroseismology, spectroscopy, and one apparent magnitude.
@@ -208,12 +206,12 @@ procedure. The only difference (except for reading the pre-modified data file) i
 
 .. code-block:: python
 
-    define_fit["fitparams"] = ("Teff", "MeH", "dnuSer", "numax", "phase")
+    define_fit["fitparams"] = ("Teff", "FeH", "dnuSer", "numax", "phase")
 
 The resulting fit is displayed in the following Kiel diagram where it is clear that the red clump phase has been
 selected instead of the RGB
 
-.. figure:: ../examples/reference/phase/11129442_kiel.pdf
+.. figure:: figures/phase/11129442_kiel.png
    :alt: Kiel diagram of the fit to KIC 11129442 forcing the star into the red clump.
 
    Kiel diagram of the fit to KIC 11129442 forcing the star into the red clump.

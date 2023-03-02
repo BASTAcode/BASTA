@@ -33,6 +33,27 @@ class freqtypes:
 
 
 @dataclass
+class statdata:
+    """
+    Constant values for statistics, to ensure consistensy across code
+
+    Contains
+    --------
+    quantiles : list
+        Median, lower and upper percentiles of Bayesian posterior
+        distributions to draw
+    nsamples : int
+        Number of samples to draw when sampling
+    nsigma : float
+        Fractional standard deviation used for smoothing
+    """
+
+    quantiles = [0.5, 0.158655, 0.841345]
+    nsamples = 100000
+    nsigma = 0.25
+
+
+@dataclass
 class parameters:
     """
     All the different parameters in the form:
@@ -254,7 +275,6 @@ class parameters:
         return parnames
 
     def get_keys(inputparams):
-
         """
         Takes a list of input parameters (or a
         single parameter) as strings and returns

@@ -189,7 +189,7 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
 
                 joinkeys.append(
                     np.transpose(
-                        [l * np.ones(osum, dtype=np.int), nmod[mfilter], nobs[ofilter]]
+                        [l * np.ones(osum, dtype=int), nmod[mfilter], nobs[ofilter]]
                     )
                 )
                 join.append(
@@ -662,12 +662,14 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
         Ratio requested from `ratiotype`.
     ratio_cov : array
         Covariance matrix of the requested ratio.
-    ratio_covinv : array
-        The inverse of the covariance matrix of the requested ratio.
     """
     ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
 
-    ratio_cov, ratio_covinv = su.compute_cov_from_mc(
+    # Check for valid return
+    if ratio is None:
+        return None
+
+    ratio_cov = su.compute_cov_from_mc(
         ratio.shape[1],
         obskey,
         obs,
@@ -675,7 +677,7 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
         args={"threepoint": threepoint},
         nrealisations=nrealisations,
     )
-    return ratio, ratio_cov, ratio_covinv
+    return ratio, ratio_cov
 
 
 def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
@@ -720,15 +722,15 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
     n2 = obskey[1, obskey[0, :] == 2]
 
     if (len(f0) == 0) or (len(f0) != (n0[-1] - n0[0] + 1)):
-        r01 = False
-        r10 = False
+        r01 = None
+        r10 = None
 
     if (len(f1) == 0) or (len(f1) != (n1[-1] - n1[0] + 1)):
-        r01 = False
-        r10 = False
+        r01 = None
+        r10 = None
 
     if (len(f2) == 0) or (len(f2) != (n2[-1] - n2[0] + 1)):
-        r02 = False
+        r02 = None
 
     # Two-point frequency ratio R02
     # -----------------------------
@@ -886,18 +888,24 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
         return r10
 
     elif sequence == "r012":
+        if r01 is None or r02 is None:
+            return None
         # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
         mask = np.argsort(np.append(r01[3, :], r02[3, :] + 0.1))
         r012 = np.hstack((r01, r02))[:, mask]
         return r012
 
     elif sequence == "r102":
+        if r10 is None or r02 is None:
+            return None
         # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
         mask = np.argsort(np.append(r10[3, :], r02[3, :] + 0.1))
         r102 = np.hstack((r10, r02))[:, mask]
         return r102
 
     elif sequence == "r010":
+        if r01 is None or r10 is None:
+            return None
         # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
         mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
         r010 = np.hstack((r01, r10))[:, mask]
@@ -969,8 +977,6 @@ def compute_epsilondiff(
         Array containing the modes in the observed data.
     epsdiff_cov : array
         Covariances matrix.
-    epsdiff_covinv : array
-        The inverse of the covariance matrix.
     """
 
     # Remove modes outside of l=0 range
@@ -995,7 +1001,7 @@ def compute_epsilondiff(
     epsdiff = compute_epsilondiffseqs(
         osckey, osc, avgdnu, sequence=sequence, nsorting=nsorting
     )
-    epsdiff_cov, epsdiff_covinv = su.compute_cov_from_mc(
+    epsdiff_cov = su.compute_cov_from_mc(
         epsdiff.shape[1],
         osckey,
         osc,
@@ -1004,7 +1010,7 @@ def compute_epsilondiff(
         nrealisations=nrealisations,
     )
 
-    return epsdiff, epsdiff_cov, epsdiff_covinv
+    return epsdiff, epsdiff_cov
 
 
 def compute_epsilondiffseqs(
