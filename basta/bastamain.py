@@ -593,7 +593,6 @@ def BASTA(
 
             # Check which models have phases as specified
             if "phase" in inputparams:
-
                 # Mapping of verbose input phases to internal numbers
                 pmap = {
                     "pre-ms": 1,

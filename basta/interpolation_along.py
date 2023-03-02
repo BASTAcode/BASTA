@@ -479,12 +479,12 @@ def _interpolate_along(
                     dsetosc = outfile.create_dataset(
                         name=os.path.join(libitem.name, "osc"),
                         shape=(Npoints, 2),
-                        dtype=h5py.special_dtype(vlen=np.float),
+                        dtype=h5py.special_dtype(vlen=float),
                     )
                     dsetosckey = outfile.create_dataset(
                         name=os.path.join(libitem.name, "osckey"),
                         shape=(Npoints, 2),
-                        dtype=h5py.special_dtype(vlen=np.int),
+                        dtype=h5py.special_dtype(vlen=int),
                     )
                     for i in range(Npoints):
                         dsetosc[i] = osclist[i]

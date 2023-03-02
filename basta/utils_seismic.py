@@ -56,7 +56,7 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     limits = inputparams.get("limits")
 
     # If fitting frequencies, make sure to keep a copy of the original deltaNu
-    if fitfreqs["dnufit"]:
+    if fitfreqs["active"]:
         fitfreqs["dnu_obs"] = fitfreqs["dnufit"]
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

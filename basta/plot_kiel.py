@@ -319,7 +319,6 @@ def kiel(
     for ax, tlim, glim in iteration:
         max_logPDF = selectedmodels[maxPDF_path].logPDF.max()
         for track in tracks:
-
             # Make a copy to allow manipulation
             xs = gu.h5py_to_array(Grid[track + "/Teff"])
             ys = gu.h5py_to_array(Grid[track + "/logg"])

@@ -705,7 +705,7 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
         f = np.concatenate([f, frecu[given_l][incrn]])
         e = np.concatenate([e, errors[given_l][incrn]])
     assert len(f) == len(n) == len(e) == len(l)
-    obskey = np.asarray([l, n], dtype=np.int)
+    obskey = np.asarray([l, n], dtype=int)
     obs = np.array([f, e])
 
     # Remove untrusted frequencies
@@ -722,7 +722,7 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
             print("Not-trusted frequencies found")
             if nottrustedobskey.shape == (2,):
                 nottrustedobskey = [nottrustedobskey]
-            for (l, n) in nottrustedobskey:
+            for l, n in nottrustedobskey:
                 nottrustedmask = (obskey[0] == l) & (obskey[1] == n)
                 print("Removed mode at", obs[:, nottrustedmask][0][0], "µHz")
                 obskey = obskey[:, ~nottrustedmask]

@@ -17,6 +17,7 @@ from basta import plot_interp as ip
 
 import traceback
 
+
 # ======================================================================================
 # Interpolation helper routines
 # ======================================================================================
@@ -569,12 +570,12 @@ def _interpolate_across(
                 dsetosc = outfile.create_dataset(
                     name=os.path.join(libname, "osc"),
                     shape=(Npoints, 2),
-                    dtype=h5py.special_dtype(vlen=np.float),
+                    dtype=h5py.special_dtype(vlen=float),
                 )
                 dsetosckey = outfile.create_dataset(
                     name=os.path.join(libname, "osckey"),
                     shape=(Npoints, 2),
-                    dtype=h5py.special_dtype(vlen=np.int),
+                    dtype=h5py.special_dtype(vlen=int),
                 )
                 for i in range(Npoints):
                     dsetosc[i] = newosc[i]

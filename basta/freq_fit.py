@@ -189,7 +189,7 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
 
                 joinkeys.append(
                     np.transpose(
-                        [l * np.ones(osum, dtype=np.int), nmod[mfilter], nobs[ofilter]]
+                        [l * np.ones(osum, dtype=int), nmod[mfilter], nobs[ofilter]]
                     )
                 )
                 join.append(

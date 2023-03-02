@@ -275,7 +275,6 @@ class parameters:
         return parnames
 
     def get_keys(inputparams):
-
         """
         Takes a list of input parameters (or a
         single parameter) as strings and returns

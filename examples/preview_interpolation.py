@@ -227,7 +227,7 @@ def test_across_interpolation(
             parm = grid[os.path.join(bpath, name)][bpar][0]
             base[i, j] = parm
     tri = spatial.Delaunay(base)
-    newbase, _ = iac._calc_across_points(base, baseparams, tri, sobol, outname)
+    newbase, _, _ = iac._calc_sobol_points(base, baseparams, tri, sobol, outname)
     success = ip.base_corner(baseparams, base, newbase, tri, sobol, outname)
 
 

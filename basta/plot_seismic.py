@@ -893,7 +893,6 @@ def epsilon_difference_components_diagram(
 
     # Epsilon differences
     for ll in l_available:
-
         indobs = obsepsdiff[2] == ll
         indmod = modepsdiff[2] == ll
 

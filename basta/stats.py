@@ -296,7 +296,6 @@ def chi2_astero(
             return chi2rut, warnings, shapewarn
 
     if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
-
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
         # Purge model freqs of unused modes

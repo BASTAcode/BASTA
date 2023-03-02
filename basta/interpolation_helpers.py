@@ -496,8 +496,8 @@ def interpolate_frequencies(
             ]
 
         # Add the stacked ".obs-style" lists with all freq information to storage arrays
-        osckeylist.append(np.array([lf, nf], dtype=np.int))
-        osclist.append(np.array([ff, ef], dtype=np.float))
+        osckeylist.append(np.array([lf, nf], dtype=int))
+        osclist.append(np.array([ff, ef], dtype=float))
 
     return osckeylist, osclist
 
