@@ -889,7 +889,7 @@ def epsilon_difference_components_diagram(
     expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
 
     # Definition of figure
-    fig, ax = plt.subplots(2, 2, figsize=(11, 9), sharex="col", sharey="row")
+    fig, ax = plt.subplots(2, 2, figsize=(8.47, 6), sharex="col", sharey="row")
 
     # Epsilon differences
     for ll in l_available:
@@ -927,7 +927,7 @@ def epsilon_difference_components_diagram(
             obsepsdiff[1][indobs],
             obsepsdiff[0][indobs],
             yerr=obsepsdiff_err[indobs],
-            marker=obsmarker,
+            marker=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
             markeredgecolor="k",
@@ -966,7 +966,7 @@ def epsilon_difference_components_diagram(
             eps,
             yerr=err,
             linestyle=None,
-            fmt=obsmarker,
+            fmt=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
             zorder=3,
             label=elab % ll,

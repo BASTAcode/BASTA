@@ -264,6 +264,15 @@ def BASTA(
             obsintervals,
         ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
 
+        # Apply prior on dnufit to mimick the range defined by dnufrac
+        if fitfreqs["dnuprior"] and ("dnufit" not in limits):
+            dnufit_frac = fitfreqs["dnufrac"] * fitfreqs["dnufit"]
+            dnuerr = max(3 * fitfreqs["dnufit_err"], dnufit_frac)
+            limits["dnufit"] = [
+                fitfreqs["dnufit"] - dnuerr,
+                fitfreqs["dnufit"] + dnuerr,
+            ]
+
     # Check if grid is interpolated
     try:
         Grid["header/interpolation_time"][()]
@@ -348,6 +357,7 @@ def BASTA(
 
         # Translate True/False to Yes/No
         strmap = ("No", "Yes")
+        print("  - Automatic prior on dnu: {0}".format(strmap[fitfreqs["dnuprior"]]))
         print(
             "  - Constraining lowest l = 0 (n = {0}) with f = {1:.3f} +/-".format(
                 obskey[1, 0], obs[0, 0]
@@ -383,7 +393,14 @@ def BASTA(
                 strmap[fitfreqs["threepoint"]]
             )
         )
-        print("  - Value of dnu: {0:.3f} microHz".format(fitfreqs["dnufit"]))
+        if fitfreqs["dnufit_err"]:
+            print(
+                "  - Value of dnu: {0:.3f} +/- {1:.3f} microHz".format(
+                    fitfreqs["dnufit"], fitfreqs["dnufit_err"]
+                )
+            )
+        else:
+            print("  - Value of dnu: {0:.3f} microHz".format(fitfreqs["dnufit"]))
         print("  - Value of numax: {0:.3f} microHz".format(fitfreqs["numax"]))
 
         weightcomment = ""
@@ -527,7 +544,7 @@ def BASTA(
 
             # For grid with interpolated tracks, skip tracks flagged as empty
             if grid_is_intpol:
-                if libitem["FeHini_weight"][()] < 0:
+                if libitem["IntStatus"][()] < 0:
                     continue
 
             # Check for diffusion
@@ -782,9 +799,9 @@ def BASTA(
 
     # Find and print highest likelihood model info
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(
-        Grid, selectedmodels, outparams
+        Grid, selectedmodels, inputparams
     )
-    stats.get_lowest_chi2(Grid, selectedmodels, outparams)
+    stats.get_lowest_chi2(Grid, selectedmodels, inputparams)
 
     # Generate posteriors of ascii- and plotparams
     # --> Print posteriors to console and log

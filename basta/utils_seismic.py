@@ -46,19 +46,27 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     """
     print("\nTransforming solar-based asteroseismic quantities:", flush=True)
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # BLOCK 1: Conversion into solar units
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    print("* Converting to solar units ...")
-
     # Check for solar values, if not set then use default
     dnusun = inputparams.get("dnusun", sydc.SUNdnu)
     numsun = inputparams.get("numsun", sydc.SUNnumax)
 
-    # ------------------------------
-    # TASK 1.1: Conversion of parameters
-    # ------------------------------
+    # Obtain parameter lists
     fitparams = inputparams.get("fitparams")
+    fitfreqs = inputparams.get("fitfreqs", {})
+    limits = inputparams.get("limits")
+
+    # If fitting frequencies, make sure to keep a copy of the original deltaNu
+    if fitfreqs["dnufit"]:
+        fitfreqs["dnu_obs"] = fitfreqs["dnufit"]
+
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    # BLOCK 1: Conversion into solar units
+    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    print("* Converting to solar units if needed...")
+
+    # ----------------------------------
+    # TASK 1.1: Conversion of parameters
+    # ----------------------------------
     fitpar_convert = [
         par for par in fitparams if (par.startswith("dnu") or par.startswith("numax"))
     ]
@@ -87,7 +95,6 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     # TASK 1.2: Conversion of limits
     # ------------------------------
     # Duplicates the approach above)
-    limits = inputparams.get("limits")
     limits_convert = [
         par for par in limits if (par.startswith("dnu") or par.startswith("numax"))
     ]
@@ -159,37 +166,58 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     # ------------------------------
     dnu_scales = {}
     for dnu in sunmoddnu:
-        if dnu in fitparams:
-            if dnu in ["dnufit", "dnufitMos12"]:
-                # Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
+        if (dnu in fitparams) or (dnu in fitfreqs):
+            if dnu in fitparams:
+                if dnu in ["dnufit", "dnufitMos12"]:
+                    # Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
+                    dnu_rescal = sunmoddnu[dnu] / dnusun
+                    print(
+                        "  - {0} scaled by {1:.4f} from {2:.2f} to {3:.2f} microHz".format(
+                            dnu,
+                            dnu_rescal,
+                            fitparams[dnu][0],
+                            fitparams[dnu][0] * dnu_rescal,
+                        ),
+                        "(grid Sun: {0:.2f} microHz, real Sun: {1:.2f} microHz)".format(
+                            sunmoddnu[dnu], dnusun
+                        ),
+                    )
+                else:
+                    # Using the scaling relations on the solar model in the grid generally
+                    # yields DNU_SUN_SCALING_GRID != DNU_SUN_SCALING_OBS . The exact value
+                    # of the solar model DNU from scaling relations is stored in the grid
+                    # in solar units (a number close to 1, but not exactly 1). This number
+                    # is used as the scaling factor of solar-unit input dnu's
+                    dnu_rescal = sunmoddnu[dnu]
+                    print(
+                        "  - {0} scaled by a factor {1:.8f} according to the".format(
+                            dnu, dnu_rescal
+                        ),
+                        "grid-solar-model value from scaling relations",
+                    )
+                fitparams[dnu] = [(dnu_rescal) * p for p in fitparams[dnu]]
+            else:
+                # If in frequency fitting, it is always dnufit (in microHz)
+                # --> Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
                 dnu_rescal = sunmoddnu[dnu] / dnusun
                 print(
                     "  - {0} scaled by {1:.4f} from {2:.2f} to {3:.2f} microHz".format(
                         dnu,
                         dnu_rescal,
-                        fitparams[dnu][0],
-                        fitparams[dnu][0] * dnu_rescal,
+                        fitfreqs[dnu],
+                        fitfreqs[dnu] * dnu_rescal,
                     ),
                     "(grid Sun: {0:.2f} microHz, real Sun: {1:.2f} microHz)".format(
                         sunmoddnu[dnu], dnusun
                     ),
                 )
-            else:
-                # Using the scaling relations on the solar model in the grid generally
-                # yields DNU_SUN_SCALING_GRID != DNU_SUN_SCALING_OBS . The exact value
-                # of the solar model DNU from scaling relations is stored in the grid
-                # in solar units (a number close to 1, but not exactly 1). This number
-                # is used as the scaling factor of solar-unit input dnu's
-                dnu_rescal = sunmoddnu[dnu]
-                print(
-                    "  - {0} scaled by a factor {1:.8f} according to the".format(
-                        dnu, dnu_rescal
-                    ),
-                    "grid-solar-model value from scaling relations",
-                )
+                fitfreqs[dnu] = dnu_rescal * fitfreqs[dnu]
+                if fitfreqs[dnu + "_err"]:
+                    fitfreqs[dnu + "_err"] = dnu_rescal * fitfreqs[dnu + "_err"]
+
             print("    (Note: Will be scaled back before outputting results!)")
-            fitparams[dnu] = [(dnu_rescal) * p for p in fitparams[dnu]]
             dnu_scales[dnu] = dnu_rescal
+
     inputparams["dnu_scales"] = dnu_scales
 
     print("Done!")

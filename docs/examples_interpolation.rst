@@ -3,8 +3,6 @@
 Interpolation of tracks and isochrones
 =======================================
 
-*We are currently having issues with the examples pages (images are not showing in Firefox and Chrome). We are working on a release to fix it. Until then, please try with Safari. We are sorry for the inconvenience!*
-
 If the resolutions of a particular grid is considered insufficient for a particular fit, BASTA includes the option of
 performing interpolation across and/or along tracks and isochrones. What the procedure does is to produce a new
 interpolated grid of models, store it in ``hdf5`` format, and perform a fit to the input given in ``fitparams``. Since

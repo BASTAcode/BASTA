@@ -219,7 +219,7 @@ def test_across_interpolation(
         sobol = resolution["scale"]
 
     if len(baseparams) == 0:
-        baseparams = [par.decode("UTF-8") for par in grid["header/active_weights"]]
+        baseparams = [par.decode("UTF-8") for par in grid["header/pars_sampled"]]
 
     base = np.zeros((len(selectedmodels), len(baseparams)))
     for i, name in enumerate(selectedmodels):

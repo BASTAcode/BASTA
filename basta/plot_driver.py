@@ -88,6 +88,10 @@ def plot_all_seismic(
         print("\nFrequency plots initialisation failed with the error:", e)
         return None
 
+    # Extract the original observed dnu for use on the echelle diagrams
+    # --> (equivalent to re-scaling if solar scaling activated)
+    plotdnu = fitfreqs["dnu_obs"]
+
     if allfplots or "echelle" in freqplots:
         try:
             plot_seismic.echelle(
@@ -97,7 +101,7 @@ def plot_all_seismic(
                 obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=fitfreqs["dnufit"],
+                dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
                 pair=False,
@@ -116,7 +120,7 @@ def plot_all_seismic(
                 obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=fitfreqs["dnufit"],
+                dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
                 pair=True,
@@ -135,7 +139,7 @@ def plot_all_seismic(
                 obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=fitfreqs["dnufit"],
+                dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
                 duplicate=True,
@@ -178,7 +182,7 @@ def plot_all_seismic(
                 obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=fitfreqs["dnufit"],
+                dnu=plotdnu,
                 join=corjoin,
                 joinkeys=maxjoinkeys,
                 freqcor=fitfreqs["fcor"],
@@ -200,7 +204,7 @@ def plot_all_seismic(
                 obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=fitfreqs["dnufit"],
+                dnu=plotdnu,
                 join=corjoin,
                 joinkeys=maxjoinkeys,
                 freqcor=fitfreqs["fcor"],
@@ -222,7 +226,7 @@ def plot_all_seismic(
                 obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
-                dnu=fitfreqs["dnufit"],
+                dnu=plotdnu,
                 join=corjoin,
                 joinkeys=maxjoinkeys,
                 freqcor=fitfreqs["fcor"],

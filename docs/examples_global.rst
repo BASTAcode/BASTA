@@ -84,9 +84,9 @@ You should see the following output printed in your terminal:
 
     A total of 1 star(s) will be fitted with {Teff, FeH, dnufit, numax} to the grid 'BASTADIR/grids/Garstec_16CygA.hdf5'.
 
-    This will output {Teff, FeH, radPhot, massfin, age} to a results file.
+    This will output {Teff, FeH, dnufit, numax, radPhot, massfin, age} to a results file.
 
-    Corner plots include {Teff, FeH, radPhot, massfin, age} with observational bands on {Teff, FeH, dnufit, numax}.
+    Corner plots include {Teff, FeH, dnufit, numax, radPhot, massfin, age} with observational bands on {Teff, FeH, dnufit, numax}.
     Kiel diagrams will be made with observational bands on {Teff, FeH, dnufit, numax}.
 
     A restricted flat prior will be applied to: Teff, FeH.

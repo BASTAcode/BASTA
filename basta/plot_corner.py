@@ -188,6 +188,13 @@ def corner(
         for i, x in enumerate(xs):
             try:
                 xbin = np.histogram_bin_edges(x, bins="auto", range=np.sort(prange[i]))
+                if len(xbin) > 1000:
+                    print(
+                        "Parameter {0} resulted in {1} bins, raising MemoryError".format(
+                            labels[i], len(xbin)
+                        )
+                    )
+                    raise MemoryError
             except MemoryError:
                 print(
                     "WARNING! Using 'auto' as bin-rule causes a memory crash!"
