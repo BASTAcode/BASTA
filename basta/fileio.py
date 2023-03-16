@@ -1139,61 +1139,22 @@ def read_glh(filename, grtype="glitches"):
     covgr : array
         Covariance matrix
     """
+
     glhrto, covgr = None, None
     if filename is not None:
         if os.path.isfile(filename):
             with h5py.File(filename, "r") as data:
-                if grtype == "glitches":
-                    try:
-                        glhrto = data["medglh"][()]
-                        covgr = data["covglh"][()]
-                    except KeyError:
-                        glhrto, covgr = None, None
-
-                elif grtype == "gr02":
-                    try:
-                        glhrto = data["medg02"][()]
-                        covgr = data["covg02"][()]
-                    except KeyError:
-                        glhrto, covgr = None, None
-
-                elif grtype == "gr01":
-                    try:
-                        glhrto = data["medg01"][()]
-                        covgr = data["covg01"][()]
-                    except KeyError:
-                        glhrto, covgr = None, None
-
-                elif grtype == "gr10":
-                    try:
-                        glhrto = data["medg10"][()]
-                        covgr = data["covg10"][()]
-                    except KeyError:
-                        glhrto, covgr = None, None
-
-                elif grtype == "gr010":
-                    try:
-                        glhrto = data["medg010"][()]
-                        covgr = data["covg010"][()]
-                    except KeyError:
-                        glhrto, covgr = None, None
-
-                elif grtype == "gr012":
-                    try:
-                        glhrto = data["medg012"][()]
-                        covgr = data["covg012"][()]
-                    except KeyError:
-                        glhrto, covgr = None, None
-
-                elif grtype == "gr102":
-                    try:
-                        glhrto = data["medg102"][()]
-                        covgr = data["covg102"][()]
-                    except KeyError:
-                        glhrto, covgr = None, None
-
+                rtype = data["rto/rtype"][()]
+                if rtype is None:
+                    grt = "glitches"
                 else:
-                    raise ValueError("Unrecognized glitch-ratio type!")
+                    grt = "g" + rtype
+                if grtype == grt:
+                    try:
+                        glhrto = data["cov/params"][()]
+                        covgr = data["cov/cov"][()]
+                    except KeyError:
+                        glhrto, covgr = None, None
 
     return glhrto, covgr
 
