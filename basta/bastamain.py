@@ -249,6 +249,7 @@ def BASTA(
             numax,
             dnufrac,
             datos,
+            cov,
             covinv,
             fcor,
             obsintervals,
@@ -899,6 +900,7 @@ def BASTA(
         if allfplots or "glitches" in freqplots:
             plot_seismic.glitchplot(
                 datos,
+                cov,
                 rt,
                 selectedmodels,
                 output=glitchplotname,

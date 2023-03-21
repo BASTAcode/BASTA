@@ -552,9 +552,12 @@ def prepare_obs(inputparams, verbose=False):
     datos : array
         Individual frequencies, uncertainties, and combinations read
         directly from the observational input files
-    covinv : array
+    cov : array
         Covariances between individual frequencies and frequency ratios read
         from the observational input files.
+    covinv : array
+        Inverse of the covariances between individual frequencies and frequency
+        ratios read from the observational input files.
     fcor : strgs
         Type of surface correction (see :func:'freq_fit.py').
     obsintervals : array
@@ -704,6 +707,7 @@ def prepare_obs(inputparams, verbose=False):
         numax,
         dnufrac,
         datos,
+        cov,
         covinv,
         fcor,
         obsintervals,

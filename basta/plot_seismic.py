@@ -13,6 +13,8 @@ from basta import stats, freq_fit
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
+from matplotlib.patches import Ellipse
+import matplotlib.transforms as transforms
 
 plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
 
@@ -605,7 +607,66 @@ def ratioplot(freqfile, datos, joinkeys, join, output=None, nonewfig=False):
             pp.close()
 
 
-def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
+def confidence_ellipse(
+    mean_x, std_x, mean_y, std_y, cov, ax, facecolor="none", **kwargs
+):
+    """
+    Create a plot of the covariance confidence ellipse of *x* and *y*.
+
+    Parameters
+    ----------
+    mean_x : float
+        Mean of input x
+
+    std_x : float
+        Standard deviation of input x
+
+    mean_y : float
+        Mean of input y
+
+    std_y : float
+        Standard deviation of input y
+
+    cov : float
+        Covariance of x and y
+
+    ax : matplotlib.axes.Axes
+        Axes object to draw the ellipse into.
+
+    **kwargs
+        Forwarded to `~matplotlib.patches.Ellipse`
+
+    Returns
+    -------
+    matplotlib.patches.Ellipse
+    """
+
+    pearson_correlation = cov / (std_x * std_y)
+
+    ell_radius_x = np.sqrt(1 + pearson_correlation)
+    ell_radius_y = np.sqrt(1 - pearson_correlation)
+
+    ellipse = Ellipse(
+        (0, 0),
+        width=ell_radius_x * 2,
+        height=ell_radius_y * 2,
+        facecolor=facecolor,
+        **kwargs
+    )
+
+    transf = (
+        transforms.Affine2D()
+        .rotate_deg(45)
+        .scale(std_x, std_y)
+        .translate(mean_x, mean_y)
+    )
+
+    ellipse.set_transform(transf + ax.transData)
+
+    return ax.add_patch(ellipse)
+
+
+def glitchplot(datos, cov, rt, selectedmodels, output=None, nonewfig=False):
     """
     Plot glitch parameters.
 
@@ -614,6 +675,9 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
     datos : array
         Individual frequencies, uncertainties, and combinations read
         directly from the observational input files
+    cov : array
+        Covariances between individual frequencies and frequency ratios
+        read directly from the observational input files
     rt : list
         Type of fits available for individual frequencies
     selectedmodels : dict
@@ -635,6 +699,7 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
             datos[7][2, -2],
             datos[7][2, -1],
         )
+        cov_AW, cov_AT, cov_WT = (cov[7][-3, -2], cov[7][-3, -1], cov[7][-2, -1])
     if "gr010" in rt:
         obs_amp, obs_width, obs_depth = (
             datos[8][0, -3],
@@ -646,6 +711,7 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
             datos[8][2, -2],
             datos[8][2, -1],
         )
+        cov_AW, cov_AT, cov_WT = (cov[8][-3, -2], cov[8][-3, -1], cov[8][-2, -1])
     if "gr02" in rt:
         obs_amp, obs_width, obs_depth = (
             datos[9][0, -3],
@@ -657,6 +723,7 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
             datos[9][2, -2],
             datos[9][2, -1],
         )
+        cov_AW, cov_AT, cov_WT = (cov[9][-3, -2], cov[9][-3, -1], cov[9][-2, -1])
     if "gr01" in rt:
         obs_amp, obs_width, obs_depth = (
             datos[10][0, -3],
@@ -668,6 +735,7 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
             datos[10][2, -2],
             datos[10][2, -1],
         )
+        cov_AW, cov_AT, cov_WT = (cov[10][-3, -2], cov[10][-3, -1], cov[10][-2, -1])
     if "gr10" in rt:
         obs_amp, obs_width, obs_depth = (
             datos[11][0, -3],
@@ -679,6 +747,7 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
             datos[11][2, -2],
             datos[11][2, -1],
         )
+        cov_AW, cov_AT, cov_WT = (cov[11][-3, -2], cov[11][-3, -1], cov[11][-2, -1])
     if "gr012" in rt:
         obs_amp, obs_width, obs_depth = (
             datos[12][0, -3],
@@ -690,6 +759,7 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
             datos[12][2, -2],
             datos[12][2, -1],
         )
+        cov_AW, cov_AT, cov_WT = (cov[12][-3, -2], cov[12][-3, -1], cov[12][-2, -1])
     if "gr102" in rt:
         obs_amp, obs_width, obs_depth = (
             datos[13][0, -3],
@@ -701,6 +771,7 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
             datos[13][2, -2],
             datos[13][2, -1],
         )
+        cov_AW, cov_AT, cov_WT = (cov[13][-3, -2], cov[13][-3, -1], cov[13][-2, -1])
 
     # Highest probability (or best-fit) model parameters
     # maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
@@ -746,6 +817,15 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
                     zorder=1,
                     label="Measured",
                 )
+                confidence_ellipse(
+                    obs_width,
+                    err_width,
+                    obs_amp,
+                    err_amp,
+                    cov_AW,
+                    plt.gca(),
+                    edgecolor="#D55E00",
+                )
                 plt.plot(
                     best_width,
                     best_amp,
@@ -781,6 +861,15 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
                     zorder=1,
                     label="Measured",
                 )
+                confidence_ellipse(
+                    obs_depth,
+                    err_depth,
+                    obs_amp,
+                    err_amp,
+                    cov_AT,
+                    plt.gca(),
+                    edgecolor="#D55E00",
+                )
                 plt.plot(
                     best_depth,
                     best_amp,
@@ -815,6 +904,15 @@ def glitchplot(datos, rt, selectedmodels, output=None, nonewfig=False):
                     color="#D55E00",
                     zorder=1,
                     label="Measured",
+                )
+                confidence_ellipse(
+                    obs_depth,
+                    err_depth,
+                    obs_width,
+                    err_width,
+                    cov_WT,
+                    plt.gca(),
+                    edgecolor="#D55E00",
                 )
                 plt.plot(
                     best_depth,
