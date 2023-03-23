@@ -66,7 +66,7 @@ def bay_weights(inputvar):
 # ======================================================================================
 # Common interpolation functions
 # ======================================================================================
-def _interpolation_wrapper(x, y, xnew, method="linear", along=True):
+def interpolation_wrapper(x, y, xnew, method="linear", along=True):
     """
     Interpolate a 1-D function using the specified method.
 

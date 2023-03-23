@@ -1,0 +1,444 @@
+"""
+Interpolation for BASTA: Combined approach
+"""
+import os
+import sys
+import time
+
+import h5py
+import numpy as np
+import matplotlib.pyplot as plt
+
+from tqdm import tqdm
+from scipy import spatial
+
+
+from basta import sobol_numbers
+from basta import plot_interp as ip
+from basta import interpolation_helpers as ih
+
+
+def _calc_across_points(
+    base,
+    baseparams,
+    tri,
+    sobol,
+    outbasename,
+):
+    """
+    Determine the new points for tracks in the base parameters, for Sobol sampling.
+    It determines a new Sobol sampling which satisfy an increase in number of tracks,
+    given a scale value.
+
+    Also plots the old vs new base of the interpolation, no plot for dim(base) = 1,
+    corner plot for dim(base) > 2.
+
+    Parameters
+    ----------
+    base : array
+        The current base of the grid, formed as (number of tracks, parameters in base).
+
+    baseparams : dict
+        Dictionary of the parameters forming the grid, with the required resolution of
+        the parameters.
+
+    tri : object
+        Triangulation of the base.
+
+    sobol : float
+        Scale resolution for Sobol-sampled interpolation
+
+    outbasename : str
+        Name of the outputted plot of the base.
+
+    Returns
+    -------
+    newbase : array
+        A base of the new points in the base, same structure as input base.
+
+    trindex : array
+        List of simplexes of the new points, for determination of the enveloping
+        tracks.
+
+    sob_nums : array
+        Sobol numbers used to generate new base, which is needed for determining
+        volume weights of the tracks
+    """
+
+    # Check that we increase the number of tracks
+    lorgbase = len(base)
+    lnewbase = int(lorgbase * sobol)
+    assert lnewbase > lorgbase
+    ndim = len(baseparams)
+    l_trim = 1
+
+    # Try sampling the parameter space, and retry until increase met
+    while l_trim / sobol < lorgbase:
+        # Extract Sobol sequences
+        lnewbase = int(lnewbase * 1.2)
+        sob_nums = np.zeros((lnewbase, ndim))
+        iseed = 1
+        for i in range(lnewbase):
+            iseed, sob_nums[i, :] = sobol_numbers.i8_sobol(ndim, iseed)
+
+        # Assign parameter values by sequence
+        newbase = []
+        for npar in range(ndim):
+            Cmin = min(base[:, npar])
+            Cmax = max(base[:, npar])
+            newbase.append((Cmax - Cmin) * sob_nums[:, npar] + Cmin)
+
+        # Remove points outside subgrid
+        newbase = np.asarray(newbase).T
+        mask = tri.find_simplex(newbase)
+        newbase = newbase[mask != -1]
+        l_trim = len(newbase[:, 0])
+
+    # Compute new simplex list
+    trindex = tri.find_simplex(newbase)
+
+    # Plot of old vs. new base of subgrid
+    if len(baseparams) > 1 and (debug or verbose):
+        outname = outbasename.split(".")[-2] + "_all"
+        outname += "." + outbasename.split(".")[-1]
+        success = ip.base_corner(baseparams, base, newbase, tri, sobol, outname)
+        if success:
+            print(
+                "Initial across interpolation base has been plotted in",
+                "figure",
+                outname,
+            )
+    return newbase, trindex, sob_nums[mask != -1]
+
+
+def interpolate_combined(
+    grid,
+    outfile,
+    limits,
+    trackresolution,
+    gridresolution,
+    intpolparams,
+    basepath="grid/",
+    intpol_freqs=False,
+    extend=False,
+    outbasename="",
+):
+    """
+    Routine for interpolating both across and along tracks, in a combined
+    approach. Creates basis for new tracks using along interpolation specifications,
+    thus using the the across interpolater to map to an increased number of points
+    along the tracks, compared to the original tracks.
+
+    Parameters
+    ----------
+
+    Returns
+    -------
+    None
+    """
+
+    ###############################
+    # BLOCK 0: Unpack and prepare #
+    ###############################
+
+    # Read input
+    scale = gridresolution["scale"]
+    along_var = trackresolution["baseparam"]
+    respar = trackresolution["param"]
+
+    # Read the parameters of the grid
+    pars_sampled = [par.decode("UTF-8") for par in grid["header/pars_sampled"]]
+    pars_varied = [par.decode("UTF-8") for par in grid["header/pars_varied"]]
+    pars_constant = [par.decode("UTF-8") for par in grid["header/pars_constant"]]
+
+    # Collect the parameters
+    headvars = list(np.unique(pars_sampled + pars_varied + pars_constant))
+
+    # Determine the number to assign the new tracks
+    tracklist = list(grid[basepath].items())
+    newnum = max([int(f[0].split("track")[-1]) for f in tracklist]) + 1
+    numfmt = max(str(newnum), len(str(int(newnum * scale))))
+
+    # Extract models within user-specified limits
+    print("Locating limits and restricting sub-grid ... ", flush=True)
+    selectedmodels = ih.get_selectedmodels(grid, basepath, limits, cut=False)
+
+    if extend:
+        for name, index in selectedmodels.items():
+            # If below 3 models in subbox, skip the track
+            if sum(index) < 3:
+                continue
+            # Add IntStatus as copied original track
+            outfile[os.path.join(basepath, name, "IntStatus")] = 1
+            for key in [*intpolparams, *headvars]:
+                keypath = os.path.join(basepath, name, key)
+                if "_weight" in key:
+                    outfile[keypath] = grid[keypath][()]
+                else:
+                    outfile[keypath] = grid[keypath][index]
+
+    # Form the base array for interpolation
+    base = np.zeros((len(selectedmodels), len(pars_sampled)))
+    for i, name in enumerate(selectedmodels):
+        for j, bpar in enumerate(pars_sampled):
+            parm = grid[os.path.join(basepath, name, bpar)][0]
+            base[i, j] = parm
+
+    # Determine the base params for new tracks
+    print("\nBuilding triangulation ... ", end="", flush=True)
+    triangulation = spatial.Delaunay(base)
+    new_points, trindex, sobnums = _calc_across_points(
+        base,
+        pars_sampled,
+        triangulation,
+        scale,
+        outbasename,
+    )
+    print("done!")
+
+    # List of tracknames for accessing grid
+    tracknames = list(selectedmodels)
+    # List to sort out failed tracks at the end
+    success = np.ones(len(new_points[:, 0]), dtype=bool)
+
+    # Determine values constant along track
+    const_vals = {}
+    for par in pars_constant:
+        val = grid[os.path.join(basepath, tracknames[0], par)][0]
+        const_vals[par] = val
+    # Parameters not sampled, but still vary across tracks
+    varied_vals = {}
+    for par in pars_varied:
+        yvec = np.zeros((len(selectedmodels)))
+        for i, name in enumerate(selectedmodels):
+            yvec[i] = grid[os.path.join(basepath, name, par)][0]
+        newval = ih.interpolation_wrapper(triangulation, yvec, new_points, along=False)
+        varied_vals[par] = newval
+
+    #############
+    # Main loop #
+    #############
+    numnew = len(new_points)
+    print("Interpolating {0} tracks/isochrones ... ".format(numnew))
+
+    # Use a progress bar (with the package tqdm; will write to stderr)
+    pbar = tqdm(total=numnew, desc="--> Progress", ascii=True)
+
+    # Use tqdm for progress bar
+    for tracknum, (point, tind) in enumerate(zip(new_points, trindex)):
+        # Update progress bar in the start of the loop to count skipped tracks
+        pbar.update(1)
+
+        # Directory of the track/isochrone
+        libname = os.path.join(
+            basepath, "track{{:0{0}d}}".format(numfmt).format(int(newnum + tracknum))
+        )
+
+        #############################################################
+        # BLOCK 2: Enveloping tracks data collection and along base #
+        #############################################################
+
+        # Information to be collected from enveloping tracks
+        ind = triangulation.simplices[tind]
+        count = sum([sum(selectedmodels[tracknames[i]]) for i in ind])
+        intbase = np.zeros((count, len(pars_sampled) + 1))
+        envres = np.zeros((count, len(pars_sampled) + 1))
+        basenames = np.empty((count), dtype=object)
+        y = np.zeros((count))
+        minmax = np.zeros((len(ind), 2))
+        lens = []
+        ir = 0
+
+        # Loop over the enveloping tracks to collect info
+        for j, i in enumerate(ind):
+            # Unpack the track and selected models of the track
+            track = grid[os.path.join(basepath, tracknames[i])]
+            selmod = selectedmodels[tracknames[i]]
+
+            # Resolution variable of the track
+            resvar = track[respar][selmod]
+            # Base variable of the track
+            bvar = track[along_var][selmod]
+            minmax[j, :] = [min(bvar), max(bvar)]
+            for k, (b, res) in enumerate(zip(list(bvar), list(resvar))):
+                intbase[k + ir, : len(base[i])] = base[i]
+                intbase[k + ir, -1] = b
+                envres[k + ir, : len(base[i])] = base[i]
+                envres[k + ir, -1] = res
+            basenames[ir : ir + len(bvar)] = track["name"][selmod]
+            lens.append(len(bvar))
+            ir += len(bvar)
+
+        # Check of overlap from min and max
+        minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
+        if minmax[0] > minmax[1]:
+            warstr = "Warning: Track {0} ".format(newnum + tracknum)
+            warstr += "aborted, no overlap in {0}.".format(along_var)
+            print(warstr)
+            success[tracknum] = False
+            outfile[os.path.join(libname, "IntStatus")] = -1
+            continue
+
+        # Assume equal spacing, but approximately the same number of points
+        try:
+            newbvar = ih.calc_along_points(
+                intbase, lens, minmax, point, envres, trackresolution["value"]
+            )
+        except:
+            warstr = "Choice of base parameter '{:s}' resulted".format(along_var)
+            warstr += " in an error when determining it's variance along the track."
+            raise ValueError(warstr)
+
+        #################################
+        # BLOCK 3: Actual interpolation #
+        #################################
+
+        # The base along the new track
+        newbase = np.ones((len(newbvar), len(pars_sampled) + 1))
+        for i, p in enumerate(point):
+            newbase[:, i] *= p
+        newbase[:, -1] = newbvar
+
+        # Create triangulation of tinerpolation base once only
+        sub_triangle = spatial.Delaunay(intbase)
+
+        try:
+            ################################
+            # BLOCK 3a: Classic parameters #
+            ################################
+            for key in intpolparams:
+                keypath = os.path.join(libname, key)
+                # Weights are given a placeholder value
+                if key == along_var:
+                    outfile[keypath] = newbase[:, -1]
+                elif "name" in key:
+                    outfile[keypath] = newbase.shape[0] * [b"interpolated-entry"]
+                elif key == "dage":
+                    dpath = os.path.join(libname, "age")
+                    keypath = os.path.join(libname, "dage")
+                    outfile[keypath] = ih.bay_weights(outfile[dpath])
+                elif (key in pars_constant) or ("_weight" in key):
+                    continue
+                else:
+                    # Interpolation of varying parameters
+                    ir = 0
+                    for j, i in enumerate(ind):
+                        track = os.path.join(basepath, tracknames[i])
+                        yind = selectedmodels[tracknames[i]]
+                        y[ir : ir + sum(yind)] = grid[track][key][yind]
+                        ir += sum(yind)
+                    newparam = ih.interpolation_wrapper(
+                        sub_triangle, y, newbase, along=False
+                    )
+                    if any(np.isnan(newparam)):
+                        nan = "Track {0} had NaN value(s)!".format(newnum + tracknum)
+                        raise ValueError(nan)
+                    outfile[keypath] = newparam
+
+            #################################################
+            # BLOCK 3b: Constant parameters along the track #
+            #################################################
+            for par, parval in zip(pars_sampled, point):
+                keypath = os.path.join(libname, par)
+                outfile[keypath] = np.ones(newbase.shape[0]) * parval
+            for par in const_vals:
+                keypath = os.path.join(libname, par)
+                outfile[keypath] = np.ones(newbase.shape[0]) * const_vals[par]
+            for par in varied_vals:
+                keypath = os.path.join(libname, par)
+                vval = varied_vals[par][tracknum]
+                outfile[keypath] = np.ones(newbase.shape[0]) * vval
+
+            ####################################################
+            # BLOCK 3c: Interpolation source model information #
+            ####################################################
+            isnames = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="S30")
+            iscoefs = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="f8")
+            for s, point in enumerate(newbase):
+                simplex = sub_triangle.find_simplex(point)
+                # Magic math from scipy.Delaunay documentation
+                dif = point - sub_triangle.transform[simplex, -1]
+                dot = sub_triangle.transform[simplex, : len(point)].dot(dif)
+                dists = [*dot, 1 - dot.sum()]
+
+                # Relating to source models
+                simplices = sub_triangle.simplices[simplex]
+                isnames[s, :] = basenames[simplices]
+                iscoefs[s, :] = dists
+            outfile[os.path.join(libname, "isnames")] = isnames
+            outfile[os.path.join(libname, "iscoefs")] = iscoefs
+
+            # Success! Set status as completed
+            outfile[os.path.join(libname, "IntStatus")] = 0
+
+        except KeyboardInterrupt:
+            print("Interpolation stopped manually. Goodbye!")
+            sys.exit()
+        except:
+            # If it fails, delete progress for the track, and just mark it as failed
+            try:
+                del outfile[libname]
+            except:
+                pass
+            success[tracknum] = False
+            print("Error:", sys.exc_info()[1])
+            outfile[os.path.join(libname, "IntStatus")] = -1
+            print("Interpolation failed for track {0}".format(newnum + tracknum))
+
+    ####################
+    # End of main loop #
+    ####################
+    pbar.close()
+
+    ########################################
+    # BLOCK 3: Wrap up, header and weights #
+    ########################################
+
+    # Plot the new resulting base
+    if outbasename:
+        outname = os.path.join(outbasename, "base_post.png")
+        plotted = ip.base_corner(
+            pars_sampled, base, new_points[success], triangulation, scale, outname
+        )
+    else:
+        plotted = False
+    if not plotted:
+        print("Plotting of full base failed in post")
+
+    # Write the new tracks to the header, and recalculate the weights
+    outfile = ih.update_header(outfile, basepath, headvars)
+    outfile = ih.recalculate_weights(outfile, basepath, sobnums, extend)
+    grid.close()
+
+    #######
+    # END #
+    #######
+    print("\n\n*************************")
+    print("* Interpolation wrap-up *")
+    print("*************************\n")
+
+    # Remove interpolated models outside of limits
+    print("Removing models outside limits ... ", flush=True)
+    selectedmodels = ih.get_selectedmodels(
+        outfile, basepath, limits, cut=True, grid_is_intpol=True
+    )
+    for name, index in selectedmodels.items():
+        if sum(index) != len(index):
+            libname = os.path.join(basepath, name)
+            for key in outfile[libname].keys():
+                keypath = os.path.join(libname, key)
+                if type(outfile[keypath][()]) != np.ndarray:
+                    continue
+                else:
+                    vec = outfile[keypath][()][index]
+                del outfile[keypath]
+                outfile[keypath] = vec
+
+    # Write timestamp to outfile and close
+    outfile[os.path.join("header", "interpolation_time")] = time.strftime(
+        "%Y-%m-%d at %H:%M:%S"
+    )
+    outfile.close()
+
+    # Make space below in console printing
+    print("\n")

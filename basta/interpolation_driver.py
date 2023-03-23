@@ -14,6 +14,7 @@ from basta.utils_general import Logger
 from basta import interpolation_helpers as ih
 from basta import interpolation_across as iac
 from basta import interpolation_along as ial
+from basta import interpolation_combined as ico
 
 
 # ======================================================================================
