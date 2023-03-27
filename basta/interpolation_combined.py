@@ -12,6 +12,7 @@ import matplotlib.pyplot as plt
 from tqdm import tqdm
 from scipy import spatial
 
+from basta.utils_seismic import transform_obj_array
 
 from basta import sobol_numbers
 from basta import plot_interp as ip
@@ -24,6 +25,7 @@ def _calc_across_points(
     tri,
     sobol,
     outbasename,
+    debug=False,
 ):
     """
     Determine the new points for tracks in the base parameters, for Sobol sampling.
@@ -98,7 +100,7 @@ def _calc_across_points(
     trindex = tri.find_simplex(newbase)
 
     # Plot of old vs. new base of subgrid
-    if len(baseparams) > 1 and (debug or verbose):
+    if len(baseparams) > 1 and debug:
         outname = outbasename.split(".")[-2] + "_all"
         outname += "." + outbasename.split(".")[-1]
         success = ip.base_corner(baseparams, base, newbase, tri, sobol, outname)
@@ -122,6 +124,7 @@ def interpolate_combined(
     intpol_freqs=False,
     extend=False,
     outbasename="",
+    debug=False,
 ):
     """
     Routine for interpolating both across and along tracks, in a combined
@@ -141,23 +144,37 @@ def interpolate_combined(
     # BLOCK 0: Unpack and prepare #
     ###############################
 
+    # Ensure Bayesian weight along
+    if "grid" in basepath:
+        dname = "dage"
+        intpolparams = np.unique(np.append(intpolparams, dname))
+    else:
+        dname = "dmass"
+        intpolparams = np.unique(np.append(intpolparams, dname))
+
     # Read input
     scale = gridresolution["scale"]
-    along_var = trackresolution["baseparam"]
-    respar = trackresolution["param"]
+    if trackresolution:
+        along_var = trackresolution["baseparam"]
+        respar = trackresolution["param"]
+        alongintpol = True
+    else:
+        along_var = gridresolution["baseparam"]
+        respar = along_var
+        alongintpol = False
 
     # Read the parameters of the grid
     pars_sampled = [par.decode("UTF-8") for par in grid["header/pars_sampled"]]
-    pars_varied = [par.decode("UTF-8") for par in grid["header/pars_varied"]]
+    pars_varied = [par.decode("UTF-8") for par in grid["header/pars_variable"]]
     pars_constant = [par.decode("UTF-8") for par in grid["header/pars_constant"]]
 
     # Collect the parameters
     headvars = list(np.unique(pars_sampled + pars_varied + pars_constant))
 
     # Determine the number to assign the new tracks
-    tracklist = list(grid[basepath].items())
+    tracklist = list(grid[os.path.join(basepath, "tracks")].items())
     newnum = max([int(f[0].split("track")[-1]) for f in tracklist]) + 1
-    numfmt = max(str(newnum), len(str(int(newnum * scale))))
+    numfmt = max(len(str(newnum)), len(str(int(newnum * scale))))
 
     # Extract models within user-specified limits
     print("Locating limits and restricting sub-grid ... ", flush=True)
@@ -193,6 +210,7 @@ def interpolate_combined(
         triangulation,
         scale,
         outbasename,
+        debug,
     )
     print("done!")
 
@@ -231,11 +249,13 @@ def interpolate_combined(
 
         # Directory of the track/isochrone
         libname = os.path.join(
-            basepath, "track{{:0{0}d}}".format(numfmt).format(int(newnum + tracknum))
+            basepath,
+            "tracks",
+            "track{{:0{0}d}}".format(numfmt).format(int(newnum + tracknum)),
         )
 
         #############################################################
-        # BLOCK 2: Enveloping tracks data collection and along base #
+        # BLOCK 1: Enveloping tracks data collection and along base #
         #############################################################
 
         # Information to be collected from enveloping tracks
@@ -249,22 +269,38 @@ def interpolate_combined(
         lens = []
         ir = 0
 
+        # For along frequency resolution, check available l=0 modes
+        if respar == "freqs":
+            Nl0s = []
+            for i in ind:
+                track = tracknames[i]
+                selmod = selectedmodels[tracknames[i]]
+                Nl0s.append(ih.lowest_l0(grid, basepath, track, selmod))
+            Nl0 = max(Nl0s)
+
         # Loop over the enveloping tracks to collect info
         for j, i in enumerate(ind):
             # Unpack the track and selected models of the track
             track = grid[os.path.join(basepath, tracknames[i])]
             selmod = selectedmodels[tracknames[i]]
 
-            # Resolution variable of the track
-            resvar = track[respar][selmod]
+            # Get the resolution variable from the track
+            if respar == "freqs" and alongintpol:
+                resvar = ih.get_l0_freqs(track, selmod, Nl0)
+            elif alongintpol:
+                resvar = track[respar][selmod]
+            else:
+                resvar = np.zeros(sum(selmod))
+
             # Base variable of the track
             bvar = track[along_var][selmod]
             minmax[j, :] = [min(bvar), max(bvar)]
             for k, (b, res) in enumerate(zip(list(bvar), list(resvar))):
                 intbase[k + ir, : len(base[i])] = base[i]
                 intbase[k + ir, -1] = b
-                envres[k + ir, : len(base[i])] = base[i]
-                envres[k + ir, -1] = res
+                if alongintpol:
+                    envres[k + ir, : len(base[i])] = base[i]
+                    envres[k + ir, -1] = res
             basenames[ir : ir + len(bvar)] = track["name"][selmod]
             lens.append(len(bvar))
             ir += len(bvar)
@@ -290,7 +326,7 @@ def interpolate_combined(
             raise ValueError(warstr)
 
         #################################
-        # BLOCK 3: Actual interpolation #
+        # BLOCK 2: Actual interpolation #
         #################################
 
         # The base along the new track
@@ -302,9 +338,10 @@ def interpolate_combined(
         # Create triangulation of tinerpolation base once only
         sub_triangle = spatial.Delaunay(intbase)
 
-        try:
+        if True:
+            # try:
             ################################
-            # BLOCK 3a: Classic parameters #
+            # BLOCK 2a: Classic parameters #
             ################################
             for key in intpolparams:
                 keypath = os.path.join(libname, key)
@@ -313,16 +350,16 @@ def interpolate_combined(
                     outfile[keypath] = newbase[:, -1]
                 elif "name" in key:
                     outfile[keypath] = newbase.shape[0] * [b"interpolated-entry"]
-                elif key == "dage":
-                    dpath = os.path.join(libname, "age")
-                    keypath = os.path.join(libname, "dage")
+                elif key == dname:
+                    dpath = os.path.join(libname, key[1:])
+                    keypath = os.path.join(libname, key)
                     outfile[keypath] = ih.bay_weights(outfile[dpath])
-                elif (key in pars_constant) or ("_weight" in key):
+                elif (key in headvars) or ("_weight" in key):
                     continue
                 else:
                     # Interpolation of varying parameters
                     ir = 0
-                    for j, i in enumerate(ind):
+                    for i in ind:
                         track = os.path.join(basepath, tracknames[i])
                         yind = selectedmodels[tracknames[i]]
                         y[ir : ir + sum(yind)] = grid[track][key][yind]
@@ -335,8 +372,51 @@ def interpolate_combined(
                         raise ValueError(nan)
                     outfile[keypath] = newparam
 
+            ##################################
+            # BLOCK 2b: Frequency parameters #
+            ##################################
+            osc = []
+            osckey = []
+            sections = [0]
+            for i in ind:
+                # Extract the oscillation fequencies and id's
+                track = tracknames[i]
+                trackosc = grid[basepath + track]["osc"]
+                trackosckey = grid[basepath + track]["osckey"]
+                for model in np.where(selectedmodels[track])[0]:
+                    osc.append(transform_obj_array(trackosc[model]))
+                    osckey.append(transform_obj_array(trackosckey[model]))
+                sections.append(len(osc))
+
+            # Compute new individual frequencies for track
+            newosckey, newosc = ih.interpolate_frequencies(
+                osc,
+                osckey,
+                sections,
+                sub_triangle,
+                newbase,
+                freqlims=limits["freqs"],
+            )
+
+            # Writing variable length arrays to an HDF5 file is a bit tricky,
+            # but can be done using datasets with a special datatype.
+            # --> Here we follow the approach from BASTA/make_tracks
+            dsetosc = outfile.create_dataset(
+                name=os.path.join(libname, "osc"),
+                shape=(len(newosc), 2),
+                dtype=h5py.special_dtype(vlen=float),
+            )
+            dsetosckey = outfile.create_dataset(
+                name=os.path.join(libname, "osckey"),
+                shape=(len(newosc), 2),
+                dtype=h5py.special_dtype(vlen=int),
+            )
+            for i in range(len(newosc)):
+                dsetosc[i] = newosc[i]
+                dsetosckey[i] = newosckey[i]
+
             #################################################
-            # BLOCK 3b: Constant parameters along the track #
+            # BLOCK 2c: Constant parameters along the track #
             #################################################
             for par, parval in zip(pars_sampled, point):
                 keypath = os.path.join(libname, par)
@@ -350,7 +430,7 @@ def interpolate_combined(
                 outfile[keypath] = np.ones(newbase.shape[0]) * vval
 
             ####################################################
-            # BLOCK 3c: Interpolation source model information #
+            # BLOCK 2d: Interpolation source model information #
             ####################################################
             isnames = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="S30")
             iscoefs = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="f8")
@@ -371,19 +451,19 @@ def interpolate_combined(
             # Success! Set status as completed
             outfile[os.path.join(libname, "IntStatus")] = 0
 
-        except KeyboardInterrupt:
-            print("Interpolation stopped manually. Goodbye!")
-            sys.exit()
-        except:
-            # If it fails, delete progress for the track, and just mark it as failed
-            try:
-                del outfile[libname]
-            except:
-                pass
-            success[tracknum] = False
-            print("Error:", sys.exc_info()[1])
-            outfile[os.path.join(libname, "IntStatus")] = -1
-            print("Interpolation failed for track {0}".format(newnum + tracknum))
+        # except KeyboardInterrupt:
+        #     print("Interpolation stopped manually. Goodbye!")
+        #     sys.exit()
+        # except:
+        #     # If it fails, delete progress for the track, and just mark it as failed
+        #     try:
+        #         del outfile[libname]
+        #     except:
+        #         pass
+        #     success[tracknum] = False
+        #     print("Error:", sys.exc_info()[1])
+        #     outfile[os.path.join(libname, "IntStatus")] = -1
+        #     print("Interpolation failed for track {0}".format(newnum + tracknum))
 
     ####################
     # End of main loop #
@@ -396,9 +476,8 @@ def interpolate_combined(
 
     # Plot the new resulting base
     if outbasename:
-        outname = os.path.join(outbasename, "base_post.png")
         plotted = ip.base_corner(
-            pars_sampled, base, new_points[success], triangulation, scale, outname
+            pars_sampled, base, new_points[success], triangulation, scale, outbasename
         )
     else:
         plotted = False
@@ -413,32 +492,3 @@ def interpolate_combined(
     #######
     # END #
     #######
-    print("\n\n*************************")
-    print("* Interpolation wrap-up *")
-    print("*************************\n")
-
-    # Remove interpolated models outside of limits
-    print("Removing models outside limits ... ", flush=True)
-    selectedmodels = ih.get_selectedmodels(
-        outfile, basepath, limits, cut=True, grid_is_intpol=True
-    )
-    for name, index in selectedmodels.items():
-        if sum(index) != len(index):
-            libname = os.path.join(basepath, name)
-            for key in outfile[libname].keys():
-                keypath = os.path.join(libname, key)
-                if type(outfile[keypath][()]) != np.ndarray:
-                    continue
-                else:
-                    vec = outfile[keypath][()][index]
-                del outfile[keypath]
-                outfile[keypath] = vec
-
-    # Write timestamp to outfile and close
-    outfile[os.path.join("header", "interpolation_time")] = time.strftime(
-        "%Y-%m-%d at %H:%M:%S"
-    )
-    outfile.close()
-
-    # Make space below in console printing
-    print("\n")

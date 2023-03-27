@@ -319,6 +319,21 @@ def interpolate_grid(
         grid.close()
     elif case == "combined":
         grid, outfile = ih._write_header(grid, outfile, basepath)
+        ico.interpolate_combined(
+            grid,
+            outfile,
+            limits,
+            trackresolution,
+            gridresolution,
+            intpolparams,
+            basepath,
+            intpol_freqs,
+            False,
+            outbasename,
+            debug,
+        )
+    elif case == "acrossalong":
+        grid, outfile = ih._write_header(grid, outfile, basepath)
         grid, outfile, fail = iac._interpolate_across(
             grid,
             outfile,
@@ -401,9 +416,9 @@ def interpolate_grid(
     outfile[os.path.join("header", "interpolation_time")] = time.strftime(
         "%Y-%m-%d at %H:%M:%S"
     )
+    print(intpolparams)
+    print(list(outfile["grid/tracks/track270"]))
     outfile.close()
-    if fail:
-        raise RuntimeError("Interpolation failed!")
 
 
 def perform_interpolation(
