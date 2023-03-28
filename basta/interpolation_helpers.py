@@ -379,7 +379,7 @@ def interpolate_frequencies(
     """
 
     available_lvalues = [0, 1, 2]
-
+    along = type(triangulation) == np.ndarray
     #
     # *** BLOCK 1: Determine and allocate matrix sizes ***
     #
@@ -511,6 +511,7 @@ def interpolate_frequencies(
                     triangulation,
                     matrix[fi][nn][:],
                     newvec,
+                    along=along,
                 )
 
         # Store new frequencies
@@ -612,7 +613,7 @@ def update_header(outfile, basepath, headvars):
     return outfile
 
 
-def _write_header(grid, outfile, basepath):
+def write_header(grid, outfile, basepath):
     """
     Write the header of the new grid. Basically copies the old header.
 
@@ -667,7 +668,7 @@ def _write_header(grid, outfile, basepath):
     return grid, outfile
 
 
-def _recalculate_param_weights(outfile, basepath):
+def recalculate_param_weights(outfile, basepath):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.

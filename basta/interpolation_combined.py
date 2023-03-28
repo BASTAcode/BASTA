@@ -338,8 +338,7 @@ def interpolate_combined(
         # Create triangulation of tinerpolation base once only
         sub_triangle = spatial.Delaunay(intbase)
 
-        if True:
-            # try:
+        try:
             ################################
             # BLOCK 2a: Classic parameters #
             ################################
@@ -451,19 +450,19 @@ def interpolate_combined(
             # Success! Set status as completed
             outfile[os.path.join(libname, "IntStatus")] = 0
 
-        # except KeyboardInterrupt:
-        #     print("Interpolation stopped manually. Goodbye!")
-        #     sys.exit()
-        # except:
-        #     # If it fails, delete progress for the track, and just mark it as failed
-        #     try:
-        #         del outfile[libname]
-        #     except:
-        #         pass
-        #     success[tracknum] = False
-        #     print("Error:", sys.exc_info()[1])
-        #     outfile[os.path.join(libname, "IntStatus")] = -1
-        #     print("Interpolation failed for track {0}".format(newnum + tracknum))
+        except KeyboardInterrupt:
+            print("Interpolation stopped manually. Goodbye!")
+            sys.exit()
+        except:
+            # If it fails, delete progress for the track, and just mark it as failed
+            try:
+                del outfile[libname]
+            except:
+                pass
+            success[tracknum] = False
+            print("Error:", sys.exc_info()[1])
+            outfile[os.path.join(libname, "IntStatus")] = -1
+            print("Interpolation failed for track {0}".format(newnum + tracknum))
 
     ####################
     # End of main loop #

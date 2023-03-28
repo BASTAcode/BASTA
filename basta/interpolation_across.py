@@ -15,6 +15,8 @@ from basta import sobol_numbers
 from basta import interpolation_helpers as ih
 from basta import plot_interp as ip
 
+from basta.utils_seismic import transform_obj_array
+
 import traceback
 
 
@@ -254,7 +256,7 @@ def _calc_sobol_points(
 # ======================================================================================
 # Interpolation across tracks
 # ======================================================================================
-def _interpolate_across(
+def interpolate_across(
     grid,
     outfile,
     resolution,
@@ -548,20 +550,18 @@ def _interpolate_across(
                 sections = [0]
                 for i in ind:
                     # Extract the oscillation fequencies and id's
-                    track = tracknames[i]
-                    for model in np.where(selectedmodels[track])[0]:
-                        osc.append(grid[basepath + track]["osc"][model])
-                        osckey.append(grid[basepath + track]["osckey"][model])
+                    track = grid[os.path.join(basepath, tracknames[i])]
+                    for model in np.where(selectedmodels[tracknames[i]])[0]:
+                        osc.append(transform_obj_array(track["osc"][model]))
+                        osckey.append(transform_obj_array(track["osckey"][model]))
                     sections.append(len(osc))
                 newosckey, newosc = ih.interpolate_frequencies(
                     fullosc=osc,
                     fullosckey=osckey,
-                    agevec=intbase,
-                    newagevec=newbase,
                     sections=sections,
+                    triangulation=sub_triangle,
+                    newvec=newbase,
                     freqlims=freqlims,
-                    debug=debug,
-                    trackid=newnum + tracknum,
                 )
                 Npoints = len(newosc)
                 # Writing variable length arrays to an HDF5 file is a bit tricky,
@@ -677,9 +677,9 @@ def _interpolate_across(
         limits["freqs"] = freqlims
 
     # Write the new tracks to the header, and recalculate the weights
-    outfile = ih._extend_header(outfile, basepath, headvars)
+    outfile = ih.update_header(outfile, basepath, headvars)
     if "volume" in grid["header/active_weights"] or sobol:
-        outfile = ih._recalculate_volume_weights(outfile, basepath, sobnums)
+        outfile = ih.recalculate_weights(outfile, basepath, sobnums)
     else:
-        outfile = ih._recalculate_param_weights(outfile, basepath)
+        outfile = ih.recalculate_param_weights(outfile, basepath)
     return grid, outfile, fail

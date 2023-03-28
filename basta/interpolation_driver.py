@@ -97,7 +97,7 @@ def _unpack_intpol(intpol, dnusun, basepath):
         The parameters(s) set for limiting the models considered in the input grid.
     """
     # Possible cases
-    cases = ["along", "across", "combined", "alongacross"]
+    cases = ["along", "across", "combined", "alongacross", "acrossalong"]
 
     # Initialise what to unpack
     trackres, gridres, limits, alongvar = None, None, {}, None
@@ -288,7 +288,7 @@ def interpolate_grid(
 
     # Interpolate according to each of the possible cases
     if case == "along":
-        grid, outfile, fail = ial._interpolate_along(
+        grid, outfile, fail = ial.interpolate_along(
             grid,
             outfile,
             limits,
@@ -299,11 +299,11 @@ def interpolate_grid(
             debug,
             verbose,
         )
-        grid, outfile = ih._write_header(grid, outfile, basepath)
+        grid, outfile = ih.write_header(grid, outfile, basepath)
         grid.close()
     elif case == "across":
-        grid, outfile = ih._write_header(grid, outfile, basepath)
-        grid, outfile, fail = iac._interpolate_across(
+        grid, outfile = ih.write_header(grid, outfile, basepath)
+        grid, outfile, fail = iac.interpolate_across(
             grid,
             outfile,
             gridresolution,
@@ -318,7 +318,7 @@ def interpolate_grid(
         )
         grid.close()
     elif case == "combined":
-        grid, outfile = ih._write_header(grid, outfile, basepath)
+        grid, outfile = ih.write_header(grid, outfile, basepath)
         ico.interpolate_combined(
             grid,
             outfile,
@@ -333,8 +333,8 @@ def interpolate_grid(
             debug,
         )
     elif case == "acrossalong":
-        grid, outfile = ih._write_header(grid, outfile, basepath)
-        grid, outfile, fail = iac._interpolate_across(
+        grid, outfile = ih.write_header(grid, outfile, basepath)
+        grid, outfile, fail = iac.interpolate_across(
             grid,
             outfile,
             gridresolution,
@@ -348,7 +348,7 @@ def interpolate_grid(
             verbose,
         )
         grid.close()
-        outfile, outfile, fail = ial._interpolate_along(
+        outfile, outfile, fail = ial.interpolate_along(
             outfile,
             outfile,
             limits,
@@ -360,7 +360,7 @@ def interpolate_grid(
             verbose,
         )
     elif case == "alongacross":
-        grid, outfile, fail = ial._interpolate_along(
+        grid, outfile, fail = ial.interpolate_along(
             grid,
             outfile,
             limits,
@@ -371,11 +371,11 @@ def interpolate_grid(
             debug,
             verbose,
         )
-        grid, outfile = ih._write_header(grid, outfile, basepath)
+        grid, outfile = ih.write_header(grid, outfile, basepath)
         # Grid can be closed now, across will use the along interpolated grid as input
         grid.close()
         if not fail:
-            outfile, outfile, fail = iac._interpolate_across(
+            outfile, outfile, fail = iac.interpolate_across(
                 outfile,
                 outfile,
                 gridresolution,
@@ -416,8 +416,6 @@ def interpolate_grid(
     outfile[os.path.join("header", "interpolation_time")] = time.strftime(
         "%Y-%m-%d at %H:%M:%S"
     )
-    print(intpolparams)
-    print(list(outfile["grid/tracks/track270"]))
     outfile.close()
 
 

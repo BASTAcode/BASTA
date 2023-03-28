@@ -141,7 +141,7 @@ def _calc_npoints(libitem, index, resolution, verbose=False, debug=False):
 # ======================================================================================
 # Interpolation along tracks
 # ======================================================================================
-def _interpolate_along(
+def interpolate_along(
     grid,
     outfile,
     limits,
@@ -360,152 +360,145 @@ def _interpolate_along(
             # *** BLOCK 1: Obtain reduced tracks ***
             #
             # Check which models have parameters within limits to define mask
-            if os.path.join(gname, name) in selectedmodels:
-                index = selectedmodels[os.path.join(gname, name)]
+            if not os.path.join(gname, name) in selectedmodels:
+                continue
 
-                # Make special 2D mask (for the frequency arrays). Necessary because h5py
-                # does not support 1D bool array indexing for non 1D data!
-                if intpol_freqs:
-                    index2d = np.array(np.transpose([index, index]))
+            index = selectedmodels[os.path.join(gname, name)]
 
-                #
-                # *** BLOCK 2: Define interpolation mesh ***
-                #
-                # Calc number of points required and make uniform mesh
-                if resolution["param"].lower() in freqres:
-                    Npoints = _calc_npoints_freqs(
-                        libitem=libitem,
-                        index2d=index2d,
-                        freq_resolution=resolution["value"],
-                        verbose=verbose,
-                        debug=debug,
-                    )
-                else:
-                    Npoints = _calc_npoints(
-                        libitem=libitem,
-                        index=index,
-                        resolution=resolution,
-                        verbose=verbose,
-                        debug=debug,
-                    )
-                if Npoints < sum(index):
-                    print(
-                        "Stopped interpolation along {0} as the number of points would decrease from {1} to {2}".format(
-                            name, sum(index), Npoints
-                        )
-                    )
-                    continue
-                # Isochrones: mass | Tracks: age
-                basevec = libitem[baseparam][index]
-                intpolmesh = np.linspace(
-                    start=basevec[0], stop=basevec[-1], num=Npoints
+            # Make special 2D mask (for the frequency arrays). Necessary because h5py
+            # does not support 1D bool array indexing for non 1D data!
+            if intpol_freqs:
+                index2d = np.array(np.transpose([index, index]))
+
+            #
+            # *** BLOCK 2: Define interpolation mesh ***
+            #
+            # Calc number of points required and make uniform mesh
+            if resolution["param"].lower() in freqres:
+                Npoints = _calc_npoints_freqs(
+                    libitem=libitem,
+                    index2d=index2d,
+                    freq_resolution=resolution["value"],
+                    verbose=verbose,
+                    debug=debug,
                 )
-                if debug:
-                    print(
-                        "{0}Range in {1} = [{2:4.3f}, {3:4.3f}]".format(
-                            4 * " ", baseparam, basevec[0], basevec[-1]
-                        )
+            else:
+                Npoints = _calc_npoints(
+                    libitem=libitem,
+                    index=index,
+                    resolution=resolution,
+                    verbose=verbose,
+                    debug=debug,
+                )
+            if Npoints < sum(index):
+                print(
+                    "Stopped interpolation along {0} as the number of points would decrease from {1} to {2}".format(
+                        name, sum(index), Npoints
                     )
+                )
+                continue
+            # Isochrones: mass | Tracks: age
+            basevec = libitem[baseparam][index]
+            intpolmesh = np.linspace(start=basevec[0], stop=basevec[-1], num=Npoints)
+            if debug:
+                print(
+                    "{0}Range in {1} = [{2:4.3f}, {3:4.3f}]".format(
+                        4 * " ", baseparam, basevec[0], basevec[-1]
+                    )
+                )
 
-                #
-                # *** BLOCK 3: Interpolate in all quantities but frequencies ***
-                #
-                # Different cases...
-                # --> No need to interpolate INTER-track-weights (which is a scalar)
-                # --> INTRA-track weights (for the base parameter) is recalculated
-                # --> Name of orignal gong files have no meaning anymore
-                # --> Frequency arrays are tricky and are treated seperately
-                tmpparam = {}
-                for key in libitem.keys():
-                    keypath = os.path.join(libitem.name, key)
-                    if "_weight" in key:
-                        newparam = libitem[key][()]
-                    elif "name" in key:
-                        newparam = len(intpolmesh) * [b"interpolated-entry"]
-                    elif "osc" in key:
-                        continue
-                    elif key in intpolparams:
-                        newparam = ih._interpolation_wrapper(
-                            basevec, libitem[key][index], intpolmesh
-                        )
-                    elif key in headvars:
-                        newparam = np.ones(Npoints) * libitem[key][0]
-                    else:
-                        continue
+            #
+            # *** BLOCK 3: Interpolate in all quantities but frequencies ***
+            #
+            # Different cases...
+            # --> No need to interpolate INTER-track-weights (which is a scalar)
+            # --> INTRA-track weights (for the base parameter) is recalculated
+            # --> Name of orignal gong files have no meaning anymore
+            # --> Frequency arrays are tricky and are treated seperately
+            tmpparam = {}
+            for key in libitem.keys():
+                keypath = os.path.join(libitem.name, key)
+                if "_weight" in key:
+                    newparam = libitem[key][()]
+                elif "name" in key:
+                    newparam = len(intpolmesh) * [b"interpolated-entry"]
+                elif "osc" in key:
+                    continue
+                elif key in intpolparams:
+                    newparam = ih.interpolation_wrapper(
+                        basevec,
+                        libitem[key][index],
+                        intpolmesh,
+                        along=True,
+                    )
+                elif key in headvars:
+                    newparam = np.ones(Npoints) * libitem[key][0]
+                else:
+                    continue
 
-                    # Delete old entry, write new entry
-                    if overwrite:
-                        del outfile[keypath]
-                    outfile[keypath] = newparam
-
-                    # Storage for plotting the Kiel diagram
-                    if key in ["Teff", "logg", "age", "massfin"]:
-                        tmpparam[key] = newparam
-
-                # Bayesian weight along track
-                par = "massfin" if dname == "dmass" else "age"
-                parpath = os.path.join(libitem.name, par)
-                keypath = os.path.join(libitem.name, dname)
+                # Delete old entry, write new entry
                 if overwrite:
                     del outfile[keypath]
-                outfile[keypath] = ih.bay_weights(outfile[parpath])
+                outfile[keypath] = newparam
 
-                #
-                # *** BLOCK 4: Interpolate in frequencies ***
-                #
-                # No frequencies present in isochrones!
-                if not isomode and intpol_freqs:
-                    fullosc = libitem["osc"][index2d].reshape((-1, 2))
-                    fullosckey = libitem["osckey"][index2d].reshape((-1, 2))
-                    osckeylist, osclist = ih.interpolate_frequencies(
-                        fullosc=fullosc,
-                        fullosckey=fullosckey,
-                        agevec=basevec,
-                        newagevec=intpolmesh,
-                        freqlims=freqlims,
-                        verbose=verbose,
-                        debug=debug,
-                        trackid=noingrid + 1,
-                    )
+                # Storage for plotting the Kiel diagram
+                if key in ["Teff", "logg", "age", "massfin"]:
+                    tmpparam[key] = newparam
 
-                    # Delete the old entries
-                    if overwrite:
-                        del outfile[os.path.join(libitem.name, "osc")]
-                        del outfile[os.path.join(libitem.name, "osckey")]
-
-                    # Writing variable length arrays to an HDF5 file is a bit tricky,
-                    # but can be done using datasets with a special datatype.
-                    # --> Here we follow the approach from BASTA/make_tracks
-                    dsetosc = outfile.create_dataset(
-                        name=os.path.join(libitem.name, "osc"),
-                        shape=(Npoints, 2),
-                        dtype=h5py.special_dtype(vlen=float),
-                    )
-                    dsetosckey = outfile.create_dataset(
-                        name=os.path.join(libitem.name, "osckey"),
-                        shape=(Npoints, 2),
-                        dtype=h5py.special_dtype(vlen=int),
-                    )
-                    for i in range(Npoints):
-                        dsetosc[i] = osclist[i]
-                        dsetosckey[i] = osckeylist[i]
-
-                # Successfully interpolated, mark it as such
-                if overwrite and "IntStatus" in outfile[libitem.name]:
-                    del outfile[os.path.join(libitem.name, "IntStatus")]
-                outfile[os.path.join(libitem.name, "IntStatus")] = 0
-                trackcounter += 1
+            # Bayesian weight along track
+            par = "massfin" if dname == "dmass" else "age"
+            parpath = os.path.join(libitem.name, par)
+            keypath = os.path.join(libitem.name, dname)
+            if overwrite:
+                del outfile[keypath]
+            outfile[keypath] = ih.bay_weights(outfile[parpath])
 
             #
-            # *** BLOCK 1b: Handle tracks without any models inside selection ***
+            # *** BLOCK 4: Interpolate in frequencies ***
             #
-            else:
-                # Flag the empty track as "failed", to avoid errors in the main BASTA loop
-                if overwrite and "IntStatus" in outfile[libitem.name]:
-                    del outfile[os.path.join(libitem.name, "IntStatus")]
-                outfile[os.path.join(libitem.name, "IntStatus")] = -1
-                if verbose:
-                    print()
+            # No frequencies present in isochrones!
+            if not isomode and intpol_freqs:
+                fullosc = []
+                fullosckey = []
+                for ind in np.where(index)[0]:
+                    fullosc.append(su.transform_obj_array(libitem["osc"][ind]))
+                    fullosckey.append(su.transform_obj_array(libitem["osckey"][ind]))
+                osckeylist, osclist = ih.interpolate_frequencies(
+                    fullosc=fullosc,
+                    fullosckey=fullosckey,
+                    sections=[0, -1],
+                    triangulation=basevec,
+                    newvec=intpolmesh,
+                    freqlims=freqlims,
+                )
+
+                # Delete the old entries
+                if overwrite:
+                    del outfile[os.path.join(libitem.name, "osc")]
+                    del outfile[os.path.join(libitem.name, "osckey")]
+
+                # Writing variable length arrays to an HDF5 file is a bit tricky,
+                # but can be done using datasets with a special datatype.
+                # --> Here we follow the approach from BASTA/make_tracks
+                dsetosc = outfile.create_dataset(
+                    name=os.path.join(libitem.name, "osc"),
+                    shape=(Npoints, 2),
+                    dtype=h5py.special_dtype(vlen=float),
+                )
+                dsetosckey = outfile.create_dataset(
+                    name=os.path.join(libitem.name, "osckey"),
+                    shape=(Npoints, 2),
+                    dtype=h5py.special_dtype(vlen=int),
+                )
+                for i in range(Npoints):
+                    dsetosc[i] = osclist[i]
+                    dsetosckey[i] = osckeylist[i]
+
+            # Successfully interpolated, mark it as such
+            if overwrite and "IntStatus" in outfile[libitem.name]:
+                del outfile[os.path.join(libitem.name, "IntStatus")]
+            outfile[os.path.join(libitem.name, "IntStatus")] = 0
+            trackcounter += 1
 
             # Add information to the diagnostic plots
             if verbose and False:
