@@ -140,7 +140,6 @@ def create_xmltag(
 
     # Handle interpolation parameters (special treatment of dnu; not add if added)
     for param in intpollim:
-        print(param)
         out = {}
         gparam = "dnu" if "dnu" in param else param
         nucheck = not nuset[gparam] if gparam in nuset else False

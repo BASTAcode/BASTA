@@ -172,8 +172,8 @@ def _get_freq_minmax(star, freqpath):
     freqfile = os.path.join(freqpath, star.get("starid") + ".xml")
     f, _, _, _ = read_freqs_xml(freqfile)
     dnu = float(star.find("dnu").get("value"))
-    fmin = f.min() - 0.5 * dnu
-    fmax = f.max() + 0.5 * dnu
+    fmin = f.min() - 2.0 * dnu
+    fmax = f.max() + 2.0 * dnu
     return fmin, fmax
 
 
@@ -230,6 +230,7 @@ def _get_intpol(root, gridfile, freqpath=None):
                 "eta": int(param.attrib.get("eta", 0.0)),
                 "scale": float(param.attrib.get("scale", 0.0)),
                 "baseparam": param.attrib.get("baseparam", "xcen"),
+                "extend": strtobool(param.attrib.get("extend", "False")),
             }
         elif param.tag.lower() == "name":
             intpol[param.tag.lower()] = {

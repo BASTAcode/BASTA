@@ -1105,6 +1105,10 @@ def compute_epsilondiffseqs(
 
         Niter += len(diff_eps0l)
 
+    # Mixed modes results in negative differences. Flag using nans
+    mask = np.where(deps[0, :] < 0)[0]
+    deps[0, mask] = np.nan
+
     # Sort according to n if flagged (ensure l=1 before l=2 with 0.1)
     if nsorting:
         mask = np.argsort(deps[3, :] + deps[2, :] * 0.1)

@@ -224,7 +224,7 @@ def calc_along_points(intbase, lens, minmax, point, envres=None, resvalue=None):
             yind += l
         envminmax[0] = max(envminmax[0])
         envminmax[1] = min(envminmax[1])
-        Nres = int(np.ceil((envminmax[1] - envminmax[0]) / resvalue))
+        Nres = int(abs(np.ceil((envminmax[1] - envminmax[0]) / resvalue)))
         yind = 0
 
     if not resvalue:
@@ -769,19 +769,24 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False):
         bpars = outfile["header/pars_sampled"]
         # Collect basis parameters
         base = np.zeros((len(index), len(bpars)))
-        iter = zip(IntStatus, outfile[basepath].items())
-        for i, (ist, (_, libitem)) in enumerate(iter):
-            if ist != 1:
-                continue
-            for j, par in enumerate(bpars):
-                base[i, j] = libitem[par][0]
+        gid = 0
+        lid = 0
+        for gname, group in outfile[basepath].items():
+            iter = zip(IntStatus[gid : gid + len(group)], group.items())
+            for i, (ist, (_, libitem)) in enumerate(iter):
+                if ist != 1:
+                    continue
+                for j, par in enumerate(bpars):
+                    base[lid, j] = libitem[par][0]
+                lid += 1
+            gid += len(group)
 
         for i, par in enumerate(bpars):
             mm = [min(base[:, i]), max(base[:, i])]
             base[:, i] -= mm[0]
             base[:, i] /= mm[1] - mm[0]
 
-        sobnum = np.vstack((base, sobnum))
+        sobnums = np.vstack((base, sobnums))
 
     mask = np.where(np.array(IntStatus) >= 0)[0]
     active = np.asarray(names)[mask]

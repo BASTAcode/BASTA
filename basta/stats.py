@@ -174,7 +174,7 @@ def chi2_astero(
         if x.shape[0] == covinv.shape[0]:
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
-            shapewarn = True
+            shapewarn = 1
             chi2rut = np.inf
 
         if ~np.isfinite(chi2rut):
@@ -318,11 +318,18 @@ def chi2_astero(
 
         # Interpolate model epsdiff to the frequencies of the observations
         evalepsdiff = np.zeros(obsepsdiff.shape[1])
+        evalepsdiff[:] = np.nan
         for ll in l_available:
             indobs = obsepsdiff[2] == ll
             indmod = modepsdiff[2] == ll
-            spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
-            evalepsdiff[indobs] = spline(obsepsdiff[1][indobs])
+            nans = np.isnan(modepsdiff[0][indmod])
+            if sum(~nans) > 1:
+                spline = CubicSpline(
+                    modepsdiff[1][indmod][~nans],
+                    modepsdiff[0][indmod][~nans],
+                    extrapolate=False,
+                )
+                evalepsdiff[indobs] = spline(obsepsdiff[1][indobs])
 
         # Compute chi^2 of epsilon contribution
         chi2rut = 0.0
@@ -332,9 +339,10 @@ def chi2_astero(
         chi2rut += (x.T.dot(covinv).dot(x)) / w
 
         # Check extreme values
-        if ~np.isfinite(chi2rut):
+        if any(np.isnan(evalepsdiff)):
             chi2rut = np.inf
-        elif chi2rut < 0:
+            shapewarn = 3
+        elif ~np.isfinite(chi2rut) or chi2rut < 0:
             chi2rut = np.inf
 
     return chi2rut, warnings, shapewarn

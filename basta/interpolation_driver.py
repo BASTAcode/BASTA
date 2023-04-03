@@ -328,7 +328,6 @@ def interpolate_grid(
             intpolparams,
             basepath,
             intpol_freqs,
-            False,
             outbasename,
             debug,
         )
@@ -401,12 +400,14 @@ def interpolate_grid(
             libname = os.path.join(basepath, name)
             for key in outfile[libname].keys():
                 keypath = os.path.join(libname, key)
-                if type(outfile[keypath][()]) != np.ndarray:
+                vec = outfile[keypath][()]
+                if type(vec) != np.ndarray:
                     continue
                 # If osc or osckey, transform to 2D index array
-                elif key in ["osc", "osckey"]:
-                    index2d = np.array(np.transpose([index, index]))
-                    vec = outfile[keypath][index2d].reshape((-1, 2))
+                elif len(vec.shape) > 1:  # key in ["osc", "osckey"]:
+                    nv = vec.shape[1]
+                    indexNd = np.array(np.transpose([index for _ in range(nv)]))
+                    vec = vec[indexNd].reshape((-1, nv))
                 else:
                     vec = outfile[keypath][index]
                 del outfile[keypath]

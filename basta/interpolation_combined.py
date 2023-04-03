@@ -122,7 +122,6 @@ def interpolate_combined(
     intpolparams,
     basepath="grid/",
     intpol_freqs=False,
-    extend=False,
     outbasename="",
     debug=False,
 ):
@@ -143,6 +142,9 @@ def interpolate_combined(
     ###############################
     # BLOCK 0: Unpack and prepare #
     ###############################
+
+    # Whether to keep old models
+    extend = gridresolution["extend"]
 
     # Ensure Bayesian weight along
     if "grid" in basepath:
@@ -187,7 +189,7 @@ def interpolate_combined(
                 continue
             # Add IntStatus as copied original track
             outfile[os.path.join(basepath, name, "IntStatus")] = 1
-            for key in [*intpolparams, *headvars]:
+            for key in np.unique([*intpolparams, *headvars]):
                 keypath = os.path.join(basepath, name, key)
                 if "_weight" in key:
                     outfile[keypath] = grid[keypath][()]
@@ -374,45 +376,46 @@ def interpolate_combined(
             ##################################
             # BLOCK 2b: Frequency parameters #
             ##################################
-            osc = []
-            osckey = []
-            sections = [0]
-            for i in ind:
-                # Extract the oscillation fequencies and id's
-                track = tracknames[i]
-                trackosc = grid[basepath + track]["osc"]
-                trackosckey = grid[basepath + track]["osckey"]
-                for model in np.where(selectedmodels[track])[0]:
-                    osc.append(transform_obj_array(trackosc[model]))
-                    osckey.append(transform_obj_array(trackosckey[model]))
-                sections.append(len(osc))
+            if intpol_freqs:
+                osc = []
+                osckey = []
+                sections = [0]
+                for i in ind:
+                    # Extract the oscillation fequencies and id's
+                    track = tracknames[i]
+                    trackosc = grid[basepath + track]["osc"]
+                    trackosckey = grid[basepath + track]["osckey"]
+                    for model in np.where(selectedmodels[track])[0]:
+                        osc.append(transform_obj_array(trackosc[model]))
+                        osckey.append(transform_obj_array(trackosckey[model]))
+                    sections.append(len(osc))
 
-            # Compute new individual frequencies for track
-            newosckey, newosc = ih.interpolate_frequencies(
-                osc,
-                osckey,
-                sections,
-                sub_triangle,
-                newbase,
-                freqlims=limits["freqs"],
-            )
+                # Compute new individual frequencies for track
+                newosckey, newosc = ih.interpolate_frequencies(
+                    osc,
+                    osckey,
+                    sections,
+                    sub_triangle,
+                    newbase,
+                    freqlims=limits["freqs"],
+                )
 
-            # Writing variable length arrays to an HDF5 file is a bit tricky,
-            # but can be done using datasets with a special datatype.
-            # --> Here we follow the approach from BASTA/make_tracks
-            dsetosc = outfile.create_dataset(
-                name=os.path.join(libname, "osc"),
-                shape=(len(newosc), 2),
-                dtype=h5py.special_dtype(vlen=float),
-            )
-            dsetosckey = outfile.create_dataset(
-                name=os.path.join(libname, "osckey"),
-                shape=(len(newosc), 2),
-                dtype=h5py.special_dtype(vlen=int),
-            )
-            for i in range(len(newosc)):
-                dsetosc[i] = newosc[i]
-                dsetosckey[i] = newosckey[i]
+                # Writing variable length arrays to an HDF5 file is a bit tricky,
+                # but can be done using datasets with a special datatype.
+                # --> Here we follow the approach from BASTA/make_tracks
+                dsetosc = outfile.create_dataset(
+                    name=os.path.join(libname, "osc"),
+                    shape=(len(newosc), 2),
+                    dtype=h5py.special_dtype(vlen=float),
+                )
+                dsetosckey = outfile.create_dataset(
+                    name=os.path.join(libname, "osckey"),
+                    shape=(len(newosc), 2),
+                    dtype=h5py.special_dtype(vlen=int),
+                )
+                for i in range(len(newosc)):
+                    dsetosc[i] = newosc[i]
+                    dsetosckey[i] = newosckey[i]
 
             #################################################
             # BLOCK 2c: Constant parameters along the track #
