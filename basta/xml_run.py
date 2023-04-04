@@ -15,7 +15,7 @@ from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
 from basta.constants import parameters
 from basta.constants import freqtypes
-from basta.fileio import no_models, read_freqs_xml
+from basta.fileio import no_models, read_freqs_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import unique_unsort
 
@@ -807,14 +807,40 @@ def run_xml(
                 continue
 
             # Call interpolation routine
-            if starid in allintpol:
-                gridfile = idriver.perform_interpolation(
-                    gridfile,
-                    idgrid,
-                    allintpol[starid],
+            try:
+                if starid in allintpol:
+                    gridfile = idriver.perform_interpolation(
+                        gridfile,
+                        idgrid,
+                        allintpol[starid],
+                        inputparams,
+                        debug=debug,
+                        verbose=verbose,
+                    )
+            except KeyboardInterrupt:
+                print("BASTA interpolation stopped manually. Goodbye!")
+                traceback.print_exc()
+                return
+            except ValueError as e:
+                print("\nBASTA interpolation stopped due to a value error!\n")
+                traceback.print_exc()
+                write_star_to_errfile(
+                    starid,
                     inputparams,
-                    debug=debug,
-                    verbose=verbose,
+                    "Interpolation {}: {}".format(e.__class__.__name__, e),
+                )
+                continue
+            except Exception as e:
+                print(
+                    "BASTA interpolation failed for star {0} with the error:".format(
+                        starid
+                    )
+                )
+                print(traceback.format_exc())
+                no_models(
+                    starid,
+                    inputparams,
+                    "Unhandled {}: {}".format(e.__class__.__name__, e),
                 )
 
             # Call BASTA itself!

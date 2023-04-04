@@ -665,8 +665,7 @@ def epsilon_difference_diagram(
         indmod = modepsdiff[2] == ll
         indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
         indmod &= modepsdiff[1] < max(obsepsdiff[1]) + 3 * moddnu
-        spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
-        fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100)
+        indmod &= ~np.isnan(modepsdiff[0])
 
         # Model with spline
         (moddot,) = ax.plot(
@@ -674,18 +673,6 @@ def epsilon_difference_diagram(
             modepsdiff[0][indmod],
             marker=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
-            lw=0,
-        )
-        ax.plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
-
-        # Model at observed
-        (modobs,) = ax.plot(
-            obsepsdiff[1][indobs],
-            spline(obsepsdiff[1][indobs]),
-            marker=splinemarkers[ll],
-            color="k",
-            markeredgewidth=2,
-            alpha=0.7,
             lw=0,
         )
 
@@ -701,14 +688,42 @@ def epsilon_difference_diagram(
             zorder=3,
         )
 
-        handles.extend([moddot, obsdot, modobs])
-        legends.extend(
-            [
-                delab % ("mod", ll),
-                delab % ("obs", ll),
-                delab % ("mod", ll) + r"$(\nu^{obs})$",
-            ]
-        )
+        if sum(indmod) > 1:
+            spline = CubicSpline(
+                modepsdiff[1][indmod], modepsdiff[0][indmod], extrapolate=False
+            )
+            fnew = np.linspace(
+                min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100
+            )
+            ax.plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
+
+            # Model at observed
+            (modobs,) = ax.plot(
+                obsepsdiff[1][indobs],
+                spline(obsepsdiff[1][indobs]),
+                marker=splinemarkers[ll],
+                color="k",
+                markeredgewidth=2,
+                alpha=0.7,
+                lw=0,
+            )
+
+            handles.extend([moddot, obsdot, modobs])
+            legends.extend(
+                [
+                    delab % ("mod", ll),
+                    delab % ("obs", ll),
+                    delab % ("mod", ll) + r"$(\nu^{obs})$",
+                ]
+            )
+        else:
+            handles.extend([moddot, obsdot])
+            legends.extend(
+                [
+                    delab % ("mod", ll),
+                    delab % ("obs", ll),
+                ]
+            )
 
     # To get the right order of entries in the legend
     h, l = [], []

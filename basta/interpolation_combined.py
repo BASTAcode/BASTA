@@ -182,6 +182,17 @@ def interpolate_combined(
     print("Locating limits and restricting sub-grid ... ", flush=True)
     selectedmodels = ih.get_selectedmodels(grid, basepath, limits, cut=False)
 
+    # Check we have enough source tracks in the sub-box to form a simplex
+    if len(selectedmodels) < len(pars_sampled) + 1:
+        warstr = "Sub-box contains only {:d} tracks, while ".format(len(selectedmodels))
+        warstr += "{:d} is needed for interpolation in the ".format(
+            len(pars_sampled) + 1
+        )
+        warstr += (
+            "parameter space of the input grid. Consider expanding sub-box (limits)."
+        )
+        raise ValueError(warstr)
+
     if extend:
         for name, index in selectedmodels.items():
             # If below 3 models in subbox, skip the track
@@ -195,6 +206,11 @@ def interpolate_combined(
                     outfile[keypath] = grid[keypath][()]
                 else:
                     outfile[keypath] = grid[keypath][index]
+            if intpol_freqs:
+                index2d = np.array(np.transpose([index, index]))
+                for key in ["osc", "osckey"]:
+                    keypath = os.path.join(basepath, name, key)
+                    outfile[keypath] = grid[keypath][index2d].reshape(-1, 2)
 
     # Form the base array for interpolation
     base = np.zeros((len(selectedmodels), len(pars_sampled)))
