@@ -654,6 +654,10 @@ def epsilon_difference_diagram(
         sequence,
     )
 
+    # Mixed modes results in negative differences. Flag using nans, not displayed
+    mask = np.where(modepsdiff[0, :] < 0)[0]
+    modepsdiff[0, mask] = np.nan
+
     fig, ax = plt.subplots(1, 1)
     handles, legends = [], []
     for ll in l_available:

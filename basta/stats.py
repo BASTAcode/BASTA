@@ -316,6 +316,10 @@ def chi2_astero(
             nsorting=fitfreqs["nsorting"],
         )
 
+        # Mixed modes results in negative differences. Flag using nans
+        mask = np.where(modepsdiff[0, :] < 0)[0]
+        modepsdiff[0, mask] = np.nan
+
         # Interpolate model epsdiff to the frequencies of the observations
         evalepsdiff = np.zeros(obsepsdiff.shape[1])
         evalepsdiff[:] = np.nan
