@@ -585,9 +585,7 @@ def update_header(outfile, basepath, headvars):
 
     Returns
     -------
-    outfile : hdf5 file
-        New grid file to write to.
-
+    None
     """
 
     # Number of tracks in grid
@@ -610,7 +608,6 @@ def update_header(outfile, basepath, headvars):
         else:
             del outfile[headpath]
             outfile[headpath] = [b"Interpolated"] * ltracks
-    return outfile
 
 
 def write_header(grid, outfile, basepath):
@@ -631,12 +628,7 @@ def write_header(grid, outfile, basepath):
 
     Returns
     -------
-    grid : h5py file
-        Handle of grid to process
-
-    outfile : h5py file
-        Handle of output grid to write to
-
+    None
     """
     # Needs to run before across interpolation for access to header lists during.
     # Duplicate the header to the new grid file.
@@ -665,8 +657,6 @@ def write_header(grid, outfile, basepath):
                 keystr = os.path.join("solar_models", topkey, key)
                 outfile[keystr] = grid[keystr][()]
 
-    return grid, outfile
-
 
 def recalculate_param_weights(outfile, basepath):
     """
@@ -687,9 +677,7 @@ def recalculate_param_weights(outfile, basepath):
 
     Returns
     -------
-    outfile : hdf5 file
-        New grid file to write to.
-
+    None
     """
     isomode = False if "grid" in basepath else True
     headvars = outfile["header/active_weights"][()]
@@ -724,7 +712,6 @@ def recalculate_param_weights(outfile, basepath):
             else:
                 del outfile[weight_path]
                 outfile[weight_path] = weights[i]
-    return outfile
 
 
 def recalculate_weights(outfile, basepath, sobnums, extend=False):
@@ -750,9 +737,7 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False):
 
     Returns
     -------
-    outfile : hdf5 file
-        New grid file to write to.
-
+    None
     """
     # Collect the relevant tracks/isochrones
     IntStatus = []
@@ -832,8 +817,6 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False):
     # Write the active weights as only volume
     del outfile["header/active_weights"]
     outfile["header/active_weights"] = ["volume"]
-
-    return outfile
 
 
 # ======================================================================================

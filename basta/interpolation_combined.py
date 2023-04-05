@@ -116,7 +116,7 @@ def _calc_across_points(
 def interpolate_combined(
     grid,
     outfile,
-    limits,
+    selectedmodels,
     trackresolution,
     gridresolution,
     intpolparams,
@@ -133,6 +133,37 @@ def interpolate_combined(
 
     Parameters
     ----------
+    grid : h5py file
+        Handle of grid to process
+
+    outfile : h5py file
+        Handle of output grid to write to
+
+    selectedmodels : dict
+        Dictionary of every track/isochrone with models inside the limits, and the index
+        of every model that satisfies this.
+
+    trackresolution : dict
+       Controls for resolution along the tracks. Must contain "param" with a valid parameter
+       name from the grid and "value" with the desired precision/resolution.
+
+    gridresolution : dict
+       Controls for resolution across the tracks. Must contain "param" with a valid parameter
+       name from the grid and "value" with the desired precision/resolution.
+
+    intpolparams : list
+        List of parameters to be interpolated, avoid interpolating *everything*.
+
+    basepath : str, optional
+        Path in the grid where the tracks are stored. The default value applies to
+        standard grids of tracks. It must be modified for isochrones!
+
+    intpol_freqs : list, bool
+        List of interpolated frequency interval if frequency interpolation requested.
+        False if not interpolating frequencies.
+
+    outbasename : str
+        Name of the outputted plot of the base.
 
     Returns
     -------
@@ -142,9 +173,6 @@ def interpolate_combined(
     ###############################
     # BLOCK 0: Unpack and prepare #
     ###############################
-
-    # Whether to keep old models
-    extend = gridresolution["extend"]
 
     # Ensure Bayesian weight along
     if "grid" in basepath:
@@ -178,10 +206,6 @@ def interpolate_combined(
     newnum = max([int(f[0].split("track")[-1]) for f in tracklist]) + 1
     numfmt = max(len(str(newnum)), len(str(int(newnum * scale))))
 
-    # Extract models within user-specified limits
-    print("Locating limits and restricting sub-grid ... ", flush=True)
-    selectedmodels = ih.get_selectedmodels(grid, basepath, limits, cut=False)
-
     # Check we have enough source tracks in the sub-box to form a simplex
     if len(selectedmodels) < len(pars_sampled) + 1:
         warstr = "Sub-box contains only {:d} tracks, while ".format(len(selectedmodels))
@@ -192,25 +216,6 @@ def interpolate_combined(
             "parameter space of the input grid. Consider expanding sub-box (limits)."
         )
         raise ValueError(warstr)
-
-    if extend:
-        for name, index in selectedmodels.items():
-            # If below 3 models in subbox, skip the track
-            if sum(index) < 3:
-                continue
-            # Add IntStatus as copied original track
-            outfile[os.path.join(basepath, name, "IntStatus")] = 1
-            for key in np.unique([*intpolparams, *headvars]):
-                keypath = os.path.join(basepath, name, key)
-                if "_weight" in key:
-                    outfile[keypath] = grid[keypath][()]
-                else:
-                    outfile[keypath] = grid[keypath][index]
-            if intpol_freqs:
-                index2d = np.array(np.transpose([index, index]))
-                for key in ["osc", "osckey"]:
-                    keypath = os.path.join(basepath, name, key)
-                    outfile[keypath] = grid[keypath][index2d].reshape(-1, 2)
 
     # Form the base array for interpolation
     base = np.zeros((len(selectedmodels), len(pars_sampled)))
@@ -413,7 +418,7 @@ def interpolate_combined(
                     sections,
                     sub_triangle,
                     newbase,
-                    freqlims=limits["freqs"],
+                    freqlims=intpol_freqs,
                 )
 
                 # Writing variable length arrays to an HDF5 file is a bit tricky,
@@ -503,8 +508,8 @@ def interpolate_combined(
         print("Plotting of full base failed in post")
 
     # Write the new tracks to the header, and recalculate the weights
-    outfile = ih.update_header(outfile, basepath, headvars)
-    outfile = ih.recalculate_weights(outfile, basepath, sobnums, extend)
+    ih.update_header(outfile, basepath, headvars)
+    ih.recalculate_weights(outfile, basepath, sobnums, gridresolution["extend"])
     grid.close()
 
     #######

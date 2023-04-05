@@ -97,7 +97,7 @@ def _unpack_intpol(intpol, dnusun, basepath):
         The parameters(s) set for limiting the models considered in the input grid.
     """
     # Possible cases
-    cases = ["along", "across", "combined", "alongacross", "acrossalong"]
+    cases = ["along", "across", "combined"]
 
     # Initialise what to unpack
     trackres, gridres, limits, alongvar = None, None, {}, None
@@ -174,10 +174,46 @@ def _unpack_intpol(intpol, dnusun, basepath):
     return case, trackres, gridres, limits, alongvar
 
 
+def _copy_tracks(grid, outfile, basepath, intpolparams, selectedmodels, intpol_freqs):
+    """
+    If the extend option has been enabled, copy the sub-box of old models
+    to the new gridfile.
+
+    """
+
+    if "grid" in basepath:
+        intpolparams = np.unique(np.append(intpolparams, "dage"))
+    else:
+        intpolparams = np.unique(np.append(intpolparams, "dmass"))
+
+    headvars = [
+        p.decode("UTF-8")
+        for x in ["pars_sampled", "pars_variable", "pars_constant"]
+        for p in grid["header"][x]
+    ]
+    for name, index in selectedmodels.items():
+        # If below 3 models in subbox, skip the track
+        if sum(index) < 3:
+            continue
+        # Add IntStatus as copied original track
+        outfile[os.path.join(basepath, name, "IntStatus")] = 1
+        for key in np.unique([*intpolparams, *headvars]):
+            keypath = os.path.join(basepath, name, key)
+            if "_weight" in key:
+                outfile[keypath] = grid[keypath][()]
+            else:
+                outfile[keypath] = grid[keypath][index]
+        if intpol_freqs:
+            index2d = np.array(np.transpose([index, index]))
+            for key in ["osc", "osckey"]:
+                keypath = os.path.join(basepath, name, key)
+                outfile[keypath] = grid[keypath][index2d].reshape(-1, 2)
+
+
 # ======================================================================================
 # Main processing routine
 # ======================================================================================
-def interpolate_grid(
+def _interpolate_grid(
     gridname,
     outname,
     inputdict,
@@ -186,7 +222,6 @@ def interpolate_grid(
     basepath="grid/",
     outbasename="",
     debug=False,
-    verbose=False,
 ):
     """
     Select a part of a BASTA grid based on observational limits. Interpolate all
@@ -277,52 +312,62 @@ def interpolate_grid(
     if "freqs" in intpolparams:
         intpolparams.remove("freqs")
         intpolparams += ["tau0", "tauhe", "taubcz", "dnufit"]
-        intpol_freqs = True
-    # Determine if individual frequencies should be interpolated
-    if case in ["along", "combined", "alongacross"]:
+        intpol_freqs = limits["freqs"]
+    # Determine if individual frequencies should be used for interpolation along
+    if case in ["along", "combined"]:
         if trackresolution["param"] in freqres:
-            intpol_freqs = True
+            intpol_freqs = limits["freqs"]
     if intpol_freqs:
         print("Warning: Interpolation of individual oscillation frequencies requested!")
     intpolparams = list(np.unique(intpolparams))
 
+    # Extract models within user-specified limits
+    print("Locating limits and restricting sub-grid ... ", flush=True)
+    selectedmodels = ih.get_selectedmodels(grid, basepath, limits, cut=False)
+
+    # If extend option is chosen (keep old sub-box of models)
+    if case in ["combined", "across"] and (
+        gridresolution["extend"] or not gridresolution["sobol"]
+    ):
+        _copy_tracks(
+            grid, outfile, basepath, intpolparams, selectedmodels, intpol_freqs
+        )
+
     # Interpolate according to each of the possible cases
     if case == "along":
-        grid, outfile, fail = ial.interpolate_along(
+        ial.interpolate_along(
             grid,
             outfile,
-            limits,
+            selectedmodels,
             trackresolution,
             intpolparams,
             basepath,
             intpol_freqs,
             debug,
-            verbose,
         )
-        grid, outfile = ih.write_header(grid, outfile, basepath)
+        ih.write_header(grid, outfile, basepath)
         grid.close()
     elif case == "across":
-        grid, outfile = ih.write_header(grid, outfile, basepath)
-        grid, outfile, fail = iac.interpolate_across(
+        ih.write_header(grid, outfile, basepath)
+        iac.interpolate_across(
             grid,
             outfile,
             gridresolution,
-            limits,
+            selectedmodels,
             intpolparams,
             basepath,
             intpol_freqs,
             alongvar,
             outbasename,
             debug,
-            verbose,
         )
         grid.close()
     elif case == "combined":
-        grid, outfile = ih.write_header(grid, outfile, basepath)
+        ih.write_header(grid, outfile, basepath)
         ico.interpolate_combined(
             grid,
             outfile,
-            limits,
+            selectedmodels,
             trackresolution,
             gridresolution,
             intpolparams,
@@ -331,62 +376,7 @@ def interpolate_grid(
             outbasename,
             debug,
         )
-    elif case == "acrossalong":
-        grid, outfile = ih.write_header(grid, outfile, basepath)
-        grid, outfile, fail = iac.interpolate_across(
-            grid,
-            outfile,
-            gridresolution,
-            limits,
-            intpolparams,
-            basepath,
-            intpol_freqs,
-            alongvar,
-            outbasename,
-            debug,
-            verbose,
-        )
         grid.close()
-        outfile, outfile, fail = ial.interpolate_along(
-            outfile,
-            outfile,
-            limits,
-            trackresolution,
-            intpolparams,
-            basepath,
-            intpol_freqs,
-            debug,
-            verbose,
-        )
-    elif case == "alongacross":
-        grid, outfile, fail = ial.interpolate_along(
-            grid,
-            outfile,
-            limits,
-            trackresolution,
-            intpolparams,
-            basepath,
-            intpol_freqs,
-            debug,
-            verbose,
-        )
-        grid, outfile = ih.write_header(grid, outfile, basepath)
-        # Grid can be closed now, across will use the along interpolated grid as input
-        grid.close()
-        if not fail:
-            outfile, outfile, fail = iac.interpolate_across(
-                outfile,
-                outfile,
-                gridresolution,
-                limits,
-                intpolparams,
-                basepath,
-                intpol_freqs,
-                alongvar,
-                outbasename,
-                debug,
-                verbose,
-            )
 
     print("\n*********************\nInterpolation wrap-up\n*********************")
 
@@ -421,7 +411,11 @@ def interpolate_grid(
 
 
 def perform_interpolation(
-    grid, idgrid, intpol, inputparams, debug=False, verbose=False
+    grid,
+    idgrid,
+    intpol,
+    inputparams,
+    debug=False,
 ):
     """
     Setup and call of main interpolation driver.
@@ -538,7 +532,7 @@ def perform_interpolation(
 
     # Run the external routine
     it0 = time.localtime()
-    interpolate_grid(
+    _interpolate_grid(
         gridname=grid,
         outname=intpolgrid,
         inputdict=intpol,
@@ -547,7 +541,6 @@ def perform_interpolation(
         basepath=basepath,
         outbasename=outbasename,
         debug=debug,
-        verbose=verbose,
     )
     it1 = time.localtime()
     dt = time.mktime(it1) - time.mktime(it0)

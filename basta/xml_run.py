@@ -815,7 +815,6 @@ def run_xml(
                         allintpol[starid],
                         inputparams,
                         debug=debug,
-                        verbose=verbose,
                     )
             except KeyboardInterrupt:
                 print("BASTA interpolation stopped manually. Goodbye!")

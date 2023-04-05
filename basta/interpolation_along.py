@@ -17,7 +17,7 @@ from basta import interpolation_helpers as ih
 # ======================================================================================
 # Interpolation helper routines
 # ======================================================================================
-def _calc_npoints_freqs(libitem, index2d, freq_resolution, verbose=False, debug=False):
+def _calc_npoints_freqs(libitem, index2d, freq_resolution, debug=False):
     """
     Estimate the number of points required for interpolation given a desired frequency
     resolution, by calculating the largest variation of any frequency in a given track.
@@ -35,10 +35,7 @@ def _calc_npoints_freqs(libitem, index2d, freq_resolution, verbose=False, debug=
     freq_resolution : float
        Required frequency resolution in microHertz
 
-    verbose : bool, optional
-        Print info.
-
-    extra_debug : bool, optional
+    debug : bool, optional
         Print extra information on all frequencies. Warning: Huge output.
 
     Returns
@@ -86,13 +83,11 @@ def _calc_npoints_freqs(libitem, index2d, freq_resolution, verbose=False, debug=
     Npoints = int(DELTA / freq_resolution)
     if debug:
         print("\n    DELTA = {0:6.2f} muHz ==> Npoints = {1:4}".format(DELTA, Npoints))
-    elif verbose:
-        print("DELTA = {0:6.2f} muHz ==> Npoints = {1:4}".format(DELTA, Npoints))
 
     return Npoints
 
 
-def _calc_npoints(libitem, index, resolution, verbose=False, debug=False):
+def _calc_npoints(libitem, index, resolution, debug=False):
     """
     Estimate the number of points required for interpolation given a desired resolution,
     by calculating the variation in a given track.
@@ -109,10 +104,7 @@ def _calc_npoints(libitem, index, resolution, verbose=False, debug=False):
        Required resolution. Must contain "param" with a valid parameter name from the
        grid and "value" with the desired precision/resolution.
 
-    verbose : bool, optional
-        Print info.
-
-    extra_debug : bool, optional
+    debug : bool, optional
         Print extra information on all frequencies. Warning: Huge output.
 
     Returns
@@ -132,8 +124,6 @@ def _calc_npoints(libitem, index, resolution, verbose=False, debug=False):
                 param, DELTA, Npoints
             )
         )
-    elif verbose:
-        print("DELTA = {0:6.2f} ==> Npoints = {1:4}".format(DELTA, Npoints))
 
     return Npoints
 
@@ -144,13 +134,12 @@ def _calc_npoints(libitem, index, resolution, verbose=False, debug=False):
 def interpolate_along(
     grid,
     outfile,
-    limits,
+    selectedmodels,
     resolution,
     intpolparams,
     basepath="grid/",
     intpol_freqs=False,
     debug=False,
-    verbose=False,
 ):
     """
     Select a part of a BASTA grid based on observational limits. Interpolate all
@@ -164,9 +153,9 @@ def interpolate_along(
     outfile : h5py file
         Handle of output grid to write to
 
-    limits : dict
-        Constraints on the selection in the grid. Must be valid parameter names in the
-        grid. Example of the form: {'Teff': [5000, 6000], 'FeH': [-0.2, 0.2]}
+    selectedmodels : dict
+        Dictionary of every track/isochrone with models inside the limits, and the index
+        of every model that satisfies this.
 
     resolution : dict
        Required resolution. Must contain "param" with a valid parameter name from the
@@ -178,13 +167,13 @@ def interpolate_along(
         Path in the grid where the tracks are stored. The default value applies to
         standard grids of tracks. It must be modified for isochrones!
 
+    intpol_freqs : list, bool
+        List of interpolated frequency interval if frequency interpolation requested.
+        False if not interpolating frequencies.
+
     debug : bool, optional
         Activate debug mode. Will print extra info and create plots of the selection.
         WILL ONLY WORK PROPERLY FOR FREQUENCIES AND GRIDS (NOT DNU OR ISOCHRONES)!
-
-    verbose : bool, optional
-        Print information to console and make simple diagnostic plots. Will be
-        automatically set by debug.
 
     Returns
     -------
@@ -249,8 +238,6 @@ def interpolate_along(
         grid_is_intpol = True
 
     if debug:
-        verbose = True
-    if verbose:
         # Initialize logging to file (duplicate stdout)
         logdir = "intpollogs"
         if not os.path.exists(logdir):
@@ -268,7 +255,6 @@ def interpolate_along(
         fig2, ax2 = plt.subplots()  # Only selection (Kiel)
         fig3, ax3 = plt.subplots()  # Age/mass information
         print("Interpolating in {0}s with basepath '{1}'".format(modestr, basepath))
-        print("Limiting the parameters:\n{0}".format(limits))
         print(
             "Required resolution in {0}: {1}".format(
                 resolution["param"], resolution["value"]
@@ -289,15 +275,6 @@ def interpolate_along(
 
     # Nicknames for resolution in frequency
     freqres = ["freq", "freqs", "frequency", "frequencies", "osc"]
-
-    # Get frequency interpolation limits from limits dict
-    if "freqs" in limits:
-        freqlims = limits["freqs"]
-        del limits["freqs"]
-
-    # Construct selectedmodels
-    print("Locating limits and restricting sub-grid ... ", flush=True)
-    selectedmodels = ih.get_selectedmodels(grid, basepath, limits, cut=False)
 
     #
     # *** LOOP THROUGH THE GRID ONE TRACK/ISOCHRONE AT A TIME  ***
@@ -349,7 +326,7 @@ def interpolate_along(
                     fail = True
                     break
 
-            if verbose:
+            if debug:
                 pltTeff = gu.h5py_to_array(libitem["Teff"])
                 pltlogg = gu.h5py_to_array(libitem["logg"])
                 pltbase = gu.h5py_to_array(libitem[baseparam])
@@ -379,7 +356,6 @@ def interpolate_along(
                     libitem=libitem,
                     index2d=index2d,
                     freq_resolution=resolution["value"],
-                    verbose=verbose,
                     debug=debug,
                 )
             else:
@@ -387,7 +363,6 @@ def interpolate_along(
                     libitem=libitem,
                     index=index,
                     resolution=resolution,
-                    verbose=verbose,
                     debug=debug,
                 )
             if Npoints < sum(index):
@@ -469,7 +444,7 @@ def interpolate_along(
                     sections=[0, -1],
                     triangulation=basevec,
                     newvec=intpolmesh,
-                    freqlims=freqlims,
+                    freqlims=intpol_freqs,
                 )
 
                 # Delete the old entries
@@ -501,7 +476,7 @@ def interpolate_along(
             trackcounter += 1
 
             # Add information to the diagnostic plots
-            if verbose and False:
+            if debug and False:
                 pltTeff = gu.h5py_to_array(libitem["Teff"])
                 pltlogg = gu.h5py_to_array(libitem["logg"])
                 pltbase = gu.h5py_to_array(libitem[baseparam])
@@ -542,12 +517,8 @@ def interpolate_along(
 
     pbar.close()
 
-    # Re-add frequency limits for combined approaches
-    if intpol_freqs:
-        limits["freqs"] = freqlims
-
     # Finish debugging plot with some decoration
-    if verbose:
+    if debug:
         print("\nDone! Finishing diagnostic plots!")
         ax1.set_xlabel("Teff / K")
         ax1.set_ylabel("log g")
@@ -567,5 +538,3 @@ def interpolate_along(
 
         print("\nIn total {0} {1}(s) interpolated!\n".format(trackcounter, modestr))
         print("Interpolation process finished!")
-
-    return grid, outfile, fail
