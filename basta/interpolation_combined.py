@@ -289,7 +289,7 @@ def interpolate_combined(
         basenames = np.empty((count), dtype=object)
         y = np.zeros((count))
         minmax = np.zeros((len(ind), 2))
-        lens = []
+        sections = [0]
         ir = 0
 
         # For along frequency resolution, check available l=0 modes
@@ -325,8 +325,8 @@ def interpolate_combined(
                     envres[k + ir, : len(base[i])] = base[i]
                     envres[k + ir, -1] = res
             basenames[ir : ir + len(bvar)] = track["name"][selmod]
-            lens.append(len(bvar))
             ir += len(bvar)
+            sections.append(ir)
 
         # Check of overlap from min and max
         minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
@@ -338,10 +338,10 @@ def interpolate_combined(
             outfile[os.path.join(libname, "IntStatus")] = -1
             continue
 
-        # Assume equal spacing, but approximately the same number of points
+        # Get base for new track, based on requested along resolution
         try:
             newbvar = ih.calc_along_points(
-                intbase, lens, minmax, point, envres, trackresolution["value"]
+                intbase, sections, minmax, point, envres, trackresolution["value"]
             )
         except:
             warstr = "Choice of base parameter '{:s}' resulted".format(along_var)
@@ -379,19 +379,21 @@ def interpolate_combined(
                 elif (key in headvars) or ("_weight" in key):
                     continue
                 else:
-                    # Interpolation of varying parameters
-                    ir = 0
-                    for i in ind:
+                    # Collect from enveloping
+                    for j, i in enumerate(ind):
                         track = os.path.join(basepath, tracknames[i])
                         yind = selectedmodels[tracknames[i]]
-                        y[ir : ir + sum(yind)] = grid[track][key][yind]
-                        ir += sum(yind)
+                        y[sections[j] : sections[j + 1]] = grid[track][key][yind]
+
+                    # Interpolate, chec for NaNs
                     newparam = ih.interpolation_wrapper(
                         sub_triangle, y, newbase, along=False
                     )
                     if any(np.isnan(newparam)):
                         nan = "Track {0} had NaN value(s)!".format(newnum + tracknum)
                         raise ValueError(nan)
+
+                    # Write to new gridfile
                     outfile[keypath] = newparam
 
             ##################################
@@ -400,7 +402,6 @@ def interpolate_combined(
             if intpol_freqs:
                 osc = []
                 osckey = []
-                sections = [0]
                 for i in ind:
                     # Extract the oscillation fequencies and id's
                     track = tracknames[i]
@@ -409,7 +410,6 @@ def interpolate_combined(
                     for model in np.where(selectedmodels[track])[0]:
                         osc.append(transform_obj_array(trackosc[model]))
                         osckey.append(transform_obj_array(trackosckey[model]))
-                    sections.append(len(osc))
 
                 # Compute new individual frequencies for track
                 newosckey, newosc = ih.interpolate_frequencies(

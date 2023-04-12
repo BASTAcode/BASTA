@@ -453,6 +453,7 @@ def interpolate_across(
         y = np.zeros((count))
         minmax = np.zeros((len(ind), 3))
         ir = 0
+        sections = [0]
 
         # Loop over the enveloping tracks
         for j, i in enumerate(ind):
@@ -463,7 +464,9 @@ def interpolate_across(
                 intbase[k + ir, : len(base[i])] = base[i]
                 intbase[k + ir, -1] = a
             ir += len(bvar)
-        minmax = [max(minmax[:, 0]), min(minmax[:, 1]), np.mean(minmax[:, 2])]
+            sections.append(ir)
+
+        minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
         if minmax[0] > minmax[1]:
             warstr = "Warning: Interpolating {0} {1} ".format(
                 modestr, newnum + tracknum
@@ -475,20 +478,21 @@ def interpolate_across(
             outfile[os.path.join(libname, "IntStatus")] = -1
             continue
 
-        # Assume equal spacing, but approximately the same number of points
+        # Get base for new track, mimicing enveloping tracks
         try:
-            Npoints = abs(int(np.ceil((minmax[1] - minmax[0]) / minmax[2])))
+            newbvar = ih.calc_along_points(intbase, sections, minmax, point)
         except:
-            prtstr = "Choice of base parameter '{:s}' resulted".format(along_var)
-            prtstr += " in an error when determining it's variance along the "
-            prtstr += "{:s}, consider choosing another.".format(modestr)
-            raise ValueError(prtstr)
+            warstr = "Choice of base parameter '{:s}' resulted".format(along_var)
+            warstr += " in an error when determining it's variance along the track."
+            raise ValueError(warstr)
+
         # The base along the new track
-        newbvar = np.linspace(minmax[0], minmax[1], Npoints)
         newbase = np.ones((len(newbvar), len(bpars) + 1))
         for i, p in enumerate(point):
             newbase[:, i] *= p
         newbase[:, -1] = newbvar
+
+        # Create triangulation for re-use for each parameter
         sub_triangle = spatial.Delaunay(intbase)
 
         try:
@@ -505,33 +509,38 @@ def interpolate_across(
                 elif ("osc" in key) or (key in const_vars):
                     continue
                 else:
-                    ir = 0
+                    # Collect values from enveloping tracks
                     for j, i in enumerate(ind):
                         track = tracknames[i]
                         yind = selectedmodels[track]
-                        y[ir : ir + sum(yind)] = grid[basepath + track][key][yind]
-                        ir += sum(yind)
-                    intpol = interpolate.LinearNDInterpolator(sub_triangle, y)
-                    newparam = intpol(newbase)
+                        y[sections[j] : sections[j + 1]] = grid[basepath + track][key][
+                            yind
+                        ]
+
+                    # Interpolate, check for NaNs
+                    newparam = ih.interpolation_wrapper(
+                        sub_triangle, y, newbase, along=False
+                    )
+
                     if any(np.isnan(newparam)):
                         nan = "{0} {1} had NaN value(s)!".format(
                             modestr, newnum + tracknum
                         )
                         raise ValueError(nan)
+
+                    # Write to new grid
                     outfile[keypath] = newparam
 
             # Dealing with oscillations
             if intpol_freqs:
                 osc = []
                 osckey = []
-                sections = [0]
                 for i in ind:
                     # Extract the oscillation fequencies and id's
                     track = grid[os.path.join(basepath, tracknames[i])]
                     for model in np.where(selectedmodels[tracknames[i]])[0]:
                         osc.append(transform_obj_array(track["osc"][model]))
                         osckey.append(transform_obj_array(track["osckey"][model]))
-                    sections.append(len(osc))
                 newosckey, newosc = ih.interpolate_frequencies(
                     fullosc=osc,
                     fullosckey=osckey,
@@ -615,7 +624,7 @@ def interpolate_across(
         except KeyboardInterrupt:
             print("BASTA interpolation stopped manually. Goodbye!")
             sys.exit()
-        except:
+        except Exception as e:
             # If it fails, delete progress for the track, and just mark it as failed
             try:
                 del outfile[libname]

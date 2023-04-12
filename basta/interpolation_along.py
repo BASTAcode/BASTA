@@ -17,12 +17,10 @@ from basta import interpolation_helpers as ih
 # ======================================================================================
 # Interpolation helper routines
 # ======================================================================================
-def _calc_npoints_freqs(libitem, index2d, freq_resolution, debug=False):
+def _get_freq_points(libitem, index2d):
     """
-    Estimate the number of points required for interpolation given a desired frequency
-    resolution, by calculating the largest variation of any frequency in a given track.
-
-    Currently it is only based on l=0.
+    Determine the lowest l=0 mode that is present along the whole selection
+    of the track. Extract and return the corresponding frequency array.
 
     Parameters
     ----------
@@ -32,100 +30,33 @@ def _calc_npoints_freqs(libitem, index2d, freq_resolution, debug=False):
     index2d : array
         Mask for libitem to obtain selected entries (note the shape for osc indexing!)
 
-    freq_resolution : float
-       Required frequency resolution in microHertz
-
-    debug : bool, optional
-        Print extra information on all frequencies. Warning: Huge output.
-
     Returns
     -------
-    Npoints : float
-        Estimated number of points required in interpolated track
-
+    flowl0 : array
+        The lowest shared l=0 frequency across the models
     """
-    if debug:
-        print("    l = 0 frequency information for i(nitial) and f(inal) model:")
 
-    # Extract oscillation arrays for first and final point of the selection
-    # --> Only for l=0
     fullosc = libitem["osc"][index2d].reshape((-1, 2))
     fullosckey = libitem["osckey"][index2d].reshape((-1, 2))
-    osc = []
-    osckey = []
-    for i in [0, -1]:
-        osckeyl0, oscl0 = su.get_givenl(
-            l=0,
-            osc=su.transform_obj_array(fullosc[i]),
-            osckey=su.transform_obj_array(fullosckey[i]),
-        )
-        osckey.append(osckeyl0[1])
-        osc.append(oscl0[0])
 
-    # Calculate difference between first and final frequency of given order
-    freqdiffs = []
-    for nval, freqstart in zip(osckey[0], osc[0]):
-        nmask = osckey[1] == nval
-        if any(nmask):
-            freqend = osc[1][nmask][0]
-            freqdiff = np.abs(freqend - freqstart)
-            freqdiffs.append(freqdiff)
-            if debug:
-                print(
-                    "{0}n = {1:2}, freq_i = {2:8.3f}, freq_f = {3:8.3f},".format(
-                        4 * " ", nval, freqstart, freqend
-                    ),
-                    "Delta(f) = {0:7.3f}".format(freqdiff),
-                )
+    # Get lowest l=0
+    nl0 = []
+    for osckey in fullosckey:
+        osckey = su.transform_obj_array(osckey)
+        nl0.append(min(osckey[1, osckey[0, :] == 0]))
 
-    # Obtain quantities in the notation of Aldo Serenelli
-    DELTA = max(freqdiffs)
-    Npoints = int(DELTA / freq_resolution)
-    if debug:
-        print("\n    DELTA = {0:6.2f} muHz ==> Npoints = {1:4}".format(DELTA, Npoints))
+    lowest = max(nl0)
 
-    return Npoints
+    # Get the frequency
+    flowl0 = np.zeros(len(fullosc))
+    for i, (osc, osckey) in enumerate(zip(fullosc, fullosckey)):
+        osc = su.transform_obj_array(osc)
+        osckey = su.transform_obj_array(osckey)
+        ind = np.where(osckey[1, osckey[0, :] == 0] == lowest)[0]
+        f = osc[0, ind]
+        flowl0[i] = f
 
-
-def _calc_npoints(libitem, index, resolution, debug=False):
-    """
-    Estimate the number of points required for interpolation given a desired resolution,
-    by calculating the variation in a given track.
-
-    Parameters
-    ----------
-    libitem : h5py_group
-        A track in the form of an HDF5 group from a BASTA grid
-
-    index : array
-        Mask for libitem to obtain selected entries
-
-    resolution : dict
-       Required resolution. Must contain "param" with a valid parameter name from the
-       grid and "value" with the desired precision/resolution.
-
-    debug : bool, optional
-        Print extra information on all frequencies. Warning: Huge output.
-
-    Returns
-    -------
-    Npoints : float
-        Estimated number of points required in interpolated track
-
-    """
-    param = resolution["param"]
-    paramvec = libitem[param][index]
-    DELTA = np.abs(paramvec[-1] - paramvec[0])
-    Npoints = int(DELTA / resolution["value"])
-
-    if debug:
-        print(
-            "    DELTA({0}) = {1:6.2f} ==> Npoints = {2:4}".format(
-                param, DELTA, Npoints
-            )
-        )
-
-    return Npoints
+    return flowl0
 
 
 # ======================================================================================
@@ -226,8 +157,6 @@ def interpolate_along(
             "alphaFe",
             "dif",
         ]
-
-    overwrite = grid == outfile
 
     # Check if grid is interpolated
     try:
@@ -350,21 +279,29 @@ def interpolate_along(
             #
             # *** BLOCK 2: Define interpolation mesh ***
             #
-            # Calc number of points required and make uniform mesh
-            if resolution["param"].lower() in freqres:
-                Npoints = _calc_npoints_freqs(
-                    libitem=libitem,
-                    index2d=index2d,
-                    freq_resolution=resolution["value"],
-                    debug=debug,
+            # Equal spacing in the interpolation parameter
+            basevec = libitem[baseparam][index]
+            if resolution["param"] == baseparam:
+                Npoints = int(abs(basevec[-1] - basevec[0]) / resolution["value"]) + 1
+                intpolmesh = np.linspace(
+                    start=basevec[0], stop=basevec[-1], num=Npoints
                 )
             else:
-                Npoints = _calc_npoints(
-                    libitem=libitem,
-                    index=index,
-                    resolution=resolution,
-                    debug=debug,
-                )
+                # "Translate" between requested resolution and base parameter
+                if resolution["param"].lower() in freqres:
+                    points = _get_freq_points(
+                        libitem=libitem,
+                        index2d=index2d,
+                    )
+                else:
+                    points = libitem[resolution["param"]][index]
+
+                # Make new points in resolution parameter, and interpolate to base parameter
+                Npoints = int(abs(points[-1] - points[0]) / resolution["value"]) + 1
+                newp = np.linspace(points[0], points[-1], Npoints)
+                intpolmesh = ih.interpolation_wrapper(points, basevec, newp, along=True)
+
+            # Check we improve the resolution
             if Npoints < sum(index):
                 print(
                     "Stopped interpolation along {0} as the number of points would decrease from {1} to {2}".format(
@@ -372,9 +309,6 @@ def interpolate_along(
                     )
                 )
                 continue
-            # Isochrones: mass | Tracks: age
-            basevec = libitem[baseparam][index]
-            intpolmesh = np.linspace(start=basevec[0], stop=basevec[-1], num=Npoints)
             if debug:
                 print(
                     "{0}Range in {1} = [{2:4.3f}, {3:4.3f}]".format(
@@ -411,9 +345,7 @@ def interpolate_along(
                 else:
                     continue
 
-                # Delete old entry, write new entry
-                if overwrite:
-                    del outfile[keypath]
+                # Write new entry
                 outfile[keypath] = newparam
 
                 # Storage for plotting the Kiel diagram
@@ -424,8 +356,6 @@ def interpolate_along(
             par = "massfin" if dname == "dmass" else "age"
             parpath = os.path.join(libitem.name, par)
             keypath = os.path.join(libitem.name, dname)
-            if overwrite:
-                del outfile[keypath]
             outfile[keypath] = ih.bay_weights(outfile[parpath])
 
             #
@@ -447,11 +377,6 @@ def interpolate_along(
                     freqlims=intpol_freqs,
                 )
 
-                # Delete the old entries
-                if overwrite:
-                    del outfile[os.path.join(libitem.name, "osc")]
-                    del outfile[os.path.join(libitem.name, "osckey")]
-
                 # Writing variable length arrays to an HDF5 file is a bit tricky,
                 # but can be done using datasets with a special datatype.
                 # --> Here we follow the approach from BASTA/make_tracks
@@ -470,8 +395,6 @@ def interpolate_along(
                     dsetosckey[i] = osckeylist[i]
 
             # Successfully interpolated, mark it as such
-            if overwrite and "IntStatus" in outfile[libitem.name]:
-                del outfile[os.path.join(libitem.name, "IntStatus")]
             outfile[os.path.join(libitem.name, "IntStatus")] = 0
             trackcounter += 1
 

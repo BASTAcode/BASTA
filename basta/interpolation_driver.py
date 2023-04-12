@@ -327,7 +327,7 @@ def _interpolate_grid(
 
     # If extend option is chosen (keep old sub-box of models)
     if case in ["combined", "across"] and (
-        gridresolution["extend"] or not gridresolution["sobol"]
+        gridresolution["extend"] or not gridresolution["scale"]
     ):
         _copy_tracks(
             grid, outfile, basepath, intpolparams, selectedmodels, intpol_freqs

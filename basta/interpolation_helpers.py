@@ -177,7 +177,7 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
     return selectedmodels
 
 
-def calc_along_points(intbase, lens, minmax, point, envres=None, resvalue=None):
+def calc_along_points(intbase, sections, minmax, point, envres=None, resvalue=None):
     """
     Creates new along vector by interpolating from along vectors of
     enveloping tracks from model numbers to mimic spacing in parameter.
@@ -191,8 +191,8 @@ def calc_along_points(intbase, lens, minmax, point, envres=None, resvalue=None):
     ----------
     intbase : numpy array
         Interpolation base vector of the enveloping tracks
-    lens : list
-        Lengths of the enveloping tracks to sub-divide the single array
+    sections : list
+        Indexes corresponding to the enveloping tracks to sub-divide the single array
     minmax : list
         Minimum and maximum values of along variable in the enveloping
         tracks
@@ -211,26 +211,23 @@ def calc_along_points(intbase, lens, minmax, point, envres=None, resvalue=None):
     """
 
     # For counting and collecting during loop over tracks
-    yind = 0
     mods = []
     yvec = []
     newl = []
 
     if resvalue:
         envminmax = [[], []]
-        for l in lens:
-            envminmax[0].append(min(envres[yind : yind + l, -1]))
-            envminmax[1].append(max(envres[yind : yind + l, -1]))
-            yind += l
+        for s in range(len(sections) - 1):
+            envminmax[0].append(min(envres[sections[s] : sections[s + 1], -1]))
+            envminmax[1].append(max(envres[sections[s] : sections[s + 1], -1]))
         envminmax[0] = max(envminmax[0])
         envminmax[1] = min(envminmax[1])
         Nres = int(abs(np.ceil((envminmax[1] - envminmax[0]) / resvalue)))
-        yind = 0
 
     if not resvalue:
-        for i, l in enumerate(lens):
+        for i, s in enumerate(range(len(sections) - 1)):
             # Construct individual track bases
-            base = intbase[yind : yind + l, -1]
+            base = intbase[sections[s] : sections[s + 1], -1]
             # Determine the models within limits
             mask = np.ones(len(base), dtype=bool)
             mask &= np.array(base) >= minmax[0]
@@ -269,33 +266,27 @@ def calc_along_points(intbase, lens, minmax, point, envres=None, resvalue=None):
             # "Ghost" models outside interval are kept for interpolation
             mod = (np.arange(sum(mask)) + offset + dists[0]) / (lbase - 1 + sum(dists))
             # Construct new interpolation base
-            fmod = intbase[yind : yind + lens[i], :][mask]
+            fmod = intbase[sections[s] : sections[s + 1], :][mask]
             fmod[:, -1] = mod
             mods.append(fmod)
 
             # Compile list of along variable values
             yvec += list(newbase)
-            # Update loop variable
-            yind += l
 
         # Reconstruct base
         intbase = mods[0]
         for m in mods[1:]:
             intbase = np.vstack((intbase, m))
     else:
-        for i, l in enumerate(lens):
-            base = intbase[yind : yind + l, -1]
+        for i, s in enumerate(range(len(sections) - 1)):
+            base = intbase[sections[s] : sections[s + 1], -1]
             mask = np.ones(len(base), dtype=bool)
             mask &= np.array(base) >= minmax[0]
             mask &= np.array(base) <= minmax[1]
             newl.append(sum(mask))
 
             yvec += list(base)
-            yind += l
         intbase = envres
-
-    # Make interpolator
-    intpol = interpolate.LinearNDInterpolator(intbase, yvec)
 
     # Determine/adjust number of points
     N = int(np.mean(newl))
@@ -316,7 +307,8 @@ def calc_along_points(intbase, lens, minmax, point, envres=None, resvalue=None):
         inp[:, i] *= p
     inp[:, -1] = lin
 
-    out = intpol(inp)
+    # Make interpolator
+    out = interpolation_wrapper(intbase, yvec, inp)
 
     return out
 
