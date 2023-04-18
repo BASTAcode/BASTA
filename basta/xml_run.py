@@ -240,6 +240,7 @@ def _get_intpol(root, gridfile, freqpath=None):
             intpol[param.tag.lower()] = {
                 "case": param.attrib.get("case"),
                 "construction": param.attrib.get("construction"),
+                "retrace": strtobool(param.attrib.get("retrace", "False")),
             }
         else:
             raise ValueError(
@@ -254,6 +255,13 @@ def _get_intpol(root, gridfile, freqpath=None):
         raise ValueError(
             "Unknown construction method selected. Must be either 'bystar' or 'encompass'!"
         )
+
+    # Permeate retrace option
+    if intpol["method"]["retrace"]:
+        if "trackresolution" in intpol:
+            intpol["trackresolution"]["retrace"] = True
+        if "gridresolution" in intpol:
+            intpol["gridresolution"]["retrace"] = True
 
     # If interpolation in frequencies requested, extract limits
     freqnames = ["freq", "freqs", "frequency", "frequencies", "osc"]

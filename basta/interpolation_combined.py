@@ -184,6 +184,7 @@ def interpolate_combined(
 
     # Read input
     scale = gridresolution["scale"]
+    retrace = gridresolution["retrace"] if "retrace" in gridresolution else False
     if trackresolution:
         along_var = trackresolution["baseparam"]
         respar = trackresolution["param"]
@@ -286,11 +287,14 @@ def interpolate_combined(
         count = sum([sum(selectedmodels[tracknames[i]]) for i in ind])
         intbase = np.zeros((count, len(pars_sampled) + 1))
         envres = np.zeros((count, len(pars_sampled) + 1))
-        basenames = np.empty((count), dtype=object)
         y = np.zeros((count))
         minmax = np.zeros((len(ind), 2))
         sections = [0]
         ir = 0
+
+        # Names if retracing information requested
+        if retrace:
+            basenames = np.empty((count), dtype=object)
 
         # For along frequency resolution, check available l=0 modes
         if respar == "freqs":
@@ -324,7 +328,8 @@ def interpolate_combined(
                 if alongintpol:
                     envres[k + ir, : len(base[i])] = base[i]
                     envres[k + ir, -1] = res
-            basenames[ir : ir + len(bvar)] = track["name"][selmod]
+            if retrace:
+                basenames[ir : ir + len(bvar)] = track["name"][selmod]
             ir += len(bvar)
             sections.append(ir)
 
@@ -455,21 +460,24 @@ def interpolate_combined(
             ####################################################
             # BLOCK 2d: Interpolation source model information #
             ####################################################
-            isnames = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="S30")
-            iscoefs = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="f8")
-            for s, point in enumerate(newbase):
-                simplex = sub_triangle.find_simplex(point)
-                # Magic math from scipy.Delaunay documentation
-                dif = point - sub_triangle.transform[simplex, -1]
-                dot = sub_triangle.transform[simplex, : len(point)].dot(dif)
-                dists = [*dot, 1 - dot.sum()]
+            if retrace:
+                isnames = np.empty(
+                    (newbase.shape[0], newbase.shape[1] + 1), dtype="S30"
+                )
+                iscoefs = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="f8")
+                for s, point in enumerate(newbase):
+                    simplex = sub_triangle.find_simplex(point)
+                    # Magic math from scipy.Delaunay documentation
+                    dif = point - sub_triangle.transform[simplex, -1]
+                    dot = sub_triangle.transform[simplex, : len(point)].dot(dif)
+                    dists = [*dot, 1 - dot.sum()]
 
-                # Relating to source models
-                simplices = sub_triangle.simplices[simplex]
-                isnames[s, :] = basenames[simplices]
-                iscoefs[s, :] = dists
-            outfile[os.path.join(libname, "isnames")] = isnames
-            outfile[os.path.join(libname, "iscoefs")] = iscoefs
+                    # Relating to source models
+                    simplices = sub_triangle.simplices[simplex]
+                    isnames[s, :] = basenames[simplices]
+                    iscoefs[s, :] = dists
+                outfile[os.path.join(libname, "isnames")] = isnames
+                outfile[os.path.join(libname, "iscoefs")] = iscoefs
 
             # Success! Set status as completed
             outfile[os.path.join(libname, "IntStatus")] = 0

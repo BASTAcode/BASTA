@@ -73,7 +73,9 @@ def _check_sobol(grid, res):
     # Highlight redundant resolution for the user
     if sobol:
         for var in res:
-            if (var not in ["scale", "baseparam", "extend"]) and res[var] != 0:
+            if (var not in ["scale", "baseparam", "extend", "retrace"]) and res[
+                var
+            ] != 0:
                 prtstr = "Gridresolution in '{0}' is set but ignored, ".format(var)
                 prtstr += "as 'scale' is set for Sobol interpolation."
                 print(prtstr)
@@ -363,6 +365,7 @@ def interpolate_across(
         # Collect the headvars, as they are constant along the track
         headvars = list(np.unique(list(bpars) + list(const_vars)))
         sobol = _check_sobol(grid, resolution)
+        retrace = resolution["retrace"] if "retrace" in resolution else False
 
     elif "isochrone" in gridtype:
         isomode = True
@@ -455,14 +458,22 @@ def interpolate_across(
         ir = 0
         sections = [0]
 
+        # Names if retracing information requested
+        if retrace:
+            basenames = np.empty((count), dtype=object)
+
         # Loop over the enveloping tracks
         for j, i in enumerate(ind):
-            track = tracknames[i]
-            bvar = grid[basepath + track][along_var][selectedmodels[track]]
+            track = grid[os.path.join(basepath, tracknames[i])]
+            selmod = selectedmodels[tracknames[i]]
+
+            bvar = track[along_var][selmod]
             minmax[j, :] = [min(bvar), max(bvar), abs(np.median(np.diff(bvar)))]
             for k, a in enumerate(list(bvar)):
                 intbase[k + ir, : len(base[i])] = base[i]
                 intbase[k + ir, -1] = a
+            if retrace:
+                basenames[ir : ir + len(bvar)] = track["name"][selmod]
             ir += len(bvar)
             sections.append(ir)
 
@@ -588,6 +599,26 @@ def interpolate_across(
             parpath = os.path.join(libname, par)
             keypath = os.path.join(libname, dname)
             outfile[keypath] = ih.bay_weights(outfile[parpath])
+
+            # Interpolation source model information
+            if retrace:
+                isnames = np.empty(
+                    (newbase.shape[0], newbase.shape[1] + 1), dtype="S30"
+                )
+                iscoefs = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="f8")
+                for s, point in enumerate(newbase):
+                    simplex = sub_triangle.find_simplex(point)
+                    # Magic math from scipy.Delaunay documentation
+                    dif = point - sub_triangle.transform[simplex, -1]
+                    dot = sub_triangle.transform[simplex, : len(point)].dot(dif)
+                    dists = [*dot, 1 - dot.sum()]
+
+                    # Relating to source models
+                    simplices = sub_triangle.simplices[simplex]
+                    isnames[s, :] = basenames[simplices]
+                    iscoefs[s, :] = dists
+                outfile[os.path.join(libname, "isnames")] = isnames
+                outfile[os.path.join(libname, "iscoefs")] = iscoefs
 
             # Successfully interpolated, mark it as such
             outfile[os.path.join(libname, "IntStatus")] = 0
