@@ -63,7 +63,8 @@ def LOS_reddening(distanceparams):
                 distanceparams["EBV"][0],
                 distanceparams["EBV"][2] - distanceparams["EBV"][0],
                 size=[
-                    len(i) if isinstance(i, collections.Iterable) else 1 for i in [x]
+                    len(i) if isinstance(i, collections.abc.Iterable) else 1
+                    for i in [x]
                 ][0],
             )
         )
@@ -115,9 +116,7 @@ def LOS_reddening(distanceparams):
             healpixNside = ang2pix(nside, theta, phi, nest=True)
             # Find the one with the correct nside and the correct healpix
             indNside = [
-                i
-                for i, x in enumerate(pinfo)
-                if x[0] == nside and x[1] == healpixNside
+                i for i, x in enumerate(pinfo) if x[0] == nside and x[1] == healpixNside
             ]
             if indNside:
                 index = indNside[0]
