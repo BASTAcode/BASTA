@@ -385,7 +385,7 @@ def interpolate_combined(
                         yind = selectedmodels[tracknames[i]]
                         y[sections[j] : sections[j + 1]] = grid[track][key][yind]
 
-                    # Interpolate, chec for NaNs
+                    # Interpolate, check for NaNs
                     newparam = ih.interpolation_wrapper(
                         sub_triangle, y, newbase, along=False
                     )

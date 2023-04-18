@@ -394,12 +394,12 @@ def _interpolate_grid(
                 if type(vec) != np.ndarray:
                     continue
                 # If osc or osckey, transform to 2D index array
-                elif len(vec.shape) > 1:  # key in ["osc", "osckey"]:
+                elif len(vec.shape) > 1:
                     nv = vec.shape[1]
                     indexNd = np.array(np.transpose([index for _ in range(nv)]))
                     vec = vec[indexNd].reshape((-1, nv))
                 else:
-                    vec = outfile[keypath][index]
+                    vec = vec[index]
                 del outfile[keypath]
                 outfile[keypath] = vec
 
