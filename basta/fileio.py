@@ -1418,7 +1418,7 @@ def read_allseismic(
             # Find a list of all available frequency ratios:
             readratiotypes = list(root.findall("frequency_ratio"))
             for ratiotype in readratiotypes:
-                datos = su.read_precomputedratios(
+                datos = read_precomputedratios(
                     obskey,
                     obs,
                     ratiotype,
@@ -1663,6 +1663,10 @@ def freqs_ascii_to_xml(
         },
     )
 
+    # If needed for covariance, store mode id
+    if cov_flag:
+        mode_ids = np.zeros((len(freqs)), dtype=[("f_id", "int"), ("modeid", "8U")])
+
     # Frequency elements
     for i in range(len(freqs)):
         modeid = "mode" + str(i + 1)
@@ -1680,36 +1684,58 @@ def freqs_ascii_to_xml(
             {"error": str(error), "unit": "uHz", "value": str(frequency)},
         )
 
+        if cov_flag:
+            mode_ids["f_id"][i] = freqs["order"][i] * 10 + freqs["degree"][i]
+            mode_ids["modeid"][i] = modeid
+
     # Frequency correlation elements
     if cov_flag:
-        mode1_id = 0
-        for i in range(len(cov)):
-            id2_index = np.mod(i, len(freqs))
-            if id2_index == 0:
-                mode1_id += 1
-            mode2_id = id2_index + 1
+        # Prepare sorting arrays, order before degree
+        fsort = [freqs["order"][i] * 10 + freqs["degree"][i] for i in range(len(freqs))]
+        csort = np.array(
+            [
+                [cov["n1"][i] * 10 + cov["l1"][i] for i in range(len(cov))],
+                [cov["n2"][i] * 10 + cov["l2"][i] for i in range(len(cov))],
+            ]
+        )
 
-            order1 = cov["n1"][i]
-            order2 = cov["n2"][i]
-            deg1 = cov["l1"][i]
-            deg2 = cov["l2"][i]
-            covariance = cov["covariance"][i]
-            correlation = cov["correlation"][i]
+        # Double loop over covariance matrix row and columns
+        for f1_id in fsort:
+            # Get modeid and create subsection of full covariance list
+            f1_modeid = mode_ids["modeid"][np.where(mode_ids["f_id"] == f1_id)[0]][0]
+            f1_mask = np.where(csort[0] == f1_id)[0]
+            covf1 = cov[f1_mask]
+            covs1 = csort[1][f1_mask]
 
-            freq_corr_element = SubElement(
-                main,
-                "frequency_corr",
-                {
-                    "id1": "mode" + str(mode1_id),
-                    "id2": "mode" + str(mode2_id),
-                    "order1": str(order1),
-                    "order2": str(order2),
-                    "degree1": str(deg1),
-                    "degree2": str(deg2),
-                },
-            )
-            SubElement(freq_corr_element, "covariance", {"value": str(covariance)})
-            SubElement(freq_corr_element, "correlation", {"value": str(correlation)})
+            for f2_id in fsort:
+                f2_modeid = mode_ids["modeid"][np.where(mode_ids["f_id"] == f2_id)[0]][
+                    0
+                ]
+                f2_index = np.where(covs1 == f2_id)[0][0]
+
+                order1 = covf1["n1"][f2_index]
+                order2 = covf1["n2"][f2_index]
+                deg1 = covf1["l1"][f2_index]
+                deg2 = covf1["l2"][f2_index]
+                covariance = covf1["covariance"][f2_index]
+                correlation = covf1["correlation"][f2_index]
+
+                freq_corr_element = SubElement(
+                    main,
+                    "frequency_corr",
+                    {
+                        "id1": f1_modeid,
+                        "id2": f2_modeid,
+                        "order1": str(order1),
+                        "order2": str(order2),
+                        "degree1": str(deg1),
+                        "degree2": str(deg2),
+                    },
+                )
+                SubElement(freq_corr_element, "covariance", {"value": str(covariance)})
+                SubElement(
+                    freq_corr_element, "correlation", {"value": str(correlation)}
+                )
 
     # Ratio elements
     if ratios_flag:
