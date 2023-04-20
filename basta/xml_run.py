@@ -15,7 +15,7 @@ from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
 from basta.constants import parameters
 from basta.constants import freqtypes
-from basta.fileio import no_models, read_freqs_xml
+from basta.fileio import no_models, read_freq_xml
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import unique_unsort
 
@@ -170,7 +170,7 @@ def _get_freq_minmax(star, freqpath):
         Maximum frequency value
     """
     freqfile = os.path.join(freqpath, star.get("starid") + ".xml")
-    f, _, _, _ = read_freqs_xml(freqfile)
+    f, _, _, _ = read_freq_xml(freqfile)
     dnu = float(star.find("dnu").get("value"))
     fmin = f.min() - 0.5 * dnu
     fmax = f.max() + 0.5 * dnu

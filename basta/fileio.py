@@ -205,7 +205,7 @@ def no_models(starid, inputparams, errormessage):
     write_star_to_errfile(starid, inputparams, errormessage)
 
 
-def read_freqs_xml(filename):
+def read_freq_xml(filename):
     """
     Read frequencies from an xml file
 
@@ -332,7 +332,7 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
         ``False`` then a diagonal matrix is produced
     """
     # Read frequencies from file
-    frecu, errors, norder, ldegree = read_freqs_xml(filename)
+    frecu, errors, norder, ldegree = read_freq_xml(filename)
 
     # Build osc and osckey in a sorted manner
     f = np.asarray([])
@@ -411,7 +411,7 @@ def read_glitch(filename):
     return glitchparams, cov
 
 
-def read_precomputed_ratios(
+def read_precomputed_ratios_xml(
     filename, ratiotype, obskey, obs, nottrustedfile=None, correlations=True
 ):
     """
@@ -803,7 +803,7 @@ def read_allseismic(
             for ratiotype in set(obsfreqmeta["ratios"]["fit"]) | set(
                 obsfreqmeta["ratios"]["plot"]
             ):
-                datos = read_precomputed_ratios(
+                datos = read_precomputed_ratios_xml(
                     fitfreqs["freqfile"],
                     ratiotype,
                     obskey,
@@ -951,10 +951,10 @@ def freqs_ascii_to_xml(
 
     # Make sure that the frequency file exists, and read the frequencies
     if os.path.exists(freqsfile):
-        freqs = read_fre(freqsfile, symmetric_errors, nbeforel)
+        freqs = read_freq_ascii(freqsfile, symmetric_errors, nbeforel)
         # If covariances are available, read them
         if os.path.exists(covfile):
-            cov = read_cov_freqs(covfile)
+            cov = read_freq_cov_ascii(covfile)
         else:
             cov_flag = 0
     else:
@@ -974,13 +974,13 @@ def freqs_ascii_to_xml(
 
     # Look for ratios and their covariances, read if available
     if os.path.exists(ratiosfile):
-        ratios = read_ratios(ratiosfile, symmetric_errors)
+        ratios = read_ratios_ascii(ratiosfile, symmetric_errors)
         if os.path.exists(cov010file):
-            cov010 = read_cov_ratios(cov010file)
+            cov010 = read_ratios_cov_ascii(cov010file)
         else:
             cov010_flag = 0
         if os.path.exists(cov02file):
-            cov02 = read_cov_ratios(cov02file)
+            cov02 = read_ratios_cov_ascii(cov02file)
         else:
             cov02_flag = 0
     else:
@@ -1187,7 +1187,7 @@ def freqs_ascii_to_xml(
         print(pretty_xml, file=xmlfile)
 
 
-def read_fre(filename, symmetric_errors=True, nbeforel=True):
+def read_freq_ascii(filename, symmetric_errors=True, nbeforel=True):
     """
     Read individual frequencies from an ascii file
 
@@ -1269,7 +1269,7 @@ def read_fre(filename, symmetric_errors=True, nbeforel=True):
     return freqs
 
 
-def read_cov_freqs(filename):
+def read_freq_cov_ascii(filename):
     """
     Read covariance and correlations for individual frequencies from an
     ascii file
@@ -1300,7 +1300,7 @@ def read_cov_freqs(filename):
     return cov
 
 
-def read_ratios(filename, symmetric_errors=True):
+def read_ratios_ascii(filename, symmetric_errors=True):
     """
     Read frequency ratios from an ascii file
 
@@ -1347,7 +1347,7 @@ def read_ratios(filename, symmetric_errors=True):
     return ratios
 
 
-def read_cov_ratios(filename):
+def read_ratios_cov_ascii(filename):
     """
     Read covariance and correlations for frequency ratios from an
     ascii file
