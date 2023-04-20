@@ -205,51 +205,6 @@ def no_models(starid, inputparams, errormessage):
     write_star_to_errfile(starid, inputparams, errormessage)
 
 
-def read_ratios_xml(filename):
-    """
-    Read frequency ratios from an xml file
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-
-    Returns
-    -------
-    orders : array
-        Radial order of the ratios
-    ratios : array
-        Value of the ratios
-    ratio_types : array
-        Type of ratio
-    errors_m : array
-        Lower uncertainty in the ratio
-    errors_p : array
-        Upper uncertaity in the ratio
-    """
-
-    # Parse the XML file:
-    tree = ElementTree.parse(filename)
-    root = tree.getroot()
-
-    # Find a list of all the frequency ratios:
-    freq_ratios = root.findall("frequency_ratio")
-
-    # Simply get the orders and frequency ratios as numpy arrays:
-    orders = np.array([ratio.get("order") for ratio in freq_ratios], dtype=int)
-    ratios = np.array([ratio.get("value") for ratio in freq_ratios], dtype="float64")
-    ratio_types = np.array([ratio.get("type") for ratio in freq_ratios], dtype="|U3")
-    errors = np.array([ratio.get("error") for ratio in freq_ratios], dtype="float64")
-    errors_m = np.array(
-        [ratio.get("error_minus") for ratio in freq_ratios], dtype="float64"
-    )
-    errors_p = np.array(
-        [ratio.get("error_plus") for ratio in freq_ratios], dtype="float64"
-    )
-
-    return orders, ratios, ratio_types, errors, errors_m, errors_p
-
-
 def read_freqs_xml(filename):
     """
     Read frequencies from an xml file
@@ -292,128 +247,6 @@ def read_freqs_xml(filename):
         [mode.find("frequency").get("value") for mode in freq_modes], dtype="float64"
     )
     return frequencies, errors, orders, degrees
-
-
-def read_corr_xml(filename):
-    """
-    Read correlation matrix for frequency ratios from an xml file
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-
-    Returns
-    -------
-    corr : array
-        Contains the correlations between the frequency ratios
-    """
-
-    # Parse the XML file:
-    tree = ElementTree.parse(filename)
-    root = tree.getroot()
-
-    # Find a list of all the frequency ratios:
-    freq_ratios = root.findall("frequency_ratio")
-
-    # Loop over the frequency ratios to load them one-by-one and construct the
-    # correlation and covariance matrices:
-    corr = np.identity(len(freq_ratios))
-    cov = np.zeros((len(freq_ratios), len(freq_ratios)))
-    for k, ratio in enumerate(freq_ratios):
-        # Loop over the ratios again to construct correlation matrix:
-        # The reason for the slightly un-elegant loops is a limitation in the
-        # ElementTree XML parser to only allow to search for one attribute at a
-        # time
-        # Search for all "frequency_ratio_corr" elements with id1-attribute
-        # equal
-        elmlist = root.findall("frequency_ratio_corr[@id1='%s']" % ratio.get("id"))
-        for j, ratio2 in enumerate(freq_ratios):
-            id2 = ratio2.get("id")
-            for elm in elmlist:
-                if elm.get("id2") == id2:
-                    corr[k, j] = corr[j, k] = elm.find("correlation").get("value")
-                    cov[k, j] = cov[j, k] = elm.find("covariance").get("value")
-                    break
-
-    # Return the correlation and covariance matrices:
-    return corr
-
-
-def read_cov_xml(filename, allparams=False):
-    """
-    Read covariance matrix for frequency ratios from an xml file
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-
-    Returns
-    -------
-    cov : array
-        Contains the covariances between the frequency ratios
-    """
-
-    # Parse the XML file:
-    tree = ElementTree.parse(filename)
-    root = tree.getroot()
-
-    # Find a list of all the frequency ratios:
-    freq_ratios = root.findall("frequency_ratio")
-
-    # Loop over the frequency ratios to load them one-by-one and construct the
-    # correlation and covariance matrices:
-    corr = np.identity(len(freq_ratios))
-    cov = np.zeros((len(freq_ratios), len(freq_ratios)))
-    if allparams:
-        order1 = np.zeros(len(freq_ratios) ** 2, dtype="int")
-        order2 = np.zeros(len(freq_ratios) ** 2, dtype="int")
-        type1 = np.zeros(len(freq_ratios) ** 2, dtype="|S3")
-        type2 = np.zeros(len(freq_ratios) ** 2, dtype="|S3")
-        corrvec = np.zeros(len(freq_ratios) ** 2, dtype="float64")
-        covvec = np.zeros(len(freq_ratios) ** 2, dtype="float64")
-
-    p = 0
-    for k, ratio in enumerate(freq_ratios):
-        # Loop over the ratios again to construct correlation matrix:
-        # The reason for the slightly un-elegant loops is a limitation in the
-        # ElementTree XML parser to only allow to search for one attribute at a
-        # time
-        # Search for all "frequency_ratio_corr" elements with id1-attribute
-        # equal
-        elmlist = root.findall("frequency_ratio_corr[@id1='%s']" % ratio.get("id"))
-        for j, ratio2 in enumerate(freq_ratios):
-            id2 = ratio2.get("id")
-            for elm in elmlist:
-                if elm.get("id2") == id2:
-                    corr[k, j] = corr[j, k] = elm.find("correlation").get("value")
-                    cov[k, j] = cov[j, k] = elm.find("covariance").get("value")
-                    if allparams:
-                        order1[p] = elm.get("order1")
-                        order2[p] = elm.get("order2")
-                        type1[p] = elm.get("type1")
-                        type2[p] = elm.get("type2")
-                        corrvec[p] = corr[k, j]
-                        covvec[p] = cov[k, j]
-                        p += 1
-                    break
-
-    # Return the correlation and covariance matrices:
-    if allparams:
-        lid = len(type1[type1 != b""])
-        return (
-            cov,
-            corr,
-            covvec[:lid],
-            corrvec[:lid],
-            order1[:lid],
-            order2[:lid],
-            type1[:lid],
-            type2[:lid],
-        )
-    else:
-        return cov
 
 
 def read_freq_cov_xml(filename, obskey):
@@ -471,197 +304,6 @@ def read_freq_cov_xml(filename, obskey):
                     cov[i, j] = cov[j, i] = row.find("covariance").get("value")
                     break
     return corr, cov
-
-
-def read_ratios(filename, symmetric_errors=True):
-    """
-    Read frequency ratios from an ascii file
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-    symmetric_errors : bool, optional
-        If True, assumes the ascii file to contain only one column with
-        frequency errors. Otherwise, the file must include asymmetric
-        errors (error_plus and error_minus). Default is True.
-
-    Returns
-    -------
-    ratios : array
-        Contains the frequency ratios type, radial order, value,
-        uncertainty added in quadrature, upper uncertainty, and lower
-        uncertainty
-    """
-    if symmetric_errors:
-        ratios = np.genfromtxt(
-            filename,
-            dtype=[
-                ("ratio_type", "S3"),
-                ("n", "int"),
-                ("value", "float"),
-                ("error", "float"),
-            ],
-            encoding=None,
-        )
-    else:
-        ratios = np.genfromtxt(
-            filename,
-            dtype=[
-                ("ratio_type", "S3"),
-                ("n", "int"),
-                ("value", "float"),
-                ("error", "float"),
-                ("error_plus", "float"),
-                ("error_minus", "float"),
-            ],
-            encoding=None,
-        )
-    return ratios
-
-
-def read_fre(filename, symmetric_errors=True, nbeforel=True):
-    """
-    Read individual frequencies from an ascii file
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-    symmetric_errors : bool, optional
-        If True, assumes the ascii file to contain only one column with
-        frequency errors. Otherwise, the file must include asymmetric
-        errors (error_plus and error_minus). Default is True.
-    nbeforel : bool, optional
-        If True (default), the column containing the orders n is [0], and
-        the column containing the degrees l is [1].
-        If False, it is the other way around.
-
-    Returns
-    -------
-    freqs : array
-        Contains the radial order, angular degree, frequency, uncertainty,
-        and flag
-    """
-    if nbeforel:
-        if symmetric_errors:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("order", "int"),
-                    ("degree", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
-            )
-        else:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("order", "int"),
-                    ("degree", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("error_plus", "float"),
-                    ("error_minus", "float"),
-                    ("frequency_mode", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
-            )
-    else:
-        if symmetric_errors:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("degree", "int"),
-                    ("order", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
-            )
-        else:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("degree", "int"),
-                    ("order", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("error_plus", "float"),
-                    ("error_minus", "float"),
-                    ("frequency_mode", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
-            )
-    return freqs
-
-
-def read_cov_freqs(filename):
-    """
-    Read covariance and correlations for individual frequencies from an
-    ascii file
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-
-    Returns
-    -------
-    cov : array
-        Contains the angular degree, radial order, covariances and
-        correlations between the individual frequencies
-    """
-    cov = np.genfromtxt(
-        filename,
-        dtype=[
-            ("l1", "int"),
-            ("n1", "int"),
-            ("l2", "int"),
-            ("n2", "int"),
-            ("covariance", "float"),
-            ("correlation", "float"),
-        ],
-        encoding=None,
-    )
-    return cov
-
-
-def read_cov_ratios(filename):
-    """
-    Read covariance and correlations for frequency ratios from an
-    ascii file
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-
-    Returns
-    -------
-    cov : array
-        Contains the ratio type, radial order, covariances and
-        correlations between the frequency ratios
-    """
-    cov = np.genfromtxt(
-        filename,
-        dtype=[
-            ("ratio_type1", "S4"),
-            ("n1", "int"),
-            ("ratio_type2", "S4"),
-            ("n2", "int"),
-            ("covariance", "float"),
-            ("correlation", "float"),
-        ],
-        encoding=None,
-    )
-    return cov
 
 
 def read_freq(filename, nottrustedfile=None, covarfre=False):
@@ -736,358 +378,6 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     return obskey, obs, covarfreq
 
 
-def read_r010(filename, rrange, nottrustedfile, verbose=False):
-    """
-    Routine to extract the frequency ratios r01 and r10 in the desired
-    n-range, and the corresponding covariance matrix
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read.
-    rrange : list
-        Radial range in ratios to be used for different angular degree.
-    nottrustedfile : str or None
-        Name of file containing the (l, n) values of frequencies to be
-        omitted in the fit. If None, no modes will be excluded.
-    verbose : bool, optional
-        If True, extra text will be printed (for developers).
-
-    Returns
-    -------
-    r010var : array
-        Value of the frequency ratios, the associated central frequency,
-        and the uncertainty in the ratios
-    covar010 : array
-        Covariances between frequency ratios
-    """
-    # Read ratios from xml file
-    orders, ratios, ratio_types, errors, errors_m, errors_p = read_ratios_xml(filename)
-    if (b"r01" not in ratio_types) or (b"r10" not in ratio_types):
-        r010var, covar010 = None, None
-        return r010var, covar010
-
-    # Compute frequency ratios array
-    if verbose:
-        print("Computing frequency ratios array...")
-
-    obskey, obs, _ = read_freq(filename, nottrustedfile=nottrustedfile)
-    obskey_l0, obs_l0 = su.get_givenl(l=0, osc=obs, osckey=obskey)
-    obskey_l1, obs_l1 = su.get_givenl(l=1, osc=obs, osckey=obskey)
-
-    # Unpack rrange
-    nirdl0, nfrdl0, nirdl1, nfrdl1 = rrange[:4]
-
-    ind = (ratio_types == b"r01") | (ratio_types == b"r10")
-    nr010 = orders[ind]
-    r010dat = np.zeros((2, len(nr010)))
-    r010dat[0, :] = ratios[ind]
-    r010dat[1, :] = errors[ind]
-
-    i, j, k = 0, 0, 0
-    if verbose:
-        print("Building r010var...")
-    # start together, finish together
-    nl0mask = (obskey_l0[1, :] >= nirdl0) & (obskey_l0[1, :] <= nfrdl0)
-    nl1mask = (obskey_l1[1, :] >= nirdl1) & (obskey_l1[1, :] <= nfrdl1)
-    obs_l0n = obs_l0[0, nl0mask]
-    obs_l1n = obs_l1[0, nl1mask]
-    if nirdl0 == nirdl1 and nfrdl0 == nfrdl1:
-        if verbose:
-            print("start together, finish together")
-        id1 = np.where(nr010 == nirdl0)[0][0]
-        id2 = 1 + np.where(nr010 == nfrdl0)[0][1]
-        r010var = np.zeros((3, len(r010dat[0, id1:id2])))
-        r010var[0, :] = r010dat[0, id1:id2]
-        r010var[2, :] = r010dat[1, id1:id2]
-        while j <= len(r010var[0, :]) - 2:
-            r010var[1, j] = obs_l0n[i]
-            r010var[1, j + 1] = obs_l1n[i]
-            j += 2
-            i += 1
-
-    # start together, finish in l=0
-    elif nirdl0 == nirdl1 and nfrdl0 > nfrdl1:
-        if verbose:
-            print("Start together, finish in l=0")
-        id1 = np.where(nr010 == nirdl0)[0][0]
-        id2 = np.where(nr010 == nfrdl0)[0][0] + 1
-        r010var = np.zeros((3, len(r010dat[0, id1:id2])))
-        r010var[0, :] = r010dat[0, id1:id2]
-        r010var[2, :] = r010dat[1, id1:id2]
-        nlo = nirdl0
-        ndif = nfrdl1 - nlo
-        while j <= len(r010var[0, :]) - 1:
-            if i <= ndif:  # fill both
-                r010var[1, j] = obs_l0n[i]
-                r010var[1, j + 1] = obs_l1n[i]
-                j += 2
-                i += 1
-            else:  # fill only l=0
-                r010var[1, j] = obs_l0n[i]
-                j += 2
-                i += 1
-    # start l=1, finish together
-    elif nirdl0 > nirdl1 and nfrdl0 == nfrdl1:
-        if verbose:
-            print("Start l=1, finish together")
-        # l=0 exist in the file, take the second nirdl1
-        if any((orders == nirdl1) & (ratio_types == b"r01")):
-            if verbose:
-                print("l=0 exist in the file, take the second nirdl1")
-            id1 = np.where(nr010 == nirdl1)[0][1]
-            id2 = 1 + np.where(nr010 == nfrdl0)[0][1]
-        else:
-            id1 = np.where(nr010 == nirdl1)[0][0]
-            id2 = 1 + np.where(nr010 == nfrdl0)[0][1]
-        r010var = np.zeros((3, len(r010dat[0, id1:id2])))
-        r010var[0, :] = r010dat[0, id1:id2]
-        r010var[2, :] = r010dat[1, id1:id2]
-
-        ndif = nirdl0 - nirdl1
-        while j <= len(r010var[0, :]) - 2:
-            if k < ndif:  # fill only l=1
-                if verbose:
-                    print("fill only l=1")
-                r010var[1, j] = obs_l1n[k]
-                j += 1
-                k += 1
-            else:  # fill l=0 and 1
-                if verbose:
-                    print("fill l=0 and 1")
-                r010var[1, j] = obs_l0n[i]
-                r010var[1, j + 1] = obs_l1n[k]
-                j += 2
-                i += 1
-                k += 1
-    # start l=1, finish l=0
-    elif nirdl0 > nirdl1 and nfrdl0 > nfrdl1:
-        if verbose:
-            print("Start l=1, finish l=0")
-        # l=0 exist in the file, take the second nirdl1
-        if any((orders == nirdl1) & (ratio_types == b"r01")):
-            if verbose:
-                print("l=0 exist in the file, take the second nirdl1")
-            id1 = np.where(nr010 == nirdl1)[0][1]
-            id2 = 1 + np.where(nr010 == nfrdl0)[0][0]
-        else:
-            id1 = np.where(nr010 == nirdl1)[0][0]
-            id2 = 1 + np.where(nr010 == nfrdl0)[0][0]
-        r010var = np.zeros((3, len(r010dat[0, id1:id2])))
-        r010var[0, :] = r010dat[0, id1:id2]
-        r010var[2, :] = r010dat[1, id1:id2]
-        ndif = nirdl0 - nirdl1
-        while j <= len(r010var[0, :]) - 1:
-            if k < ndif:  # fill only l=1
-                if verbose:
-                    print("fill only l=1")
-                r010var[1, j + 1] = obs_l1n[k]
-                j += 1
-                k += 1
-            elif nirdl0 + i <= nfrdl1:  # fill l=0 and 1
-                if verbose:
-                    print("fill l=0 and 1")
-                r010var[1, j] = obs_l0n[i]
-                r010var[1, j + 1] = obs_l1n[k]
-                j += 2
-                i += 1
-                k += 1
-            else:
-                r010var[1, j] = obs_l0n[i]
-                j += 1
-                i += 1
-    else:
-        print("PROBLEM WITH RATIOS CASE!")
-        return
-
-    # Build covar of ratio types 01/10
-    cov, corr, CovG, corG, n1, n2, rty1, rty2 = read_cov_xml(
-        filename, allparams=True
-    )  # loading as expected
-
-    r01ind = (rty1 == b"r01") | (rty1 == b"r10")
-    CovG = CovG[r01ind]
-    corG = corG[r01ind]
-    n1 = n1[r01ind]
-    n2 = n2[r01ind]
-    rty1 = rty1[r01ind]
-    rty2 = rty2[r01ind]
-    lr010 = len(r010var[0, :])
-    covar010 = np.zeros((lr010, lr010))
-
-    if verbose:
-        print("Building Covext...")
-    # start together, finish together
-    if nirdl0 == nirdl1 and nfrdl0 == nfrdl1:
-        if verbose:
-            print("Start together, finish together")
-        id1 = np.where((n1 == nirdl0) & (n2 == nirdl0))[0][0]
-        Covext = CovG[id1 : id1 + lr010]
-        id1 = np.where((n1 == nirdl0) & (n2 == nirdl0))[0][2]
-        Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-        for icov in range(nirdl0 + 1, nfrdl0 + 1):
-            id1 = np.where((n1 == icov) & (n2 == nirdl0))[0][0]
-            Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-            id1 = np.where((n1 == icov) & (n2 == nirdl0))[0][2]
-            Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-    # start together, finish in l=0
-    elif nirdl0 == nirdl1 and nfrdl0 > nfrdl1:
-        if verbose:
-            print("Start together, finish in l=0")
-        id1 = np.where((n1 == nirdl0) & (n2 == nirdl0))[0][0]
-        Covext = CovG[id1 : id1 + lr010]
-        id1 = np.where((n1 == nirdl0) & (n2 == nirdl0))[0][2]
-        Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-        for icov in range(nirdl0 + 1, nfrdl0):
-            id1 = np.where((n1 == icov) & (n2 == nirdl0))[0][0]
-            Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-            id1 = np.where((n1 == icov) & (n2 == nirdl0))[0][2]
-            Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-        id1 = np.where((n1 == nfrdl0) & (n2 == nirdl0))[0][0]
-        Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-    # start l=1, finish together
-    elif nirdl0 > nirdl1 and nfrdl0 == nfrdl1:
-        if verbose:
-            print("Start l=1, finish together")
-        # l=0 exist in the file, take the second pair of nirDl1
-        if any((n1 == nirdl1) & (rty1 == b"r01")):
-            if verbose:
-                print("l=0 exist in the file, take the second pair of nirDl1")
-            id1 = np.where((n1 == nirdl1) & (n2 == nirdl1))[0][3]
-            Covext = CovG[id1 : id1 + lr010]
-            for icov in range(nirdl1 + 1, nfrdl0 + 1):
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][1]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][3]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-        else:  # Only the R_01 present
-            if verbose:
-                print("Only R_01 present")
-            id1 = np.where((n1 == nirdl1) & (n2 == nirdl1))[0][0]
-            Covext = CovG[id1 : id1 + lr010]
-            for icov in range(nirdl1 + 1, nfrdl0 + 1):
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][0]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][1]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-    # start l=1, finish l=0
-    elif nirdl0 > nirdl1 and nfrdl0 > nfrdl1:
-        if verbose:
-            print("Start l=1, finish l=0")
-        # l=0 exist in the file, take the second pair of nirDl1
-        if any((n1 == nirdl1) & (rty1 == b"r01")):
-            if verbose:
-                print("l=0 exist in the file, take the second pair of nirDl1")
-            id1 = np.where((n1 == nirdl1) & (n2 == nirdl1))[0][3]
-            Covext = CovG[id1 : id1 + lr010]
-            for icov in range(nirdl1 + 1, nfrdl0):
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][1]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][3]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-            id1 = np.where((n1 == nfrdl0) & (n2 == nirdl1))[0][1]
-            Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-        else:  # only the R_01 present
-            if verbose:
-                print("Only the R_01 present")
-            id1 = np.where((n1 == nirdl1) & (n2 == nirdl1))[0][0]
-            Covext = CovG[id1 : id1 + lr010]
-            for icov in range(nirdl1 + 1, nfrdl0):
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][0]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-                id1 = np.where((n1 == icov) & (n2 == nirdl1))[0][1]
-                Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-            id1 = np.where((n1 == nfrdl0) & (n2 == nirdl1))[0][0]
-            Covext = np.append(Covext, CovG[id1 : id1 + lr010])
-    else:
-        print("Problem building Covext!")
-        pass
-
-    cont = 0
-    for in1 in range(len(covar010[0, :])):
-        for in2 in range(len(covar010[:, 0])):
-            covar010[in1, in2] = Covext[cont]
-            cont += 1
-    return r010var, covar010
-
-
-def read_r02(filename, rrange, nottrustedfile):
-    """
-    Routine to extract the frequency ratios r02 in the desired n-range,
-    and the corresponding covariance matrix
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-    rrange : list
-        Radial range in ratios to be used for different angular degree
-    nottrustedfile : str or None
-        Name of file containing the (l, n) values of frequencies to be
-        omitted in the fit. If None, no modes will be excluded.
-
-    Returns
-    -------
-    r02var : array
-        Value of the frequency ratios, the associated central frequency,
-        and the uncertainty in the ratios
-    covar02 : array
-        Covariances between frequency ratios
-    """
-    orders, ratios, ratio_types, errors = read_ratios_xml(filename)[:4]
-    if b"r02" not in ratio_types:
-        r02var, covar02 = None, None
-        return r02var, covar02
-
-    # Unpack rrange
-    nirdl2, nfrdl2 = rrange[4:]
-
-    # Compute frequency ratios array
-    obskey, obs, _ = read_freq(filename, nottrustedfile=nottrustedfile)
-    obskey_l0, obs_l0 = su.get_givenl(l=0, osc=obs, osckey=obskey)
-
-    r02ind = ratio_types == b"r02"
-    nr02 = orders[r02ind]
-    r02dat = np.zeros((2, len(nr02)))
-    r02dat[0, :] = ratios[r02ind]
-    r02dat[1, :] = errors[r02ind]
-
-    # Extract them by n-range?
-    id1 = np.where(nr02 == nirdl2)[0][0]
-    id2 = np.where(nr02 == nfrdl2)[0][0] + 1
-    r02var = np.zeros((3, len(r02dat[0, id1:id2])))
-    r02var[0, :] = r02dat[0, id1:id2]
-    r02var[2, :] = r02dat[1, id1:id2]
-    nmask = (obskey_l0[1, :] >= nirdl2) & (obskey_l0[1, :] <= nfrdl2)
-    r02var[1, :] = obs_l0[0, nmask]
-
-    # Read covariances
-    cov, corr, CovG, corG, n1, n2, rty1 = read_cov_xml(filename, allparams=True)[:7]
-    r02ind = rty1 == b"r02"
-    CovG = CovG[r02ind]
-    corG = corG[r02ind]
-    n1 = n1[r02ind]
-    n2 = n2[r02ind]
-    rty1 = rty1[r02ind]
-    lr02 = len(r02var[0, :])
-    covar02 = np.zeros((lr02, lr02))
-
-    # Extract the matrix if necessary
-    id1 = np.where((n1 == nirdl2) & (n2 == nirdl2))[0][0]
-    Covext02 = CovG[id1 : id1 + lr02]
-    for icov in np.arange(nirdl2 + 1, nfrdl2 + 1):
-        id1 = np.where((n1 == icov) & (n2 == nirdl2))[0][0]
-        Covext02 = np.append(Covext02, CovG[id1 : id1 + lr02])
-
-    cont = 0
-    for in1 in range(len(covar02[0, :])):
-        for in2 in range(len(covar02[:, 0])):
-            covar02[in1, in2] = Covext02[cont]
-            cont += 1
-
-    return r02var, covar02
-
-
 def read_glitch(filename):
     """
     Read glitch parameters.
@@ -1121,40 +411,40 @@ def read_glitch(filename):
     return glitchparams, cov
 
 
-def legacy_read_precomputedratios(
-    obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False
-):
-    assert ratiotype in ["r010", "r02"]
-    r02, _, _ = freq_fit.compute_ratios(
-        obskey, obs, ratiotype="r02", threepoint=threepoint
-    )
-    r01, _, _ = freq_fit.compute_ratios(
-        obskey, obs, ratiotype="r01", threepoint=threepoint
-    )
-    r10, _, _ = freq_fit.compute_ratios(
-        obskey, obs, ratiotype="r10", threepoint=threepoint
-    )
-    rrange = (
-        int(round(r01[0, 0])),
-        int(round(r01[-1, 0])),
-        int(round(r10[0, 0])),
-        int(round(r10[-1, 0])),
-        int(round(r02[0, 0])),
-        int(round(r02[-1, 0])),
-    )
-
-    if ratiotype == "r010":
-        ratio, cov = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
-    elif ratiotype == "r02":
-        ratio, cov = read_r02(filename, rrange, nottrustedfile)
-    covinv = np.linalg.pinv(cov, rcond=1e-8)
-    return ratio, cov, covinv
-
-
 def read_precomputed_ratios(
     filename, ratiotype, obskey, obs, nottrustedfile=None, correlations=True
 ):
-    """ """
+    """
+    Read the precomputed ratios and covariance matrix from xml-file.
+
+    Parameters
+    ----------
+    filename : str
+        Path to xml-file to be read
+    ratiotype : str
+        Ratio sequence to be read, see constants.freqtypes.rtypes for
+        possible sequences.
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
+    obs : array
+        Individual frequencies and uncertainties.
+    nottrustedfile : str or None, optional
+        Name of file containing the (l, n) values of frequencies to be
+        omitted in the fit. Does however only trigger a warning for
+        precomputed ratios.
+    correlations : bool
+        True for reading covariance matrix from xml, False to assume no
+        correlations, and simply use individual errors on ratios.
+
+    Returns
+    -------
+    ratios : array
+        Contains frequency ratios, their identifying integers of sequence and
+        radial order, and their frequency location (matching l=0 frequency).
+    cov : array
+        Covariance matrix matching the ratios.
+    """
+    # Print warning to user
     if nottrustedfile != None:
         wstr = "Warning: Removing precomputed ratios based on "
         wstr += "not-trusted-file is not yet supported!"
@@ -1212,6 +502,23 @@ def read_precomputed_ratios(
 
 
 def read_ratios_cov_xml(xmlroot, types, order):
+    """
+    Read the precomputed covariance matrix of the read precomputed ratios.
+
+    Parameters
+    ----------
+    xmlroot : Element
+        Element tree of xml-file.
+    types : array
+        Ratios types of all ratios to be read
+    order : array
+        Radial order of all ratios to be read
+
+    Returns
+    -------
+    cov : array
+        Covariance matrix matching the ratios.
+    """
     # Empty matrix to fill out and format string to look for
     cov = np.zeros((len(types), len(types)))
     fstr = (
@@ -1583,51 +890,9 @@ def read_allseismic(
     return obskey, obs, obsfreqdata, obsfreqmeta
 
 
-def get_freq_ranges(filename):
-    """
-    Get the ranges of available radial orders in a frequency xml-file
-
-    Parameters
-    ----------
-    filename : str
-        Name of the xml-file
-
-    Returns
-    -------
-    nrange : tuple
-        Lower and upper bounds on the radial order n for l=0,1,2
-    rrange : tuple
-        Lower and upper bounds on the radial order n for r01, r10, and r02
-    """
-
-    try:
-        data = read_freqs_xml(filename)
-        orders, ratios, ratio_types = read_ratios_xml(filename)[:3]
-    except Exception as err:
-        print(err)
-        return
-
-    n0 = data[2][data[3] == 0]
-    n1 = data[2][data[3] == 1]
-    n2 = data[2][data[3] == 2]
-
-    r01 = []
-    r10 = []
-    r02 = []
-    for j, rtype in enumerate(ratio_types):
-        if "01" in rtype.decode("utf-8"):
-            r01.append(orders[j])
-        elif "10" in rtype.decode("utf-8"):
-            r10.append(orders[j])
-        elif "02" in rtype.decode("utf-8"):
-            r02.append(orders[j])
-        else:
-            raise ValueError("Unknown ratio type encountered")
-
-    nrange = (n0[0], n0[-1], n1[0], n1[-1], n2[0], n2[-1])
-    rrange = (r01[0], r01[-1], r10[0], r10[-1], r02[0], r02[-1])
-
-    return nrange, rrange
+##############################################################
+# Routines related to reading ascii-files and convert to xml #
+##############################################################
 
 
 def freqs_ascii_to_xml(
@@ -1920,3 +1185,194 @@ def freqs_ascii_to_xml(
     # Write output to file starid.xml
     with open(os.path.join(directory, starid + ".xml"), "w") as xmlfile:
         print(pretty_xml, file=xmlfile)
+
+
+def read_fre(filename, symmetric_errors=True, nbeforel=True):
+    """
+    Read individual frequencies from an ascii file
+
+    Parameters
+    ----------
+    filename : str
+        Name of file to read
+    symmetric_errors : bool, optional
+        If True, assumes the ascii file to contain only one column with
+        frequency errors. Otherwise, the file must include asymmetric
+        errors (error_plus and error_minus). Default is True.
+    nbeforel : bool, optional
+        If True (default), the column containing the orders n is [0], and
+        the column containing the degrees l is [1].
+        If False, it is the other way around.
+
+    Returns
+    -------
+    freqs : array
+        Contains the radial order, angular degree, frequency, uncertainty,
+        and flag
+    """
+    if nbeforel:
+        if symmetric_errors:
+            freqs = np.genfromtxt(
+                filename,
+                dtype=[
+                    ("order", "int"),
+                    ("degree", "int"),
+                    ("frequency", "float"),
+                    ("error", "float"),
+                    ("flag", "int"),
+                ],
+                encoding=None,
+            )
+        else:
+            freqs = np.genfromtxt(
+                filename,
+                dtype=[
+                    ("order", "int"),
+                    ("degree", "int"),
+                    ("frequency", "float"),
+                    ("error", "float"),
+                    ("error_plus", "float"),
+                    ("error_minus", "float"),
+                    ("frequency_mode", "float"),
+                    ("flag", "int"),
+                ],
+                encoding=None,
+            )
+    else:
+        if symmetric_errors:
+            freqs = np.genfromtxt(
+                filename,
+                dtype=[
+                    ("degree", "int"),
+                    ("order", "int"),
+                    ("frequency", "float"),
+                    ("error", "float"),
+                    ("flag", "int"),
+                ],
+                encoding=None,
+            )
+        else:
+            freqs = np.genfromtxt(
+                filename,
+                dtype=[
+                    ("degree", "int"),
+                    ("order", "int"),
+                    ("frequency", "float"),
+                    ("error", "float"),
+                    ("error_plus", "float"),
+                    ("error_minus", "float"),
+                    ("frequency_mode", "float"),
+                    ("flag", "int"),
+                ],
+                encoding=None,
+            )
+    return freqs
+
+
+def read_cov_freqs(filename):
+    """
+    Read covariance and correlations for individual frequencies from an
+    ascii file
+
+    Parameters
+    ----------
+    filename : str
+        Name of file to read
+
+    Returns
+    -------
+    cov : array
+        Contains the angular degree, radial order, covariances and
+        correlations between the individual frequencies
+    """
+    cov = np.genfromtxt(
+        filename,
+        dtype=[
+            ("l1", "int"),
+            ("n1", "int"),
+            ("l2", "int"),
+            ("n2", "int"),
+            ("covariance", "float"),
+            ("correlation", "float"),
+        ],
+        encoding=None,
+    )
+    return cov
+
+
+def read_ratios(filename, symmetric_errors=True):
+    """
+    Read frequency ratios from an ascii file
+
+    Parameters
+    ----------
+    filename : str
+        Name of file to read
+    symmetric_errors : bool, optional
+        If True, assumes the ascii file to contain only one column with
+        frequency errors. Otherwise, the file must include asymmetric
+        errors (error_plus and error_minus). Default is True.
+
+    Returns
+    -------
+    ratios : array
+        Contains the frequency ratios type, radial order, value,
+        uncertainty added in quadrature, upper uncertainty, and lower
+        uncertainty
+    """
+    if symmetric_errors:
+        ratios = np.genfromtxt(
+            filename,
+            dtype=[
+                ("ratio_type", "S3"),
+                ("n", "int"),
+                ("value", "float"),
+                ("error", "float"),
+            ],
+            encoding=None,
+        )
+    else:
+        ratios = np.genfromtxt(
+            filename,
+            dtype=[
+                ("ratio_type", "S3"),
+                ("n", "int"),
+                ("value", "float"),
+                ("error", "float"),
+                ("error_plus", "float"),
+                ("error_minus", "float"),
+            ],
+            encoding=None,
+        )
+    return ratios
+
+
+def read_cov_ratios(filename):
+    """
+    Read covariance and correlations for frequency ratios from an
+    ascii file
+
+    Parameters
+    ----------
+    filename : str
+        Name of file to read
+
+    Returns
+    -------
+    cov : array
+        Contains the ratio type, radial order, covariances and
+        correlations between the frequency ratios
+    """
+    cov = np.genfromtxt(
+        filename,
+        dtype=[
+            ("ratio_type1", "S4"),
+            ("n1", "int"),
+            ("ratio_type2", "S4"),
+            ("n2", "int"),
+            ("covariance", "float"),
+            ("correlation", "float"),
+        ],
+        encoding=None,
+    )
+    return cov
