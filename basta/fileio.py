@@ -238,7 +238,7 @@ def read_ratios_xml(filename):
     # Simply get the orders and frequency ratios as numpy arrays:
     orders = np.array([ratio.get("order") for ratio in freq_ratios], dtype=int)
     ratios = np.array([ratio.get("value") for ratio in freq_ratios], dtype="float64")
-    ratio_types = np.array([ratio.get("type") for ratio in freq_ratios], dtype="|S3")
+    ratio_types = np.array([ratio.get("type") for ratio in freq_ratios], dtype="|U3")
     errors = np.array([ratio.get("error") for ratio in freq_ratios], dtype="float64")
     errors_m = np.array(
         [ratio.get("error_minus") for ratio in freq_ratios], dtype="float64"
@@ -1121,7 +1121,7 @@ def read_glitch(filename):
     return glitchparams, cov
 
 
-def read_precomputedratios(
+def legacy_read_precomputedratios(
     obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False
 ):
     assert ratiotype in ["r010", "r02"]
@@ -1149,6 +1149,88 @@ def read_precomputedratios(
         ratio, cov = read_r02(filename, rrange, nottrustedfile)
     covinv = np.linalg.pinv(cov, rcond=1e-8)
     return ratio, cov, covinv
+
+
+def read_precomputed_ratios(
+    filename, ratiotype, obskey, obs, nottrustedfile=None, correlations=True
+):
+    """ """
+    if nottrustedfile != None:
+        wstr = "Warning: Removing precomputed ratios based on "
+        wstr += "not-trusted-file is not yet supported!"
+        print(wstr)
+
+    # Read in xml tree/root
+    tree = ElementTree.parse(filename)
+    root = tree.getroot()
+
+    # Get all ratios available in xml
+    all_ratios = root.findall("frequency_ratio")
+
+    # Make numpy arrays of all ratios
+    # Developers note: Standard examples also contain unused "error_minus" and "error_plus"
+    orders = np.array([ratio.get("order") for ratio in all_ratios], dtype=int)
+    ratval = np.array([ratio.get("value") for ratio in all_ratios], dtype=float)
+    types = np.array([ratio.get("type") for ratio in all_ratios], dtype="U3")
+    errors = np.array([ratio.get("error") for ratio in all_ratios], dtype=float)
+
+    # Make sorting mask for the desired ratio sequence
+    if ratiotype == "r012":
+        mask = np.where(np.logical_or(types == "r01", types == "r02"))[0]
+    elif ratiotype == "r102":
+        mask = np.where(np.logical_or(types == "r10", types == "r02"))[0]
+    elif ratiotype == "r010":
+        mask = np.where(np.logical_or(types == "r01", types == "r10"))[0]
+    else:
+        mask = np.where(types == ratiotype)[0]
+
+    # Pack into data structure
+    ratios = np.zeros((4, len(mask)))
+    ratios[0, :] = ratval[mask]
+    ratios[3, :] = orders[mask]
+    ratios[2, :] = [int(r[1:]) for r in types[mask]]
+
+    # Get frequency location from obs and obskey
+    try:
+        for i, nn in enumerate(ratios[3, :]):
+            l0mask = obskey[0, :] == 0
+            ratios[1, i] = obs[0, l0mask][obskey[1, l0mask] == nn]
+    except ValueError as e:
+        wstr = "Could not find l=0, n={0:d} frequency to match {1}(n={0:d})!"
+        raise KeyError(wstr.format(int(nn), types[mask][i])) from e
+
+    # Sort n-before-l
+    sorting = np.argsort(ratios[3, :] + 0.01 * ratios[2, :])
+    ratios = ratios[:, sorting]
+
+    # Either read covariance matrix or assume uncorrelated
+    if correlations:
+        cov = read_ratios_cov_xml(root, types[mask][sorting], orders[mask][sorting])
+    else:
+        cov = np.diag(errors[mask][sorting])
+    return ratios, cov
+
+
+def read_ratios_cov_xml(xmlroot, types, order):
+    # Empty matrix to fill out and format string to look for
+    cov = np.zeros((len(types), len(types)))
+    fstr = (
+        "frequency_ratio_corr[@type1='{0}'][@order1='{1}'][@type2='{2}'][@order2='{3}']"
+    )
+
+    # Loop for each index in matrix and find it in xml
+    for ind1, (type1, order1) in enumerate(zip(types, order)):
+        for ind2, (type2, order2) in enumerate(zip(types, order)):
+            try:
+                element = xmlroot.findall(fstr.format(type1, order1, type2, order2))[0]
+            except IndexError as e:
+                wstr = (
+                    "Could not find covariance between {0}(n={1}) and {2}(n={3}) in xml"
+                )
+                raise KeyError(wstr.format(type1, order1, type2, order2)) from e
+            cov[ind1, ind2] = float(element.find("covariance").get("value"))
+
+    return cov
 
 
 def compute_dnudata(obskey, obs, numax):
@@ -1409,51 +1491,45 @@ def read_allseismic(
 
     # Compute or dataread in required ratios
     if obsfreqmeta["getratios"]:
-        readratiotypes = []
         if fitfreqs["readratios"]:
-            # Parse the XML file:
-            tree = ElementTree.parse(fitfreqs["freqfile"])
-            root = tree.getroot()
-
-            # Find a list of all available frequency ratios:
-            readratiotypes = list(root.findall("frequency_ratio"))
-            for ratiotype in readratiotypes:
-                datos = read_precomputedratios(
+            # Read all requested ratio sequences
+            for ratiotype in set(obsfreqmeta["ratios"]["fit"]) | set(
+                obsfreqmeta["ratios"]["plot"]
+            ):
+                datos = read_precomputed_ratios(
+                    fitfreqs["freqfile"],
+                    ratiotype,
                     obskey,
                     obs,
-                    ratiotype,
-                    fitfreqs["freqfile"],
                     fitfreqs["nottrustedfile"],
-                    threepoint=fitfreqs["threepoint"],
-                    verbose=verbose,
+                    fitfreqs["correlations"],
                 )
                 obsfreqdata[ratiotype] = {}
                 obsfreqdata[ratiotype]["data"] = datos[0]
                 obsfreqdata[ratiotype]["cov"] = datos[1]
-                obsfreqdata[ratiotype]["covinv"] = datos[2]
-
-        for ratiotype in (
-            set(obsfreqmeta["ratios"]["fit"]) | set(obsfreqmeta["ratios"]["plot"])
-        ) - set(readratiotypes):
-            obsfreqdata[ratiotype] = {}
-            datos = freq_fit.compute_ratios(
-                obskey, obs, ratiotype, threepoint=fitfreqs["threepoint"]
-            )
-            if datos is not None:
-                obsfreqdata[ratiotype]["data"] = datos[0]
-                obsfreqdata[ratiotype]["cov"] = datos[1]
-            else:
-                if ratiotype in obsfreqmeta["ratios"]["fit"]:
-                    # Fail
-                    raise ValueError(
-                        f"Fitting parameter {ratiotype} could not be computed."
-                    )
+        else:
+            for ratiotype in set(obsfreqmeta["ratios"]["fit"]) | set(
+                obsfreqmeta["ratios"]["plot"]
+            ):
+                obsfreqdata[ratiotype] = {}
+                datos = freq_fit.compute_ratios(
+                    obskey, obs, ratiotype, threepoint=fitfreqs["threepoint"]
+                )
+                if datos is not None:
+                    obsfreqdata[ratiotype]["data"] = datos[0]
+                    obsfreqdata[ratiotype]["cov"] = datos[1]
                 else:
-                    # Do not fail as much
-                    print(f"Ratio {ratiotype} could not be computed.")
-                    obsfreqdata[ratiotype]["data"] = None
-                    obsfreqdata[ratiotype]["cov"] = None
-                    obsfreqdata[ratiotype]["covinv"] = None
+                    if ratiotype in obsfreqmeta["ratios"]["fit"]:
+                        # Fail
+                        raise ValueError(
+                            f"Fitting parameter {ratiotype} could not be computed."
+                        )
+                    else:
+                        # Do not fail as much
+                        print(f"Ratio {ratiotype} could not be computed.")
+                        obsfreqdata[ratiotype]["data"] = None
+                        obsfreqdata[ratiotype]["cov"] = None
+                        obsfreqdata[ratiotype]["covinv"] = None
 
     # Get glitches
     if obsfreqmeta["getglitch"]:
