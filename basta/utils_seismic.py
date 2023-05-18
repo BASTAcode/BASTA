@@ -642,7 +642,7 @@ def check_epsilon_of_freqs(freqs, starid, dnu, quiet=False):
         return 0
 
 
-def scale_by_inertia(osckey, osc):
+def scale_by_inertia(osckey, osc, enhance=False):
     """
     This function outputs the scaled sizes of the modes scaled inversly by the
     normalized inertia of the mode.
@@ -671,8 +671,12 @@ def scale_by_inertia(osckey, osc):
         s0 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl0[1, :]]
         s.append(np.asarray(s0))
     if len(oscl1) != 0:
-        s1 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl1[1, :]]
-        s.append(np.asarray(s1))
+        if enhance:
+            s1 = [30 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl1[1, :]]
+            s.append(np.asarray(s1))
+        else:
+            s1 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl1[1, :]]
+            s.append(np.asarray(s1))
     if len(oscl2) != 0:
         s2 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl2[1, :]]
         s.append(np.asarray(s2))
