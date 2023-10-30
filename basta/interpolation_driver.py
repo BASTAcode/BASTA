@@ -147,7 +147,6 @@ def _unpack_intpol(intpol, dnusun, basepath):
         try:
             gridres = intpol["gridresolution"]
             alongvar = gridres["baseparam"]
-            del gridres["baseparam"]
             print("Required gridresolution given by:")
             [print(" ", k, gridres[k]) if gridres[k] != 0 else None for k in gridres]
         except KeyError:
@@ -349,15 +348,15 @@ def _interpolate_grid(
         grid.close()
     elif case == "across":
         ih.write_header(grid, outfile, basepath)
-        iac.interpolate_across(
+        ico.interpolate_combined(
             grid,
             outfile,
-            gridresolution,
             selectedmodels,
+            False,
+            gridresolution,
             intpolparams,
             basepath,
             intpol_freqs,
-            alongvar,
             outbasename,
             debug,
         )
@@ -527,7 +526,8 @@ def perform_interpolation(
         intpolparams.remove("parallax")
     mask = [True if par in parameters.names else False for par in intpolparams]
     intpolparams = list(np.asarray(intpolparams)[mask])
-    if inputparams.get("fitfreqs", False):
+    fitfreqs = inputparams.get("fitfreqs")
+    if fitfreqs["active"]:
         intpolparams.append("freqs")
 
     # Run the external routine

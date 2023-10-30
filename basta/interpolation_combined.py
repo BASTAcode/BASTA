@@ -19,7 +19,7 @@ from basta import plot_interp as ip
 from basta import interpolation_helpers as ih
 
 
-def _calc_across_points(
+def _calc_across_tracks(
     base,
     baseparams,
     tri,
@@ -113,6 +113,102 @@ def _calc_across_points(
     return newbase, trindex, sob_nums[mask != -1]
 
 
+def _calc_across_isochs(
+    base,
+    baseparams,
+    tri,
+    scale,
+    outbasename,
+    debug=False,
+):
+    """
+    Determine the new points for isochrones in the base parameters.
+
+    Parameters
+    ----------
+    base : array
+        The current base of the grid, formed as (number of tracks, parameters in base).
+
+    baseparams : dict
+        Dictionary of the parameters forming the grid, with the required resolution of
+        the parameters.
+
+    tri : object
+        Triangulation of the base.
+
+    sobol : float
+        Scale resolution for Sobol-sampled interpolation
+
+    outbasename : str
+        Name of the outputted plot of the base.
+
+    Returns
+    -------
+    newbase : array
+        A base of the new points in the base, same structure as input base.
+
+    trindex : array
+        List of simplexes of the new points, for determination of the enveloping
+        tracks.
+
+    sob_nums : array
+        Sobol numbers used to generate new base, which is needed for determining
+        volume weights of the tracks
+    """
+
+    # Find all unique values
+    ageind = np.where(["age" in bp for bp in baseparams])[0][0]
+    FeHind = np.where(["FeH" in bp for bp in baseparams])[0][0]
+    ages = np.unique(base[:, ageind])
+    FeHs = np.sort(np.unique(base[:, FeHind]))
+
+    # New base, inject sobol/scale number of isoc
+    newbase = np.zeros(((len(FeHs) - 1) * int(scale) * len(ages), 2))
+    # Collect index of isochrone above/below
+    indexes = np.zeros(newbase.shape, dtype=int)
+    # Mask for removing new points outside original base
+    mask = np.ones(len(newbase), dtype=bool)
+
+    ir = 0
+    for f in range(len(FeHs) - 1):
+        dFeH = (FeHs[f + 1] - FeHs[f]) / (scale + 1)
+        for i in range(int(scale)):
+            newbase[ir : ir + len(ages), ageind] = ages
+            newbase[ir : ir + len(ages), FeHind] = FeHs[f] + dFeH * (i + 1)
+
+            for j, age in enumerate(ages):
+                lowInd = np.where(
+                    np.logical_and(base[:, ageind] == age, base[:, FeHind] == FeHs[f])
+                )[0]
+                uppInd = np.where(
+                    np.logical_and(
+                        base[:, ageind] == age, base[:, FeHind] == FeHs[f + 1]
+                    )
+                )[0]
+                if len(lowInd) and len(uppInd):
+                    indexes[ir + j, :] = [lowInd[0], uppInd[0]]
+                else:
+                    mask[ir + j] = False
+            ir += len(ages)
+
+    # Apply mask
+    newbase = newbase[mask]
+    indexes = indexes[mask]
+
+    # Plot of old vs. new base of subgrid
+    if len(baseparams) > 1 and debug:
+        outname = outbasename.split(".")[-2] + "_all"
+        outname += "." + outbasename.split(".")[-1]
+        success = ip.base_corner(baseparams, base, newbase, tri, scale, outname)
+        if success:
+            print(
+                "Initial across interpolation base has been plotted in",
+                "figure",
+                outname,
+            )
+    return newbase, indexes
+
+
 def interpolate_combined(
     grid,
     outfile,
@@ -176,11 +272,13 @@ def interpolate_combined(
 
     # Ensure Bayesian weight along
     if "grid" in basepath:
+        trackmode = True
         dname = "dage"
-        intpolparams = np.unique(np.append(intpolparams, dname))
     else:
+        trackmode = False
         dname = "dmass"
-        intpolparams = np.unique(np.append(intpolparams, dname))
+
+    intpolparams = np.append(intpolparams, dname)
 
     # Read input
     scale = gridresolution["scale"]
@@ -202,10 +300,11 @@ def interpolate_combined(
     # Collect the parameters
     headvars = list(np.unique(pars_sampled + pars_varied + pars_constant))
 
-    # Determine the number to assign the new tracks
-    tracklist = list(grid[os.path.join(basepath, "tracks")].items())
-    newnum = max([int(f[0].split("track")[-1]) for f in tracklist]) + 1
-    numfmt = max(len(str(newnum)), len(str(int(newnum * scale))))
+    if trackmode:
+        # Determine the number to assign the new tracks
+        tracklist = list(grid[os.path.join(basepath, "tracks")].items())
+        newnum = max([int(f[0].split("track")[-1]) for f in tracklist]) + 1
+        numfmt = max(len(str(newnum)), len(str(int(newnum * scale))))
 
     # Check we have enough source tracks in the sub-box to form a simplex
     if len(selectedmodels) < len(pars_sampled) + 1:
@@ -228,14 +327,28 @@ def interpolate_combined(
     # Determine the base params for new tracks
     print("\nBuilding triangulation ... ", end="", flush=True)
     triangulation = spatial.Delaunay(base)
-    new_points, trindex, sobnums = _calc_across_points(
-        base,
-        pars_sampled,
-        triangulation,
-        scale,
-        outbasename,
-        debug,
-    )
+    if trackmode:
+        new_points, trindex, sobnums = _calc_across_tracks(
+            base,
+            pars_sampled,
+            triangulation,
+            scale,
+            outbasename,
+            debug,
+        )
+    else:
+        new_points, trindex = _calc_across_isochs(
+            base,
+            pars_sampled,
+            triangulation,
+            scale,
+            outbasename,
+            debug,
+        )
+        ageind = np.where(["age" in bp for bp in pars_sampled])[0][0]
+        FeHind = np.where(["FeH" in bp for bp in pars_sampled])[0][0]
+        pars_sampled.pop(ageind)
+        base = np.delete(base, ageind, axis=1)
     print("done!")
 
     # List of tracknames for accessing grid
@@ -272,18 +385,34 @@ def interpolate_combined(
         pbar.update(1)
 
         # Directory of the track/isochrone
-        libname = os.path.join(
-            basepath,
-            "tracks",
-            "track{{:0{0}d}}".format(numfmt).format(int(newnum + tracknum)),
-        )
+        if trackmode:
+            libname = os.path.join(
+                basepath,
+                "tracks",
+                "track{{:0{0}d}}".format(numfmt).format(int(newnum + tracknum)),
+            )
+            simplename = "Track {:d}".format(int(newnum + tracknum))
+        else:
+            libname = os.path.join(
+                basepath,
+                "FeH={:.4f}".format(point[FeHind]),
+                "age={:.4f}".format(point[ageind]),
+            )
+            simplename = "Isochrone FeH={:.4f}/age={:.4f}".format(
+                point[FeHind], point[ageind]
+            )
+            if not trackmode:
+                point = np.delete(point, ageind)
 
         #############################################################
         # BLOCK 1: Enveloping tracks data collection and along base #
         #############################################################
 
         # Information to be collected from enveloping tracks
-        ind = triangulation.simplices[tind]
+        if trackmode:
+            ind = triangulation.simplices[tind]
+        else:
+            ind = tind
         count = sum([sum(selectedmodels[tracknames[i]]) for i in ind])
         intbase = np.zeros((count, len(pars_sampled) + 1))
         envres = np.zeros((count, len(pars_sampled) + 1))
@@ -336,17 +465,24 @@ def interpolate_combined(
         # Check of overlap from min and max
         minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
         if minmax[0] > minmax[1]:
-            warstr = "Warning: Track {0} ".format(newnum + tracknum)
-            warstr += "aborted, no overlap in {0}.".format(along_var)
+            warstr = (
+                "Warning: "
+                + simplename
+                + " aborted, no overlap in {0}.".format(along_var)
+            )
             print(warstr)
             success[tracknum] = False
             outfile[os.path.join(libname, "IntStatus")] = -1
             continue
-
         # Get base for new track, based on requested along resolution
         try:
             newbvar = ih.calc_along_points(
-                intbase, sections, minmax, point, envres, trackresolution["value"]
+                intbase,
+                sections,
+                minmax,
+                point,
+                envres,
+                trackresolution["value"] if alongintpol else False,
             )
         except:
             warstr = "Choice of base parameter '{:s}' resulted".format(along_var)
@@ -379,6 +515,8 @@ def interpolate_combined(
                     outfile[keypath] = newbase.shape[0] * [b"interpolated-entry"]
                 elif key == dname:
                     dpath = os.path.join(libname, key[1:])
+                    if not trackmode:
+                        dpath += "ini"
                     keypath = os.path.join(libname, key)
                     outfile[keypath] = ih.bay_weights(outfile[dpath])
                 elif (key in headvars) or ("_weight" in key):
@@ -395,7 +533,7 @@ def interpolate_combined(
                         sub_triangle, y, newbase, along=False
                     )
                     if any(np.isnan(newparam)):
-                        nan = "Track {0} had NaN value(s)!".format(newnum + tracknum)
+                        nan = simplename + " had NaN value(s)!"
                         raise ValueError(nan)
 
                     # Write to new gridfile
@@ -494,7 +632,7 @@ def interpolate_combined(
             success[tracknum] = False
             print("Error:", sys.exc_info()[1])
             outfile[os.path.join(libname, "IntStatus")] = -1
-            print("Interpolation failed for track {0}".format(newnum + tracknum))
+            print("Interpolation failed for " + simplename)
 
     ####################
     # End of main loop #
@@ -506,7 +644,7 @@ def interpolate_combined(
     ########################################
 
     # Plot the new resulting base
-    if outbasename:
+    if outbasename and trackmode:
         plotted = ip.base_corner(
             pars_sampled, base, new_points[success], triangulation, scale, outbasename
         )
