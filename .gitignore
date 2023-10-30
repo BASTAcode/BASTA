@@ -31,6 +31,7 @@ examples/grids/
 
 # Editor
 *.swp
+.vscode/
 
 # Folder for downloading/storing the dustmaps
 dustmaps/

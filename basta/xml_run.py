@@ -15,7 +15,7 @@ from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
 from basta.constants import parameters
 from basta.constants import freqtypes
-from basta.fileio import no_models, read_freqs_xml
+from basta.fileio import no_models, read_freqs_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import unique_unsort
 
@@ -172,8 +172,8 @@ def _get_freq_minmax(star, freqpath):
     freqfile = os.path.join(freqpath, star.get("starid") + ".xml")
     f, _, _, _ = read_freqs_xml(freqfile)
     dnu = float(star.find("dnu").get("value"))
-    fmin = f.min() - 0.5 * dnu
-    fmax = f.max() + 0.5 * dnu
+    fmin = f.min() - 2.0 * dnu
+    fmax = f.max() + 2.0 * dnu
     return fmin, fmax
 
 
@@ -230,6 +230,7 @@ def _get_intpol(root, gridfile, freqpath=None):
                 "eta": int(param.attrib.get("eta", 0.0)),
                 "scale": float(param.attrib.get("scale", 0.0)),
                 "baseparam": param.attrib.get("baseparam", "xcen"),
+                "extend": strtobool(param.attrib.get("extend", "False")),
             }
         elif param.tag.lower() == "name":
             intpol[param.tag.lower()] = {
@@ -239,6 +240,7 @@ def _get_intpol(root, gridfile, freqpath=None):
             intpol[param.tag.lower()] = {
                 "case": param.attrib.get("case"),
                 "construction": param.attrib.get("construction"),
+                "retrace": strtobool(param.attrib.get("retrace", "False")),
             }
         else:
             raise ValueError(
@@ -253,6 +255,13 @@ def _get_intpol(root, gridfile, freqpath=None):
         raise ValueError(
             "Unknown construction method selected. Must be either 'bystar' or 'encompass'!"
         )
+
+    # Permeate retrace option
+    if intpol["method"]["retrace"]:
+        if "trackresolution" in intpol:
+            intpol["trackresolution"]["retrace"] = True
+        if "gridresolution" in intpol:
+            intpol["gridresolution"]["retrace"] = True
 
     # If interpolation in frequencies requested, extract limits
     freqnames = ["freq", "freqs", "frequency", "frequencies", "osc"]
@@ -806,14 +815,39 @@ def run_xml(
                 continue
 
             # Call interpolation routine
-            if starid in allintpol:
-                gridfile = idriver.perform_interpolation(
-                    gridfile,
-                    idgrid,
-                    allintpol[starid],
+            try:
+                if starid in allintpol:
+                    gridfile = idriver.perform_interpolation(
+                        gridfile,
+                        idgrid,
+                        allintpol[starid],
+                        inputparams,
+                        debug=debug,
+                    )
+            except KeyboardInterrupt:
+                print("BASTA interpolation stopped manually. Goodbye!")
+                traceback.print_exc()
+                return
+            except ValueError as e:
+                print("\nBASTA interpolation stopped due to a value error!\n")
+                traceback.print_exc()
+                write_star_to_errfile(
+                    starid,
                     inputparams,
-                    debug=debug,
-                    verbose=verbose,
+                    "Interpolation {}: {}".format(e.__class__.__name__, e),
+                )
+                continue
+            except Exception as e:
+                print(
+                    "BASTA interpolation failed for star {0} with the error:".format(
+                        starid
+                    )
+                )
+                print(traceback.format_exc())
+                no_models(
+                    starid,
+                    inputparams,
+                    "Unhandled {}: {}".format(e.__class__.__name__, e),
                 )
 
             # Call BASTA itself!

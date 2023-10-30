@@ -785,6 +785,11 @@ def BASTA(
             "Warning: Models without frequencies overlapping with observed",
             "ignored due to interpolation of ratios being impossible.",
         )
+    if shapewarn == 3:
+        print(
+            "Warning: Models ignored due to phase shift differences being",
+            "unapplicable to models with mixed modes.",
+        )
     if noofposind == 0:
         fio.no_models(starid, inputparams, "No models found")
         return
