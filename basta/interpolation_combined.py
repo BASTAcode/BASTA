@@ -401,8 +401,8 @@ def interpolate_combined(
             simplename = "Isochrone FeH={:.4f}/age={:.4f}".format(
                 point[FeHind], point[ageind]
             )
-            if not trackmode:
-                point = np.delete(point, ageind)
+            point_age = point[ageind]
+            point = np.delete(point, ageind)
 
         #############################################################
         # BLOCK 1: Enveloping tracks data collection and along base #
@@ -584,6 +584,9 @@ def interpolate_combined(
             #################################################
             # BLOCK 2c: Constant parameters along the track #
             #################################################
+            if not trackmode:
+                keypath = os.path.join(libname, "age")
+                outfile[keypath] = np.ones(newbase.shape[0]) * point_age
             for par, parval in zip(pars_sampled, point):
                 keypath = os.path.join(libname, par)
                 outfile[keypath] = np.ones(newbase.shape[0]) * parval
@@ -655,7 +658,12 @@ def interpolate_combined(
 
     # Write the new tracks to the header, and recalculate the weights
     ih.update_header(outfile, basepath, headvars)
-    ih.recalculate_weights(outfile, basepath, sobnums, gridresolution["extend"])
+    if trackmode:
+        ih.recalculate_volume_weights(
+            outfile, basepath, sobnums, gridresolution["extend"]
+        )
+    else:
+        ih.recalculate_param_weights(outfile, basepath)
     grid.close()
 
     #######

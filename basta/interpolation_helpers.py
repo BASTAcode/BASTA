@@ -672,7 +672,7 @@ def recalculate_param_weights(outfile, basepath):
     None
     """
     isomode = False if "grid" in basepath else True
-    headvars = outfile["header/active_weights"][()]
+    headvars = [par.decode("utf-8") for par in outfile["header/active_weights"][()]]
 
     # Collect the relevant tracks/isochrones
     mask = []
@@ -706,7 +706,7 @@ def recalculate_param_weights(outfile, basepath):
                 outfile[weight_path] = weights[i]
 
 
-def recalculate_weights(outfile, basepath, sobnums, extend=False):
+def recalculate_volume_weights(outfile, basepath, sobnums, extend=False):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
