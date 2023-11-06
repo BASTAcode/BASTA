@@ -7,9 +7,9 @@
 [![ADS](https://img.shields.io/badge/ads-2022MNRAS.509.4344A-blue.svg)](https://ui.adsabs.harvard.edu/abs/2022MNRAS.509.4344A/abstract)
 [![DOI](https://img.shields.io/badge/doi-10.1093/mnras/stab2911-orange.svg)](https://doi.org/10.1093/mnras/stab2911)
 
-Current stable version: v1.2.1
+Current stable version: v1.3.0
 
-**Important note:** BASTA is developed for Python 3.11, but Python >= 3.7 might work as well.
+**Important note:** BASTA is developed for Python 3.11, but Python >= 3.7 should work as well. Currently 3.12 is *not* supported due to known build issues in NumPy/f2py.
 
 
 ## Before you begin
@@ -51,16 +51,18 @@ from the list please contact us.
 
 ## Authors
 
+The current core developing team members are:
+
+* Jakob Lysgaard Rørsted (maintainer)
+* Mark Lykke Winther (co-maintainer)
+* Amalie Stokholm
+* Kuldeep Verma
+
+
 The original author of the code is:
 
 * Víctor Aguirre Børsen-Koch
 
-The current core developing team are:
-
-* Jakob Lysgaard Rørsted
-* Mark Lykke Winther
-* Amalie Stokholm
-* Kuldeep Verma
 
 Throughout the years, many people have contributed to the addition and
 development of various parts and modules of BASTA. We welcome further
