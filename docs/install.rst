@@ -5,13 +5,14 @@ Installation
 
 **Please read all subsections on this page carefully to make sure all aspects of the installation are performed correctly!**
 
+**We know some of these instructions can seem a bit convoluted. We are working on a better installation alternative (especially for non-developers).**
 
 .. _ref_code:
 
 Obtaining the code and virtual environment
 ------------------------------------------
 
-*Important note: BASTA is developed for Python 3.9, but Python >= 3.7 should work as well.*
+*Important note: BASTA is developed for Python 3.11, but Python >= 3.7 should work as well. Currently 3.12 is not supported due to known build issues in NumPy/f2py*
 
 
 Start out by obtaining a copy of BASTA; either by cloning the GitHub repository or downloadning a source code release. As a default, we recommend that you install basta in the folder ``~/BASTA``. If you have a user on GitHub and use an ssh-keypair, you can simply run:
@@ -65,7 +66,7 @@ If your installation of BASTA is in a folder different than the default ``~/BAST
 Consistent f2py
 ---------------
 
-The following should not be necessary if you use *pyenv* or similar to manage your Python environment.
+*The following are not necessary if you use *pyenv* or similar to manage your Python environment. If you are using such a tool, you might need to change the name of the executable in the setup file.*
 
 BASTA needs the executable ``f2py3`` to exist in the path to be able to compile external Fortran routines required for
 different parts of the code. In order to avoid issues, this tool *must* match the version of NumPy used to run BASTA.

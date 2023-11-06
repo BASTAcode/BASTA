@@ -26,7 +26,7 @@ class freqtypes:
     glitches = ["glitches"]
     epsdiff = ["e01", "e02", "e012"]
     alltypes = [*freqs, *glitches, *rtypes, *epsdiff]
-    defaultrtypes = ["r012"]
+    defaultrtypes = ["r01"]
     defaultepstypes = ["e012"]
 
     surfeffcorrs = ["HK08", "BG14", "cubicBG14"]

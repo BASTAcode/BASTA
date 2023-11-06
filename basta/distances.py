@@ -63,7 +63,8 @@ def LOS_reddening(distanceparams):
                 distanceparams["EBV"][0],
                 distanceparams["EBV"][2] - distanceparams["EBV"][0],
                 size=[
-                    len(i) if isinstance(i, collections.Iterable) else 1 for i in [x]
+                    len(i) if isinstance(i, collections.abc.Iterable) else 1
+                    for i in [x]
                 ][0],
             )
         )
@@ -111,13 +112,14 @@ def LOS_reddening(distanceparams):
         Egr_samples = np.array([np.nan])
 
         # Run through nsides
-        for ncont in reversed(nsides):
-            healpixNside = ang2pix(ncont, theta, phi, nest=True)
-            indNside = np.where(np.asarray([x[0] for x in pinfo]) == ncont)[0]
-            dcubepixNside = [x[1] for x in pinfo[indNside]]
-            kNside = int(bisect_left(dcubepixNside, healpixNside)) + indNside[0]
-            if healpixNside == dcubepixNside[kNside - indNside[0]]:
-                index = kNside
+        for nside in reversed(nsides):
+            healpixNside = ang2pix(nside, theta, phi, nest=True)
+            # Find the one with the correct nside and the correct healpix
+            indNside = [
+                i for i, x in enumerate(pinfo) if x[0] == nside and x[1] == healpixNside
+            ]
+            if indNside:
+                index = indNside[0]
                 Egr_samples = dcube["/samples"][index]
                 break
 
