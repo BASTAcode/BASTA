@@ -47,16 +47,19 @@ that showcases these applications. If your paper using BASTA results is missing 
 
 Authors
 -------
+The current core developing team members are:
+
+* Jakob Lysgaard Rørsted (maintainer)
+* Mark Lykke Winther (co-maintainer)
+* Amalie Stokholm
+* Kuldeep Verma
+
+
 The original author of the code is:
 
 * Víctor Aguirre Børsen-Koch
 
-The current core developing team are:
 
-* Jakob Lysgaard Rørsted (maintainer)
-* Mark Lykke Winther
-* Amalie Stokholm
-* Kuldeep Verma
 
 Throughout the years, many people have contributed to the addition and development of various parts and modules of
 BASTA. We welcome further contributions from the community as well as issues reporting. Please look at the section

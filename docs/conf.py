@@ -27,7 +27,7 @@ if not "BASTADIR" in os.environ:
 
 # General information about the project.
 project = "BASTA"
-copyright = "2022, The BASTA Team"
+copyright = "2023, The BASTA Team"
 author = "The BASTA Team"
 
 # The short X.Y version.
