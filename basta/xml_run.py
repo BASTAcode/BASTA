@@ -170,7 +170,7 @@ def _get_freq_minmax(star, freqpath):
         Maximum frequency value
     """
     freqfile = os.path.join(freqpath, star.get("starid") + ".xml")
-    f, _, _, _ = read_freqs_xml(freqfile)
+    f, _, _, _ = read_freq_xml(freqfile)
     dnu = float(star.find("dnu").get("value"))
     fmin = f.min() - 2.0 * dnu
     fmax = f.max() + 2.0 * dnu
