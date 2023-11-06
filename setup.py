@@ -15,6 +15,8 @@ from dustmaps.config import config
 
 DUSTMAPFILE = "_dustpath.py"
 
+F2PYNAME = "f2py3"  # Change to plain f2py if using pyenv
+
 
 @contextmanager
 def cd(newdir):
@@ -33,6 +35,7 @@ def main():
     """
     # Make sure a supported version of Python is not used
     assert sys.version_info >= (3, 7), "Python version is too old! Please use > 3.7"
+    assert sys.version_info < (3, 12), "Python version is too new! Please use < 3.12"
 
     # Set-up argument parser
     parser = argparse.ArgumentParser(
@@ -93,10 +96,12 @@ def main():
         print("\n*******************************************")
         print("BEGIN: Compiling external modules for BASTA\n")
         try:
-            f2pyver = check_output(["which", "f2py3"]).decode("utf-8")
+            f2pyver = check_output(["which", F2PYNAME]).decode("utf-8")
         except CalledProcessError:
             print(
-                "Unable to find 'f2py3'! Did you make the symlink?", "Aborting now..."
+                f"Unable to find '{F2PYNAME}'! Did you make the symlink?",
+                "If you are using pyenv, try changing the exec name",
+                "Aborting now...",
             )
             sys.exit(1)
         else:
@@ -111,7 +116,7 @@ def main():
             for modname in externals:
                 print("\n*** Module: {0} ***".format(modname))
                 binname = modname + ".f95"
-                call(["f2py3", "-c", binname, "-m", modname, "--quiet"])
+                call([F2PYNAME, "-c", binname, "-m", modname, "--quiet"])
                 print("Compilation: Done!")
 
         print("\nEND: Compiling external modules for BASTA")
