@@ -4,6 +4,7 @@ Interpolation for BASTA: Helper routines
 import os
 
 import numpy as np
+import bottleneck as bn
 from tqdm import tqdm
 from scipy import interpolate
 import matplotlib.pyplot as plt
@@ -66,7 +67,7 @@ def bay_weights(inputvar):
 # ======================================================================================
 # Common interpolation functions
 # ======================================================================================
-def _interpolation_wrapper(x, y, xnew, method="linear", along=True):
+def interpolation_wrapper(x, y, xnew, method="linear", along=False):
     """
     Interpolate a 1-D function using the specified method.
 
@@ -158,6 +159,8 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
             # Full list of indexes, set False if model outside limits
             index = np.ones(len(libitem["age"][:]), dtype=bool)
             for param in limits:
+                if "freq" in param:
+                    continue
                 index &= libitem[param][:] >= limits[param][0]
                 index &= libitem[param][:] <= limits[param][1]
             # Patch index array if it should not be cut
@@ -174,16 +177,149 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
     return selectedmodels
 
 
+def calc_along_points(intbase, sections, minmax, point, envres=None, resvalue=None):
+    """
+    Creates new along vector by interpolating from along vectors of
+    enveloping tracks from model numbers to mimic spacing in parameter.
+    E.g. if the enveloping tracks have a high resolution at the start,
+    but low at the end, this function attempts to reproduce that for the
+    interpolated track. It does so by normalising the model numbers to
+    an interval between 0 and 1 for each track, and use that as the
+    interpolation base.
+
+    Parameters
+    ----------
+    intbase : numpy array
+        Interpolation base vector of the enveloping tracks
+    sections : list
+        Indexes corresponding to the enveloping tracks to sub-divide the single array
+    minmax : list
+        Minimum and maximum values of along variable in the enveloping
+        tracks
+    point : list
+        Base parameter values for the interpolated track
+    envres : numpy array
+        Copy of intbase, but with along resolution variable of enveloping
+        tracks
+    resvalue : float
+        Along resolution to achieve
+
+    Returns
+    -------
+    out : numpy array
+        New 1D along variable vector for the interpolated track
+    """
+
+    # For counting and collecting during loop over tracks
+    mods = []
+    yvec = []
+    newl = []
+
+    if resvalue:
+        envminmax = [[], []]
+        for s in range(len(sections) - 1):
+            envminmax[0].append(min(envres[sections[s] : sections[s + 1], -1]))
+            envminmax[1].append(max(envres[sections[s] : sections[s + 1], -1]))
+        envminmax[0] = max(envminmax[0])
+        envminmax[1] = min(envminmax[1])
+        Nres = int(abs(np.ceil((envminmax[1] - envminmax[0]) / resvalue)))
+
+    if not resvalue:
+        for i, s in enumerate(range(len(sections) - 1)):
+            # Construct individual track bases
+            base = intbase[sections[s] : sections[s + 1], -1]
+            # Determine the models within limits
+            mask = np.ones(len(base), dtype=bool)
+            mask &= np.array(base) >= minmax[0]
+            mask &= np.array(base) <= minmax[1]
+            lbase = sum(mask)
+            newl.append(lbase)
+
+            if lbase < 1:
+                raise ValueError
+
+            # Variables for normalisation and to keep edges
+            dists = [0, 0]
+            offset = 0
+
+            # If the base does not dictate the limits, make appropriate edges
+            # If the start is not the limit of the interval, the first model
+            # within the interval will not be 0, but a little over, and the
+            # previous model will be included as a negativily numbered model.
+            if np.sum(mask) != len(base):
+                if not mask[0]:
+                    ind = np.where(base == base[mask][0])[0][0]
+                    ref = minmax[0 if base[0] < base[1] else 1]
+                    dists[0] += (base[ind] - ref) / (base[ind] - base[ind - 1])
+                    mask[np.where(mask)[0][0] - 1] = True
+                    offset = -1
+                if not mask[-1]:
+                    ind = np.where(base == base[mask][-1])[0][0]
+                    ref = minmax[1 if base[0] < base[1] else 0]
+                    dists[1] += (ref - base[ind]) / (base[ind + 1] - base[ind])
+                    mask[np.where(mask)[0][-1] + 1] = True
+
+            # Reform base to be within interval
+            newbase = base[mask]
+
+            # Normalisation of model "numbers" from 0 to 1 in interval
+            # "Ghost" models outside interval are kept for interpolation
+            mod = (np.arange(sum(mask)) + offset + dists[0]) / (lbase - 1 + sum(dists))
+            # Construct new interpolation base
+            fmod = intbase[sections[s] : sections[s + 1], :][mask]
+            fmod[:, -1] = mod
+            mods.append(fmod)
+
+            # Compile list of along variable values
+            yvec += list(newbase)
+
+        # Reconstruct base
+        intbase = mods[0]
+        for m in mods[1:]:
+            intbase = np.vstack((intbase, m))
+    else:
+        for i, s in enumerate(range(len(sections) - 1)):
+            base = intbase[sections[s] : sections[s + 1], -1]
+            mask = np.ones(len(base), dtype=bool)
+            mask &= np.array(base) >= minmax[0]
+            mask &= np.array(base) <= minmax[1]
+            newl.append(sum(mask))
+
+            yvec += list(base)
+        intbase = envres
+
+    # Determine/adjust number of points
+    N = int(np.mean(newl))
+    if resvalue and N < Nres:
+        N = Nres
+    elif resvalue:
+        print("Warning: Reduced resolution from {0} to {1}".format(N, Nres))
+        N = Nres
+
+    # Making new interpolation base
+    # Putting them exactly on top creates boundary issues
+    if resvalue:
+        lin = np.linspace(envminmax[0], envminmax[1], N + 2)[1:-1]
+    else:
+        lin = np.linspace(0, 1, N + 2)[1:-1]
+    inp = np.ones((len(lin), len(point) + 1))
+    for i, p in enumerate(point):
+        inp[:, i] *= p
+    inp[:, -1] = lin
+
+    # Make interpolator
+    out = interpolation_wrapper(intbase, yvec, inp)
+
+    return out
+
+
 def interpolate_frequencies(
     fullosc,
     fullosckey,
-    agevec,
-    newagevec,
-    sections=None,
+    sections,
+    triangulation,
+    newvec,
     freqlims=None,
-    verbose=False,
-    debug=False,
-    trackid=None,
 ):
     """
     Perform interpolation in individual oscillation frequencies in a reduced track.
@@ -209,24 +345,18 @@ def interpolate_frequencies(
         Full reshaped array of oscillation keys, in terms of radial order n, and
         degree l
 
-    agevec : array
-        Ages of original reduced track. Used to define the interpolation object.
+    sections : list
+        Indexes indicating where each track starts and begins within the full
+        frequency arrays. Needed to quality check for missing frequencies in tracks.
 
-    newagevec : array
-        Mesh of ages where to evaluate the interpolation. Coordinates of new track.
+    triangulation : object
+        Delaunay triangulation of the base
 
-    sections : array or None
-        Toggle for 1D or ND interpolation, None for 1D, for ND array with indices that
-        gives the individual tracks from the full arrays, for quality check.
+    newvec : array
+        Base vector of the new track.
 
-    verbose : bool, optional
-        Print info.
-
-    debug : bool, optional
-        Print extra information. Plot *all* interpolated frequencies. Warning: Slow!
-
-    trackid : int, optional
-        Must be given when using full debug mode. ID of current track. Used for plots.
+    freqlims : list
+        Minimum and maximum frequencies to interpolate
 
     Returns
     -------
@@ -238,266 +368,190 @@ def interpolate_frequencies(
         Nested list with an entry per point in the new, interpolated track. Each entry
         is an array with frequencies and intertias. Following same definitions as
         BASTA/make_tracks.
-
     """
-    along = True if sections == None else False
-    if debug and along:
-        print("--> Warning: Slow setting selected! Plotting *all* frequencies.")
-        skipplots = False
-    else:
-        skipplots = True
 
-    # Globally define values of l present in the grid
     available_lvalues = [0, 1, 2]
-
+    along = type(triangulation) == np.ndarray
     #
-    # *** BLOCK 1: Extract oscillations from the library into more accesible arrays ***
+    # *** BLOCK 1: Determine and allocate matrix sizes ***
     #
-    # Normally we are only interested in quantities one model at a time. However, that
-    # it not sufficient for interpolation purposes. Thus, we need to "unpack" all
-    # information of all models to interpolate each individual frequency across models.
-    #
-    # The arrays are called 'xval', with x \in {l, n, f, i} and can be indexed as
-    # >   fvals["l=L"][MODELINDEX]
-    # to obtain all frequencies with l=L for entry MODELINDEX.
-    #
-    # As an example: fvals["l=0"][-1][2] will yield the third (2) radial mode (l=0) for
-    # the last point in the track (-1). The corresponding degree of that mode is found
-    # as nvals["l=0""][-1][2].
-    Ntrack = len(fullosc)
-    nvals = {"l=0": [], "l=1": [], "l=2": []}
-    fvals = {"l=0": [], "l=1": [], "l=2": []}
-    ivals = {"l=0": [], "l=1": [], "l=2": []}
-    for modid in range(Ntrack):
-        for ll in available_lvalues:
-            osckey, osc = su.get_givenl(
-                l=ll,
-                osc=su.transform_obj_array(fullosc[modid]),
-                osckey=su.transform_obj_array(fullosckey[modid]),
-            )
-            lkey = "l={0}".format(ll)
-            nvals[lkey].append(osckey[1])
-            fvals[lkey].append(osc[0])
-            ivals[lkey].append(osc[1])
-
-    # Check if any lvalues can be omitted
+    # For computation efficiency, a matrix is allocated for each l-value,
+    # with rows corresponding to each n-value, columns corresponding to
+    # to each model, and a layer each for frequency and inertia of the mode.
+    # With a filler value of nan's for non-existing modes, no resizing or
+    # continuous checking of the modes is needed, as all other functions
+    # neatly passes nan on.
     bad = []
+    freqs = {}
+    nranges = {}
+    Ntrack = len(fullosc)
     for ll in available_lvalues:
-        lkey = "l={0}".format(ll)
-        if not any([len(arr) for arr in nvals[lkey]]):
+        # Get n-value range
+        nmin = 999
+        nmax = -999
+        for modid in range(Ntrack):
+            mask = fullosckey[modid][0] == ll
+            if not len(mask):
+                continue
+            nmin = min(nmin, fullosckey[modid][1][mask][0])
+            nmax = max(nmax, fullosckey[modid][1][mask][-1])
+
+        # If none were found, this l should be skipped
+        if nmin > nmax:
             bad.append(ll)
-    for ll in bad:
-        available_lvalues.remove(ll)
+            continue
+
+        # Allocate matrix for frequencies and inertia
+        matrix = np.empty((2, nmax - nmin + 1, Ntrack))
+        matrix[:] = np.nan
+
+        freqs[ll] = matrix
+        nranges[ll] = [nmin, nmax]
+
+    # Remove bad modes
+    for mode in bad:
+        available_lvalues.remove(mode)
 
     #
-    # *** BLOCK 2: Find common values of n for each of the l values ***
+    # *** BLOCK 2: Fill out matrices ***
     #
-    # Not all models have all models available (especially in the high end). To safely
-    # interpolate, we need to locate which models each mode appears in. Takes care of
-    # modes appearing, dissapearing, and random models without the modes
-    #
-    # Stored in the array 'goodn' with same indexing syntax as the arrays above.
-    goodn = {"l=0": {}, "l=1": {}, "l=2": {}}
-    # For across we need to check the base limits doesn't change with frequency limits
-    if not along:
-        newblims = {"l=0": {}, "l=1": {}, "l=2": {}}
-    for ll in available_lvalues:
-        lkey = "l={0}".format(ll)
-        nrange = range(
-            int(np.nanmin([arr.min() if len(arr) else np.nan for arr in nvals[lkey]])),
-            int(np.nanmax([arr.max() if len(arr) else np.nan for arr in nvals[lkey]]))
-            + 1,
-        )
+    # Read in frequencies from each model into the matrices.
+    # Note that row 0 corresponds to the lowest n-value.
+    # The reading is done by l-value of each model (fewest loop
+    # iterations).
 
-        # For each n, check the following
-        for testn in nrange:
-            index = np.ones(Ntrack, dtype=bool)
-            for modid in range(Ntrack):
-                modnvals = np.asarray(nvals[lkey][modid])
-                modfvals = fvals[lkey][modid]
-                # Check if present in model
-                if testn not in modnvals:
-                    index[modid] = False
-                elif freqlims:
-                    # Check that the values are within the frequency limits
-                    modf = modfvals[np.where(modnvals == testn)[0][0]]
-                    if not (modf > freqlims[0] and modf < freqlims[1]):
-                        index[modid] = False
-
-            # Check that there are not too many missing models
-            badmode = False
-            if not sections:
-                sections = [0, -1]
-            for s in range(len(sections) - 1):
-                section = index[sections[s] : sections[s + 1]]
-                # Check that there are enough models present
-                if sum(section) <= 2:
-                    badmode = True
-                    break
-                section = section[np.where(section)[0][0] : np.where(section)[0][-1]]
-                if sum(section) / len(section) < 0.8:
-                    badmode = True
-                    break
-
-            # Append modes that passed the checks
-            if not badmode:
-                goodn[lkey][testn] = index
-            # Extract new base limits after frequency cut
-            if not badmode and not along:
-                secmins = []
-                secmaxs = []
-                for s in range(len(sections) - 1):
-                    section = agevec[:, -1][sections[s] : sections[s + 1]]
-                    secind = index[sections[s] : sections[s + 1]]
-                    secmins.append(min(section[secind]))
-                    secmaxs.append(max(section[secind]))
-                newblims[lkey][testn] = [max(secmins), min(secmaxs)]
-
-        if debug:
-            try:
-                minn = min([n for n, _ in goodn[lkey].items()])
-                maxn = max([n for n, _ in goodn[lkey].items()])
-                print("    l = {0} | n = {1:3} ... {2:3}".format(ll, minn, maxn))
-            except:
-                print("Debug print failed for _interpolate_frequencies")
-
-    #
-    # *** BLOCK 3: Interpolate in frequencies between the models ***
-    #
-    # The interpolation must be performed for each individual {l, n} seperately across
-    # all models. Frequencies and inertias are interpolated and stored in dicts, which
-    # can be indexed as e.g. newfreqs["l=0"]["n=12"].
-    newfreqs = {"l=0": {}, "l=1": {}, "l=2": {}}
-    newinert = {"l=0": {}, "l=1": {}, "l=2": {}}
-
-    # Prepare for debugging plot(s)
-    if debug:
-        debugpath = "intpolout"
-        plotpath = os.path.join(debugpath, "debug_freqs_track{0}.pdf".format(trackid))
-        if not os.path.exists(debugpath):
-            os.mkdir(debugpath)
-        if os.path.exists(plotpath):
-            skipplots = True
-        if not skipplots:
-            pdf = PdfPages(plotpath)
-
-    # Loop over l and then n
-    for ll in available_lvalues:
-        lkey = "l={0}".format(ll)
-        for nn, index in goodn[lkey].items():
-            nkey = "n={0}".format(nn)
-
-            # Extract values for a given n-value for all models
-            oldf, oldi = [], []
-            for i, ind in enumerate(index):
-                if not ind:
-                    continue
-                oldf.append(fvals[lkey][i][np.where(nvals[lkey][i] == nn)[0][0]])
-                oldi.append(ivals[lkey][i][np.where(nvals[lkey][i] == nn)[0][0]])
-
-            # Create mask to avoid extrapolation
-            if along:
-                mask = np.ones(len(newagevec), dtype=bool)
-                mask &= newagevec <= np.max(agevec[index])
-                mask &= newagevec >= np.min(agevec[index])
-            else:
-                blims = newblims[lkey][nn]
-                mask = np.ones(len(newagevec[:, -1]), dtype=bool)
-                mask &= newagevec[:, -1] <= blims[1]
-                mask &= newagevec[:, -1] >= blims[0]
-
-            # Interpolate on the same mesh as the other quantities in the main routine.
-            newf = _interpolation_wrapper(
-                agevec[index], oldf, newagevec[mask], along=along
-            )
-            newi = _interpolation_wrapper(
-                agevec[index], oldi, newagevec[mask], along=along
-            )
-            newfreqs[lkey][nkey] = newf
-            newinert[lkey][nkey] = newi
-
-            # Replace information for new vector
-            goodn[lkey][nn] = mask
-
-            # Plot the interpolated frequencies if desired
-            if not skipplots:
-                if along:
-                    xold = agevec[index]
-                    xnew = newagevec[mask]
-                else:
-                    xold = agevec[:, -1][index]
-                    xnew = newagevec[:, -1][mask]
-                _, ax = plt.subplots()
-                plt.title(
-                    "TrackID: {0}   |   l = {1}  ,  n = {2}".format(trackid, ll, nn)
-                )
-                ax.plot(
-                    xold,
-                    oldf,
-                    ".",
-                    color="#6C9D34",
-                    label="Original",
-                    alpha=0.9,
-                )
-                ax.plot(
-                    xnew,
-                    newf,
-                    ".",
-                    color="#482F76",
-                    label="Interpolated",
-                    alpha=0.5,
-                )
-                ax.set_xlabel("Base parameter")
-                ax.set_ylabel("Frequency")
-                ax.legend(loc="best", facecolor="none", edgecolor="none")
-                pdf.savefig(bbox_inches="tight")
-                plt.close()
-
-    if not skipplots:
-        pdf.close()
-    elif debug and along:
-        print("    The plot '{0}' already exist! Skipping...".format(plotpath))
-
-    #
-    # *** BLOCK 4: Pack the interpolated frequencies for grid storage ***
-    #
-    # For them to be stored in the HDF5 format, the frequencies must be restored
-    # to a per-model structure. For each point in the interpolated track, we transverse
-    # all l and then n values. They are stacked in one list per quantity and then stored
-    # as nested arrays in lists to conform to the specific format defined by the BASTA
-    # routines enabling HDF5 writing.
-    osclist = []
-    osckeylist = []
-    Nnew = len(newagevec) if along else len(newagevec[:, -1])
-    for modid in range(Nnew):
-        # Arrays corresponding to the read-out from an .obs-file (in BASTA notation)
-        lf = []
-        nf = []
-        ff = []
-        ef = []
+    for modid in range(Ntrack):
+        osc = fullosc[modid]
+        osckey = fullosckey[modid]
         for ll in available_lvalues:
-            lkey = "l={0}".format(ll)
-            modn, indmod = [], []
-            for nn, mask in goodn[lkey].items():
-                if mask[modid]:
-                    modn.append(nn)
-                    indmod.append(sum(mask[:modid]))
-            # Do not append lists, but append the elemements of the lists
-            tmp_lf = len(modn) * [ll]
-            lf = [*lf, *tmp_lf]
-            nf = [*nf, *modn]
-            ff = [
-                *ff,
-                *[newfreqs[lkey]["n={0}".format(q)][m] for q, m in zip(modn, indmod)],
-            ]
-            ef = [
-                *ef,
-                *[newinert[lkey]["n={0}".format(q)][m] for q, m in zip(modn, indmod)],
-            ]
+            nmin, _ = nranges[ll]
+            lmask = osckey[0, :] == ll
+            freqs[ll][:, osckey[1, lmask] - nmin, modid] = osc[:, lmask]
 
-        # Add the stacked ".obs-style" lists with all freq information to storage arrays
-        osckeylist.append(np.array([lf, nf], dtype=int))
-        osclist.append(np.array([ff, ef], dtype=float))
+    #
+    # *** BLOCK 3: Check for bad modes ***
+    #
+    # The source information for each mode might turn out to be too
+    # sparse. Here two checks can exclude a mode:
+    #  - A source track have 2 or fewer models with the mode
+    #  - From the first model within the track the mode appears in till
+    #    the last, 20% or more of the models does not contain the mode.
+    # A mode that fails the check will have all frequencies switched to
+    # nan's, and is thus ignored going forward.
+
+    for ll in available_lvalues:
+        matrix = freqs[ll]
+
+        # Apply frequency limits
+        mask = matrix[0] > freqlims[0]
+        mask &= matrix[0] < freqlims[1]
+
+        # Check for sections with too many missing modes
+        for nn, subm in enumerate(mask):
+            badmode = False
+            for s in range(len(sections) - 1):
+                # If already flagged, skip checking rest of sections
+                if badmode:
+                    continue
+                # Section corresponding to one enveloping track
+                section = subm[sections[s] : sections[s + 1]]
+                where = np.where(section)[0]
+                # Bad mode if not present in track
+                if len(where) <= 2:
+                    badmode = True
+                    continue
+
+                # Bad mode if 20% of models in tracks are missing mode
+                section = section[where[0] : where[-1]]
+                if bn.nansum(section) / len(section) < 0.8:
+                    badmode = True
+                    continue
+            # Flag the mode by filling with nan's
+            if badmode:
+                subm[:] = False
+
+        # Write nan's to failed models
+        matrix[0][~mask] = np.nan
+        matrix[1][~mask] = np.nan
+
+    #
+    # *** BLOCK 4: Interpolate to new frequencies ***
+    #
+    # Now we can interpolate each mode to the new track,
+    # by looping over each row in the matrices. If any source
+    # is nan, the interpolation method returns a nan, which is
+    # filled in the new matrix.
+
+    Nnew = len(newvec)
+    newfreqs = {}
+    for ll in available_lvalues:
+        matrix = freqs[ll]
+
+        # Create collection matrix
+        newmatrix = np.empty((2, matrix.shape[1], Nnew))
+        newmatrix[:] = np.nan
+
+        # Loop over both frequencies and inertia
+        for fi in range(2):
+            # Loop over n-values
+            for nn in range(matrix.shape[1]):
+                # No need if all are nan
+                if bn.allnan(matrix[fi][nn][:]):
+                    continue
+                # Interpolate !!!
+                newmatrix[fi][nn][:] = interpolation_wrapper(
+                    triangulation,
+                    matrix[fi][nn][:],
+                    newvec,
+                    along=along,
+                )
+
+        # Store new frequencies
+        newfreqs[ll] = newmatrix
+
+    #
+    # *** BLOCK 5: Pack to per-model structure ***
+    #
+    # Pack the new frequencies to the format used in the hdf5.
+    # Here the nan's are finally filtered out, as the output format
+    # is not dependent on the order of elements. If no frequencies
+    # are obtained for a model in the new track (likely due to inputted
+    # frequency limits), it will produce an empty array instead, and is
+    # thus skipped over in the fit.
+
+    osclist, osckeylist = [], []
+
+    for modid in range(Nnew):
+        osc, osckey = None, None
+        for ll in available_lvalues:
+            matrix = newfreqs[ll]
+            nmin, _ = nranges[ll]
+
+            # Construct osc for this l
+            fres = np.zeros((2, matrix.shape[1]), dtype=float)
+            fres[0][:] = matrix[0][:, modid]
+            fres[1][:] = matrix[1][:, modid]
+
+            # Construct osckeys for this l
+            keys = np.zeros((2, matrix.shape[1]), dtype=int)
+            keys[0][:] = ll
+            keys[1][:] = np.arange(matrix.shape[1]) + nmin
+
+            # Create or stack list
+            if type(osc) != np.ndarray:
+                osc = fres
+                osckey = keys
+            else:
+                osc = np.hstack((osc, fres))
+                osckey = np.hstack((osckey, keys))
+
+        # Remove nan modes
+        nanmask = np.isnan(osc[0][:])
+        osc = osc[:, ~nanmask]
+        osckey = osckey[:, ~nanmask]
+
+        osclist.append(osc)
+        osckeylist.append(osckey)
 
     return osckeylist, osclist
 
@@ -505,7 +559,7 @@ def interpolate_frequencies(
 # ======================================================================================
 # Management of header and weights
 # ======================================================================================
-def _extend_header(outfile, basepath, headvars):
+def update_header(outfile, basepath, headvars):
     """
     Rewrites the header with the information from the new tracks.
 
@@ -523,9 +577,7 @@ def _extend_header(outfile, basepath, headvars):
 
     Returns
     -------
-    outfile : hdf5 file
-        New grid file to write to.
-
+    None
     """
 
     # Number of tracks in grid
@@ -541,17 +593,16 @@ def _extend_header(outfile, basepath, headvars):
             values = np.zeros(ltracks)
             for _, group in outfile[basepath].items():
                 for n, (_, libitem) in enumerate(group.items()):
-                    if libitem["IntStatus"][()] != -1:
+                    if libitem["IntStatus"][()] >= 0:
                         values[n] = libitem[var][0]
             del outfile[headpath]
             outfile[headpath] = values.tolist()
         else:
             del outfile[headpath]
             outfile[headpath] = [b"Interpolated"] * ltracks
-    return outfile
 
 
-def _write_header(grid, outfile, basepath):
+def write_header(grid, outfile, basepath):
     """
     Write the header of the new grid. Basically copies the old header.
 
@@ -569,12 +620,7 @@ def _write_header(grid, outfile, basepath):
 
     Returns
     -------
-    grid : h5py file
-        Handle of grid to process
-
-    outfile : h5py file
-        Handle of output grid to write to
-
+    None
     """
     # Needs to run before across interpolation for access to header lists during.
     # Duplicate the header to the new grid file.
@@ -603,10 +649,8 @@ def _write_header(grid, outfile, basepath):
                 keystr = os.path.join("solar_models", topkey, key)
                 outfile[keystr] = grid[keystr][()]
 
-    return grid, outfile
 
-
-def _recalculate_param_weights(outfile, basepath):
+def recalculate_param_weights(outfile, basepath):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
@@ -625,9 +669,7 @@ def _recalculate_param_weights(outfile, basepath):
 
     Returns
     -------
-    outfile : hdf5 file
-        New grid file to write to.
-
+    None
     """
     isomode = False if "grid" in basepath else True
     headvars = outfile["header/active_weights"][()]
@@ -662,10 +704,9 @@ def _recalculate_param_weights(outfile, basepath):
             else:
                 del outfile[weight_path]
                 outfile[weight_path] = weights[i]
-    return outfile
 
 
-def _recalculate_volume_weights(outfile, basepath, sobnums):
+def recalculate_weights(outfile, basepath, sobnums, extend=False):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
@@ -688,9 +729,7 @@ def _recalculate_volume_weights(outfile, basepath, sobnums):
 
     Returns
     -------
-    outfile : hdf5 file
-        New grid file to write to.
-
+    None
     """
     # Collect the relevant tracks/isochrones
     IntStatus = []
@@ -700,6 +739,32 @@ def _recalculate_volume_weights(outfile, basepath, sobnums):
         for name, libitem in group.items():
             IntStatus.append(libitem["IntStatus"][()])
             names.append(os.path.join(gname, name))
+
+    # Reconstruct approximate Sobol numbers for original tracks
+    if extend:
+        index = np.where(np.array(IntStatus) == 1)[0]
+        bpars = outfile["header/pars_sampled"]
+        # Collect basis parameters
+        base = np.zeros((len(index), len(bpars)))
+        gid = 0
+        lid = 0
+        for gname, group in outfile[basepath].items():
+            iter = zip(IntStatus[gid : gid + len(group)], group.items())
+            for i, (ist, (_, libitem)) in enumerate(iter):
+                if ist != 1:
+                    continue
+                for j, par in enumerate(bpars):
+                    base[lid, j] = libitem[par][0]
+                lid += 1
+            gid += len(group)
+
+        for i, par in enumerate(bpars):
+            mm = [min(base[:, i]), max(base[:, i])]
+            base[:, i] -= mm[0]
+            base[:, i] /= mm[1] - mm[0]
+
+        sobnums = np.vstack((base, sobnums))
+
     mask = np.where(np.array(IntStatus) >= 0)[0]
     active = np.asarray(names)[mask]
 
@@ -745,4 +810,61 @@ def _recalculate_volume_weights(outfile, basepath, sobnums):
     del outfile["header/active_weights"]
     outfile["header/active_weights"] = ["volume"]
 
-    return outfile
+
+# ======================================================================================
+# Miscellaneous helper functions
+# ======================================================================================
+def lowest_l0(grid, basepath, track, selmod):
+    """
+    Determine the lowest n of l=0 frequency modes present along the whole track.
+
+    Parameters
+    ----------
+    grid : hdf5 file
+        Inputted grid
+    basepath : str
+        Path in the grid where the tracks are stored.
+    track : str
+        The track to extract from.
+    selmod : boolean numpy array
+        The selected models within the track to consider
+
+    Returns
+    -------
+    maxofmin : int
+        Lowest n of mode present in all models
+    """
+    keypath = os.path.join(basepath, track, "osckey")
+    min_n_l0 = np.zeros((sum(selmod)))
+    for i, osckey in enumerate(grid[keypath][()][selmod]):
+        min_n_l0[i] = min(osckey[1][osckey[0] == 0])
+    maxofmin = max(min_n_l0)
+    return maxofmin
+
+
+def get_l0_freqs(track, selmod, N):
+    """
+    Extract the frequency along the track of the given (n=N,l=0)
+    frequency mode.
+
+    Parameters
+    ----------
+    track : hdf5 group
+        All data of the track being processed
+    selmod : boolean numpy array
+        The selected models within the track to consider
+    N : int
+        Lowest n of mode present in all models across enveloping tracks
+
+    Returns
+    -------
+    freqs : numpy array
+        Frequencies of the given mode along the track
+    """
+    allkeys = track["osckey"][()][selmod]
+    alloscs = track["osc"][()][selmod]
+    freqs = np.zeros((sum(selmod)))
+    for i, (key, osc) in enumerate(zip(allkeys, alloscs)):
+        ind = np.where(key[1][key[0] == 0] == N)[0]
+        freqs[i] = osc[0][key[0] == 0][ind]
+    return freqs

@@ -15,6 +15,8 @@ from basta import sobol_numbers
 from basta import interpolation_helpers as ih
 from basta import plot_interp as ip
 
+from basta.utils_seismic import transform_obj_array
+
 import traceback
 
 
@@ -71,7 +73,9 @@ def _check_sobol(grid, res):
     # Highlight redundant resolution for the user
     if sobol:
         for var in res:
-            if (var not in ["scale", "baseparam"]) and res[var] != 0:
+            if (var not in ["scale", "baseparam", "extend", "retrace"]) and res[
+                var
+            ] != 0:
                 prtstr = "Gridresolution in '{0}' is set but ignored, ".format(var)
                 prtstr += "as 'scale' is set for Sobol interpolation."
                 print(prtstr)
@@ -79,7 +83,11 @@ def _check_sobol(grid, res):
 
 
 def _calc_cartesian_points(
-    base, baseparams, tri, outbasename, debug=False, verbose=False
+    base,
+    baseparams,
+    tri,
+    outbasename,
+    debug=False,
 ):
     """
     Determine the new points for tracks in the base parameters, for either Cartesian
@@ -149,7 +157,7 @@ def _calc_cartesian_points(
     trindex = tri.find_simplex(newbase)
 
     # Plot of old vs. new base of subgrid
-    if len(baseparams) > 1 and (debug or verbose):
+    if len(baseparams) > 1 and debug:
         outname = outbasename.split(".")[-2] + "_all"
         outname += "." + outbasename.split(".")[-1]
         success = ip.base_corner(baseparams, base, newbase, tri, False, outname)
@@ -163,7 +171,12 @@ def _calc_cartesian_points(
 
 
 def _calc_sobol_points(
-    base, baseparams, tri, sobol, outbasename, debug=False, verbose=False
+    base,
+    baseparams,
+    tri,
+    sobol,
+    outbasename,
+    debug=False,
 ):
     """
     Determine the new points for tracks in the base parameters, for Sobol sampling.
@@ -238,7 +251,7 @@ def _calc_sobol_points(
     trindex = tri.find_simplex(newbase)
 
     # Plot of old vs. new base of subgrid
-    if len(baseparams) > 1 and (debug or verbose):
+    if len(baseparams) > 1 and debug:
         outname = outbasename.split(".")[-2] + "_all"
         outname += "." + outbasename.split(".")[-1]
         success = ip.base_corner(baseparams, base, newbase, tri, sobol, outname)
@@ -254,18 +267,17 @@ def _calc_sobol_points(
 # ======================================================================================
 # Interpolation across tracks
 # ======================================================================================
-def _interpolate_across(
+def interpolate_across(
     grid,
     outfile,
     resolution,
-    limits,
+    selectedmodels,
     intpolparams,
     basepath="grid/",
     intpol_freqs=False,
     along_var="xcen",
     outbasename="",
     debug=False,
-    verbose=False,
 ):
     """
     Interpolates a grid across the tracks, within a box of observational limits.
@@ -282,9 +294,9 @@ def _interpolate_across(
        Required resolution. Must contain "param" with a valid parameter name from the
        grid and "value" with the desired precision/resolution.
 
-    limits : dict
-        Constraints on the selection in the grid. Must be valid parameter names in the
-        grid. Example of the form: {'Teff': [5000, 6000], 'FeH': [-0.2, 0.2]}
+    selectedmodels : dict
+        Dictionary of every track/isochrone with models inside the limits, and the index
+        of every model that satisfies this.
 
     intpolparams : list
         List of parameters to be interpolated, avoid interpolating *everything*.
@@ -293,8 +305,9 @@ def _interpolate_across(
         Path in the grid where the tracks are stored. The default value applies to
         standard grids of tracks. It must be modified for isochrones!
 
-    intpol_freqs : bool
-        Whether or not to interpolate individual oscillation frequencies.
+    intpol_freqs : list, bool
+        List of interpolated frequency interval if frequency interpolation requested.
+        False if not interpolating frequencies.
 
     along_var : str
         User-defined parameter to use as base along the track in interpolation routine.
@@ -305,21 +318,9 @@ def _interpolate_across(
     debug : bool, optional
         Activate debug mode. Will print extra info upon a failed interpolation of a track.
 
-    verbose : bool, optional
-        Print information to console and make simple diagnostic plots. Will be
-        automatically set by debug.
-
     Returns
     -------
-    grid : h5py file
-        Handle of grid to process
-
-    outfile : h5py file
-        Handle of output grid to write to
-
-    fail : bool
-        Boolean to indicate whether the routine has failed or succeeded
-
+    None
     """
     print("\n********************\nAcross interpolation\n********************")
     # Parameters possibly in header
@@ -364,6 +365,7 @@ def _interpolate_across(
         # Collect the headvars, as they are constant along the track
         headvars = list(np.unique(list(bpars) + list(const_vars)))
         sobol = _check_sobol(grid, resolution)
+        retrace = resolution["retrace"] if "retrace" in resolution else False
 
     elif "isochrone" in gridtype:
         isomode = True
@@ -383,35 +385,6 @@ def _interpolate_across(
         headvars = list(np.unique(list(bpars) + list(const_vars)))
         sobol = _check_sobol(grid, resolution)
 
-    # Check frequency limits
-    if "freqs" in limits:
-        freqlims = limits["freqs"]
-        del limits["freqs"]
-
-    # Extract tracks/isochrones within user-specified limits
-    print("Locating limits and restricting sub-grid ... ", flush=True)
-    selectedmodels = ih.get_selectedmodels(grid, basepath, limits, cut=False)
-
-    # If Cartesian method, save tracks/isochrones within limits to new grid
-    fail = False
-    if grid != outfile and not sobol:
-        for name, index in selectedmodels:
-            if not isomode:
-                index2d = np.array(np.transpose([index, index]))
-            if not (any(index) and sum(index) > 2):
-                outfile[os.path.join(name, "IntStatus")] = -1
-            else:
-                # Write everything from the old grid to the new in the region
-                for key in grid[name].keys():
-                    keypath = os.path.join(name, key)
-                    if "_weight" in key:
-                        outfile[keypath] = grid[keypath][()]
-                    elif "osc" in key:
-                        if intpol_freqs:
-                            outfile[keypath] = grid[keypath][index2d]
-                    else:
-                        outfile[keypath] = grid[keypath][index]
-
     # Form the base array for interpolation
     base = np.zeros((len(selectedmodels), len(baseparams)))
     for i, name in enumerate(selectedmodels):
@@ -424,11 +397,20 @@ def _interpolate_across(
     triangulation = spatial.Delaunay(base)
     if sobol:
         new_points, trindex, sobnums = _calc_sobol_points(
-            base, baseparams, triangulation, sobol, outbasename, debug, verbose
+            base,
+            baseparams,
+            triangulation,
+            sobol,
+            outbasename,
+            debug,
         )
     else:
         new_points, trindex = _calc_cartesian_points(
-            base, baseparams, triangulation, outbasename, debug, verbose
+            base,
+            baseparams,
+            triangulation,
+            outbasename,
+            debug,
         )
     print("done!")
 
@@ -474,17 +456,28 @@ def _interpolate_across(
         y = np.zeros((count))
         minmax = np.zeros((len(ind), 3))
         ir = 0
+        sections = [0]
+
+        # Names if retracing information requested
+        if retrace:
+            basenames = np.empty((count), dtype=object)
 
         # Loop over the enveloping tracks
         for j, i in enumerate(ind):
-            track = tracknames[i]
-            bvar = grid[basepath + track][along_var][selectedmodels[track]]
+            track = grid[os.path.join(basepath, tracknames[i])]
+            selmod = selectedmodels[tracknames[i]]
+
+            bvar = track[along_var][selmod]
             minmax[j, :] = [min(bvar), max(bvar), abs(np.median(np.diff(bvar)))]
             for k, a in enumerate(list(bvar)):
                 intbase[k + ir, : len(base[i])] = base[i]
                 intbase[k + ir, -1] = a
+            if retrace:
+                basenames[ir : ir + len(bvar)] = track["name"][selmod]
             ir += len(bvar)
-        minmax = [max(minmax[:, 0]), min(minmax[:, 1]), np.mean(minmax[:, 2])]
+            sections.append(ir)
+
+        minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
         if minmax[0] > minmax[1]:
             warstr = "Warning: Interpolating {0} {1} ".format(
                 modestr, newnum + tracknum
@@ -496,20 +489,21 @@ def _interpolate_across(
             outfile[os.path.join(libname, "IntStatus")] = -1
             continue
 
-        # Assume equal spacing, but approximately the same number of points
+        # Get base for new track, mimicing enveloping tracks
         try:
-            Npoints = abs(int(np.ceil((minmax[1] - minmax[0]) / minmax[2])))
+            newbvar = ih.calc_along_points(intbase, sections, minmax, point)
         except:
-            prtstr = "Choice of base parameter '{:s}' resulted".format(along_var)
-            prtstr += " in an error when determining it's variance along the "
-            prtstr += "{:s}, consider choosing another.".format(modestr)
-            raise ValueError(prtstr)
+            warstr = "Choice of base parameter '{:s}' resulted".format(along_var)
+            warstr += " in an error when determining it's variance along the track."
+            raise ValueError(warstr)
+
         # The base along the new track
-        newbvar = np.linspace(minmax[0], minmax[1], Npoints)
         newbase = np.ones((len(newbvar), len(bpars) + 1))
         for i, p in enumerate(point):
             newbase[:, i] *= p
         newbase[:, -1] = newbvar
+
+        # Create triangulation for re-use for each parameter
         sub_triangle = spatial.Delaunay(intbase)
 
         try:
@@ -526,42 +520,45 @@ def _interpolate_across(
                 elif ("osc" in key) or (key in const_vars):
                     continue
                 else:
-                    ir = 0
+                    # Collect values from enveloping tracks
                     for j, i in enumerate(ind):
                         track = tracknames[i]
                         yind = selectedmodels[track]
-                        y[ir : ir + sum(yind)] = grid[basepath + track][key][yind]
-                        ir += sum(yind)
-                    intpol = interpolate.LinearNDInterpolator(sub_triangle, y)
-                    newparam = intpol(newbase)
+                        y[sections[j] : sections[j + 1]] = grid[basepath + track][key][
+                            yind
+                        ]
+
+                    # Interpolate, check for NaNs
+                    newparam = ih.interpolation_wrapper(
+                        sub_triangle, y, newbase, along=False
+                    )
+
                     if any(np.isnan(newparam)):
                         nan = "{0} {1} had NaN value(s)!".format(
                             modestr, newnum + tracknum
                         )
                         raise ValueError(nan)
+
+                    # Write to new grid
                     outfile[keypath] = newparam
 
             # Dealing with oscillations
             if intpol_freqs:
                 osc = []
                 osckey = []
-                sections = [0]
                 for i in ind:
                     # Extract the oscillation fequencies and id's
-                    track = tracknames[i]
-                    for model in np.where(selectedmodels[track])[0]:
-                        osc.append(grid[basepath + track]["osc"][model])
-                        osckey.append(grid[basepath + track]["osckey"][model])
-                    sections.append(len(osc))
+                    track = grid[os.path.join(basepath, tracknames[i])]
+                    for model in np.where(selectedmodels[tracknames[i]])[0]:
+                        osc.append(transform_obj_array(track["osc"][model]))
+                        osckey.append(transform_obj_array(track["osckey"][model]))
                 newosckey, newosc = ih.interpolate_frequencies(
                     fullosc=osc,
                     fullosckey=osckey,
-                    agevec=intbase,
-                    newagevec=newbase,
                     sections=sections,
-                    freqlims=freqlims,
-                    debug=debug,
-                    trackid=newnum + tracknum,
+                    triangulation=sub_triangle,
+                    newvec=newbase,
+                    freqlims=intpol_freqs,
                 )
                 Npoints = len(newosc)
                 # Writing variable length arrays to an HDF5 file is a bit tricky,
@@ -603,6 +600,26 @@ def _interpolate_across(
             keypath = os.path.join(libname, dname)
             outfile[keypath] = ih.bay_weights(outfile[parpath])
 
+            # Interpolation source model information
+            if retrace:
+                isnames = np.empty(
+                    (newbase.shape[0], newbase.shape[1] + 1), dtype="S30"
+                )
+                iscoefs = np.empty((newbase.shape[0], newbase.shape[1] + 1), dtype="f8")
+                for s, point in enumerate(newbase):
+                    simplex = sub_triangle.find_simplex(point)
+                    # Magic math from scipy.Delaunay documentation
+                    dif = point - sub_triangle.transform[simplex, -1]
+                    dot = sub_triangle.transform[simplex, : len(point)].dot(dif)
+                    dists = [*dot, 1 - dot.sum()]
+
+                    # Relating to source models
+                    simplices = sub_triangle.simplices[simplex]
+                    isnames[s, :] = basenames[simplices]
+                    iscoefs[s, :] = dists
+                outfile[os.path.join(libname, "isnames")] = isnames
+                outfile[os.path.join(libname, "iscoefs")] = iscoefs
+
             # Successfully interpolated, mark it as such
             outfile[os.path.join(libname, "IntStatus")] = 0
 
@@ -638,7 +655,7 @@ def _interpolate_across(
         except KeyboardInterrupt:
             print("BASTA interpolation stopped manually. Goodbye!")
             sys.exit()
-        except:
+        except Exception as e:
             # If it fails, delete progress for the track, and just mark it as failed
             try:
                 del outfile[libname]
@@ -672,14 +689,9 @@ def _interpolate_across(
             namepath = os.path.join(basepath, name)
             del outfile[namepath]
 
-    # Re-add frequency limits for combined approaches
-    if intpol_freqs:
-        limits["freqs"] = freqlims
-
     # Write the new tracks to the header, and recalculate the weights
-    outfile = ih._extend_header(outfile, basepath, headvars)
+    ih.update_header(outfile, basepath, headvars)
     if "volume" in grid["header/active_weights"] or sobol:
-        outfile = ih._recalculate_volume_weights(outfile, basepath, sobnums)
+        ih.recalculate_weights(outfile, basepath, sobnums, extend=resolution["extend"])
     else:
-        outfile = ih._recalculate_param_weights(outfile, basepath)
-    return grid, outfile, fail
+        ih.recalculate_param_weights(outfile, basepath)
