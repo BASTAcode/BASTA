@@ -116,7 +116,9 @@ def LOS_reddening(distanceparams):
             healpixNside = ang2pix(nside, theta, phi, nest=True)
             # Find the one with the correct nside and the correct healpix
             indNside = [
-                i for i, x in enumerate(pinfo) if x[0] == nside and x[1] == healpixNside
+                i
+                for i, x in enumerate(pinfo)
+                if x[0] == nside and x[1] == healpixNside
             ]
             if indNside:
                 index = indNside[0]

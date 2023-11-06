@@ -783,7 +783,10 @@ def run_xml(
                 EBV = star.find("EBV")
                 if EBV is not None:
                     val, err = float(EBV.get("value")), float(EBV.get("error"))
-                    distanceparams["EBV"] = [val - err, val, val + err]
+                    distanceparams["EBV"] = [min(val - err, 0), val, val + err]
+                    distanceparams["dustframe"] = _find_get(
+                            root, "default/distanceInput/dustframe", "value"
+                            )
                 else:
                     distanceparams["dustframe"] = _find_get(
                         root, "default/distanceInput/dustframe", "value"
