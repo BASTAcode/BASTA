@@ -785,8 +785,8 @@ def run_xml(
                     val, err = float(EBV.get("value")), float(EBV.get("error"))
                     distanceparams["EBV"] = [min(val - err, 0), val, val + err]
                     distanceparams["dustframe"] = _find_get(
-                            root, "default/distanceInput/dustframe", "value"
-                            )
+                        root, "default/distanceInput/dustframe", "value"
+                    )
                 else:
                     distanceparams["dustframe"] = _find_get(
                         root, "default/distanceInput/dustframe", "value"
