@@ -931,14 +931,14 @@ def compute_epsilondiff(
     Compute epsilon differences and covariances.
 
     From Roxburgh 2016:
-     - Eq. 1 -> Epsilon(n,l)
-     - Eq. 4 -> EpsilonDifference(l=0,l={1,2})
+    * Eq. 1: Epsilon(n,l)
+    * Eq. 4: EpsilonDifference(l=0,l=(1,2))
 
     Epsilon differences are independent of surface phase shift/outer
     layers when the epsilons are evaluated at the same frequency. It
     therefore relies on splining from epsilons at the observed frequencies
     of the given degree and order to the frequency of the compared/subtracted
-    epsilon. See function `compute_epsilondiffseqs' for further clarification.
+    epsilon. See function "compute_epsilondiffseqs" for further clarification.
 
     For MonteCarlo sampling of the covariances, it is replicated from the
     covariance determination of frequency ratios in BASTA, (sec 4.1.3 of

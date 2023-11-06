@@ -7,7 +7,7 @@
 [![ADS](https://img.shields.io/badge/ads-2022MNRAS.509.4344A-blue.svg)](https://ui.adsabs.harvard.edu/abs/2022MNRAS.509.4344A/abstract)
 [![DOI](https://img.shields.io/badge/doi-10.1093/mnras/stab2911-orange.svg)](https://doi.org/10.1093/mnras/stab2911)
 
-Current stable version: v1.3.0
+Current stable version: v1.3.1
 
 **Important note:** BASTA is developed for Python 3.11, but Python >= 3.7 should work as well. Currently 3.12 is *not* supported due to known build issues in NumPy/f2py.
 
