@@ -15,7 +15,7 @@ from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
 from basta.constants import parameters
 from basta.constants import freqtypes
-from basta.fileio import no_models, read_freqs_xml, write_star_to_errfile
+from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import unique_unsort
 
@@ -785,8 +785,8 @@ def run_xml(
                     val, err = float(EBV.get("value")), float(EBV.get("error"))
                     distanceparams["EBV"] = [min(val - err, 0), val, val + err]
                     distanceparams["dustframe"] = _find_get(
-                            root, "default/distanceInput/dustframe", "value"
-                            )
+                        root, "default/distanceInput/dustframe", "value"
+                    )
                 else:
                     distanceparams["dustframe"] = _find_get(
                         root, "default/distanceInput/dustframe", "value"
