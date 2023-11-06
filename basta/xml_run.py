@@ -15,7 +15,7 @@ from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
 from basta.constants import parameters
 from basta.constants import freqtypes
-from basta.fileio import no_models, read_freqs_xml, write_star_to_errfile
+from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import unique_unsort
 
