@@ -583,8 +583,9 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
 
     # Glitch parameters are more robnustly determined as median of realizations
     if fittype in freqtypes.glitches:
-        seq = np.median(nvalues, axis=0)
-        return seq, fullcov
+        # Simply overwrite values in tmp with median values
+        tmp[0, :] = np.median(nvalues, axis=0)
+        return tmp, fullcov
     else:
         return fullcov
 

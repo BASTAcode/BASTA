@@ -286,35 +286,53 @@ def chi2_astero(
                 ac_depths,
                 debug,
             )
+            modglitches = copy.deepcopy(obsfreqdata[glitchtype]["data"])
 
-        if nmodes > 200:
-            raise NotImplementedError("> 200 modes to fit!")
-        freq = np.zeros((200, 4), dtype=float)
+            # Separate and interpolate within the separate r01, r10 and r02 sequences
+            # rtype = 5 is glitch parameters, can't interpolate those
+            for rtype in set(modglitches[2, :]) - {
+                5.0,
+            }:
+                joinmask = modglitches[2, :] == rtype
+                broadmask = broadglitches[2, :] == rtype
+                # Check we are in range
+                if (
+                    modglitches[1, joinmask][0] < broadglitches[1, broadmask][0]
+                    or modglitches[1, joinmask][-1] > broadglitches[1, broadmask][-1]
+                ):
+                    chi2rut = np.inf
+                    shapewarn = 2
+                    return chi2rut, warnings, shapewarn
+                intfunc = interp1d(
+                    broadglitches[1, broadmask],
+                    broadglitches[0, broadmask],
+                    kind="linear",
+                )
+                modglitches[0, joinmask] = intfunc(modglitches[1, joinmask])
 
-        # l and n
-        maxl = 3
-        freq[0:nmodes, 0] = joinkeys[0, joinkeys[0, :] < maxl]
-        freq[0:nmodes, 1] = joinkeys[1, joinkeys[0, :] < maxl]
-
-        # Model frequency and observational uncertainty used for weighing
-        freq[0:nmodes, 2] = join[0, joinkeys[0, :] < maxl]
-        freq[0:nmodes, 3] = join[3, joinkeys[0, :] < maxl]
-        nu1 = np.amin(join[2, joinkeys[0, :] < maxl])
-        nu2 = np.amax(join[2, joinkeys[0, :] < maxl])
-
-        glhParams, nerr = glitch.glh_params(freq, nmodes, nu1, nu2, tau0, tauhe, taubcz)
-        if nerr == 0:
-            x = obsfreqdata["glitches"]["data"] - glhParams
-            covinv = obsfreqdata["glitches"]["covinv"]
-            w = _weight(len(x), fitfreqs["seismicweights"])
-            if x.shape[0] == covinv.shape[0]:
-                chi2rut += (x.T.dot(covinv).dot(x)) / w
-            else:
-                shapewarn = 1
-                chi2rut = np.inf
         else:
+            # Get model glitch sequence
+            modglitches = glitch_fit.compute_glitchseqs(
+                joinkeys,
+                join,
+                glitchtype,
+                dnusurf,
+                fitfreqs,
+                ac_depths,
+                debug,
+            )
+
+        # Calculate chi square difference
+        x = obsfreqdata[glitchtype]["data"][0, :] - modglitches[0, :]
+        w = _weight(len(x), fitfreqs["seismicweights"])
+        covinv = obsfreqdata[glitchtype]["covinv"]
+        if x.shape[0] == covinv.shape[0]:
+            chi2rut += (x.T.dot(covinv).dot(x)) / w
+        else:
+            shapewarn = 1
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
+
+        return chi2rut, warnings, shapewarn
 
     #####################################
     # WIP ZONE : ENTER AT YOUR OWN RISK #

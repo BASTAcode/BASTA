@@ -247,6 +247,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         "correlations": False,
         "dnufrac": 0.15,
         "dnufit_in_ratios": False,
+        "interp_ratios": True,
     }
 
     # An example of manually forcing the weights with "N", and an example of using "dof"
