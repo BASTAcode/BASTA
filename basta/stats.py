@@ -11,7 +11,7 @@ from numpy.lib.histograms import _hist_bin_fd
 from scipy.interpolate import interp1d, CubicSpline
 from scipy.ndimage.filters import gaussian_filter1d
 
-from basta import freq_fit, glitch
+from basta import freq_fit, glitch_fit
 from basta import utils_seismic as su
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes, statdata
@@ -203,16 +203,9 @@ def chi2_astero(
             dnudata = obsfreqdata["freqs"]["dnudata"]
             dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
 
-            FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-            yfitdnu = corjoin[0, joinkeys[0, :] == 0]
-            xfitdnu = np.arange(0, len(yfitdnu))
-            wfitdnu = np.exp(
-                -1.0
-                * np.power(yfitdnu - fitfreqs["numax"], 2)
-                / (2 * np.power(0.25 * fitfreqs["numax"] / FWHM_sigma, 2.0))
-            )
-            fitcoef = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu))
-            dnusurf = fitcoef[0]
+            # Compute surface corrected dnu
+            dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, join, fitfreqs["numax"])
+
             chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
 
         # Add frequency ratios terms
@@ -261,12 +254,38 @@ def chi2_astero(
             shapewarn = 1
             chi2rut = np.inf
 
+    #####################################
+    # WIP ZONE : ENTER AT YOUR OWN RISK #
+    #####################################
+
     # Add contribution from glitches
     if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
-        # Read model glitch parameters
-        tau0 = libitem["tau0"][ind]
-        tauhe = libitem["tauhe"][ind]
-        taubcz = libitem["taubcz"][ind]
+        # Obtain glitch sequence to be fitted
+        glitchtype = obsfreqmeta["glitch"]["fit"][0]
+
+        # Compute surface corrected dnu
+        dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, join, fitfreqs["numax"])
+
+        # Assign acoustic depts for glitch search
+        ac_depths = {
+            "tauHe": libitem["tauhe"],
+            "dtauHe": 100.0,
+            "tauCZ": libitem["taubcz"],
+            "dtauCZ": 200.0,
+        }
+
+        # If interpolating in ratios (default), we need to do an extra step
+        if fitfreqs["interp_ratios"] and "r" in glitchtype:
+            # Get all ratios of model
+            broadglitches = glitch_fit.compute_glitchseqs(
+                modkey,
+                mod,
+                glitchtype,
+                dnusurf,
+                fitfreqs,
+                ac_depths,
+                debug,
+            )
 
         if nmodes > 200:
             raise NotImplementedError("> 200 modes to fit!")
@@ -296,6 +315,10 @@ def chi2_astero(
         else:
             chi2rut = np.inf
             return chi2rut, warnings, shapewarn
+
+    #####################################
+    # WIP ZONE : ENTER AT YOUR OWN RISK #
+    #####################################
 
     if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]

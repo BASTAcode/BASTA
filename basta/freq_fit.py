@@ -15,6 +15,43 @@ Individual frequencies
 """
 
 
+def compute_dnu_wfit(obskey, obs, numax):
+    """
+    Compute large frequency separation weighted around numax, the same way as dnufit.
+    Coefficients based on White et al. 2011.
+
+    Parameters
+    ----------
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
+    obs : array
+        Individual frequencies and uncertainties.
+    numax : scalar
+        Frequency of maximum power
+
+    Returns
+    -------
+    dnu : scalar
+        Large frequency separation obtained by fitting the radial mode observed
+        frequencies.
+    dnu_err : scalar
+        Uncertainty on dnudata.
+    """
+
+    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+    yfitdnu = obs[0, obskey[0, :] == 0]
+    xfitdnu = np.arange(0, len(yfitdnu))
+    wfitdnu = np.exp(
+        -1.0
+        * np.power(yfitdnu - numax, 2)
+        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+    )
+    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
+    dnu, dnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+
+    return dnu, dnu_err
+
+
 def make_intervals(osc, osckey, dnu=None):
     """
     This function computes the interval bins used in the frequency

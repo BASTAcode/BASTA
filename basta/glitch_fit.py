@@ -63,6 +63,7 @@ def compute_glitchseqs(
     sequence,
     dnu,
     fitfreqs,
+    ac_depths=False,
     debug=False,
 ):
     """
@@ -79,12 +80,16 @@ def compute_glitchseqs(
     # Setup array, make similar to ratios
     glitchseq = np.empty((4, 3)) * np.nan
 
-    # Acoustic radius and acourstic depths of the glitches
+    # Acoustic radius and acoustic depths of the glitches
     acousticRadius = 5.0e5 / dnu
-    tauHe = 0.17 * acousticRadius + 18.0
-    dtauHe = 0.05 * acousticRadius
-    tauCZ = 0.34 * acousticRadius + 929.0
-    dtauCZ = 0.10 * acousticRadius
+    # If not inputted, use standard assumptions:
+    if not ac_depths:
+        ac_depths = {
+            "tauHe": 0.17 * acousticRadius + 18.0,
+            "dtauHe": 0.05 * acousticRadius,
+            "tauCZ": 0.34 * acousticRadius + 929.0,
+            "dtauCZ": 0.10 * acousticRadius,
+        }
 
     # Reformat frequencies for input to methods and filter out l=3
     freqs = np.zeros((len(osckey[0, osckey[0, :] < 3]), 4))
@@ -102,10 +107,10 @@ def compute_glitchseqs(
             freqs,
             num_of_n,
             acousticRadius,
-            tauHe,
-            dtauHe,
-            tauCZ,
-            dtauCZ,
+            ac_depths["tauHe"],
+            ac_depths["dtauHe"],
+            ac_depths["tauCZ"],
+            ac_depths["dtauCZ"],
             npoly_fq=fitfreqs["npoly_params"],
             total_num_of_param_fq=nparams,
             nderiv_fq=fitfreqs["nderiv"],
@@ -119,10 +124,10 @@ def compute_glitchseqs(
             freq_sd,
             icov_sd,
             acousticRadius,
-            tauHe,
-            dtauHe,
-            tauCZ,
-            dtauCZ,
+            ac_depths["tauHe"],
+            ac_depths["dtauHe"],
+            ac_depths["tauCZ"],
+            ac_depths["dtauCZ"],
             npoly_sd=fitfreqs["npoly_params"],
             total_num_of_param_sd=fitfreqs["npoly_params"] + 7,
             nderiv_sd=fitfreqs["nderiv"],

@@ -581,42 +581,6 @@ def _read_ratios_cov_xml(xmlroot, types, order):
     return cov
 
 
-def _compute_dnudata(obskey, obs, numax):
-    """
-    Compute large frequency separation (the same way as dnufit)
-
-    Parameters
-    ----------
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obs : array
-        Individual frequencies and uncertainties.
-    numax : scalar
-        Frequency of maximum power
-
-    Returns
-    -------
-    dnudata : scalar
-        Large frequency separation obtained by fitting the radial mode observed
-        frequencies. Similar to dnufit, but from data and not from the
-        theoretical frequencies in the grid of models.
-    dnudata_err : scalar
-        Uncertainty on dnudata.
-    """
-    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    yfitdnu = obs[0, obskey[0, :] == 0]
-    xfitdnu = np.arange(0, len(yfitdnu))
-    wfitdnu = np.exp(
-        -1.0
-        * np.power(yfitdnu - numax, 2)
-        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-    )
-    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
-
-    return dnudata, dnudata_err
-
-
 def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     """
     Make a dictionary of frequency-dependent data
@@ -665,7 +629,7 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     getepsdiff = False
 
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    dnudata, dnudata_err = _compute_dnudata(obskey, obs, numax)
+    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax)
     obsls = np.unique(obskey[0, :])
 
     for fit in allfits:
