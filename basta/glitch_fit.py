@@ -11,7 +11,6 @@ from basta.sd import sd
 
 from basta import freq_fit
 from basta import utils_seismic as su
-from copy import deepcopy
 
 
 def compute_observed_glitches(
@@ -34,16 +33,20 @@ def compute_observed_glitches(
 
     """
 
-    # Compute values from observed mean of frequencies
-    glitchseq = compute_glitchseqs(osckey, osc, sequence, dnu, fitfreqs, debug)
-
-    # Check for valid return
-    if any(glitchseq[0] == np.nan):
-        return None
+    # Get length of sequence
+    if sequence == "glitches":
+        # Purely the three glitch parameters
+        sequence_length = 3
+    else:
+        # Ratios and glitch parameters
+        ratios = freq_fit.compute_ratioseqs(
+            osckey, osc, sequence[1:], fitfreqs["threepoint"]
+        )
+        sequence_length = ratios.shape[1] + 3
 
     # Call routine for sampling covariance
-    glitchseq_cov = su.compute_cov_from_mc(
-        glitchseq.shape[1],
+    glitchseq, glitchseq_cov = su.compute_cov_from_mc(
+        sequence_length,
         osckey,
         osc,
         sequence,

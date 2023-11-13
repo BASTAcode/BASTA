@@ -564,15 +564,29 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
 
     # Derive covariance matrix from MC-realisations and test convergence
     n = int(round((nrealisations - nfailed) / 2))
-    cov = np.cov(nvalues[:n, :], rowvar=False)
-    n_cov = np.cov(nvalues, rowvar=False)
-    fnorm = np.linalg.norm(n_cov - cov) / (nr**2)
+    tmpcov = skcov.MinCovDet().fit(nvalues[:n, :]).covariance_
+    fullcov = skcov.MinCovDet().fit(nvalues).covariance_
 
-    if fnorm > 1.0e-6:
-        print(f"Frobenius norm {fnorm} > 1e-6")
-        print("Warning: Covariance failed to converge")
+    # Test the convergence (change in standard deviations below a relative tolerance)
+    rdif = np.amax(
+        np.abs(
+            np.divide(
+                np.sqrt(np.diag(tmpcov)) - np.sqrt(np.diag(fullcov)),
+                np.sqrt(np.diag(fullcov)),
+            )
+        )
+    )
 
-    return n_cov
+    if rdif > 0.1:
+        print("Warning: Covariance failed to converge!")
+        print("Maximum relative difference = {:.2e} (>0.1)".format(rdif))
+
+    # Glitch parameters are more robnustly determined as median of realizations
+    if fittype in freqtypes.glitches:
+        seq = np.median(nvalues, axis=0)
+        return seq, fullcov
+    else:
+        return fullcov
 
 
 def extend_modjoin(joinkey, join, modkey, mod):
