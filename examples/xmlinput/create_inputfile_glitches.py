@@ -237,6 +237,8 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #               fit. Recommended to keep as 'True' (default).
     #
     # - "dnufit_in_ratios": TODO
+    #
+    # - "readglitchfile": TODO
 
     # Example of typical settings for a frequency fit (with default seismic weights):
     define_fit["freqparams"] = {
@@ -302,7 +304,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #
     # - "nguesses": Number of initial guesses in search for the global minimum.
 
-    define_fit["grparams"] = {
+    define_fit["glitchparams"] = {
         "method": "Freq",
         "npoly_params": 5,
         "nderiv": 3,

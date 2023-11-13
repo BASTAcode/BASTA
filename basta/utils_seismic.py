@@ -11,9 +11,12 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 
 from basta import freq_fit
+from basta import glitch_fit
 from basta import fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
+
+from sklearn import covariance as skcov
 
 
 def solar_scaling(Grid, inputparams, diffusion=None):
@@ -530,6 +533,8 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         seqs_function = freq_fit.compute_ratioseqs
     elif fittype in freqtypes.epsdiff:
         seqs_function = freq_fit.compute_epsilondiffseqs
+    elif fittype in freqtypes.glitches:
+        seqs_function = glitch_fit.compute_glitchseqs
     else:
         raise NotImplementedError(
             "Science case for covariance matrix is not implemented"
@@ -550,8 +555,15 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         )
         nvalues[i, :] = tmp[0]
 
+    nfailed = np.sum(np.isnan(nvalues[:, -1]))
+    if nfailed / nrealisations > 0.3:
+        print(f"Warning: {nfailed} of {nrealisations} failed")
+
+    # Filter out bad failed iterations
+    nvalues = nvalues[~np.isnan(nvalues).any(axis=1), :]
+
     # Derive covariance matrix from MC-realisations and test convergence
-    n = int(round(nrealisations / 2))
+    n = int(round((nrealisations - nfailed) / 2))
     cov = np.cov(nvalues[:n, :], rowvar=False)
     n_cov = np.cov(nvalues, rowvar=False)
     fnorm = np.linalg.norm(n_cov - cov) / (nr**2)

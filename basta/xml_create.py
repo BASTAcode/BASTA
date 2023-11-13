@@ -30,7 +30,7 @@ def generate_xml(
     priors=None,
     overwriteparams=None,
     freqparams=None,
-    grparams=None,
+    glitchparams=None,
     filters=None,
     dustframe=None,
     cornerplots=False,
@@ -302,10 +302,12 @@ def generate_xml(
             SubElement(freqelement, param, {"value": str(freqparams[param])})
 
     # Add subelement grparams to <default> if specified
-    if grparams and any(x in fitparams for x in freqtypes.grtypes):
-        grelement = SubElement(default, "grparams")
-        for param in grparams:
-            SubElement(grelement, param, {"value": str(grparams[param])})
+    if glitchparams and any(
+        x in fitparams for x in [*freqtypes.glitches, *freqtypes.grtypes]
+    ):
+        glitchelement = SubElement(default, "glitchparams")
+        for param in glitchparams:
+            SubElement(glitchelement, param, {"value": str(glitchparams[param])})
 
     # We need to check these before handling distance input
     if isinstance(cornerplots, (str, bool)) and len(cornerplots):

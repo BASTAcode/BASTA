@@ -511,6 +511,9 @@ def run_xml(
         fitfreqs["correlations"] = strtobool(
             _find_get(root, "default/freqparams/correlations", "value", "False")
         )
+        fitfreqs["nrealizations"] = _find_get(
+            root, "default/freqparams", "value", 10000
+        )
         fitfreqs["threepoint"] = strtobool(
             _find_get(root, "default/freqparams/threepoint", "value", "False")
         )
@@ -545,6 +548,36 @@ def run_xml(
         # Fill weight related things into one dict  to not spam other routines with
         # redundant input
         fitfreqs["seismicweights"] = {"weight": seisw, "dof": dof, "N": N}
+
+        # Detect glitch fitting activation
+        if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+            fitfreqs["glitchfit"] = True
+            fitfreqs["readglitchfile"] = strtobool(
+                _find_get(root, "default/freqparams/readglitchfile", "value", "False")
+            )
+        else:
+            fitfreqs["glitchfit"] = False
+
+        # Read glitch and ratio fitting controls
+        if any([x in freqtypes.glitches for x in fitfreqs["fittypes"]]):
+            fitfreqs["glitchmethod"] = _find_get(
+                root, "default/grparams/method", "value", "Freq"
+            )
+            fitfreqs["npoly_params"] = int(
+                _find_get(root, "default/grparams/npoly_params", "value", 5)
+            )
+            fitfreqs["nderiv"] = int(
+                _find_get(root, "default/grparams/nderiv", "value", 3)
+            )
+            fitfreqs["tol_grad"] = float(
+                _find_get(root, "default/grparams/tol_grad", "value", 1e-3)
+            )
+            fitfreqs["regu_param"] = float(
+                _find_get(root, "default/grparams/regu_param", "value", 7)
+            )
+            fitfreqs["nguesses"] = int(
+                _find_get(root, "default/grparams/nguesses", "value", 200)
+            )
 
     # Get bayesian weights
     # --> If not provided by the user, assume them to be active
@@ -718,12 +751,10 @@ def run_xml(
                 fitfreqs["freqfile"] = os.path.join(
                     fitfreqs["freqpath"], starid + ".xml"
                 )
-                if "glitches" in fitfreqs["fittypes"]:
-                    fitfreqs["glhfile"] = os.path.join(
-                        fitfreqs["freqpath"], starid + ".glh"
+                if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"]:
+                    fitfreqs["glitchfile"] = os.path.join(
+                        fitfreqs["freqpath"], starid + ".hdf5"
                     )
-                else:
-                    fitfreqs["glhfile"] = None
                 try:
                     fitfreqs["nottrustedfile"] = star.find("nottrustedfile").get(
                         "value"
