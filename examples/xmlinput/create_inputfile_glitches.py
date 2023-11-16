@@ -244,9 +244,9 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     define_fit["freqparams"] = {
         "freqpath": os.path.join(BASTADIR, "examples/data/freqs"),
         "fcor": "BG14",
-        "correlations": False,
+        "correlations": True,
         "dnufrac": 0.15,
-        "dnufit_in_ratios": False,
+        "dnufit_in_ratios": True,
         "interp_ratios": True,
     }
 
@@ -306,11 +306,11 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # - "nguesses": Number of initial guesses in search for the global minimum.
 
     define_fit["glitchparams"] = {
-        "method": "Freq",
-        "npoly_params": 5,
-        "nderiv": 3,
+        "method": "SecDif",
+        "npoly_params": 3,
+        "nderiv": 1,
         "tol_grad": 1e-3,
-        "regu_param": 7,
+        "regu_param": 1000,
         "nguesses": 200,
     }
 

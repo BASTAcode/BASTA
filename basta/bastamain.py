@@ -334,9 +334,7 @@ def BASTA(
 
     # Fitting info: Frequencies
     if fitfreqs["active"]:
-        if "glitches" in fitfreqs["fittypes"]:
-            print("* Fitting of frequency glitches activated!")
-        elif "freqs" in fitfreqs["fittypes"]:
+        if "freqs" in fitfreqs["fittypes"]:
             print("* Fitting of individual frequencies activated!")
         elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
             print(
@@ -348,12 +346,8 @@ def BASTA(
                 print(
                     "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
                 )
-        elif any(x in freqtypes.grtypes for x in fitfreqs["fittypes"]):
-            print(
-                "* Fitting of glitches and ratios ({0}) together activated!".format(
-                    fitfreqs["fittypes"]
-                )
-            )
+        elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+            print("* Fitting of glitches {0} activated!".format(fitfreqs["fittypes"]))
         elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
             print(
                 "* Fitting of epsilon differences {0} activated!".format(

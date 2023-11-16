@@ -20,7 +20,7 @@ from basta.constants import freqtypes, statdata
 Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
 priorlogPDF = collections.namedtuple("Trackstats", "index logPDF chi2 bayw magw IMFw")
 trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
-trackglitchpar = collections.namedtuple("Trackglitchpar", "dnusurf glhparams")
+trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
 
 
 def _weight(N, seisw):

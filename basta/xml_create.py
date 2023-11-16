@@ -302,9 +302,7 @@ def generate_xml(
             SubElement(freqelement, param, {"value": str(freqparams[param])})
 
     # Add subelement grparams to <default> if specified
-    if glitchparams and any(
-        x in fitparams for x in [*freqtypes.glitches, *freqtypes.grtypes]
-    ):
+    if glitchparams and any(x in fitparams for x in freqtypes.glitches):
         glitchelement = SubElement(default, "glitchparams")
         for param in glitchparams:
             SubElement(glitchelement, param, {"value": str(glitchparams[param])})

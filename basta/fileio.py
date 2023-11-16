@@ -865,7 +865,6 @@ def read_allseismic(
 
     # Get glitches
     if obsfreqmeta["getglitch"]:
-        obsfreqdata["glitches"] = {}
         for glitchtype in set(obsfreqmeta["glitch"]["fit"]) | set(
             obsfreqmeta["glitch"]["plot"]
         ):
