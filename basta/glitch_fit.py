@@ -100,9 +100,20 @@ def compute_glitchseqs(
 
     # Number of n values for each l
     num_of_n = np.array([sum(osckey[0, :] == ll) for ll in set(osckey[0])])
-
     if fitfreqs["glitchmethod"].lower() == "freq":
         nparams = len(num_of_n) * fitfreqs["npoly_params"] + 7
+        print(num_of_n)
+        print(acousticRadius)
+        print(ac_depths["tauHe"])
+        print(ac_depths["dtauHe"])
+        print(ac_depths["tauCZ"])
+        print(ac_depths["dtauCZ"])
+        print(fitfreqs["npoly_params"])
+        print(nparams)
+        print(fitfreqs["nderiv"])
+        print(fitfreqs["tol_grad"])
+        print(fitfreqs["regu_param"])
+        print(fitfreqs["nguesses"])
         param, _, _, ier = fit_fq(
             freqs,
             num_of_n,
@@ -139,7 +150,7 @@ def compute_glitchseqs(
         raise KeyError(
             f"Invalid glitch-fitting method {fitfreqs['glitchmethod']} requested!"
         )
-
+    print("Ierr:", ier)
     # If failed, don't overwrite NaNS in output
     if ier == 0 and np.random.randint(0, 7) != 0:  # TODO
         # Determine average amplitudes

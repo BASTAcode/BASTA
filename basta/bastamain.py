@@ -525,8 +525,11 @@ def BASTA(
     selectedmodels = {}
     noofind = 0
     noofposind = 0
-    if fitfreqs["active"] and (fitfreqs["glitchfit"] or fitfreqs["dnufit_in_ratios"]):
-        trackfreqparams = {}
+    # In some cases we need to store quantities computed at runtime
+    if fitfreqs["active"] and fitfreqs["glitchfit"]:
+        glitchmodels = {}
+    if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+        dnusurfmodels = {}
 
     print(
         "\n\nComputing likelihood of models in the grid ({0} {1}) ...".format(
@@ -669,8 +672,12 @@ def BASTA(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if fitfreqs["active"]:
+                    if fitfreqs["dnufit_in_ratios"]:
+                        dnusurf = np.zeros(index.sum())
+                    if fitfreqs["glitchfit"]:
+                        glitchpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
-                        chi2_freq, warn, shapewarn = stats.chi2_astero(
+                        chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
                             obskey,
                             obs,
                             obsfreqmeta,
@@ -686,6 +693,13 @@ def BASTA(
                         )
                         chi2[indd] += chi2_freq
 
+                        if fitfreqs["dnufit_in_ratios"]:
+                            dnusurf[indd] = addpars["dnusurf"]
+                        if fitfreqs["glitchfit"]:
+                            glitchpar[indd] = addpars["glitchparams"]
+
+                    # print(dnusurf)
+                    # print(glitchpar)
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
                 if debug:
@@ -733,6 +747,7 @@ def BASTA(
                         libitem["massini"][index][~np.isinf(logPDF)],
                     )
 
+                # Sum the number indexes and nonzero indexes
                 noofind += len(logPDF)
                 noofposind += np.count_nonzero(~np.isinf(logPDF))
                 if debug and verbose:
@@ -741,6 +756,8 @@ def BASTA(
                             group_name + name, ~np.isinf(logPDF)
                         )
                     )
+
+                # Store statistical info
                 if debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
                         index, logPDF, chi2, bayw, magw, IMFw

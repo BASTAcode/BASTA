@@ -306,11 +306,11 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # - "nguesses": Number of initial guesses in search for the global minimum.
 
     define_fit["glitchparams"] = {
-        "method": "SecDif",
-        "npoly_params": 3,
-        "nderiv": 1,
+        "method": "Freq",
+        "npoly_params": 5,
+        "nderiv": 3,
         "tol_grad": 1e-3,
-        "regu_param": 1000,
+        "regu_param": 7,
         "nguesses": 200,
     }
 
@@ -379,7 +379,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #   surface independent parameters can take a while to compute).
     # - It can be a bool, a string or a list.
     # --> Commonly used options: ("allechelle", "ratios", "epsdiff", True, False)
-    define_plots["freqplots"] = True
+    define_plots["freqplots"] = ("gr012",)
 
     # By default BASTA will save plots in png format, as they are much faster to
     # produce. This can be changed to pdf to obtain higher quality plots at the cost of
