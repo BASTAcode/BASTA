@@ -122,7 +122,7 @@ def chi2_astero(
     """
 
     # Additional parameters calculated during fitting
-    addpars = {"dnufsurf": None, "glitchparams": None}
+    addpars = {"dnusurf": None, "glitchparams": None}
 
     # Unpack model frequencies
     rawmod = libitem["osc"][ind]
@@ -265,10 +265,13 @@ def chi2_astero(
     if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
         # Obtain glitch sequence to be fitted
         glitchtype = obsfreqmeta["glitch"]["fit"][0]
-
         # Compute surface corrected dnu, if not already computed
         if not fitfreqs["dnufit_in_ratios"]:
             dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, join, fitfreqs["numax"])
+
+        print(15 * "#")
+        print("Model:", libitem["name"][ind])
+        print("dnusurf", dnusurf)
 
         # Assign acoustic depts for glitch search
         ac_depths = {
@@ -306,7 +309,7 @@ def chi2_astero(
                 ):
                     chi2rut = np.inf
                     shapewarn = 2
-                    return chi2rut, warnings, shapewarn
+                    return chi2rut, warnings, shapewarn, addpars
                 intfunc = interp1d(
                     broadglitches[1, broadmask],
                     broadglitches[0, broadmask],

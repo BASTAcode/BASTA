@@ -102,18 +102,19 @@ def compute_glitchseqs(
     num_of_n = np.array([sum(osckey[0, :] == ll) for ll in set(osckey[0])])
     if fitfreqs["glitchmethod"].lower() == "freq":
         nparams = len(num_of_n) * fitfreqs["npoly_params"] + 7
-        print(num_of_n)
-        print(acousticRadius)
-        print(ac_depths["tauHe"])
-        print(ac_depths["dtauHe"])
-        print(ac_depths["tauCZ"])
-        print(ac_depths["dtauCZ"])
-        print(fitfreqs["npoly_params"])
-        print(nparams)
-        print(fitfreqs["nderiv"])
-        print(fitfreqs["tol_grad"])
-        print(fitfreqs["regu_param"])
-        print(fitfreqs["nguesses"])
+        print(freqs)
+        print("num_of_n", num_of_n)
+        print("acousticRadius", acousticRadius)
+        print("tauHe", ac_depths["tauHe"])
+        print("dtauHe", ac_depths["dtauHe"])
+        print("tauCZ", ac_depths["tauCZ"])
+        print("dtauCZ", ac_depths["dtauCZ"])
+        print("npoly_params", fitfreqs["npoly_params"])
+        print("nparams", nparams)
+        print("nderiv", fitfreqs["nderiv"])
+        print("tol_grad", fitfreqs["tol_grad"])
+        print("regy_param", fitfreqs["regu_param"])
+        print("nguesses", fitfreqs["nguesses"])
         param, _, _, ier = fit_fq(
             freqs,
             num_of_n,
@@ -129,6 +130,9 @@ def compute_glitchseqs(
             regu_param_fq=fitfreqs["regu_param"],
             num_guess=fitfreqs["nguesses"],
         )
+        print("param", param)
+        print("Ierr", ier)
+        print("\n")
     elif fitfreqs["glitchmethod"].lower() == "secdif":
         freq_sd = sd(freqs, num_of_n, icov_sd.shape[0])
         param, _, _, ier = fit_sd(
