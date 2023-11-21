@@ -96,25 +96,16 @@ def compute_glitchseqs(
     freqs[:, 0] = osckey[0, osckey[0, :] < 3]
     freqs[:, 1] = osckey[1, osckey[0, :] < 3]
     freqs[:, 2] = osc[0, osckey[0, :] < 3]
-    freqs[:, 3] = osc[1, osckey[0, :] < 3]
+    # If model frequencies from join, use error of observed frequencies
+    if osc.shape[0] > 2:
+        freqs[:, 3] = osc[3, osckey[0, :] < 3]
+    else:
+        freqs[:, 3] = osc[1, osckey[0, :] < 3]
 
     # Number of n values for each l
     num_of_n = np.array([sum(osckey[0, :] == ll) for ll in set(osckey[0])])
     if fitfreqs["glitchmethod"].lower() == "freq":
         nparams = len(num_of_n) * fitfreqs["npoly_params"] + 7
-        print(freqs)
-        print("num_of_n", num_of_n)
-        print("acousticRadius", acousticRadius)
-        print("tauHe", ac_depths["tauHe"])
-        print("dtauHe", ac_depths["dtauHe"])
-        print("tauCZ", ac_depths["tauCZ"])
-        print("dtauCZ", ac_depths["dtauCZ"])
-        print("npoly_params", fitfreqs["npoly_params"])
-        print("nparams", nparams)
-        print("nderiv", fitfreqs["nderiv"])
-        print("tol_grad", fitfreqs["tol_grad"])
-        print("regy_param", fitfreqs["regu_param"])
-        print("nguesses", fitfreqs["nguesses"])
         param, _, _, ier = fit_fq(
             freqs,
             num_of_n,
@@ -130,9 +121,6 @@ def compute_glitchseqs(
             regu_param_fq=fitfreqs["regu_param"],
             num_guess=fitfreqs["nguesses"],
         )
-        print("param", param)
-        print("Ierr", ier)
-        print("\n")
     elif fitfreqs["glitchmethod"].lower() == "secdif":
         freq_sd = sd(freqs, num_of_n, icov_sd.shape[0])
         param, _, _, ier = fit_sd(
@@ -154,9 +142,8 @@ def compute_glitchseqs(
         raise KeyError(
             f"Invalid glitch-fitting method {fitfreqs['glitchmethod']} requested!"
         )
-    print("Ierr:", ier)
     # If failed, don't overwrite NaNS in output
-    if ier == 0 and np.random.randint(0, 7) != 0:  # TODO
+    if ier == 0:
         # Determine average amplitudes
         _, AHe = _average_amplitudes(
             param,
@@ -167,7 +154,7 @@ def compute_glitchseqs(
         )
         # Restructure glitch parameters
         glitchseq[0, :] = [AHe, param[-3], param[-2]]
-        glitchseq[2, :] = [5, 5, 5]
+        glitchseq[2, :] = [7, 8, 9]
     # If only glitches, return these
     if sequence == "glitches":
         return glitchseq

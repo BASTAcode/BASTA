@@ -15,7 +15,8 @@ from basta.constants import freqtypes
 # Set the style of all plots
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
+import matplotlib.patches as patches
+import matplotlib.transforms as transforms
 
 plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
 
@@ -596,6 +597,202 @@ def ratioplot(
         plt.close(fig)
 
 
+def confidence_ellipse(
+    mean_x, std_x, mean_y, std_y, cov, ax, facecolor="none", **kwargs
+):
+    """
+    Create a plot of the covariance confidence ellipse of *x* and *y*.
+
+    Parameters
+    ----------
+    mean_x : float
+        Mean of input x
+    std_x : float
+        Standard deviation of input x
+    mean_y : float
+        Mean of input y
+    std_y : float
+        Standard deviation of input y
+    cov : float
+        Covariance of x and y
+    ax : matplotlib.axes.Axes
+        Axes object to draw the ellipse into.
+    **kwargs
+        Forwarded to `~matplotlib.patches.Ellipse`
+    Returns
+    -------
+    matplotlib.patches.Ellipse
+    """
+
+    pearson_correlation = cov / (std_x * std_y)
+
+    ell_radius_x = np.sqrt(1 + pearson_correlation)
+    ell_radius_y = np.sqrt(1 - pearson_correlation)
+
+    ellipse = patches.Ellipse(
+        (0, 0),
+        width=ell_radius_x * 2,
+        height=ell_radius_y * 2,
+        facecolor=facecolor,
+        **kwargs,
+    )
+
+    transf = (
+        transforms.Affine2D()
+        .rotate_deg(45)
+        .scale(std_x, std_y)
+        .translate(mean_x, mean_y)
+    )
+
+    ellipse.set_transform(transf + ax.transData)
+
+    return ax.add_patch(ellipse)
+
+
+def glitchplot(
+    obsfreqdata,
+    sequence,
+    modelvalues,
+    maxPath,
+    maxInd,
+    output,
+):
+    labels = {
+        7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
+        8: r"$\Delta_{\mathrm{He}}$ (s)",
+        9: r"$\tau_{\mathrm{He}}$ (s)",
+    }
+
+    # Read in data
+    obsparams = obsfreqdata[sequence]["data"]
+    obs_cov = obsfreqdata[sequence]["cov"]
+    obs_err = np.sqrt(np.diag(obs_cov))
+
+    # Start figure
+    fig, ax = plt.subplots(2, 2, figsize=(8, 8))
+    fig.delaxes(ax[0, 1])
+
+    # Loop over each track to plot
+    for path, trackparams in modelvalues.items():
+        AHe = trackparams.AHe
+        AHe = AHe[AHe > 1e-14]
+        dHe = trackparams.dHe[AHe > 1e-14]
+        tauHe = trackparams.tauHe[AHe > 1e-14]
+
+        ax[1, 0].plot(AHe, dHe, ".", ms=5, color="grey", zorder=0)
+        ax[0, 0].plot(AHe, tauHe, ".", ms=5, color="grey", zorder=0)
+        ax[1, 1].plot(tauHe, dHe, ".", ms=5, color="grey", zorder=0)
+
+    # AHe vs dHe
+    ax[1, 0].errorbar(
+        obsparams[0, obsparams[2, :] == 7.0],
+        obsparams[0, obsparams[2, :] == 8.0],
+        xerr=obs_err[obsparams[2, :] == 7.0],
+        yerr=obs_err[obsparams[2, :] == 8.0],
+        marker=".",
+        linestyle="None",
+        color="#D55E00",
+        zorder=1,
+        label="Measured",
+    )
+    ax[1, 0].plot(
+        modelvalues[maxPath].AHe[maxInd],
+        modelvalues[maxPath].dHe[maxInd],
+        "*",
+        ms=20,
+        color="#0072B2",
+        zorder=2,
+        label="Best fit",
+    )
+    confidence_ellipse(
+        obsparams[0, obsparams[2, :] == 7.0],
+        obs_err[obsparams[2, :] == 7.0],
+        obsparams[0, obsparams[2, :] == 8.0],
+        obs_err[obsparams[2, :] == 8.0],
+        obs_cov[obsparams[2, :] == 7.0, obsparams[2, :] == 8.0],
+        ax[1, 0],
+        edgecolor="#D55E00",
+        lw=1.5,
+        alpha=0.5,
+    )
+    ax[1, 0].set_xlabel(labels[7])
+    ax[1, 0].set_ylabel(labels[8])
+
+    # AHe vs tauHe
+    ax[0, 0].errorbar(
+        obsparams[0, obsparams[2, :] == 7.0],
+        obsparams[0, obsparams[2, :] == 9.0],
+        xerr=obs_err[obsparams[2, :] == 7.0],
+        yerr=obs_err[obsparams[2, :] == 9.0],
+        marker=".",
+        linestyle="None",
+        color="#D55E00",
+        zorder=1,
+        label="Measured",
+    )
+    ax[0, 0].plot(
+        modelvalues[maxPath].AHe[maxInd],
+        modelvalues[maxPath].tauHe[maxInd],
+        "*",
+        ms=20,
+        color="#0072B2",
+        zorder=2,
+        label="Best fit",
+    )
+    confidence_ellipse(
+        obsparams[0, obsparams[2, :] == 7.0],
+        obs_err[obsparams[2, :] == 7.0],
+        obsparams[0, obsparams[2, :] == 9.0],
+        obs_err[obsparams[2, :] == 9.0],
+        obs_cov[obsparams[2, :] == 7.0, obsparams[2, :] == 9.0],
+        ax[0, 0],
+        edgecolor="#D55E00",
+        lw=1.5,
+        alpha=0.5,
+    )
+    ax[0, 0].set_ylabel(labels[9])
+    ax[0, 0].legend(bbox_to_anchor=(1.01, 1), loc="upper left", ncol=1)
+
+    # tauHe vs dHe
+    ax[1, 1].errorbar(
+        obsparams[0, obsparams[2, :] == 9.0],
+        obsparams[0, obsparams[2, :] == 8.0],
+        xerr=obs_err[obsparams[2, :] == 9.0],
+        yerr=obs_err[obsparams[2, :] == 8.0],
+        marker=".",
+        linestyle="None",
+        color="#D55E00",
+        zorder=1,
+        label="Measured",
+    )
+    ax[1, 1].plot(
+        modelvalues[maxPath].tauHe[maxInd],
+        modelvalues[maxPath].dHe[maxInd],
+        "*",
+        ms=20,
+        color="#0072B2",
+        zorder=2,
+        label="Best fit",
+    )
+    confidence_ellipse(
+        obsparams[0, obsparams[2, :] == 9.0],
+        obs_err[obsparams[2, :] == 9.0],
+        obsparams[0, obsparams[2, :] == 8.0],
+        obs_err[obsparams[2, :] == 8.0],
+        obs_cov[obsparams[2, :] == 9.0, obsparams[2, :] == 8.0],
+        ax[1, 1],
+        edgecolor="#D55E00",
+        lw=1.5,
+        alpha=0.5,
+    )
+    ax[1, 1].set_xlabel(labels[9])
+
+    if output is not None:
+        fig.savefig(output, bbox_inches="tight")
+        print("Saved figure to " + output)
+        plt.close(fig)
+
+
 def epsilon_difference_diagram(
     mod,
     modkey,
@@ -794,10 +991,31 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
         fmtstr = r"$\delta\epsilon_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
+    elif fittype in freqtypes.glitches:
+        data = obsfreqdata[fittype]["data"]
+        if data is None:
+            return
+        fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
+        if fittype != "glitches":
+            ln_zip = zip(data[2, :-3], data[3, :-3])
+        else:
+            ln_zip = []
+
     # Construct labels
     labs = []
     for l, n in ln_zip:
         labs.append(fmtstr.format(int(l), int(n)))
+
+    # Append special glitches labels
+    if fittype in freqtypes.glitches:
+        glitchlabels = {
+            7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
+            8: r"$\Delta_{\mathrm{He}}$ (s)",
+            9: r"$\tau_{\mathrm{He}}$ (s)",
+        }
+
+        for glitchtype in data[2, -3:]:
+            labs.append(glitchlabels[int(glitchtype)])
 
     # Compute correlations
     cov = obsfreqdata[fittype]["cov"]

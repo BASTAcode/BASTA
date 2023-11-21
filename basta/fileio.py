@@ -441,9 +441,9 @@ def _read_precomputed_glitches(filename, type="glitches"):
 
     # Read ratio type in file, and check that it matches requested fittype
     if type != "glitches":
-        rtype = datfile["rto/rtype"][()]
+        rtype = datfile["rto/rtype"][()].decode("utf-8")
         if rtype != type[1:]:
-            raise KeyError("Requested ratio type f{type[1:]} not found in f{filename}")
+            raise KeyError(f"Requested ratio type {type[1:]} not found in {filename}")
 
     # Read data and covariance matrix
     gdata = datfile["cov/params"][()]
@@ -870,7 +870,7 @@ def read_allseismic(
         ):
             obsfreqdata[glitchtype] = {}
             if fitfreqs["readglitchfile"]:
-                datos = _read_precomputed_glitches(fitfreqs["glhfile"], glitchtype)
+                datos = _read_precomputed_glitches(fitfreqs["glitchfile"], glitchtype)
             else:
                 datos = glitch_fit.compute_observed_glitches(
                     obskey,

@@ -201,7 +201,7 @@ def chi2_astero(
         dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
 
         # Compute surface corrected dnu
-        dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, join, fitfreqs["numax"])
+        dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
 
         chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
 
@@ -267,11 +267,7 @@ def chi2_astero(
         glitchtype = obsfreqmeta["glitch"]["fit"][0]
         # Compute surface corrected dnu, if not already computed
         if not fitfreqs["dnufit_in_ratios"]:
-            dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, join, fitfreqs["numax"])
-
-        print(15 * "#")
-        print("Model:", libitem["name"][ind])
-        print("dnusurf", dnusurf)
+            dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
 
         # Assign acoustic depts for glitch search
         ac_depths = {
@@ -296,10 +292,8 @@ def chi2_astero(
             modglitches = copy.deepcopy(obsfreqdata[glitchtype]["data"])
 
             # Separate and interpolate within the separate r01, r10 and r02 sequences
-            # rtype = 5 is glitch parameters, can't interpolate those
-            for rtype in set(modglitches[2, :]) - {
-                5.0,
-            }:
+            # rtype = {7, 8, 9} is glitch parameters, can't interpolate those
+            for rtype in set(modglitches[2, :]) - {7.0, 8.0, 9.0}:
                 joinmask = modglitches[2, :] == rtype
                 broadmask = broadglitches[2, :] == rtype
                 # Check we are in range
@@ -340,7 +334,7 @@ def chi2_astero(
             chi2rut = np.inf
 
         # Store the determined glitch parameters for outputting
-        addpars["glitcparmas"] = modglitches[0, -3:]
+        addpars["glitchparams"] = modglitches[0, -3:]
 
     #####################################
     # WIP ZONE : ENTER AT YOUR OWN RISK #

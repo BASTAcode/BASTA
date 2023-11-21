@@ -41,6 +41,7 @@ def compute_dnu_wfit(obskey, obs, numax):
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
     yfitdnu = obs[0, obskey[0, :] == 0]
     xfitdnu = np.arange(0, len(yfitdnu))
+    xfitdnu = obskey[1, obskey[0, :] == 0]
     wfitdnu = np.exp(
         -1.0
         * np.power(yfitdnu - numax, 2)

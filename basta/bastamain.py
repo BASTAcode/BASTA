@@ -526,10 +526,10 @@ def BASTA(
     noofind = 0
     noofposind = 0
     # In some cases we need to store quantities computed at runtime
-    if fitfreqs["active"] and fitfreqs["glitchfit"]:
-        glitchmodels = {}
     if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
         dnusurfmodels = {}
+    if fitfreqs["active"] and fitfreqs["glitchfit"]:
+        glitchmodels = {}
 
     print(
         "\n\nComputing likelihood of models in the grid ({0} {1}) ...".format(
@@ -698,8 +698,6 @@ def BASTA(
                         if fitfreqs["glitchfit"]:
                             glitchpar[indd] = addpars["glitchparams"]
 
-                    # print(dnusurf)
-                    # print(glitchpar)
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
                 if debug:
@@ -765,6 +763,14 @@ def BASTA(
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, logPDF, chi2
+                    )
+                if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+                    dnusurfmodels[group_name + name] = stats.Trackdnusurf(dnusurf)
+                if fitfreqs["active"] and fitfreqs["glitchfit"]:
+                    glitchmodels[group_name + name] = stats.Trackglitchpar(
+                        glitchpar[:, 0],
+                        glitchpar[:, 1],
+                        glitchpar[:, 2],
                     )
             else:
                 if debug and verbose:
@@ -844,6 +850,14 @@ def BASTA(
         experimental=experimental,
         validationmode=validationmode,
     )
+
+    # Collect additional output for plotting and saving
+    addstats = {}
+    if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+        addstats["dnusurf"] = dnusurfmodels
+    if fitfreqs["active"] and fitfreqs["glitchfit"]:
+        addstats["glitchparams"] = glitchmodels
+
     # Make frequency-related plots
     freqplots = inputparams.get("freqplots")
     if fitfreqs["active"] and len(freqplots):
@@ -860,6 +874,7 @@ def BASTA(
             path=maxPDF_path,
             ind=maxPDF_ind,
             plotfname=outfilename + "_{0}." + inputparams["plotfmt"],
+            **addstats,
             debug=debug,
         )
     else:
