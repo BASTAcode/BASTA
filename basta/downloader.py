@@ -33,23 +33,16 @@ def get_grid(case):
     }
 
     # Mapping to download location
-    baseurl = "https://cloud.phys.au.dk/nextcloud/index.php/s"
-    urlmap = {
-        "Garstec_16CygA.hdf5": "dSw3y5adCPMBMJb",
-        "Garstec_validation.hdf5": "FMJBbAwxpYjzBsd",
-        "BaSTI_iso2018.hdf5": "rtjB4owrgcEN4cg",
-        "Garstec_16CygA_v1.hdf5": "yLQBDrAJeinFAMN",
-        "Garstec_validation_new-weights.hdf5": "etDR4FSKPsxdFLY",
-    }
+    baseurl = "https://www.erda.au.dk/vgrid/BASTA/public-grids/"
 
     # Resolve grid name and location
     if case == "iso":
         gridname = "BaSTI_iso2018.hdf5"
-    elif case in ["16CygA", "validation", "16CygA_v1", "validation_new-weights"]:
+    elif case in ["16CygA", "validation", "validation_new-weights"]:
         gridname = "Garstec_{0}.hdf5".format(case)
     else:
         raise ValueError("Unknown grid!")
-    url = os.path.join(baseurl, urlmap[gridname], "download", "{0}.gz".format(gridname))
+    url = os.path.join(baseurl, "{0}.gz".format(gridname))
 
     # Obtain location of BASTA
     try:

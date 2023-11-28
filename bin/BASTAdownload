@@ -16,7 +16,6 @@ def main():
         "16CygA",
         "validation",
         "iso",
-        "16CygA_v1",
         "validation_new-weights",
     ]
     parser.add_argument(
