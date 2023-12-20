@@ -675,9 +675,9 @@ def glitchplot(
     # Loop over each track to plot
     for path, trackparams in modelvalues.items():
         AHe = trackparams.AHe
-        AHe = AHe[AHe > 1e-14]
         dHe = trackparams.dHe[AHe > 1e-14]
         tauHe = trackparams.tauHe[AHe > 1e-14]
+        AHe = AHe[AHe > 1e-14]
 
         ax[1, 0].plot(AHe, dHe, ".", ms=5, color="grey", zorder=0)
         ax[0, 0].plot(AHe, tauHe, ".", ms=5, color="grey", zorder=0)
