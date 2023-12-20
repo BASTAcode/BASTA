@@ -23,6 +23,7 @@ dependencies = [
 
 [project.scripts]
 BASTArun = "basta.run:main"
+BASTAmultirun = "basta.run:multi"
 BASTAdownload = "basta.downloader:main"
 
 [build-system]
