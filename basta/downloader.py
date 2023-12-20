@@ -5,7 +5,23 @@ import os
 import gzip
 import shutil
 import requests
+import argparse
 from tqdm import tqdm
+
+# Import dusmaps configuration (the maps themselves are slow)
+from dustmaps.config import config
+
+DUSTMAPFILE = "_dustpath.py"
+
+
+def get_basta_dir():
+    """
+    Helper to obtain location of BASTA root directory
+    """
+    rootdir = os.path.dirname(
+        os.path.abspath(os.path.join(os.path.abspath(__file__), ".."))
+    )
+    return rootdir
 
 
 def get_grid(case):
@@ -45,11 +61,7 @@ def get_grid(case):
     url = os.path.join(baseurl, "{0}.gz".format(gridname))
 
     # Obtain location of BASTA
-    try:
-        home = os.environ["BASTADIR"]
-    except KeyError:
-        print("Cannot find environment variable 'BASTADIR'! Cannot download grid...")
-        return
+    home = get_basta_dir()
 
     # Make sure the target folder exists
     basedir = os.path.join(home, "grids")
@@ -94,3 +106,64 @@ def get_grid(case):
 
     else:
         print("The grid '{0}' already exists! Will not download.".format(gridpath))
+
+
+def get_dustmaps():
+    # Obtain location of BASTA
+    home = get_basta_dir()
+
+    # More...
+    dustfolder = os.path.join(home, "dustmaps")
+    config["data_dir"] = dustfolder
+    print("\n=========================")
+    print("Will install dustmaps to: {0}".format(dustfolder))
+    if not os.path.exists(dustfolder):
+        os.mkdir(dustfolder)
+    install_dustmaps = True
+
+    # Write dustmap datafolder to file
+    with open(os.path.join(home, "basta", DUSTMAPFILE), "w") as f:
+        f.write("__dustpath__ = '{0}'\n".format(dustfolder))
+
+    # Install if required
+    if install_dustmaps:
+        # SFD/Schlegel dustmap
+        print("\nFetching the SFD dustmap ...\n", flush=True)
+        import dustmaps.sfd
+
+        dustmaps.sfd.fetch()
+        print("\nDone!")
+        print("----------")
+
+        # Bayestar/Green dustmap
+        print("\nFetching the Bayestar dustmap ...\n", flush=True)
+        import dustmaps.bayestar
+
+        dustmaps.bayestar.fetch()
+        print("\nDone!")
+
+
+def main():
+    """Main"""
+    helptext = "Download assets for BASTA. Currently, only grids are supported!"
+    parser = argparse.ArgumentParser(description=helptext)
+
+    # Only grids are supported!
+    allowed_grids = [
+        "16CygA",
+        "validation",
+        "iso",
+        "validation_new-weights",
+    ]
+    parser.add_argument(
+        "grid", help="The grid to download. Allowed cases: {0}".format(allowed_grids)
+    )
+    args = parser.parse_args()
+
+    if args.grid not in allowed_grids:
+        raise ValueError(
+            "Unknown grid requsted! Select from: {0}".format(allowed_grids)
+        )
+
+    get_grid(args.grid)
+    get_dustmaps()

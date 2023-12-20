@@ -51,7 +51,7 @@ The current core developing team members are:
 
 * Jakob Lysgaard Rørsted (maintainer)
 * Mark Lykke Winther (co-maintainer)
-* Amalie Stokholm
+* Amalie Stokholm (co-maintainer)
 * Kuldeep Verma
 
 

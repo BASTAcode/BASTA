@@ -7,17 +7,16 @@ import matplotlib
 
 from scipy.interpolate import interp1d, CubicSpline
 
-import basta.fileio as fio
 from basta import utils_seismic as su
 from basta import stats, freq_fit
 from basta.constants import freqtypes
+from basta.downloader import get_basta_dir
 
 # Set the style of all plots
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
 
-plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "basta/plots.mplstyle"))
 
 # Define a color dictionary for easier change of color
 colors = {
