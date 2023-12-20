@@ -263,7 +263,6 @@ def BASTA(
             obsfreqmeta,
             obsintervals,
         ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
-
         # Apply prior on dnufit to mimick the range defined by dnufrac
         if fitfreqs["dnuprior"] and ("dnufit" not in limits):
             dnufit_frac = fitfreqs["dnufrac"] * fitfreqs["dnufit"]

@@ -5,6 +5,7 @@ import os
 import gc
 import sys
 import copy
+import h5py
 import traceback
 from xml.etree import ElementTree
 from distutils.util import strtobool
@@ -376,6 +377,40 @@ def _get_intpol(root, gridfile, freqpath=None):
     return allintpol
 
 
+def _read_glitch_controls(fitfreqs: dict) -> dict:
+    """
+    If glitches have been pre-computed, read the options used, to
+    be used for model computation.
+
+    Parameters
+    ----------
+    fitfreqs : dict
+        Frequency fitting options to write options to
+
+    Returns
+    -------
+    fitfreqs : dict
+        Updated frequency fitting options dictionary
+    """
+
+    # Translation dict of options
+    translate = {"FQ": "Freq", "SD": "SecDif"}
+    # Read file
+    gfile = h5py.File(fitfreqs["glitchfile"])
+
+    # Read/translate the options
+    fitfreqs["glitchmethod"] = translate[gfile["header/method"][()].decode("UTF-8")]
+    fitfreqs["npoly_params"] = gfile["header/npoly_params"][()]
+    fitfreqs["nderiv"] = gfile["header/nderiv"][()]
+    fitfreqs["tol_grad"] = gfile["header/tol_grad"][()]
+    fitfreqs["regu_param"] = gfile["header/regu_param"][()]
+    fitfreqs["nguesses"] = gfile["header/n_guess"][()]
+
+    # Release file
+    gfile.close()
+    return fitfreqs
+
+
 #####################
 # MAIN ROUTINE
 #####################
@@ -555,29 +590,27 @@ def run_xml(
             fitfreqs["readglitchfile"] = strtobool(
                 _find_get(root, "default/freqparams/readglitchfile", "value", "False")
             )
+            if not fitfreqs["readglitchfile"]:
+                fitfreqs["glitchmethod"] = _find_get(
+                    root, "default/grparams/method", "value", "Freq"
+                )
+                fitfreqs["npoly_params"] = int(
+                    _find_get(root, "default/grparams/npoly_params", "value", 5)
+                )
+                fitfreqs["nderiv"] = int(
+                    _find_get(root, "default/grparams/nderiv", "value", 3)
+                )
+                fitfreqs["tol_grad"] = float(
+                    _find_get(root, "default/grparams/tol_grad", "value", 1e-3)
+                )
+                fitfreqs["regu_param"] = float(
+                    _find_get(root, "default/grparams/regu_param", "value", 7)
+                )
+                fitfreqs["nguesses"] = int(
+                    _find_get(root, "default/grparams/nguesses", "value", 200)
+                )
         else:
             fitfreqs["glitchfit"] = False
-
-        # Read glitch and ratio fitting controls
-        if any([x in freqtypes.glitches for x in fitfreqs["fittypes"]]):
-            fitfreqs["glitchmethod"] = _find_get(
-                root, "default/grparams/method", "value", "Freq"
-            )
-            fitfreqs["npoly_params"] = int(
-                _find_get(root, "default/grparams/npoly_params", "value", 5)
-            )
-            fitfreqs["nderiv"] = int(
-                _find_get(root, "default/grparams/nderiv", "value", 3)
-            )
-            fitfreqs["tol_grad"] = float(
-                _find_get(root, "default/grparams/tol_grad", "value", 1e-3)
-            )
-            fitfreqs["regu_param"] = float(
-                _find_get(root, "default/grparams/regu_param", "value", 7)
-            )
-            fitfreqs["nguesses"] = int(
-                _find_get(root, "default/grparams/nguesses", "value", 200)
-            )
 
     # Get bayesian weights
     # --> If not provided by the user, assume them to be active
@@ -755,6 +788,7 @@ def run_xml(
                     fitfreqs["glitchfile"] = os.path.join(
                         fitfreqs["freqpath"], starid + ".hdf5"
                     )
+                    fitfreqs = _read_glitch_controls(fitfreqs)
                 try:
                     fitfreqs["nottrustedfile"] = star.find("nottrustedfile").get(
                         "value"

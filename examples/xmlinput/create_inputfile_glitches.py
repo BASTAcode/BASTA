@@ -236,9 +236,16 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #               range defined by dnufrac), which speeds up the computation of the
     #               fit. Recommended to keep as 'True' (default).
     #
-    # - "dnufit_in_ratios": TODO
+    # - "dnufit_in_ratios": Set 'True' to include a fit between the observed large
+    #                       frequency separation, and the model value calculated from
+    #                       surface-corrected frequencies, when fitting ratios.
+    #                       Default is 'False'.
     #
-    # - "readglitchfile": TODO
+    # - "readglitchfile": Set 'True' to look for an input (hdf5) file with precomputed
+    #                     glitches (and ratios), to read data and options for. The
+    #                     following 'glitchparams' dictionary (block 2f) is arbitrary
+    #                     if 'True', as options are read from file for consistency.
+    #                     Default is 'False'.
 
     # Example of typical settings for a frequency fit (with default seismic weights):
     define_fit["freqparams"] = {
@@ -283,10 +290,13 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # define_fit["dustframe"] = "icrs"
 
     # ------------------------------------------------------------
-    # BLOCK 2f: Fitting control, glitches with ratios
+    # BLOCK 2f: Fitting control, glitches
     # ------------------------------------------------------------
-    # If fitting glitches along with ratios, the following specifications are necessary,
-    # in addition to the frequency parameters specificed in block 2d.
+    # If fitting glitches (and ratios), from the given individual frequencies,
+    # the following specifications are necessary, in addition to the frequency
+    # parameters specificed in block 2d. If the glitches have been precomputed, and
+    # provided in the correct format, set "readglitchfile: True" in block 2d, whereby
+    # this block is arbitrary.
     #
     # - "method": In which frequency parameters the glitch signatures are fitted. "Freq"
     #             fits the signatures in the oscillation frequencies (default), while
@@ -299,12 +309,13 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #             "Freq" method (default), and 1 for "SecDif" method.
     #
     # - "tol_grad": Tolerance on gradients, typically between 1e-2 and 1e-5 depending on
-    #               quality of the data and the method used
+    #               quality of the data and the method used (1e-3 default)
     #
     # - "regu_param": Regularization parameter. Recommended are 7 for "Freq" method
     #                 (default), and 1000 for "SecDif" method.
     #
     # - "nguesses": Number of initial guesses in search for the global minimum.
+    #               (200 default)
 
     define_fit["glitchparams"] = {
         "method": "Freq",
