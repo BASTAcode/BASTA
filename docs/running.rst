@@ -15,18 +15,18 @@ the user to correctly interpret the results of any fit done with the code.
 
 The input to the code is given using an ``.xml`` file containing all the relevant information to perform the fit. A
 Python routine to produce such ``.xml`` files in a semi-automatic way is included in the code repository and can be
-found in ``${BASTADIR}/examples/create_inputfile.py``. This is meant as a basic version just to check that the code is running. It also serves as a template with all options documented. For examples of 'real' fits, have a look at the examples sections in this tutorial (:ref:`examples`).
+found in ``BASTA/examples/create_inputfile.py``. This is meant as a basic version just to check that the code is running. It also serves as a template with all options documented. For examples of 'real' fits, have a look at the examples sections in this tutorial (:ref:`examples`).
 
 The basic procedure to run BASTA can be  reduced to the following steps:
 
     * **Create the input file**
 
-    The following commands will create a file named ``input_myfit.xml`` in the directory ``${BASTADIR}/examples/``.
+    The following commands will create a file named ``input_myfit.xml`` in the directory ``BASTA/examples/``.
 
     .. code-block:: bash
 
-        cd ${BASTADIR}
-        source venv/bin/activate
+        cd BASTA
+        source bastaenv/bin/activate
         cd examples/
         python create_inputfile.py
 
@@ -39,7 +39,7 @@ The basic procedure to run BASTA can be  reduced to the following steps:
 
         BASTArun input_myfit.xml
 
-The output of the fit is located in ``${BASTADIR}/examples/output/myfit`` and we encourage the user to inspect it and ensure that BASTA is correctly running while getting familiar with the type of output and figures produced.
+The output of the fit is located in ``BASTA/examples/output/myfit`` and we encourage the user to inspect it and ensure that BASTA is correctly running while getting familiar with the type of output and figures produced.
 
 
 Common blocks

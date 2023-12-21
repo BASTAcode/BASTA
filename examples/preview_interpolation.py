@@ -2,6 +2,10 @@
 Preview the change in resolution and final distribution of tracks/isochrones
 for running BASTA with interpolation.
 """
+from basta.downloader import get_basta_dir
+
+# Definition of the path to BASTA, just in case you need it
+BASTADIR = get_basta_dir()
 
 
 def define_preview(define_input, define_along, define_across):
@@ -15,9 +19,7 @@ def define_preview(define_input, define_along, define_across):
     # BLOCK 1: Grid and limits for subgrid
     # ==================================================================================
     # The path to the grid to be used by BASTA
-    define_input["gridfile"] = os.path.join(
-        os.environ["BASTADIR"], "grids", "Garstec_16CygA.hdf5"
-    )
+    define_input["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
 
     # If the inputted grid is BaSTI isochrones, specify the science case. See
     # `create_inputfile.py` block 2c for available cases by standard
@@ -261,7 +263,7 @@ def test_along_interpolation(
     None
     """
     # Load standard plotstyle
-    plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
+    plt.style.use(os.path.join(BASTADIR, "basta/plots.mplstyle"))
     freqres = ["freq", "freqs", "frequency", "frequencies", "osc"]
 
     # Unpack options

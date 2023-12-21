@@ -27,7 +27,7 @@ def get_basta_dir():
 def get_grid(case):
     """
     Download a grid from the BASTAcode grid repository. Will be stored in the default
-    location: $BASTADIR/grids/ .
+    location: BASTA/grids/ .
 
     Parameters
     ----------
