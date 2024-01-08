@@ -227,7 +227,7 @@ def _calc_sobol_points(
     while l_trim / sobol < lorgbase:
         # Extract Sobol sequences
         lnewbase = int(lnewbase * 1.2)
-        sob_nums = ih.sobol_wrapper(ndim, lnewbase, 1)
+        sob_nums = ih.sobol_wrapper(ndim, lnewbase, 1, debug=debug)
 
         # Assign parameter values by sequence
         newbase = []
@@ -687,6 +687,8 @@ def interpolate_across(
     # Write the new tracks to the header, and recalculate the weights
     ih.update_header(outfile, basepath, headvars)
     if "volume" in grid["header/active_weights"] or sobol:
-        ih.recalculate_weights(outfile, basepath, sobnums, extend=resolution["extend"])
+        ih.recalculate_weights(
+            outfile, basepath, sobnums, extend=resolution["extend"], debug=debug
+        )
     else:
         ih.recalculate_param_weights(outfile, basepath)

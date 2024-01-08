@@ -128,8 +128,9 @@ def sobol_wrapper(ndim: int, nsamples: int, seed: int, debug=False):
     """
 
     with warnings.catch_warnings():
-        # Suppress warning, catch by substring (regex?)
-        warnings.filterwarnings("ignore", message="^.*balance properties.*$")
+        if not debug:
+            # Suppress warning, catch by substring (regex?)
+            warnings.filterwarnings("ignore", message="^.*balance properties.*$")
         # Initialize sampler
         sampler = qmc.Sobol(ndim, scramble=False, seed=seed)
         # Sample points
@@ -740,7 +741,7 @@ def recalculate_param_weights(outfile, basepath):
                 outfile[weight_path] = weights[i]
 
 
-def recalculate_weights(outfile, basepath, sobnums, extend=False):
+def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
@@ -813,7 +814,7 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False):
     # Generate oversampled grid
     osfactor = 100
     osntracks = osfactor * ntracks
-    osbase = sobol_wrapper(ndim, osntracks, 2)
+    osbase = sobol_wrapper(ndim, osntracks, 2, debug=debug)
 
     # For every track in the grid, gather all the points from the
     # oversampled grid which are closest to the track at hand

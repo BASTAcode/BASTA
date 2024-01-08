@@ -77,7 +77,7 @@ def _calc_across_points(
     while l_trim / sobol < lorgbase:
         # Extract Sobol sequences
         lnewbase = int(lnewbase * 1.2)
-        sob_nums = ih.sobol_wrapper(ndim, lnewbase, 1)
+        sob_nums = ih.sobol_wrapper(ndim, lnewbase, 1, debug=debug)
 
         # Assign parameter values by sequence
         newbase = []
@@ -513,7 +513,9 @@ def interpolate_combined(
 
     # Write the new tracks to the header, and recalculate the weights
     ih.update_header(outfile, basepath, headvars)
-    ih.recalculate_weights(outfile, basepath, sobnums, gridresolution["extend"])
+    ih.recalculate_weights(
+        outfile, basepath, sobnums, gridresolution["extend"], debug=debug
+    )
     grid.close()
 
     #######
