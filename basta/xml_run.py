@@ -18,14 +18,7 @@ from basta.constants import freqtypes
 from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import unique_unsort
-
-# Interpolation requires the external Fortran modules
-try:
-    from basta import interpolation_driver as idriver
-except ImportError:
-    INTPOL_AVAIL = False
-else:
-    INTPOL_AVAIL = True
+from basta.interpolation_driver import perform_interpolation
 
 
 def _find_get(root, path, value, *default):
@@ -596,13 +589,7 @@ def run_xml(
 
     # Get interpolation if requested (and if available!), otherwise empty dictionary
     if root.find("default/interpolation"):
-        if not INTPOL_AVAIL:
-            print(
-                "Warning: Interpolation requested, but it is not available! Did you",
-                "compile the external modules? Aborting...",
-            )
-            sys.exit(1)
-        elif fitfreqs["active"]:
+        if fitfreqs["active"]:
             allintpol = _get_intpol(root, grid, fitfreqs["freqpath"])
         else:
             allintpol = _get_intpol(root, grid)
@@ -820,7 +807,7 @@ def run_xml(
             # Call interpolation routine
             try:
                 if starid in allintpol:
-                    gridfile = idriver.perform_interpolation(
+                    gridfile = perform_interpolation(
                         gridfile,
                         idgrid,
                         allintpol[starid],

@@ -32,4 +32,4 @@ build-backend = "hatchling.build"
 
 
 [tool.hatch.version]
-path = "BASTA/__about__.py"
+path = "basta/__about__.py"

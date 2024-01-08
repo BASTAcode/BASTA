@@ -9,9 +9,7 @@ import h5py
 import numpy as np
 from tqdm import tqdm
 from scipy import spatial
-from scipy import interpolate
 
-from basta import sobol_numbers
 from basta import interpolation_helpers as ih
 from basta import plot_interp as ip
 
@@ -229,10 +227,7 @@ def _calc_sobol_points(
     while l_trim / sobol < lorgbase:
         # Extract Sobol sequences
         lnewbase = int(lnewbase * 1.2)
-        sob_nums = np.zeros((lnewbase, ndim))
-        iseed = 1
-        for i in range(lnewbase):
-            iseed, sob_nums[i, :] = sobol_numbers.i8_sobol(ndim, iseed)
+        sob_nums = ih.sobol_wrapper(ndim, lnewbase, 1)
 
         # Assign parameter values by sequence
         newbase = []
