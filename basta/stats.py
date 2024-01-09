@@ -289,7 +289,9 @@ def chi2_astero(
                 ac_depths,
                 debug,
             )
+            # Construct output array
             modglitches = copy.deepcopy(obsfreqdata[glitchtype]["data"])
+            modglitches[0, -3:] = broadglitches[0, -3:]
 
             # Separate and interpolate within the separate r01, r10 and r02 sequences
             # rtype = {7, 8, 9} is glitch parameters, can't interpolate those

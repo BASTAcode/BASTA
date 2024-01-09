@@ -679,9 +679,9 @@ def glitchplot(
         tauHe = trackparams.tauHe[AHe > 1e-14]
         AHe = AHe[AHe > 1e-14]
 
-        ax[1, 0].plot(AHe, dHe, ".", ms=5, color="grey", zorder=0)
-        ax[0, 0].plot(AHe, tauHe, ".", ms=5, color="grey", zorder=0)
-        ax[1, 1].plot(tauHe, dHe, ".", ms=5, color="grey", zorder=0)
+        ax[1, 0].plot(AHe, dHe, ".", color="grey", ms=5, zorder=1)
+        ax[0, 0].plot(AHe, tauHe, ".", color="grey", ms=5, zorder=1)
+        ax[1, 1].plot(tauHe, dHe, ".", color="grey", ms=5, zorder=1)
 
     # AHe vs dHe
     ax[1, 0].errorbar(
