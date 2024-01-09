@@ -9,7 +9,7 @@
 
 Current stable version: v1.3.1
 
-**Important note:** BASTA is developed for Python 3.11, but Python >= 3.7 should work as well. Currently 3.12 is *not* supported due to known build issues in NumPy/f2py.
+**Important note:** BASTA is currently developed for Python 3.12, but Python >= 3.9 should in principle suffice. *Please be aware that Python 3.12 will not* work if you need to fit glitches (please see the installation instructions) due to to known build issues in NumPy/f2py (as the glitch fitting relies on Fortran-routines) and we recommend 3.11 in that case.
 
 
 ## Before you begin

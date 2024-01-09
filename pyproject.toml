@@ -5,7 +5,7 @@ dynamic = ["version"]
 authors = [
   { name="The BASTA Team", email="jakob@phys.au.dk" },
 ]
-requires-python = ">=3.10"
+requires-python = ">=3.9"
 dependencies = [
     "astropy>=5.3.4",
     "black>=23.10.1",

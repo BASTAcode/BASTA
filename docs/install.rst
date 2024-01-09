@@ -8,7 +8,7 @@ Installation
 Obtaining the code and virtual environment
 ------------------------------------------
 
-*Important note: BASTA is developed for Python 3.11.*
+*Important note: BASTA is currently developed for Python 3.11.*
 
 
 Start out by obtaining a copy of BASTA; either by cloning the GitHub repository or downloadning a source code release. As a default, we recommend that you install basta in the folder ``~/BASTA``. If you have a user on GitHub and use an ssh-keypair, you can simply run:
@@ -48,6 +48,27 @@ To finalise the setup, download a example grid, and obtain the dustmaps, simply 
 .. code-block:: bash
 
     BASTAdownload
+
+
+
+
+.. _ref_fortran:
+
+Glitch-fitting and Fortran modules
+----------------------------------
+
+*Important note: Please note that the instructions in this section will fail for Python 3.12.*
+
+In case you need to fit glitches, you must compile the external Fortran-modules:
+
+.. code-block:: bash
+
+    cd basta/
+    f2py -c glitch_fq.f95 -m glitch_fq
+    f2py -c glitch_sd.f95 -m glitch_sd
+    f2py -c icov_sd.f95 -m icov_sd
+    f2py -c sd.f95 -m sd
+
 
 
 .. _ref_hooks:
