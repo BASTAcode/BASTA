@@ -379,40 +379,9 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     return obskey, obs, covarfreq
 
 
-def _read_glitch(filename):
-    """
-    Read glitch parameters.
-
-    Parameters
-    ----------
-    filename : str
-        Name of file to read
-
-    Returns
-    -------
-    glitchparams : array
-        Array of median glitch parameters
-    glhCov : array
-        Covariance matrix
-    """
-    # Extract glitch parameters
-    glitchfit = np.genfromtxt(filename, skip_header=3)
-    glitchparams = np.zeros(3)
-    glitchparams[0] = np.median(glitchfit[:, 8])
-    glitchparams[1] = np.median(glitchfit[:, 4])
-    glitchparams[2] = np.median(glitchfit[:, 5])
-
-    # Compute covariance matrix
-    tmpFit = np.zeros((len(glitchfit[:, 0]), 3))
-    tmpFit[:, 0] = glitchfit[:, 8]
-    tmpFit[:, 1] = glitchfit[:, 4]
-    tmpFit[:, 2] = glitchfit[:, 5]
-    cov = MinCovDet().fit(tmpFit).covariance_
-
-    return glitchparams, cov
-
-
-def _read_precomputed_glitches(filename, type="glitches"):
+def _read_precomputed_glitches(
+    filename: str, type: str = "glitches"
+) -> tuple[np.array, np.array]:
     """
     Read glitch parameters. If fitted together with ratios, these must be
     provided in this file as well, for covariance between them.

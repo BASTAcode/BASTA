@@ -257,10 +257,6 @@ def chi2_astero(
             shapewarn = 1
             chi2rut = np.inf
 
-    #####################################
-    # WIP ZONE : ENTER AT YOUR OWN RISK #
-    #####################################
-
     # Add contribution from glitches
     if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
         # Obtain glitch sequence to be fitted
@@ -337,10 +333,6 @@ def chi2_astero(
 
         # Store the determined glitch parameters for outputting
         addpars["glitchparams"] = modglitches[0, -3:]
-
-    #####################################
-    # WIP ZONE : ENTER AT YOUR OWN RISK #
-    #####################################
 
     if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]

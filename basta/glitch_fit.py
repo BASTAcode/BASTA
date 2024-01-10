@@ -14,23 +14,37 @@ from basta import utils_seismic as su
 
 
 def compute_observed_glitches(
-    osckey,
-    osc,
-    sequence,
-    dnu,
-    fitfreqs,
+    osckey: np.array,
+    osc: np.array,
+    sequence: str,
+    dnu: float,
+    fitfreqs: dict,
     debug=False,
-):
+) -> tuple[np.array, np.array]:
     """
     Routine to compute glitch parameters (and ratios) with full covariance
     matrix using MC sampling.
 
     Parameters
     ----------
+    osckey : numpy array
+        Spherical degrees and radial orders of the frequencies to be used.
+    osc : numpy array
+        Frequencies and corresponding uncertainties.
+    sequence : str
+        Glitch sequence to be computed, see constants.freqtypes.glitches.
+    dnu : float
+        Value of large frequency separation to be used in the computation.
+    fitfreqs : dict
+        Dictionary containing frequency fitting options/controls.
 
     Returns
     -------
-
+    glitchseq : numpy array
+        Computed glitch parameters (and ratios) as median values from MC
+        sampling
+    glitchseq_cov : numpy array
+        Determined covariance matrix of glitch parameters (and ratios)
     """
 
     # Get length of sequence
@@ -58,23 +72,39 @@ def compute_observed_glitches(
 
 
 def compute_glitchseqs(
-    osckey,
-    osc,
-    sequence,
-    dnu,
-    fitfreqs,
-    ac_depths=False,
-    debug=False,
-):
+    osckey: np.array,
+    osc: np.array,
+    sequence: str,
+    dnu: float,
+    fitfreqs: dict,
+    ac_depths: bool = False,
+    debug: bool = False,
+) -> np.array:
     """
     Routine to compute glitch parameters of given frequencies, based
     on the given method options.
 
     Parameters
     ----------
+    osckey : numpy array
+        Spherical degrees and radial orders of the frequencies to be used.
+    osc : numpy array
+        Frequencies and corresponding uncertainties.
+    sequence : str
+        Glitch sequence to be computed, see constants.freqtypes.glitches.
+    dnu : float
+        Value of large frequency separation to be used in the computation.
+    fitfreqs : dict
+        Dictionary containing frequency fitting options/controls.
+    ac_depts : bool or dict
+        Acoustic depths used to search for glitch signatures. If not provided as a
+        dict, they will be calculated as a simple estimate.
 
     Returns
     -------
+    glitchseq : numpy array
+        Determined glitch parameters (and ratios) from the provided frequencies.
+        If computation failed, the glitch parameters will be NaNs.
     """
 
     # Setup array, make similar to ratios
