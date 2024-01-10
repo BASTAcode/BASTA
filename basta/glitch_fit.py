@@ -51,7 +51,7 @@ def compute_observed_glitches(
         osc,
         sequence,
         args={"dnu": dnu, "fitfreqs": fitfreqs},
-        nrealisations=100,
+        nrealisations=fitfreqs["nrealizations"],
     )
 
     return glitchseq, glitchseq_cov

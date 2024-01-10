@@ -546,8 +546,8 @@ def run_xml(
         fitfreqs["correlations"] = strtobool(
             _find_get(root, "default/freqparams/correlations", "value", "False")
         )
-        fitfreqs["nrealizations"] = _find_get(
-            root, "default/freqparams", "value", 10000
+        fitfreqs["nrealizations"] = int(
+            _find_get(root, "default/freqparams/nrealizations", "value", 10000)
         )
         fitfreqs["threepoint"] = strtobool(
             _find_get(root, "default/freqparams/threepoint", "value", "False")
@@ -569,6 +569,9 @@ def run_xml(
         )
         fitfreqs["dnuprior"] = strtobool(
             _find_get(root, "default/freqparams/dnuprior", "value", "True")
+        )
+        fitfreqs["dnubias"] = float(
+            _find_get(root, "default/freqparams/dnubias", "value", 0)
         )
 
         # Read seismic weight quantities

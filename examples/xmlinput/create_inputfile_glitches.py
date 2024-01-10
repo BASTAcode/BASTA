@@ -241,6 +241,9 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #                       surface-corrected frequencies, when fitting ratios.
     #                       Default is 'False'.
     #
+    # - "dnubias": Estimated systematic/bias to add to the error of the large frequency
+    #              separation determined from individual frequencies. Default is 0.
+    #
     # - "readglitchfile": Set 'True' to look for an input (hdf5) file with precomputed
     #                     glitches (and ratios), to read data and options for. The
     #                     following 'glitchparams' dictionary (block 2f) is arbitrary
@@ -256,6 +259,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         "dnufit_in_ratios": True,
         "interp_ratios": True,
         "readglitchfile": False,
+        "dnubias": 0.2,
     }
 
     # An example of manually forcing the weights with "N", and an example of using "dof"

@@ -629,8 +629,10 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     getepsdiff = False
 
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax)
     obsls = np.unique(obskey[0, :])
+
+    # Large frequency separation from individual frequencies
+    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax)
 
     for fit in allfits:
         obsfreqdata[fit] = {}
@@ -808,10 +810,7 @@ def read_allseismic(
             fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=False
         )
 
-    # Observed frequencies
-
-    # Ratios and covariances
-    # Check if it is unnecesarry to compute ratios
+    # Construct data and metadata dictionaries
     obsfreqdata, obsfreqmeta = _make_obsfreqs(
         obskey,
         obs,
@@ -821,6 +820,17 @@ def read_allseismic(
         numax=fitfreqs["numax"],
         debug=debug,
     )
+
+    # Add large frequency separation bias (default is 0)
+    if fitfreqs["dnubias"]:
+        print(
+            f"Added {fitfreqs['dnubias']}muHz bias/systematic to dnu error, from {obsfreqdata['freqs']['dnudata_err']:.3f}",
+            end=" ",
+        )
+        obsfreqdata["freqs"]["dnudata_err"] = np.sqrt(
+            obsfreqdata["freqs"]["dnudata_err"] ** 2.0 + fitfreqs["dnubias"] ** 2.0
+        )
+        print(f"to {obsfreqdata['freqs']['dnudata_err']:.3f}")
 
     # Compute or dataread in required ratios
     if obsfreqmeta["getratios"]:
