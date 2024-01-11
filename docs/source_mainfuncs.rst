@@ -29,7 +29,7 @@ The asteroseismic module
 .. automodule:: freq_fit
    :members:
 
-.. automodule:: glitch
+.. automodule:: glitch_fit
    :members:
 
 The stats module

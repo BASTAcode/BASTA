@@ -21,6 +21,7 @@ Current stable version: v1.3.1
    grids
    running
    examples
+   controls
    troubleshoot
    contributing
    source_code
