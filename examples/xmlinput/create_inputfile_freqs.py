@@ -4,9 +4,10 @@ Make an input file for BASTA in XML format
 This is a specific example of the template.
 """
 import os
+from basta.downloader import get_basta_dir
 
 # Definition of the path to BASTA, just in case you need it
-BASTADIR = os.environ["BASTADIR"]
+BASTADIR = get_basta_dir()
 
 
 #

@@ -12,14 +12,14 @@ Individual frequencies: main sequence
 
 BASTA is shipped with individual frequencies for the Kepler main-sequence target 16 Cyg A derived by
 `Davies et al. 2015 <https://ui.adsabs.harvard.edu/abs/2015MNRAS.446.2959D/abstract>`_. These are included in the
-``ascii`` file ``${BASTADIR}/examples/data/freqs/16CygA.fre`` and listed in columns of
+``ascii`` file ``BASTA/examples/data/freqs/16CygA.fre`` and listed in columns of
 (order, degree, frequency, error, flag). To fit these frequencies to a grid of models, the ascii input must be converted
 to a suitable ``xml`` file with the routine :py:meth:`fileio.freqs_ascii_to_xml`. Simply run the following commands in
 the terminal:
 
 .. code-block:: bash
 
-    cd ${BASTADIR}
+    cd BASTA
     source venv/bin/activate
     cd examples/data/freqs
     python
@@ -60,7 +60,7 @@ With the input file in the appropriate ``xml`` format, the following blocks must
     # BLOCK 2d: Fitting control, frequencies
     # ------------------------------------------------------------
     define_fit["freqparams"] = {
-        "freqpath": "${BASTADIR}/examples/data/freqs",
+        "freqpath": "BASTA/examples/data/freqs",
         "fcor": "BG14",
         "correlations": False,
         "dnufrac": 0.15,
@@ -80,13 +80,13 @@ We have provided an ready-to-run example for this star:
 
 .. code-block:: bash
 
-    cd ${BASTADIR}
+    cd BASTA
     source venv/bin/activate
     cd examples/xmlinput
     python create_inputfile_freqs.py
     BASTArun input_freqs.xml
 
-The fit should take less than a minute and the output is stored in ``${BASTADIR}/examples/output/freqs``. Besides the
+The fit should take less than a minute and the output is stored in ``BASTA/examples/output/freqs``. Besides the
 corner plot and Kiel diagrams, the code produces output of the fit to the individual frequencies in form of echelle
 diagrams for both corrected and uncorrected frequencies:
 
@@ -120,8 +120,8 @@ one simply adds the following ``fitparam`` (for the case of :math:`r_{012}` as a
 
 The variable ``freqplots`` can also be set to ``True``, which will produce plots of the ratios and corresponding echelle
 diagrams even though individual frequencies are not fitted. We provide an example to run this fit in
-``${BASTADIR}/examples/xmlinput/create_inputfile_ratios.py`` which produces the file ``input_ratios.xml``. Running
-this file stores the results of the fit in ``${BASTADIR}/examples/output/ratios/``, and the resulting ratios should look
+``BASTA/examples/xmlinput/create_inputfile_ratios.py`` which produces the file ``input_ratios.xml``. Running
+this file stores the results of the fit in ``BASTA/examples/output/ratios/``, and the resulting ratios should look
 as follows:
 
 .. figure:: figures/ratios/16CygA_ratios_r012.png
@@ -157,8 +157,8 @@ correpsonding keyword to ``fitparams`` (here for the case :math:`\delta\epsilon_
 
 Adding ``epsdiff`` to ``freqplots`` produces the corresponding figure, which can also generally be produced when
 individual frequencies are available. An example of how to run this fit is provided in
-``${BASTADIR}/examples/xmlinput/create_inputfile_epsilondifference.py`` which produces the file ``input_epsilondifference.xml``.
-Running this file stores the results of the fit in ``${BASTADIR}/examples/output/epsilon/``, and the resulting
+``BASTA/examples/xmlinput/create_inputfile_epsilondifference.py`` which produces the file ``input_epsilondifference.xml``.
+Running this file stores the results of the fit in ``BASTA/examples/output/epsilon/``, and the resulting
 epsilon differences should look as follows:
 
 .. figure:: figures/epsilon/16CygA_epsdiff_e012.png
@@ -186,6 +186,7 @@ These are comprised of three parameters, which are:
 
 These can be precomputed and provided by the user in ``hdf5`` format, by either computing them using the
 `GlitchPy <https://github.com/kuldeepv89/GlitchPy>`_ code, or following the file structure defined within.
+
 
 If not precomputed, these can be computed from the provided individual frequencies. In this case, the method used in GlitchPy is
 adapted, whereby the method by which the glitch parameters are determined needs to be defined in block 2f as e.g.
@@ -247,7 +248,7 @@ main-sequence case (order, degree, frequency, error, flag). The radial order giv
 will use the epsilon (:math:`\epsilon`) method to correct the radial order of the l=0 modes, and use only the frequency
 values for the l=1,2 modes to find the correct match.
 
-We include an example of frequencies for a subgiant in the file ``${BASTADIR}/examples/data/freqs/Valid_245.fre``. It
+We include an example of frequencies for a subgiant in the file ``BASTA/examples/data/freqs/Valid_245.fre``. It
 corresponds to one of the artificial stars used for the validation of the code as described in section 6 of
 `The BASTA paper II <https://arxiv.org/abs/2109.14622>`_. Quick exploration of the file
 reveals that it has a number of mixed-modes of l=1 that have radial orders labelled in ascending order. You need to
@@ -255,7 +256,7 @@ transform the ``.fre`` file into a ``.xml`` file following the usual procedure:
 
 .. code-block:: bash
 
-    cd ${BASTADIR}
+    cd BASTA
     source venv/bin/activate
     cd examples/data/freqs
     python
@@ -270,7 +271,7 @@ You should see the following output:
     Correction of n-order by 1 gives epsilon value of 0.9.
     The proposed correction has been implemented.
 
-The input is now ready. The global parameters of the star are contained in ``${BASTADIR}/examples/data/subgiant.ascii``.
+The input is now ready. The global parameters of the star are contained in ``BASTA/examples/data/subgiant.ascii``.
 To run the example, a few modifications to :py:meth:`create_inputfile.define_input` are necessary (related to input
 files and grid to be used). The following blocks are now changed:
 
@@ -281,9 +282,9 @@ files and grid to be used). The following blocks are now changed:
     # ==================================================================================
     xmlfilename = "input_subgiant.xml"
 
-    define_io["gridfile"] = "${BASTADIR}/grids/Garstec_validation.hdf5"
+    define_io["gridfile"] = "BASTA/grids/Garstec_validation.hdf5"
 
-    define_io["asciifile"] = "${BASTADIR}/examples/data/subgiant.ascii"
+    define_io["asciifile"] = "BASTA/examples/data/subgiant.ascii"
     define_io["params"] = (
         "starid",
         "Teff",
@@ -296,12 +297,12 @@ files and grid to be used). The following blocks are now changed:
         "numax_err",
     )
 
-A ready-to-run file is provided in ``${BASTADIR}/examples/xmlinput/create_inputfile_subgiant.py`` and as usual it can
+A ready-to-run file is provided in ``BASTA/examples/xmlinput/create_inputfile_subgiant.py`` and as usual it can
 simply be run as
 
 .. code-block:: bash
 
-    cd ${BASTADIR}
+    cd BASTA
     source venv/bin/activate
     cd examples/xmlinput
     python create_inputfile_subgiant.py

@@ -18,23 +18,18 @@ sys.path.insert(0, os.path.abspath(".."))
 sys.path.insert(0, os.path.abspath("../basta"))
 sys.path.insert(0, os.path.abspath("../examples"))
 
-# Add required environment variable
-if not "BASTADIR" in os.environ:
-    os.environ["BASTADIR"] = os.path.abspath("../basta")
-
-
 # -- Project information -----------------------------------------------------
 
 # General information about the project.
 project = "BASTA"
-copyright = "2022, The BASTA Team"
+copyright = "2024, The BASTA Team"
 author = "The BASTA Team"
 
 # The short X.Y version.
-version = "1.2.1"
+version = "1.3.1"
 
 # The full version, including alpha/beta/rc tags.
-release = "1.2.1"
+release = "1.3.1"
 
 
 # -- General configuration ------------------------------------------------

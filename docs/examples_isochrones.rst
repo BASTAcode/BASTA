@@ -10,7 +10,7 @@ described in the `Solar scaled paper <https://ui.adsabs.harvard.edu/abs/2018ApJ.
 isochrones can be used to determine stellar properties while fitting asteroseismic data, parallaxes, and a prior on the
 evolutionary phase of a star.
 
-In ``${BASTADIR}/examples/data/`` we have included the file ``Kepler_RGB.ascii``, which contains the global parameters
+In ``BASTA/examples/data/`` we have included the file ``Kepler_RGB.ascii``, which contains the global parameters
 of the red giant branch star KIC 11129442 observed by the *Kepler* satellite. Besides spectroscopic properties and
 asteroseismic observables, the file contains magnitudes in the 2MASS system, parallax from Gaia eDR3, and evolutionary
 phase as determined from its asteroseismic period spacing. Necessary changes to :py:meth:`create_inputfile.define_input`
@@ -106,7 +106,7 @@ isochrones library:
     define_plots["freqplots"] = False
 
 
-The file ``${BASTADIR}/examples/xmlinput/create_inputfile_parallax.py`` has been modified accordingly to produce a fit
+The file ``BASTA/examples/xmlinput/create_inputfile_parallax.py`` has been modified accordingly to produce a fit
 to the isochrones. After running the associated ``input_parallax.xml`` the output should look as follows:
 
 .. figure:: figures/parallax/11129442_kiel.png
@@ -130,7 +130,7 @@ plot of the parameters associated to the distance called ``11129442_distance_cor
 In this figure you can inspect the distance distributions and absorptions determined for each magnitude, as well as the
 joint distance and extinction distributions. To activate this additional output, the parameter ``distance`` must be
 included in **both** ``define_output["outparams"]`` and ``define_plots["cornerplots"]``. The example file
-``${BASTADIR}/examples/xmlinput/create_inputfile_parallax.py`` uses the same parameters in both cases and the plot is
+``BASTA/examples/xmlinput/create_inputfile_parallax.py`` uses the same parameters in both cases and the plot is
 produced.
 
 Estimating distance
@@ -140,7 +140,7 @@ One additional feature of BASTA is that distances can be predicted when fitting 
 that in addition to ``fitparams`` the user must specify (at least) one apparent magnitude to use in the distance
 estimation and provide the target coordinates.
 
-The file ``${BASTADIR}/examples/xmlinput/create_inputfile_distance.py`` contains the modifications to
+The file ``BASTA/examples/xmlinput/create_inputfile_distance.py`` contains the modifications to
 :py:meth:`create_inputfile.define_input` to produce this fit. The differences with the case of fitting parallax are that
 parallax must not be present in ``fitparams``:
 
@@ -184,7 +184,7 @@ Fitting evolutionary phase
 
 BASTA offers the possibility of imposing a certain evolutionary phase for a star when this information is known from
 e.g., asteroseismic observations. The target KIC 11129442 used in the examples above is clearly an RGB star, and this
-information is included in the final column of ``${BASTADIR}/examples/data/Kepler_RGB.ascii`` as ``phase``. In the
+information is included in the final column of ``BASTA/examples/data/Kepler_RGB.ascii`` as ``phase``. In the
 previous fits this information has not been explicitely used, so we show here an example of how to force the star
 to be in the red clump phase instead of in the RGB.
 
@@ -200,8 +200,8 @@ evolutionary phases as follows:
 * ``agb``: models [1950,2100], from *Key Point* 18 to *Key Point* 19
 
 In order to see the effects, we recommend you modify the ``phase`` column in
-``${BASTADIR}/examples/data/Kepler_RGB.ascii`` by replacing ``rgb`` by ``clump`` -- or just use the file ``Kepler_RGB_change-phase-to-RC.ascii`` where that change has been applied. The file
-``${BASTADIR}/examples/xmlinput/create_inputfile_phase.py`` contains the settings for an example of this fitting
+``BASTA/examples/data/Kepler_RGB.ascii`` by replacing ``rgb`` by ``clump`` -- or just use the file ``Kepler_RGB_change-phase-to-RC.ascii`` where that change has been applied. The file
+``BASTA/examples/xmlinput/create_inputfile_phase.py`` contains the settings for an example of this fitting
 procedure. The only difference (except for reading the pre-modified data file) is the inclusion of ``phase`` in ``fitparams``:
 
 .. code-block:: python

@@ -53,7 +53,7 @@ def corner(
     uncert="quantiles",
     kde_points=250,
     kde_method="silverman",
-    **hist2d_kwargs
+    **hist2d_kwargs,
 ):
     """
     Make a corner plot showing the projections of a data set in a multi-dimensional
@@ -398,7 +398,7 @@ def corner(
                 color=tcolor,
                 smooth=smooth,
                 bins=[bins[j], bins[i]],
-                **hist2d_kwargs
+                **hist2d_kwargs,
             )
 
             if max_n_ticks == 0:
@@ -462,7 +462,7 @@ def hist2d(
     contour_kwargs=None,
     contourf_kwargs=None,
     data_kwargs=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Plot a 2-D histogram of samples.
@@ -635,7 +635,7 @@ def hist2d(
                 Y2,
                 H2.T,
                 np.concatenate([[0], V, [H.max() * (1 + 1e-4)]]),
-                **contourf_kwargs
+                **contourf_kwargs,
             )
 
         # Plot the density map. This can't be plotted at the same time as the
