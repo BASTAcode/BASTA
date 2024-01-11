@@ -14,7 +14,7 @@ from tqdm import tqdm
 from basta import freq_fit, stats, process_output, priors, distances, plot_driver
 from basta import utils_seismic as su
 from basta import utils_general as util
-from basta._version import __version__
+from basta.__about__ import __version__
 from basta import fileio as fio
 from basta.constants import freqtypes
 
@@ -45,7 +45,7 @@ def BASTA(
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
-    (c) 2022, The BASTA Team
+    (c) 2024, The BASTA Team
 
     For a description of how to use BASTA, please explore the documentation (https://github.com/BASTAcode/BASTA).
     This function is typically called by :func:'xmltools.run_xml()'

@@ -11,17 +11,15 @@ tracks. If in doubt about a particular entry in :py:meth:`constants.parameters` 
 the core developers of BASTA.
 
 A small grid is downloaded automatically with the installation of BASTA and is stored in
-``${BASTADIR}/grids/Garstec_16CygA.hdf5``. As the name suggest, this grid is built with the GARching STellar Evolution
+``BASTA/grids/Garstec_16CygA.hdf5``. As the name suggest, this grid is built with the GARching STellar Evolution
 Code around the observed parameters of the *Kepler* target 16 Cyg A. Many of the :ref:`examples` are built using
 this grid, while others are constructed from larger grids that can be downloaded.
 
 For this purpose, BASTA includes a grid download tool that can be easily accessed from the command line. After
-installing the code, type in the following commands:
+installing the code, go to the BASTA folder and run the following:
 
     .. code-block:: bash
 
-        cd ${BASTADIR}
-        source venv/bin/activate
         BASTAdownload -h
 
 and follow the instructions to download the grids. Currently the following grids are available for download:

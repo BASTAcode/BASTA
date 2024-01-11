@@ -5,13 +5,29 @@ import os
 import gzip
 import shutil
 import requests
+import argparse
 from tqdm import tqdm
 
+# Import dusmaps configuration (the maps themselves are slow)
+from dustmaps.config import config
 
-def get_grid(case):
+DUSTMAPFILE = "_dustpath.py"
+
+
+def get_basta_dir():
+    """
+    Helper to obtain location of BASTA root directory
+    """
+    rootdir = os.path.dirname(
+        os.path.abspath(os.path.join(os.path.abspath(__file__), ".."))
+    )
+    return rootdir
+
+
+def get_grid(case, gridpath=None):
     """
     Download a grid from the BASTAcode grid repository. Will be stored in the default
-    location: $BASTADIR/grids/ .
+    location: BASTA/grids/ .
 
     Parameters
     ----------
@@ -44,15 +60,14 @@ def get_grid(case):
         raise ValueError("Unknown grid!")
     url = os.path.join(baseurl, "{0}.gz".format(gridname))
 
-    # Obtain location of BASTA
-    try:
-        home = os.environ["BASTADIR"]
-    except KeyError:
-        print("Cannot find environment variable 'BASTADIR'! Cannot download grid...")
-        return
+    # Default or user-defined location?
+    if gridpath:
+        basedir = os.path.abspath(gridpath)
+    else:
+        home = get_basta_dir()
+        basedir = os.path.join(home, "grids")
 
-    # Make sure the target folder exists
-    basedir = os.path.join(home, "grids")
+    # Make sure target exists
     if not os.path.exists(basedir):
         os.makedirs(basedir)
 
@@ -94,3 +109,110 @@ def get_grid(case):
 
     else:
         print("The grid '{0}' already exists! Will not download.".format(gridpath))
+
+
+def get_dustmaps(dustpath=None, skip=False):
+    """
+    Configure dustmaps and download if necessary
+
+    Parameters
+    ----------
+    dustpath : str, optional
+        Where to store/find dustmaps
+
+    skip : bool, optional
+        Skip the download of the dustmaps
+
+    Returns
+    -------
+    None
+    """
+    home = get_basta_dir()
+
+    # Default or user-defined location?
+    if dustpath:
+        dustfolder = os.path.abspath(dustpath)
+    else:
+        dustfolder = os.path.join(home, "dustmaps")
+
+    # Configure package to use the specified path
+    config["data_dir"] = dustfolder
+    print("\n=========================")
+    print("Location of dustmaps: {0}".format(dustfolder))
+    if not os.path.exists(dustfolder):
+        os.mkdir(dustfolder)
+
+    # Write dustmap datafolder to file
+    with open(os.path.join(home, "basta", DUSTMAPFILE), "w") as f:
+        f.write("__dustpath__ = '{0}'\n".format(dustfolder))
+
+    # Install if required
+    if not skip:
+        print("Obtaining dustmaps!")
+        # SFD/Schlegel dustmap
+        print("\nFetching the SFD dustmap ...\n", flush=True)
+        import dustmaps.sfd
+
+        dustmaps.sfd.fetch()
+        print("\nDone!")
+        print("----------")
+
+        # Bayestar/Green dustmap
+        print("\nFetching the Bayestar dustmap ...\n", flush=True)
+        import dustmaps.bayestar
+
+        dustmaps.bayestar.fetch()
+        print("\nDone!")
+    else:
+        print("Assuming dustmaps to be available without download!")
+
+
+def main():
+    """
+    Run the downloader
+    """
+    helptext = (
+        "Download assets for BASTA. Currently, it will download grids and dustmaps."
+    )
+    parser = argparse.ArgumentParser(description=helptext)
+
+    # Argument: Which grid to download
+    # --> Only these grids are supported
+    allowed_grids = [
+        "16CygA",
+        "validation",
+        "iso",
+        "validation_new-weights",
+    ]
+    parser.add_argument(
+        "grid", help="The grid to download. Allowed cases: {0}".format(allowed_grids)
+    )
+
+    # Optional argument: Where to save the grid
+    parser.add_argument(
+        "--gridpath", type=str, help="Store grid in non-standard location."
+    )
+
+    # Optional argument: Location of dustmaps
+    parser.add_argument(
+        "--dustpath",
+        type=str,
+        help="Store dustmaps in non-standard location (will make BASTA search in this location at runtime)",
+    )
+
+    # Optional argument: Don't download dustmaps
+    parser.add_argument(
+        "--no-dustmaps",
+        action="store_true",
+        help="Skip download of dustmaps. Warning: BASTA will not work if they are not available.",
+    )
+
+    # Parse and check
+    args = parser.parse_args()
+    if args.grid not in allowed_grids:
+        raise ValueError(
+            "Unknown grid requsted! Select from: {0}".format(allowed_grids)
+        )
+
+    get_grid(case=args.grid, gridpath=args.gridpath)
+    get_dustmaps(dustpath=args.dustpath, skip=args.no_dustmaps)
