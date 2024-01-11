@@ -39,6 +39,7 @@ _dustpath.py
 
 # Virtual environment
 /venv*/
+/bastaenv/
 
 ###########
 ### Generic

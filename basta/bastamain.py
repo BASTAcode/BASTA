@@ -346,7 +346,14 @@ def BASTA(
                     "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
                 )
         elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
-            print("* Fitting of glitches {0} activated!".format(fitfreqs["fittypes"]))
+            print("* Fitting of glitches {0} activated using:".format(fitfreqs["fittypes"]))
+            print(f"  - Method: {fitfreqs['glitchmethod']}")
+            print(f"  - Parameters in smooth component: {fitfreqs['npoly_params']}")
+            print(f"  - Order of derivative: {fitfreqs['nderiv']}")
+            print(f"  - Gradient tolerance: {fitfreqs['tol_grad']}")
+            print(f"  - Regularization parameter: {fitfreqs['regu_param']}")
+            print(f"  - Initial guesses: {fitfreqs['nguesses']}")
+            print("* General frequency fitting configuration:")
         elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
             print(
                 "* Fitting of epsilon differences {0} activated!".format(

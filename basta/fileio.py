@@ -12,7 +12,6 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 
 import numpy as np
-from sklearn.covariance import MinCovDet
 
 from basta import stats, freq_fit, glitch_fit
 from basta import utils_seismic as su
