@@ -263,7 +263,6 @@ def BASTA(
             obsfreqmeta,
             obsintervals,
         ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
-
         # Apply prior on dnufit to mimick the range defined by dnufrac
         if fitfreqs["dnuprior"] and ("dnufit" not in limits):
             dnufit_frac = fitfreqs["dnufrac"] * fitfreqs["dnufit"]
@@ -334,9 +333,7 @@ def BASTA(
 
     # Fitting info: Frequencies
     if fitfreqs["active"]:
-        if "glitches" in fitfreqs["fittypes"]:
-            print("* Fitting of frequency glitches activated!")
-        elif "freqs" in fitfreqs["fittypes"]:
+        if "freqs" in fitfreqs["fittypes"]:
             print("* Fitting of individual frequencies activated!")
         elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
             print(
@@ -348,6 +345,8 @@ def BASTA(
                 print(
                     "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
                 )
+        elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+            print("* Fitting of glitches {0} activated!".format(fitfreqs["fittypes"]))
         elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
             print(
                 "* Fitting of epsilon differences {0} activated!".format(
@@ -525,6 +524,12 @@ def BASTA(
     selectedmodels = {}
     noofind = 0
     noofposind = 0
+    # In some cases we need to store quantities computed at runtime
+    if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+        dnusurfmodels = {}
+    if fitfreqs["active"] and fitfreqs["glitchfit"]:
+        glitchmodels = {}
+
     print(
         "\n\nComputing likelihood of models in the grid ({0} {1}) ...".format(
             trackcounter, entryname
@@ -666,8 +671,12 @@ def BASTA(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if fitfreqs["active"]:
+                    if fitfreqs["dnufit_in_ratios"]:
+                        dnusurf = np.zeros(index.sum())
+                    if fitfreqs["glitchfit"]:
+                        glitchpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
-                        chi2_freq, warn, shapewarn = stats.chi2_astero(
+                        chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
                             obskey,
                             obs,
                             obsfreqmeta,
@@ -682,6 +691,11 @@ def BASTA(
                             verbose=verbose,
                         )
                         chi2[indd] += chi2_freq
+
+                        if fitfreqs["dnufit_in_ratios"]:
+                            dnusurf[indd] = addpars["dnusurf"]
+                        if fitfreqs["glitchfit"]:
+                            glitchpar[indd] = addpars["glitchparams"]
 
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
@@ -730,6 +744,7 @@ def BASTA(
                         libitem["massini"][index][~np.isinf(logPDF)],
                     )
 
+                # Sum the number indexes and nonzero indexes
                 noofind += len(logPDF)
                 noofposind += np.count_nonzero(~np.isinf(logPDF))
                 if debug and verbose:
@@ -738,6 +753,8 @@ def BASTA(
                             group_name + name, ~np.isinf(logPDF)
                         )
                     )
+
+                # Store statistical info
                 if debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
                         index, logPDF, chi2, bayw, magw, IMFw
@@ -745,6 +762,14 @@ def BASTA(
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, logPDF, chi2
+                    )
+                if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+                    dnusurfmodels[group_name + name] = stats.Trackdnusurf(dnusurf)
+                if fitfreqs["active"] and fitfreqs["glitchfit"]:
+                    glitchmodels[group_name + name] = stats.Trackglitchpar(
+                        glitchpar[:, 0],
+                        glitchpar[:, 1],
+                        glitchpar[:, 2],
                     )
             else:
                 if debug and verbose:
@@ -824,6 +849,14 @@ def BASTA(
         experimental=experimental,
         validationmode=validationmode,
     )
+
+    # Collect additional output for plotting and saving
+    addstats = {}
+    if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+        addstats["dnusurf"] = dnusurfmodels
+    if fitfreqs["active"] and fitfreqs["glitchfit"]:
+        addstats["glitchparams"] = glitchmodels
+
     # Make frequency-related plots
     freqplots = inputparams.get("freqplots")
     if fitfreqs["active"] and len(freqplots):
@@ -840,6 +873,7 @@ def BASTA(
             path=maxPDF_path,
             ind=maxPDF_ind,
             plotfname=outfilename + "_{0}." + inputparams["plotfmt"],
+            **addstats,
             debug=debug,
         )
     else:

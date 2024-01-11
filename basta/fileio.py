@@ -3,6 +3,7 @@ Auxiliary functions for file operations
 """
 import os
 import json
+import h5py
 import warnings
 from io import IOBase
 from copy import deepcopy
@@ -13,7 +14,7 @@ from xml.dom import minidom
 import numpy as np
 from sklearn.covariance import MinCovDet
 
-from basta import stats, freq_fit
+from basta import stats, freq_fit, glitch_fit
 from basta import utils_seismic as su
 from basta import utils_general as util
 from basta.constants import freqtypes
@@ -378,37 +379,46 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     return obskey, obs, covarfreq
 
 
-def _read_glitch(filename):
+def _read_precomputed_glitches(
+    filename: str, type: str = "glitches"
+) -> tuple[np.array, np.array]:
     """
-    Read glitch parameters.
+    Read glitch parameters. If fitted together with ratios, these must be
+    provided in this file as well, for covariance between them.
 
     Parameters
     ----------
     filename : str
         Name of file to read
+    grtype : str
+        Parameter combination to be read from: glitches, gr02, gr01, gr10
+        gr010, gr012, gr102.
 
     Returns
     -------
-    glitchparams : array
-        Array of median glitch parameters
-    glhCov : array
-        Covariance matrix
+    gdata : array
+        Array of median glitch parameters (and ratios)
+    gcov : array
+        Covariance matrix, for glitch parameters or glitch parameters
+        and ratios
     """
-    # Extract glitch parameters
-    glitchfit = np.genfromtxt(filename, skip_header=3)
-    glitchparams = np.zeros(3)
-    glitchparams[0] = np.median(glitchfit[:, 8])
-    glitchparams[1] = np.median(glitchfit[:, 4])
-    glitchparams[2] = np.median(glitchfit[:, 5])
+    # Read datafile
+    try:
+        datfile = h5py.File(filename, "r")
+    except:
+        return NameError("Could not find f{filename}")
 
-    # Compute covariance matrix
-    tmpFit = np.zeros((len(glitchfit[:, 0]), 3))
-    tmpFit[:, 0] = glitchfit[:, 8]
-    tmpFit[:, 1] = glitchfit[:, 4]
-    tmpFit[:, 2] = glitchfit[:, 5]
-    cov = MinCovDet().fit(tmpFit).covariance_
+    # Read ratio type in file, and check that it matches requested fittype
+    if type != "glitches":
+        rtype = datfile["rto/rtype"][()].decode("utf-8")
+        if rtype != type[1:]:
+            raise KeyError(f"Requested ratio type {type[1:]} not found in {filename}")
 
-    return glitchparams, cov
+    # Read data and covariance matrix
+    gdata = datfile["cov/params"][()]
+    gcov = datfile["cov/cov"][()]
+
+    return gdata, gcov
 
 
 def _read_precomputed_ratios_xml(
@@ -540,42 +550,6 @@ def _read_ratios_cov_xml(xmlroot, types, order):
     return cov
 
 
-def _compute_dnudata(obskey, obs, numax):
-    """
-    Compute large frequency separation (the same way as dnufit)
-
-    Parameters
-    ----------
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obs : array
-        Individual frequencies and uncertainties.
-    numax : scalar
-        Frequency of maximum power
-
-    Returns
-    -------
-    dnudata : scalar
-        Large frequency separation obtained by fitting the radial mode observed
-        frequencies. Similar to dnufit, but from data and not from the
-        theoretical frequencies in the grid of models.
-    dnudata_err : scalar
-        Uncertainty on dnudata.
-    """
-    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    yfitdnu = obs[0, obskey[0, :] == 0]
-    xfitdnu = np.arange(0, len(yfitdnu))
-    wfitdnu = np.exp(
-        -1.0
-        * np.power(yfitdnu - numax, 2)
-        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-    )
-    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-    dnudata, dnudata_err = fitcoef[0], np.sqrt(fitcov[0, 0])
-
-    return dnudata, dnudata_err
-
-
 def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     """
     Make a dictionary of frequency-dependent data
@@ -614,6 +588,8 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     allplots = np.asarray(list(freqplots))
     fitratiotypes = []
     plotratiotypes = []
+    fitglitchtypes = []
+    plotglitchtypes = []
     fitepsdifftypes = []
     plotepsdifftypes = []
 
@@ -622,8 +598,10 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     getepsdiff = False
 
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    dnudata, dnudata_err = _compute_dnudata(obskey, obs, numax)
     obsls = np.unique(obskey[0, :])
+
+    # Large frequency separation from individual frequencies
+    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax)
 
     for fit in allfits:
         obsfreqdata[fit] = {}
@@ -636,6 +614,9 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         # Look for glitches
         elif fit in freqtypes.glitches:
             getglitch = True
+            fitglitchtypes.append(fit)
+            if not "glitch" in obsfreqmeta.keys():
+                obsfreqmeta["glitch"] = {}
         # Look for epsdiff
         elif fit in freqtypes.epsdiff:
             getepsdiff = True
@@ -653,12 +634,17 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         "dnudata_err": dnudata_err,
     }
 
+    # If all frequency plots enabled, turn on defaults
     if len(freqplots) and freqplots[0] == True:
         getratios = True
         getepsdiff = True
 
         plotratiotypes = list(set(freqtypes.defaultrtypes) | set(fitratiotypes))
         plotepsdifftypes = list(set(freqtypes.defaultepstypes) | set(fitepsdifftypes))
+
+        # Only turn on glitches if they are fitted (expensive)
+        if getglitch:
+            plotglitchtypes = list(set(fitglitchtypes))
 
     elif len(freqplots):
         for plot in allplots:
@@ -677,6 +663,8 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
             # Look for glitches
             if plot in freqtypes.glitches:
                 getglitch = True
+                if plot not in plotglitchtypes:
+                    plotglitchtypes.append(plot)
             # Look for epsdiff
             if plot in ["epsdiff", *freqtypes.epsdiff]:
                 getepsdiff = True
@@ -690,21 +678,25 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
 
     # Check that there is observational data available for fits and plots
     if getratios or getepsdiff:
-        for fittype in set(fitratiotypes) | set(fitepsdifftypes):
-            if not all(x in obsls.astype(str) for x in fittype[1:]):
+        for fittype in set(fitratiotypes) | set(fitepsdifftypes) | set(fitglitchtypes):
+            if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
                 for l in fittype[1:]:
                     if not l in obsls.astype(str):
                         print(f"* No l={l} modes were found in the observations")
                         print(f"* It is not possible to fit {fittype}")
                         raise ValueError
-        for fittype in set(plotratiotypes) | set(plotepsdifftypes):
-            if not all(x in obsls.astype(str) for x in fittype[1:]):
+        for fittype in (
+            set(plotratiotypes) | set(plotepsdifftypes) | set(plotglitchtypes)
+        ):
+            if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
                 if debug:
                     print(f"*BASTA {fittype} cannot be plotted")
                 if fittype in plotratiotypes:
                     plotratiotypes.remove(fittype)
                 if fittype in plotepsdifftypes:
                     plotepsdifftypes.remove(fittype)
+                if fittype in plotglitchtypes:
+                    plotglitchtypes.remove(fittype)
         if getratios and ((len(fitratiotypes) == 0) & (len(plotratiotypes) == 0)):
             getratios = False
         if getepsdiff and ((len(fitepsdifftypes) == 0) & (len(plotepsdifftypes) == 0)):
@@ -714,6 +706,11 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         obsfreqmeta["ratios"] = {}
         obsfreqmeta["ratios"]["fit"] = fitratiotypes
         obsfreqmeta["ratios"]["plot"] = plotratiotypes
+
+    if getglitch:
+        obsfreqmeta["glitch"] = {}
+        obsfreqmeta["glitch"]["fit"] = fitglitchtypes
+        obsfreqmeta["glitch"]["plot"] = plotglitchtypes
 
     if getepsdiff:
         obsfreqmeta["epsdiff"] = {}
@@ -782,10 +779,7 @@ def read_allseismic(
             fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=False
         )
 
-    # Observed frequencies
-
-    # Ratios and covariances
-    # Check if it is unnecesarry to compute ratios
+    # Construct data and metadata dictionaries
     obsfreqdata, obsfreqmeta = _make_obsfreqs(
         obskey,
         obs,
@@ -795,6 +789,17 @@ def read_allseismic(
         numax=fitfreqs["numax"],
         debug=debug,
     )
+
+    # Add large frequency separation bias (default is 0)
+    if fitfreqs["dnubias"]:
+        print(
+            f"Added {fitfreqs['dnubias']}muHz bias/systematic to dnu error, from {obsfreqdata['freqs']['dnudata_err']:.3f}",
+            end=" ",
+        )
+        obsfreqdata["freqs"]["dnudata_err"] = np.sqrt(
+            obsfreqdata["freqs"]["dnudata_err"] ** 2.0 + fitfreqs["dnubias"] ** 2.0
+        )
+        print(f"to {obsfreqdata['freqs']['dnudata_err']:.3f}")
 
     # Compute or dataread in required ratios
     if obsfreqmeta["getratios"]:
@@ -825,25 +830,56 @@ def read_allseismic(
                 if datos is not None:
                     obsfreqdata[ratiotype]["data"] = datos[0]
                     obsfreqdata[ratiotype]["cov"] = datos[1]
+                elif ratiotype in obsfreqmeta["ratios"]["fit"]:
+                    # Fail
+                    raise ValueError(
+                        f"Fitting parameter {ratiotype} could not be computed."
+                    )
                 else:
-                    if ratiotype in obsfreqmeta["ratios"]["fit"]:
-                        # Fail
-                        raise ValueError(
-                            f"Fitting parameter {ratiotype} could not be computed."
-                        )
-                    else:
-                        # Do not fail as much
-                        print(f"Ratio {ratiotype} could not be computed.")
-                        obsfreqdata[ratiotype]["data"] = None
-                        obsfreqdata[ratiotype]["cov"] = None
-                        obsfreqdata[ratiotype]["covinv"] = None
+                    # Do not fail as much
+                    print(f"Ratio {ratiotype} could not be computed.")
+                    obsfreqdata[ratiotype]["data"] = None
+                    obsfreqdata[ratiotype]["cov"] = None
+                    obsfreqdata[ratiotype]["covinv"] = None
 
     # Get glitches
     if obsfreqmeta["getglitch"]:
-        obsfreqdata["glitches"] = {}
-        datos = _read_glitch(fitfreqs["glhfile"])
-        obsfreqdata["glitches"]["data"] = datos[0]
-        obsfreqdata["glitches"]["cov"] = datos[1]
+        for glitchtype in set(obsfreqmeta["glitch"]["fit"]) | set(
+            obsfreqmeta["glitch"]["plot"]
+        ):
+            obsfreqdata[glitchtype] = {}
+            if fitfreqs["readglitchfile"]:
+                datos = _read_precomputed_glitches(fitfreqs["glitchfile"], glitchtype)
+                # Precomputed from glitchpy lacks the data structure, so sample once to obtain that
+                obsseq = glitch_fit.compute_glitchseqs(
+                    obskey, obs, glitchtype, obsfreqdata["freqs"]["dnudata"], fitfreqs
+                )
+                # Store data in new structure, overwrite old
+                obsseq[0] = datos[0]
+                datos = (obsseq, datos[1])
+            else:
+                datos = glitch_fit.compute_observed_glitches(
+                    obskey,
+                    obs,
+                    glitchtype,
+                    obsfreqdata["freqs"]["dnudata"],
+                    fitfreqs,
+                    debug=debug,
+                )
+            if datos is not None:
+                obsfreqdata[glitchtype]["data"] = datos[0]
+                obsfreqdata[glitchtype]["cov"] = datos[1]
+            elif glitchtype in obsfreqmeta["glitches"]["fit"]:
+                # Fail
+                raise ValueError(
+                    f"Fitting parameter {glitchtype} could not be computed."
+                )
+            else:
+                # Do not fail as much
+                print(f"Glitch type {glitchtype} could not be computed.")
+                obsfreqdata[glitchtype]["data"] = None
+                obsfreqdata[glitchtype]["cov"] = None
+                obsfreqdata[glitchtype]["covinv"] = None
 
     # Get epsilon differences
     if obsfreqmeta["getepsdiff"]:

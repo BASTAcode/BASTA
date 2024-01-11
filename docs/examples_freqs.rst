@@ -100,7 +100,6 @@ diagrams for both corrected and uncorrected frequencies:
 
    Echelle diagram after the BG14 frequency correction to the best fit model to 16 Cyg A in the grid.
 
-
 Frequency ratios
 ----------------
 
@@ -178,25 +177,42 @@ As noted above for the ratios, correlations/covariances are taken into account i
 Frequency glitches
 ------------------
 
-Another feature of BASTA is the fit of frequency glitches related to the base of the convective envelope and the He
-ionisation zones. The glitch information must be provided in a file with the ``.glh`` extension that contains the
-following information in columns:
+Another feature of BASTA is the fit of frequency glitches related to the He ionisation zones.
+These are comprised of three parameters, which are:
 
-#. Amplitude of the base of the convection zone (BCZ) glitch signature [muHz^3]
-#. Acoustic depth of the BCZ glitch signature [sec]
-#. Phase of the BCZ glitch signature [dimensionless]
-#. Amplitude of the helium (He) glitch signature [dimensionless]
-#. Acoustic width of the He glitch signature [sec]
-#. Acoustic depth of the He glitch signature [sec]
-#. Phase of the He glitch signature [dimensionless]
-#. Average amplitude of the BCZ glitch signature [muHz]
-#. Average amplitude of the He glitch signature [muHz]
+#. the average amplitude of the He glitch signature, :math:`\langle A_{He}\rangle\,(\mu Hz)`,
+#. the acoustic width of the He glitch signature, :math:`\Delta_{He}\,(s)`,
+#. and the acoustic depth of the He glitch signature, :math:`\tau_{He}\,(s)`.
 
-An example file with this format can be found in ``BASTA/examples/data/freqs/16CygA.glh`` containing the glitch
-information derived from 1000 MC realisations of the observed individual frequencies of 16 Cyg A. Each realisation
-corresponds to one row of the file.
+These can be precomputed and provided by the user in ``hdf5`` format, by either computing them using the
+`GlitchPy <https://github.com/kuldeepv89/GlitchPy>`_ code, or following the file structure defined within.
 
-To produce the fit one simply needs to include the appropriate parameter in ``fitparams``
+
+If not precomputed, these can be computed from the provided individual frequencies. In this case, the method used in GlitchPy is
+adapted, whereby the method by which the glitch parameters are determined needs to be defined in block 2f as e.g.
+
+.. code-block:: python
+
+    # ------------------------------------------------------------
+    # BLOCK 2f: Fitting control, glitches
+    # ------------------------------------------------------------
+    define_fit["glitchparams"] = {
+        "method": "Freq",
+        "npoly_params": 5,
+        "nderiv": 3,
+        "tol_grad": 1e-3,
+        "regu_param": 7,
+        "nguesses": 200,
+    }
+
+The number of realisations to use in the MC scheme to derive the observed glitch parameters are set by the ``nrealizations`` keyword
+in the ``freqparams`` dictionary (block 2d).
+
+If the glitch parameters are provided in the GlitchPy format, the method by which these were computed will instead be adopted. The file
+must be provided as ``*star_id*.hdf5``, in the same directory as the individual frequencies. The ``readglitchfile`` keyword in the
+``freqparams`` dictionary (block 2d) can then be set to ``True`` to allow the precomputed glitches to be read.
+
+To produce the fit one simply needs to include the appropriate parameter ``glitches`` in ``fitparams``
 
 .. code-block:: python
 
@@ -205,27 +221,19 @@ To produce the fit one simply needs to include the appropriate parameter in ``fi
     # ==================================================================================
     define_fit["fitparams"] = ("Teff", "FeH", "glitches")
 
-Since the ``.glh`` file is located in the same folder as the individual frequencies, block 2d remains unchanged:
-
-.. code-block:: python
-
-    # ------------------------------------------------------------
-    # BLOCK 2d: Fitting control, frequencies
-    # ------------------------------------------------------------
-    define_fit["freqparams"] = {
-        "freqpath": "BASTA/examples/data/freqs",
-        "fcor": "BG14",
-        "correlations": False,
-        "dnufrac": 0.15,
-    }
+The option to fit glitches together with frequency ratios is also provided, whereby the correlations between
+the ratios and glitch parameters of the observations are derived and applied. This option is simply enabled by relacing ``glitches`` in
+``fitparams`` by the desired frequency ratio sequence preceded by a ``g``, as e.g. ``gr012`` for fitting glitches along with the ``r012``
+sequence.
 
 You can find the corresponding python script to produce the input file for this fit in
-``BASTA/examples/xmlinput/create_inputfile_glitches.py``. The output should look as follows:
+``${BASTADIR}/examples/xmlinput/create_inputfile_glitches.py``. Running this example produces output located in ``${BASTADIR}/examples/glitches/``,
+where the fitted glitch parameters are shown in ``16CygA_gltches_gr012.png``, which should look as follows:
 
-.. figure:: figures/glitches/16CygA_corner.png
-   :alt: Corner plot of the 16 Cyg A fit using glitches.
+.. figure:: figures/glitches/16CygA_glitches_gr012.png
+   :alt: Fitted glitch parameters of 16 Cyg A fitted using glitches and ratios.
 
-   Corner plot of the 16 Cyg A fit using glitches.
+   Fitted glitch parameters of 16 Cyg A fitted using glitches and ratios.
 
 Individual frequencies: subgiants
 ---------------------------------
