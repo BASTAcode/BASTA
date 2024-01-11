@@ -11,9 +11,11 @@ try:
     from basta.icov_sd import icov_sd
     from basta.glitch_fq import fit_fq
     from basta.glitch_sd import fit_sd
+
     GLITCH_AVAIL = True
 except:
     GLITCH_AVAIL = False
+
 
 def compute_observed_glitches(
     osckey: np.array,
@@ -111,8 +113,10 @@ def compute_glitchseqs(
 
     # Check compilation of external FORTRAN routines
     if not GLITCH_AVAIL:
-        raise ModuleNotFoundError("Unable to import glitch modules, check " +
-                                  "installation guide for compilation of these!")
+        raise ModuleNotFoundError(
+            "Unable to import glitch modules, check "
+            + "installation guide for compilation of these!"
+        )
 
     # Setup array, make similar to ratios
     glitchseq = np.empty((4, 3)) * np.nan
