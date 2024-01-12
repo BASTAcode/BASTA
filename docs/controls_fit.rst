@@ -2,3 +2,8 @@
 
 Fitting controls
 ================
+
+.. _fitparams:
+
+Fit parameters
+--------------
