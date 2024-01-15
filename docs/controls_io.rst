@@ -3,6 +3,11 @@
 I/O controls
 ============
 
+The following lists all possible control options for the I/O control block in the :py:func:`define_input`
+function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
+controls for specific fitting cases, see the :ref:`examples <examples>` section, or the provided
+example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
+
 .. _Name of input file:
 
 Name of input file
@@ -51,7 +56,7 @@ be provided in ASCII format, readable by the
 `numpy.genfromtxt <https://numpy.org/doc/stable/reference/generated/numpy.genfromtxt.html>`_
 routine. Location is provided relative to the location from which the python script is run.
 This constitutes the list of stars for which the defined fit is run.
-For a basic example, see the ``{BASTADIR}/examples/data/16CygA.ascii`` file, for a single star.
+For a basic example, see the ``BASTA/examples/data/16CygA.ascii`` file, for a single star.
 
 .. code-block:: python
 

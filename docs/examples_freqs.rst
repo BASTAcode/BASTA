@@ -234,7 +234,7 @@ the ratios and glitch parameters of the observations are derived and applied. Th
 sequence.
 
 You can find the corresponding python script to produce the input file for this fit in
-``${BASTADIR}/examples/xmlinput/create_inputfile_glitches.py``. Running this example produces output located in ``${BASTADIR}/examples/glitches/``,
+``BASTA/examples/xmlinput/create_inputfile_glitches.py``. Running this example produces output located in ``BASTA/examples/glitches/``,
 where the fitted glitch parameters are shown in ``16CygA_gltches_gr012.png``, which should look as follows:
 
 .. figure:: figures/glitches/16CygA_glitches_gr012.png
