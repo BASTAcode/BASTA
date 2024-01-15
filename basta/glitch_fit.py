@@ -3,14 +3,18 @@ Auxiliary functions for glitch fitting
 """
 import numpy as np
 
-from basta.sd import sd
-from basta.icov_sd import icov_sd
-from basta.glitch_fq import fit_fq
-from basta.glitch_sd import fit_sd
-from basta.sd import sd
-
 from basta import freq_fit
 from basta import utils_seismic as su
+
+try:
+    from basta.sd import sd
+    from basta.icov_sd import icov_sd
+    from basta.glitch_fq import fit_fq
+    from basta.glitch_sd import fit_sd
+
+    GLITCH_AVAIL = True
+except:
+    GLITCH_AVAIL = False
 
 
 def compute_observed_glitches(
@@ -106,6 +110,13 @@ def compute_glitchseqs(
         Determined glitch parameters (and ratios) from the provided frequencies.
         If computation failed, the glitch parameters will be NaNs.
     """
+
+    # Check compilation of external FORTRAN routines
+    if not GLITCH_AVAIL:
+        raise ModuleNotFoundError(
+            "Unable to import glitch modules, check "
+            + "installation guide for compilation of these!"
+        )
 
     # Setup array, make similar to ratios
     glitchseq = np.empty((4, 3)) * np.nan

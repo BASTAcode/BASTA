@@ -336,23 +336,22 @@ def BASTA(
         if "freqs" in fitfreqs["fittypes"]:
             print("* Fitting of individual frequencies activated!")
         elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
-            print(
-                "* Fitting of frequency ratios {0} activated!".format(
-                    ", ".join(fitfreqs["fittypes"])
-                )
-            )
+            print(f"* Fitting of frequency ratios {fitfreqs['fittypes']} activated!")
             if "r010" in fitfreqs["fittypes"]:
                 print(
                     "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
                 )
         elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
-            print("* Fitting of glitches {0} activated!".format(fitfreqs["fittypes"]))
+            print(f"* Fitting of glitches {fitfreqs['fittypes']} activated using:")
+            print(f"  - Method: {fitfreqs['glitchmethod']}")
+            print(f"  - Parameters in smooth component: {fitfreqs['npoly_params']}")
+            print(f"  - Order of derivative: {fitfreqs['nderiv']}")
+            print(f"  - Gradient tolerance: {fitfreqs['tol_grad']}")
+            print(f"  - Regularization parameter: {fitfreqs['regu_param']}")
+            print(f"  - Initial guesses: {fitfreqs['nguesses']}")
+            print("* General frequency fitting configuration:")
         elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
-            print(
-                "* Fitting of epsilon differences {0} activated!".format(
-                    ", ".join(fitfreqs["fittypes"])
-                )
-            )
+            print(f"* Fitting of epsilon differences {fitfreqs['fittypes']} activated!")
 
         # Translate True/False to Yes/No
         strmap = ("No", "Yes")

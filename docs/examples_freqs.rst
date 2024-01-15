@@ -7,6 +7,8 @@ Using grids that include theoretically computed oscillation frequencies (see :re
 individual frequencies with a surface correction, as well as combination of frequencies. In the following we show
 examples of the blocks that must be modified in :py:meth:`create_inputfile.define_input` to produce these types of fits.
 
+.. _example_freqs_individual:
+
 Individual frequencies: main sequence
 -------------------------------------
 
@@ -26,7 +28,7 @@ the terminal:
     from basta import fileio
     fileio.freqs_ascii_to_xml('.','16CygA',check_radial_orders=False,nbeforel=True)
 
-Which gives the oputput:
+Which gives the output:
 
 .. code-block:: text
 
@@ -100,6 +102,9 @@ diagrams for both corrected and uncorrected frequencies:
 
    Echelle diagram after the BG14 frequency correction to the best fit model to 16 Cyg A in the grid.
 
+
+.. _example_freqs_ratios:
+
 Frequency ratios
 ----------------
 
@@ -134,6 +139,7 @@ recommended option. Additionally, interpolation of the model ratios to the obser
 Finally, the correlations between the ratios are taken into account by using the full covariance matrix. Any of these
 settings can of cource be changed should the user wish to do so.
 
+.. _example_freqs_epsdiff:
 
 Epsilon differences
 -------------------
@@ -173,6 +179,7 @@ excluded, and thus the number of epsilon differences may not be equal to the num
 
 As noted above for the ratios, correlations/covariances are taken into account in the fit.
 
+.. _example_freqs_glitches:
 
 Frequency glitches
 ------------------
@@ -227,7 +234,7 @@ the ratios and glitch parameters of the observations are derived and applied. Th
 sequence.
 
 You can find the corresponding python script to produce the input file for this fit in
-``${BASTADIR}/examples/xmlinput/create_inputfile_glitches.py``. Running this example produces output located in ``${BASTADIR}/examples/glitches/``,
+``BASTA/examples/xmlinput/create_inputfile_glitches.py``. Running this example produces output located in ``BASTA/examples/glitches/``,
 where the fitted glitch parameters are shown in ``16CygA_gltches_gr012.png``, which should look as follows:
 
 .. figure:: figures/glitches/16CygA_glitches_gr012.png

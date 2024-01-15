@@ -389,7 +389,7 @@ def cubicBG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
 
     The correction has the form:
 
-        .. math:: d\\nu = \\frac{\\b \\left(\\frac{\\nu}{\\nu_{scal}}\\right)^3}{I}
+        .. math:: d\\nu = \\frac{b \\left(\\frac{\\nu}{\\nu_{scal}}\\right)^3}{I}
 
     where :math:`b` are the found parameters, :math:`\\nu_{scal}` is a scaling frequency used to non-dimensionalize the frequencies :math:`\\nu`, and :math:`I` is the mode inertia for each mode.
 

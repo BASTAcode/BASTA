@@ -60,6 +60,8 @@ desired science case:
 This will select the isochrones including overshoot in the main sequence, no microscopic diffusion, with mass-loss, and
 no alpha-enhancement.
 
+.. _example_parallax:
+
 Fitting parallax
 ----------------
 
