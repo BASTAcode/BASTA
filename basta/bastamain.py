@@ -376,7 +376,7 @@ def BASTA(
         print("  - Frequency input data: {0}".format(fitfreqs["freqfile"]))
         print(
             "  - Frequency input data (list of ignored modes): {0}".format(
-                fitfreqs["nottrustedfile"]
+                fitfreqs["excludemodes"]
             )
         )
         print(
@@ -465,7 +465,7 @@ def BASTA(
         "fitparams",
         "limits",
         "magnitudes",
-        "nottrustedfile",
+        "excludemodes",
         "numax",
         "warnoutput",
     ]
@@ -482,14 +482,21 @@ def BASTA(
         gtname = "tracks"
         dwname = "age"
     else:
-        dwname = ""
-    print("* Bayesian weights:")
-    print("  - Along {0}: {1}".format(gtname, dwname))
-    print(
-        "  - Between {0}: {1}".format(
-            gtname, ", ".join([q.split("_")[0] for q in bayweights])
+        print("No Bayesian weights applied")
+        gtname = None
+        dwname = None
+
+    if apply_dweights:
+        assert gtname is not None
+        assert dwname is not None
+        print("* Bayesian weights:")
+        print("  - Along {0}: {1}".format(gtname, dwname))
+        print(
+            "  - Between {0}: {1}".format(
+                gtname, ", ".join([q.split("_")[0] for q in bayweights])
+            )
         )
-    )
+
     print("* Flat, constrained priors and ranges:")
     for lim in limits.keys():
         print("  - {0}: {1}".format(lim, limits[lim]))

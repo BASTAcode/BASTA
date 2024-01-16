@@ -664,7 +664,7 @@ def read_cov_ratios(filename):
     return cov
 
 
-def read_freq(filename, nottrustedfile=None, covarfre=False):
+def read_freq(filename, excludemodes=None, onlyradial=False, covarfre=False):
     """
     Routine to extract the frequencies in the desired n-range, and the
     corresponding covariance matrix
@@ -673,9 +673,11 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     ----------
     filename : str
         Name of file to read
-    nottrustedfile : str or None, optional
+    excludemodes : str or None, optional
         Name of file containing the (l, n) values of frequencies to be
         omitted in the fit. If None, no modes will be excluded.
+    onlyradial : bool
+        Flag to determine to only fit the l=0 modes
     covarfre : bool, optional
         Read also the covariances in the individual frequencies
 
@@ -709,24 +711,33 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     obs = np.array([f, e])
 
     # Remove untrusted frequencies
-    if nottrustedfile not in [None, "", "None", "none", "False", "false"]:
+    if excludemodes not in [None, "", "None", "none", "False", "false"]:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            nottrustedobskey = np.genfromtxt(
-                nottrustedfile, comments="#", encoding=None
-            )
+            nottrustedobskey = np.genfromtxt(excludemodes, comments="#", encoding=None)
         # If there is only one not-trusted mode, it misses a dimension
         if nottrustedobskey.size == 0:
             print("File for not-trusted frequencies was empty")
         else:
-            print("Not-trusted frequencies found")
             if nottrustedobskey.shape == (2,):
                 nottrustedobskey = [nottrustedobskey]
             for l, n in nottrustedobskey:
                 nottrustedmask = (obskey[0] == l) & (obskey[1] == n)
-                print("Removed mode at", obs[:, nottrustedmask][0][0], "µHz")
+                print(
+                    *(f"Removed mode at {x} µHz" for x in obs[:, nottrustedmask][0]),
+                    sep="\n",
+                )
                 obskey = obskey[:, ~nottrustedmask]
                 obs = obs[:, ~nottrustedmask]
+    if onlyradial:
+        for l in [1, 2, 3]:
+            nottrustedmask = obskey[0] == l
+            print(
+                *(f"Removed mode at {x} µHz" for x in obs[:, nottrustedmask][0]),
+                sep="\n",
+            )
+            obskey = obskey[:, ~nottrustedmask]
+            obs = obs[:, ~nottrustedmask]
 
     if covarfre:
         corrfre, covarfreq = read_freq_cov_xml(filename, obskey)
@@ -736,7 +747,7 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     return obskey, obs, covarfreq
 
 
-def read_r010(filename, rrange, nottrustedfile, verbose=False):
+def read_r010(filename, rrange, excludemodes, verbose=False):
     """
     Routine to extract the frequency ratios r01 and r10 in the desired
     n-range, and the corresponding covariance matrix
@@ -747,7 +758,7 @@ def read_r010(filename, rrange, nottrustedfile, verbose=False):
         Name of file to read.
     rrange : list
         Radial range in ratios to be used for different angular degree.
-    nottrustedfile : str or None
+    excludemodes : str or None
         Name of file containing the (l, n) values of frequencies to be
         omitted in the fit. If None, no modes will be excluded.
     verbose : bool, optional
@@ -771,7 +782,7 @@ def read_r010(filename, rrange, nottrustedfile, verbose=False):
     if verbose:
         print("Computing frequency ratios array...")
 
-    obskey, obs, _ = read_freq(filename, nottrustedfile=nottrustedfile)
+    obskey, obs, _ = read_freq(filename, excludemodes=excludemodes)
     obskey_l0, obs_l0 = su.get_givenl(l=0, osc=obs, osckey=obskey)
     obskey_l1, obs_l1 = su.get_givenl(l=1, osc=obs, osckey=obskey)
 
@@ -1011,7 +1022,7 @@ def read_r010(filename, rrange, nottrustedfile, verbose=False):
     return r010var, covar010
 
 
-def read_r02(filename, rrange, nottrustedfile):
+def read_r02(filename, rrange, excludemodes):
     """
     Routine to extract the frequency ratios r02 in the desired n-range,
     and the corresponding covariance matrix
@@ -1022,7 +1033,7 @@ def read_r02(filename, rrange, nottrustedfile):
         Name of file to read
     rrange : list
         Radial range in ratios to be used for different angular degree
-    nottrustedfile : str or None
+    excludemodes : str or None
         Name of file containing the (l, n) values of frequencies to be
         omitted in the fit. If None, no modes will be excluded.
 
@@ -1043,7 +1054,7 @@ def read_r02(filename, rrange, nottrustedfile):
     nirdl2, nfrdl2 = rrange[4:]
 
     # Compute frequency ratios array
-    obskey, obs, _ = read_freq(filename, nottrustedfile=nottrustedfile)
+    obskey, obs, _ = read_freq(filename, excludemodes=excludemodes)
     obskey_l0, obs_l0 = su.get_givenl(l=0, osc=obs, osckey=obskey)
 
     r02ind = ratio_types == b"r02"
@@ -1122,7 +1133,7 @@ def read_glitch(filename):
 
 
 def read_precomputedratios(
-    obskey, obs, ratiotype, filename, nottrustedfile, threepoint=False, verbose=False
+    obskey, obs, ratiotype, filename, excludemodes, threepoint=False, verbose=False
 ):
     assert ratiotype in ["r010", "r02"]
     r02, _, _ = freq_fit.compute_ratios(
@@ -1144,9 +1155,9 @@ def read_precomputedratios(
     )
 
     if ratiotype == "r010":
-        ratio, cov = read_r010(filename, rrange, nottrustedfile, verbose=verbose)
+        ratio, cov = read_r010(filename, rrange, excludemodes, verbose=verbose)
     elif ratiotype == "r02":
-        ratio, cov = read_r02(filename, rrange, nottrustedfile)
+        ratio, cov = read_r02(filename, rrange, excludemodes)
     covinv = np.linalg.pinv(cov, rcond=1e-8)
     return ratio, cov, covinv
 
@@ -1386,11 +1397,17 @@ def read_allseismic(
 
     if "freqs" in fitfreqs["fittypes"] and fitfreqs["correlations"]:
         obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=True
+            fitfreqs["freqfile"],
+            excludemodes=fitfreqs["excludemodes"],
+            onlyradial=fitfreqs["onlyradial"],
+            covarfre=True,
         )
     else:
         obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=False
+            fitfreqs["freqfile"],
+            excludemodes=fitfreqs["excludemodes"],
+            onlyradial=fitfreqs["onlyradial"],
+            covarfre=False,
         )
 
     # Observed frequencies
@@ -1423,7 +1440,7 @@ def read_allseismic(
                     obs,
                     ratiotype,
                     fitfreqs["freqfile"],
-                    fitfreqs["nottrustedfile"],
+                    fitfreqs["excludemodes"],
                     threepoint=fitfreqs["threepoint"],
                     verbose=verbose,
                 )

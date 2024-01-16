@@ -24,6 +24,7 @@ try:
     from basta import interpolation_driver as idriver
 except ImportError:
     INTPOL_AVAIL = False
+    raise ImportError
 else:
     INTPOL_AVAIL = True
 
@@ -724,12 +725,11 @@ def run_xml(
                     )
                 else:
                     fitfreqs["glhfile"] = None
-                try:
-                    fitfreqs["nottrustedfile"] = star.find("nottrustedfile").get(
-                        "value"
-                    )
-                except AttributeError:
-                    fitfreqs["nottrustedfile"] = None
+                for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
+                    try:
+                        fitfreqs[fp] = star.find(fp).get("value")
+                    except AttributeError:
+                        fitfreqs[fp] = None
 
                 # dnufit for prior, numax for scaling
                 fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
