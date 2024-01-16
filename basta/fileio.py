@@ -306,7 +306,7 @@ def _read_freq_cov_xml(filename, obskey):
     return corr, cov
 
 
-def read_freq(filename, nottrustedfile=None, covarfre=False):
+def read_freq(filename, excludemodes=None, onlyradial=False, covarfre=False):
     """
     Routine to extract the frequencies in the desired n-range, and the
     corresponding covariance matrix
@@ -315,9 +315,11 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     ----------
     filename : str
         Name of file to read
-    nottrustedfile : str or None, optional
+    excludemodes : str or None, optional
         Name of file containing the (l, n) values of frequencies to be
         omitted in the fit. If None, no modes will be excluded.
+    onlyradial : bool
+        Flag to determine to only fit the l=0 modes
     covarfre : bool, optional
         Read also the covariances in the individual frequencies
 
@@ -351,24 +353,33 @@ def read_freq(filename, nottrustedfile=None, covarfre=False):
     obs = np.array([f, e])
 
     # Remove untrusted frequencies
-    if nottrustedfile not in [None, "", "None", "none", "False", "false"]:
+    if excludemodes not in [None, "", "None", "none", "False", "false"]:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            nottrustedobskey = np.genfromtxt(
-                nottrustedfile, comments="#", encoding=None
-            )
+            nottrustedobskey = np.genfromtxt(excludemodes, comments="#", encoding=None)
         # If there is only one not-trusted mode, it misses a dimension
         if nottrustedobskey.size == 0:
             print("File for not-trusted frequencies was empty")
         else:
-            print("Not-trusted frequencies found")
             if nottrustedobskey.shape == (2,):
                 nottrustedobskey = [nottrustedobskey]
             for l, n in nottrustedobskey:
                 nottrustedmask = (obskey[0] == l) & (obskey[1] == n)
-                print("Removed mode at", obs[:, nottrustedmask][0][0], "µHz")
+                print(
+                    *(f"Removed mode at {x} µHz" for x in obs[:, nottrustedmask][0]),
+                    sep="\n",
+                )
                 obskey = obskey[:, ~nottrustedmask]
                 obs = obs[:, ~nottrustedmask]
+    if onlyradial:
+        for l in [1, 2, 3]:
+            nottrustedmask = obskey[0] == l
+            print(
+                *(f"Removed mode at {x} µHz" for x in obs[:, nottrustedmask][0]),
+                sep="\n",
+            )
+            obskey = obskey[:, ~nottrustedmask]
+            obs = obs[:, ~nottrustedmask]
 
     if covarfre:
         corrfre, covarfreq = _read_freq_cov_xml(filename, obskey)
@@ -421,7 +432,7 @@ def _read_precomputed_glitches(
 
 
 def _read_precomputed_ratios_xml(
-    filename, ratiotype, obskey, obs, nottrustedfile=None, correlations=True
+    filename, ratiotype, obskey, obs, excludemodes=None, correlations=True
 ):
     """
     Read the precomputed ratios and covariance matrix from xml-file.
@@ -437,7 +448,7 @@ def _read_precomputed_ratios_xml(
         Array containing the angular degrees and radial orders of obs
     obs : array
         Individual frequencies and uncertainties.
-    nottrustedfile : str or None, optional
+    excludemodes : str or None, optional
         Name of file containing the (l, n) values of frequencies to be
         omitted in the fit. Does however only trigger a warning for
         precomputed ratios.
@@ -454,7 +465,7 @@ def _read_precomputed_ratios_xml(
         Covariance matrix matching the ratios.
     """
     # Print warning to user
-    if nottrustedfile != None:
+    if excludemodes != None:
         wstr = "Warning: Removing precomputed ratios based on "
         wstr += "not-trusted-file is not yet supported!"
         print(wstr)
@@ -771,11 +782,17 @@ def read_allseismic(
 
     if "freqs" in fitfreqs["fittypes"] and fitfreqs["correlations"]:
         obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=True
+            fitfreqs["freqfile"],
+            excludemodes=fitfreqs["excludemodes"],
+            onlyradial=fitfreqs["onlyradial"],
+            covarfre=True,
         )
     else:
         obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"], fitfreqs["nottrustedfile"], covarfre=False
+            fitfreqs["freqfile"],
+            excludemodes=fitfreqs["excludemodes"],
+            onlyradial=fitfreqs["onlyradial"],
+            covarfre=False,
         )
 
     # Construct data and metadata dictionaries
@@ -812,8 +829,10 @@ def read_allseismic(
                     ratiotype,
                     obskey,
                     obs,
-                    fitfreqs["nottrustedfile"],
-                    fitfreqs["correlations"],
+                    ratiotype,
+                    fitfreqs["excludemodes"],
+                    threepoint=fitfreqs["threepoint"],
+                    verbose=verbose,
                 )
                 obsfreqdata[ratiotype] = {}
                 obsfreqdata[ratiotype]["data"] = datos[0]

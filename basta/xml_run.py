@@ -778,13 +778,13 @@ def run_xml(
                     fitfreqs["glitchfile"] = os.path.join(
                         fitfreqs["freqpath"], starid + ".hdf5"
                     )
-                    fitfreqs = _read_glitch_controls(fitfreqs)
-                try:
-                    fitfreqs["nottrustedfile"] = star.find("nottrustedfile").get(
-                        "value"
-                    )
-                except AttributeError:
-                    fitfreqs["nottrustedfile"] = None
+                else:
+                    fitfreqs["glhfile"] = None
+                for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
+                    try:
+                        fitfreqs[fp] = star.find(fp).get("value")
+                    except AttributeError:
+                        fitfreqs[fp] = None
 
                 # dnufit for prior, numax for scaling
                 fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
