@@ -30,6 +30,7 @@ def generate_xml(
     priors=None,
     overwriteparams=None,
     freqparams=None,
+    glitchparams=None,
     filters=None,
     dustframe=None,
     cornerplots=False,
@@ -114,6 +115,9 @@ def generate_xml(
     freqparams : dict
         A dictionary containing the input for fitting individual frequencies
         or ratios.
+    grparams : dict
+        A dictionary containing control options for fitting glitches along
+        with ratios.
     filters : tuple of strings
         If calculating distances to stars, specify photometric filters
     dustframe : str
@@ -296,6 +300,12 @@ def generate_xml(
             if param in ["excludemodes", "nottrustedfile", "onlyradial"]:
                 continue
             SubElement(freqelement, param, {"value": str(freqparams[param])})
+
+    # Add subelement grparams to <default> if specified
+    if glitchparams and any(x in fitparams for x in freqtypes.glitches):
+        glitchelement = SubElement(default, "glitchparams")
+        for param in glitchparams:
+            SubElement(glitchelement, param, {"value": str(glitchparams[param])})
 
     # We need to check these before handling distance input
     if isinstance(cornerplots, (str, bool)) and len(cornerplots):

@@ -1,0 +1,155 @@
+.. _controls_fit:
+
+Fitting controls
+================
+
+In the following, an overview of the all the controls related to what will be fitted
+with BASTA is given, which corresponds to the fitting controls block in the :py:func:`define_input`
+function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
+controls for specific fitting cases, see the :ref:`examples <examples>` section, or the provided
+example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
+
+The first group controls which (types of) parameters will be fitted,
+while the remainder primarily are related to different specific fitting types. How the
+different groups relates to the specific fitting types are described in the :ref:`examples<examples>`.
+function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
+controls for specific fitting cases, see the :ref:`examples <examples>` section, or the provided
+example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
+
+.. _fitparams:
+
+Fit parameters
+--------------
+.. code-block:: python
+
+    define_fit["fitparams"] = ("Teff", "FeH", "logg")
+
+The observed parameters to be fitted to the grid of models. For spectroscopic and/or global
+asteroseismic parameters (:ref:`example <example_global>`) these must be from the list of
+parameters known by BASTA, :meth:`constants.parameters`.
+
+For special fitting cases, the following keys can be included in ``"fitparams"``:
+
+* ``"freqs"``: :ref:`Individual frequencies <example_freqs_individual>` if they are provided (see :ref:`controls_fit_freqparams`)
+* ``"r012"``: :ref:`Frequency ratios <example_freqs_ratios>` of any available combination defined in :meth:`constants.freqtypes`, for example ``"r01"``, ``"r02"``, ``"r10"``, and ``"r102"``. Can either be provided by user, or will automatically be derived from provided individual frequencies.
+* ``"e012"``: :ref:`Epsilon differences <example_freqs_epsdiff>` derived from the individual frequencies. Can be the individual sequences, ``"e01"``, ``"e02"``, or the combined ``"e012"`` sequence.
+* ``"parallax"``: :ref:`Distance/parallax <example_parallax>` through apparent magnitudes (see :ref:`controls_fit_parallax`).
+* ``"glitches"``: :ref:`Frequency glitches <example_freqs_glitches>` either provided by the user (see :ref:`controls_fit_freqparams`), or derived from the individual frequencies (see :ref:`controls_fit_glitches`). Can be combined with frequency ratios, whereby their cross-covariance is derived and included, by using a ratio key preceded by ``g``, as e.g. ``"gr012"`` or ``"gr10"``.
+
+.. _controls_fit_priors:
+
+Priors
+------
+.. code-block:: python
+
+    define_fit["priors"] = {"Teff": {"sigmacut": "3"}, "FeH": {"abstol": "0.5"}}
+
+
+Solar scaling
+-------------
+.. code-block:: python
+
+    define_fit["solarmodel"] = True
+
+
+
+.. code-block:: python
+
+    define_fit["sundnu"] = 135.1
+    define_fit["sunnumax"] = 3090.0
+
+
+
+Isochrones
+----------
+.. code-block:: python
+
+    define_fit["odea"] = (0, 0, 0, 0)
+
+
+.. _controls_fit_freqparams:
+
+Individual frequency parameters
+-------------------------------
+.. code-block:: python
+
+    define_fit["freqparams"] = {
+        "freqpath": "data/freqs",
+        "fcor": "BG14",
+        "bexp": 0,
+        "correlations": False,
+        "dnufrac": 0.15,
+        "dnuprior": True,
+        "seismicweight": "1/N",
+        "N": None,
+        "dof": None,
+        "dnubias": 0,
+        "dnufit_in_ratios": False,
+        "nrealizations": 10000,
+        "threepoint": False,
+        "readglitchfile": False,
+    }
+
+Controls related to the treatment of individual frequencies across all methods utilizing these.
+All are not necessary, as they usually have appropriate default values, or are only related to
+specific :ref:`fitting cases <fitparams>`. To see what is usually necessary for each case,
+see the :ref:`examples <examples>`.
+
+The control options are:
+
+* ``freqpath``: **Mandatory** location of the directory containing the ``xml`` files with the individual frequencies of each star. These are generated from ASCII format using the :meth:`fileio.freqs_ascii_to_xml` routine, as shown in this :ref:`example <example_freqs>`.
+* ``fcor``: The formulation of the frequency correction applied to the model frequencies when fitting to account for the asteroseismic surface effect. Options are :meth:`"HK08" <freq_fit.HK08>`, :meth:`"BG14" <freq_fit.BG14>`, :meth:`"cubicBG14" <freq_fit.cubicBG14>` (default), or ``"None"`` to disable the correction.
+* ``bexp``: Exponent to be used in the :meth:`"HK08" <freq_fit.HK08>` surface correction. It is therefore only necessary to define when using this formulation.
+* ``correlations``: Toggle for including correlations between individual frequencies, or their derived parameters. The behaviour when enabled (``True``, however ``False`` by default) changes with :ref:`fitting case <fitparams>` as follows:
+
+   * Individual frequencies: The correlations must be provided by the user in the input ``xml`` along with the frequencies themselves (also converted from ASCII to ``xml`` using :meth:`fileio.freqs_ascii_to_xml`).
+   * Ratios/epsilon differences: If provided in the input ``xml`` these will be used. If not provided, they will be determined through Mone-Carlo sampling. *Note:* If no correlations are assumed, but no error on the ratios/epsilon differences have been provided, the error will be sampled through Monte-Carlo sampling, but the correlations discarded.
+
+* ``dnufrac``: Fraction of the inputted :math:`\Delta\nu` used to constrain the interval wherein the lowest :math:`\ell =0` frequency between the model and observed frequencies must match to be considered in the fit (equivalent to a :ref:`prior <controls_fit_priors>`). As the sign of the correction is known, this fraction applies to the upper limit of the :math:`\nu_\text{mod} - \nu_\text{obs}` difference, while the lower limit is limited to :math:`-3\sigma_\nu`.
+* ``dnuprior``: Enable automatic prior on :math:`\Delta\nu` (default ``True``). This is used before the ``dnufrac`` to speed up the fit, as this is a less restrictive prior but computationally cheaper than the ``dnufrac`` prior.
+* ``seismicweight``: The method by which the contribution to the :math:`\chi^2` term from individual frequencies (or their derived quantities) is weighted/scaled, which is customary in order to let the classical observables impact the posterior. With the number of frequencies/derived quantities being ``N``, the available methods are ``"1/N"`` (default) whereby the contribution is divided by the number of frequencies/quantities, ``"1/1"`` for no weighting/scaling, or ``"1/N-dof"`` to include an estimate of the degrees-of-freedom (``dof``).
+* ``N``: Manually define/overwrite the number to use in the weighting of the :math:`\chi^2` value from individual frequencies/derived quantities. When set to the default (``None``), it will be automatically determined as the number of frequencies/quantities.
+* ``dof``: The degrees-of-freedom to use in the weighting of the :math:`\chi^2` value from individual frequencies/derived quantities, if the method ``"1/N-dof"`` is set for the ``seismicweight`` control option.
+* ``dnubias``: Bias value to add to the error of :math:`\Delta\nu` automatically determined from the individual frequencies using a :meth:`weighted fit <freq_fit.compute_dnu_wfit>`. The total error is determined as :math:`\sigma_{\Delta\nu} = \sqrt{\sigma_\text{fit}^2 + \sigma_\text{bias}^2}`. Default is 0.
+* ``dnufit_in_ratios``: Toggle to include :math:`\Delta\nu` in the :math:`\chi^2` value when fitting ratios. The model value is determined through a :meth:`weighted fit <freq_fit.compute_dnu_wfit>` of the surface-corrected model frequencies, as determined using the method set by the ``fcor`` control option above. Default is ``False``, which disables the feature.
+* ``nrealizations``: When Monte-Carlo sampling the errors and correlations of quantities derived from individual frequencies (ratios, epsilon differences and frequency glitches), this is the number of realizations of the frequencies that are used to derive these. Default is 10000. When fitting individual frequencies, but plotting a derived quantity, for which sampling is necessary, the default is instead reduced to 2000.
+* ``threepoint``: Toggle between the three- and five-point formulation of the small frequency differences used to construct the :math:`r_{01}` and :math:`r_{10}` sequences. Default is ``False``, whereby the five-point formulation is used.
+* ``readglitchfile``: Toggle to look for an input file containing precomputed frequency glitches, when these are utilized in BASTA. Default is ``False``. If ``True``, the input file must be an ``hdf5`` file, named the same as the star, and following the structure of the output from `GlitchPy <https://github.com/kuldeepv89/GlitchPy>`_. If this is read, the options used for the method by which the observed glitches have been computed is also used for the method for computing the frequency glitches of the models, whereby the frequency glitches :ref:`control group <controls_fit_glitches>` is ignored.
+
+.. _controls_fit_parallax:
+
+Distance/parallax
+-----------------
+.. code-block:: python
+
+    define_fit["filters"] = ("Mj_2MASS", "Mh_2MASS", "Mk_2MASS")
+    define_fit["dustframe"] = "icrs"
+
+:meth:`constants.parameters`
+
+.. _controls_fit_glitches:
+
+Frequency glitches
+------------------
+.. code-block:: python
+
+    define_fit["glitchparams"] = {
+        "method": "Freq",
+        "npoly_params": 5,
+        "nderiv": 3,
+        "tol_grad": 1e-3,
+        "regu_param": 7,
+        "nguesses": 200,
+    }
+
+When fitting/using frequency glitches with BASTA, these controls define the method, and coefficients
+within said method, used when deriving the glitch parameters (see the :ref:`example <example_freqs_glitches>`).
+The methods are detailed in `Verma et al. 2022 <https://arxiv.org/abs/2207.00235>`_, appendix A.
+The controls are, in summary:
+
+* ``method``: The individual frequency information from which the glitch parameters are derived. If set to ``Freq`` they are derived directly from the individual frequencies, while for ``SecDif`` they are derived from the second differences of frequencies, which are defined as :math:`\delta^2\nu_{n,\ell}=\nu_{n-1,\ell}-2\nu_{n,\ell}+\nu_{n+1,\ell}`.
+* ``npoly_params``: Number of parameters in the smooth frequency component. The default is 5, recommended for the ``Freq`` method, while 3 is recommended for the ``SecDif`` method.
+* ``nderiv``: Order of derivative used in the regularization. The default is 3, recommended for the ``Freq`` method, while 1 is recommended for the ``SecDif`` method.
+* ``tol_grad``: Tolerance used for determination of gradients. The default is :math:`10^{-3}`. It is typically recommended being between :math:`10^{-2}` and :math:`10^{-5}` depending on the quality of the data and the applied method.
+* ``regu_param``: Regularization parameters. The default is 7, recommended for the ``Freq`` method, while 1000 is recommended for the ``SecDif`` method.
+* ``nguesses``: Number of initial guesses in the search for the global minimum. The default is 200.

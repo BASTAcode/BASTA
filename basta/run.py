@@ -1,13 +1,11 @@
-#!/usr/bin/env python3
-"""
-Run BASTA in parallel on directory of XML files! Make sure this file has run permissions
-and is added to PATH!
-"""
 import os
 import argparse
+import numpy as np
 from subprocess import run
 import multiprocessing as mp
 from contextlib import contextmanager
+
+from basta.xml_run import run_xml
 
 
 @contextmanager
@@ -59,17 +57,84 @@ def _process_xmldir(rundir, nproc=4, debug=False, seed=None):
                     cmd.append("--debug")
                 if seed:
                     cmd.append("--seed")
-                    cmd.append(str(args.seed))
+                    cmd.append(str(seed))
                 bastatasks.append((cmd,))
         with mp.Pool(processes=nproc) as pool:
             pool.starmap(run, bastatasks)
     print("\n~~~~~~ DONE! ~~~~~~\n")
 
 
-# ======================================================================================
-# Main func -- handling input arguments
-# ======================================================================================
-if __name__ == "__main__":
+def main():
+    """Main"""
+    # Setup argument parser
+    helptext = "BASTA -- Run the BAyesian STellar Algorithm"
+    parser = argparse.ArgumentParser(description=helptext)
+
+    # Add positional argument (name of inputfile)
+    parser.add_argument("inputfile", help="The XML input file to run")
+
+    # Add optional argument: Debugging output
+    parser.add_argument(
+        "--debug", action="store_true", help="Additional output for debugging."
+    )
+
+    # Add optional argument: Extra text output for debugging
+    parser.add_argument(
+        "--verbose",
+        action="store_true",
+        help="Print additional text output. A lot!" " Combine with the debug flag.",
+    )
+
+    # Add optional argument: Experimental features
+    parser.add_argument(
+        "--experimental", action="store_true", help="Enable experimental features."
+    )
+
+    # Add optional argument: Validation mode
+    parser.add_argument(
+        "--validation",
+        action="store_true",
+        help="DO NOT USE unless making validation runs.",
+    )
+
+    # Add optional argument: Set random seed
+    parser.add_argument(
+        "-s",
+        "--seed",
+        type=int,
+        help="Set random seed to ensure deterministic behavior for debugging",
+    )
+
+    # Parse the arguments
+    args = parser.parse_args()
+
+    # Set the random seed if given
+    if args.seed is not None:
+        seed = args.seed
+    else:
+        seed = np.random.randint(5000)
+
+    np.random.seed(seed)
+
+    # Flag the user if running in validation mode
+    if args.validation:
+        print("\n*** Running in VALIDATION MODE ", end="")
+
+    # Call BASTA
+    run_xml(
+        vars(args)["inputfile"],
+        seed=seed,
+        debug=args.debug,
+        verbose=args.verbose,
+        experimental=args.experimental,
+        validationmode=args.validation,
+    )
+
+
+def multi():
+    """
+    Run BASTA on multiple input files
+    """
     # Initialise parser and gather arguments
     parser = argparse.ArgumentParser(description=("Run BASTA on multiple input files."))
     parser.add_argument(

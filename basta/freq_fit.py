@@ -15,6 +15,44 @@ Individual frequencies
 """
 
 
+def compute_dnu_wfit(obskey, obs, numax):
+    """
+    Compute large frequency separation weighted around numax, the same way as dnufit.
+    Coefficients based on White et al. 2011.
+
+    Parameters
+    ----------
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
+    obs : array
+        Individual frequencies and uncertainties.
+    numax : scalar
+        Frequency of maximum power
+
+    Returns
+    -------
+    dnu : scalar
+        Large frequency separation obtained by fitting the radial mode observed
+        frequencies.
+    dnu_err : scalar
+        Uncertainty on dnudata.
+    """
+
+    FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
+    yfitdnu = obs[0, obskey[0, :] == 0]
+    xfitdnu = np.arange(0, len(yfitdnu))
+    xfitdnu = obskey[1, obskey[0, :] == 0]
+    wfitdnu = np.exp(
+        -1.0
+        * np.power(yfitdnu - numax, 2)
+        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+    )
+    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
+    dnu, dnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+
+    return dnu, dnu_err
+
+
 def make_intervals(osc, osckey, dnu=None):
     """
     This function computes the interval bins used in the frequency
@@ -351,7 +389,7 @@ def cubicBG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
 
     The correction has the form:
 
-        .. math:: d\\nu = \\frac{\\b \\left(\\frac{\\nu}{\\nu_{scal}}\\right)^3}{I}
+        .. math:: d\\nu = \\frac{b \\left(\\frac{\\nu}{\\nu_{scal}}\\right)^3}{I}
 
     where :math:`b` are the found parameters, :math:`\\nu_{scal}` is a scaling frequency used to non-dimensionalize the frequencies :math:`\\nu`, and :math:`I` is the mode inertia for each mode.
 
@@ -931,14 +969,14 @@ def compute_epsilondiff(
     Compute epsilon differences and covariances.
 
     From Roxburgh 2016:
-     - Eq. 1 -> Epsilon(n,l)
-     - Eq. 4 -> EpsilonDifference(l=0,l={1,2})
+    * Eq. 1: Epsilon(n,l)
+    * Eq. 4: EpsilonDifference(l=0,l=(1,2))
 
     Epsilon differences are independent of surface phase shift/outer
     layers when the epsilons are evaluated at the same frequency. It
     therefore relies on splining from epsilons at the observed frequencies
     of the given degree and order to the frequency of the compared/subtracted
-    epsilon. See function `compute_epsilondiffseqs' for further clarification.
+    epsilon. See function "compute_epsilondiffseqs" for further clarification.
 
     For MonteCarlo sampling of the covariances, it is replicated from the
     covariance determination of frequency ratios in BASTA, (sec 4.1.3 of

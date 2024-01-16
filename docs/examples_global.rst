@@ -5,9 +5,9 @@ Spectroscopy and global asteroseismic parameters
 
 This example describes the fitting of what we call global parameters of the grid, with a specific application to
 asteroseismology for illustration purposes. As a general recommendation, the user should explore the
-:py:meth:`constants.parameters` (in ``${BASTADIR}/basta/constants.py``) function for a complete list of available fitting parameters.
+:py:meth:`constants.parameters` (in ``BASTA/basta/constants.py``) function for a complete list of available fitting parameters.
 
-Block 2 of :py:meth:`create_inputfile.define_input` (in ``${BASTADIR}/examples/create_inputfile.py``) defines the fitting parameters. For this example it looks as follows:
+Block 2 of :py:meth:`create_inputfile.define_input` (in ``BASTA/examples/create_inputfile.py``) defines the fitting parameters. For this example it looks as follows:
 
 .. code-block:: python
 
@@ -51,12 +51,12 @@ Finally, we define a reference solar model and the assumed solar values:
 Note that, in the present example, the solar model is used to scale the grid values of ``dnufit`` as described in
 Section 4.1.1 of `The BASTA paper II <https://arxiv.org/abs/2109.14622>`_.
 
-In the folder ``${BASTADIR}/examples/xmlinput/`` you can find a file called ``create_inputfile_global.py`` that has been prepared following the above instructions to make a fit of the Kepler target 16 Cyg A to the example grid shipped with
+In the folder ``BASTA/examples/xmlinput/`` you can find a file called ``create_inputfile_global.py`` that has been prepared following the above instructions to make a fit of the Kepler target 16 Cyg A to the example grid shipped with
 the code. Simply run the following commands on your terminal:
 
 .. code-block:: bash
 
-    cd ${BASTADIR}
+    cd BASTA
     source venv/bin/activate
     cd examples/xmlinput
     python create_inputfile_global.py
@@ -101,7 +101,7 @@ Once the file is created, run BASTA as explained to perform the fit:
 
     BASTArun input_global.xml
 
-The output of the fit can be found in ``${BASTADIR}/examples/output/global/``. It includes a Kiel diagram that should
+The output of the fit can be found in ``BASTA/examples/output/global/``. It includes a Kiel diagram that should
 look like the following:
 
 .. figure:: figures/global/16CygA_kiel.png

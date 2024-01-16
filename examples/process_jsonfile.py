@@ -13,6 +13,10 @@ from scipy.stats import gaussian_kde
 from scipy.ndimage import gaussian_filter
 
 import basta.fileio as fio
+from basta.downloader import get_basta_dir
+
+# Definition of the path to BASTA, just in case you need it
+BASTADIR = get_basta_dir()
 
 
 def extract_from_json(jsonfile, gridfile, parameter):
@@ -128,7 +132,7 @@ def main():
     # Extract a given parameter and corresponding statistics
     param = "massini"
     infile = os.path.join("output", "json", "16CygA.json")
-    gridf = os.path.join(os.environ["BASTADIR"], "grids", "Garstec_16CygA.hdf5")
+    gridf = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
     print(f"Using statistics from '{infile}' with grid from '{gridf}'!\n")
     print("Loading stats and grid ... ", end="", flush=True)
     try:

@@ -1,57 +1,65 @@
 !*******************************************************************************
 !
-!     SUBROUTINE TO FIT THE SIGNATURES OF ACOUSTIC GLITCHES IN THE STELLAR
-!     OSCILLATION FREQUENCIES
+!     SUBROUTINES TO FIT THE SIGNATURES OF ACOUSTIC GLITCHES IN THE OSCILLATION
+!     FREQUENCIES
 !     --------------------------------------------------------------------------
 !
-!     AUTHOR NAME   : KULDEEP VERMA
-!     EMAIL ADDRESS : kuldeep@phys.au.dk, kuldeepv89@gmail.com
+!     AUTHOR NAME     : KULDEEP VERMA
+!     EMAIL ADDRESSES : verma@ice.csic.es, kuldeep@phys.au.dk,
+!                       kuldeepv89@gmail.com
+!     LAST MODIFIED   : 12/01/2022
 !
 !*******************************************************************************
 !
 !     freq : (input) Input oscillation frequencies - l, n, nu(muHz), err(muHz)
 !     num_of_n : (input) Array containing the number of modes for each degree
-!     acoustic_radius : (input) An estimate of the acoustic radius (in s)
+!     num_of_l : (input) Number of harmonic degree
+!     num_of_mode : (input) Number of modes
+!     acoustic_radius : (input) An estimate of acoustic radius (in s)
 !     tauHe : (input) A guess for the acoustic depth of the helium ionization
 !             zone (in s)
+!     dtauHe : (input) Defines the range of search for tauHe,
+!              range - (tauHe - dtauHe, tauHe + dtauHe)
 !     tauCZ : (input) A guess for the acoustic depth of the convection zone
 !             base (in s)
+!     dtauCZ : (input) Defines the range of search for tauCZ,
+!              range - (tauCZ - dtauCZ, tauCZ + dtauCZ)
+!     npoly_fq : (optional) Degree of the polynomial used + 1
+!     total_num_of_param_fq : (optional) Total number of fitting parameter
+!     num_guess : (optional) Number of initial guesses used in the global
+!                 minimum search
+!     nderiv_fq : (optional) Derivative order used in the regularization
+!     tol_grad_fq : (optional) Tolerance on the gradient of the cost function
+!     regu_param_fq : (optional) Regularization parameter
 !     param : (output) Array containing the fitted parameters
 !     chi2 : (output) Chi-square of the fit
 !     reg : (output) Regularization term
 !     ier : (output) Error parameter, ier=0 implies successful execution
 !           ier=-1 implies that routine failed to fit
-!     num_of_poly_param_fq : (optional) Degree of the polynomial used + 1
-!     num_of_l : (optional) Number of harmonic degrees used in the fit
-!     total_num_of_param_fq : (optional) Total number of fitting parameter
-!     nderiv_fq : (optional) Derivative order used in the regularization
-!     num_of_initial_guess : (optional) Number of initial guesses used in the
-!                            global minimum search
-!     dtauHe : (optional) Defines the range of search for tauHe,
-!              range - (tauHe - dtauHe, tauHe + dtauHe)
-!     dtauCZ : (optional) Defines the range of search for tauCZ,
-!              range - (tauCZ - dtauCZ, tauCZ + dtauCZ)
-!     tol_grad_fq : (optional) Tolerance on the gradient of the cost function
-!     regu_param_fq : (optional) Regularization parameter
 !
 !*******************************************************************************
 
-      SUBROUTINE glitch_fit(freq,num_of_n,acoustic_radius,tauHe,tauCZ,&
-            param,chi2,reg,ier,num_of_poly_param_fq,num_of_l,&
-            total_num_of_param_fq,nderiv_fq,num_of_init_guess,dtauHe,&
-            dtauCZ,tol_grad_fq,regu_param_fq)
+      SUBROUTINE FIT_FQ(freq,num_of_n,num_of_l,num_of_mode,&
+            acoustic_radius,tauHe,dtauHe,tauCZ,dtauCZ,npoly_fq,&
+            total_num_of_param_fq,num_guess,nderiv_fq,tol_grad_fq,&
+            regu_param_fq,param,chi2,reg,ier)
+      IMPLICIT NONE
 
       REAL*8, PARAMETER :: MU = 1.d-6, PI = 3.141592653589793d0
       REAL*8, PARAMETER :: reps = 1.d-14, aeps = 0.d0
 
-      INTEGER :: num_of_poly_param_fq, num_of_l, total_num_of_param_fq
-      INTEGER :: nderiv_fq, num_of_init_guess
-      INTEGER :: i, i0, j, nfun, ier, num_of_mode
-      INTEGER :: num_of_n(5)
+      INTEGER :: num_of_l, num_of_mode
+      INTEGER :: npoly_fq, total_num_of_param_fq
+      INTEGER :: nderiv_fq, num_guess
+      INTEGER :: i, i0, j, nfun, ier
+      INTEGER :: num_of_n(num_of_l)
+      INTEGER :: iseed
+      INTEGER, ALLOCATABLE :: seed(:)
 
-      REAL*8 :: freq(200,4)
-      REAL*8 :: acoustic_radius, tauHe, tauCZ, dtauHe, dtauCZ
-      REAL*8 :: chi2, reg, chi2_tmp, reg_tmp
+      REAL*8 :: freq(num_of_mode,4)
+      REAL*8 :: acoustic_radius
+      REAL*8 :: tauHe, tauCZ, dtauHe, dtauCZ
+      REAL*8 :: chi2_total, chi2, reg, chi2_total_new, chi2_new, reg_new
       REAL*8 :: tol_grad_fq, regu_param_fq
       REAL*8 :: loga, logb
       REAL*8 :: param(total_num_of_param_fq)
@@ -61,27 +69,27 @@
       REAL*8 :: grad(total_num_of_param_fq)
       REAL*8 :: hess(total_num_of_param_fq,total_num_of_param_fq)
       REAL*8 :: scratch(3*total_num_of_param_fq)
-!f2py intent(in)  :: freq, num_of_n, acoustic_radius, tauHe, tauCZ
+!f2py intent(in)  :: num_of_l, num_of_mode, freq, num_of_n
+!f2py intent(in)  :: acoustic_radius, tauHe, dtauHe, tauCZ, dtauCZ
 !f2py intent(out) :: param, chi2, reg, ier
-!f2py INTEGER :: num_of_poly_param_fq = 5, num_of_l = 3, total_num_of_param_fq = 22
-!f2py INTEGER :: nderiv_fq = 3, num_of_init_guess = 200
-!f2py REAL*8  :: dtauHe = 200.0, dtauCZ = 200.0, tol_grad_fq = 1.e-3, regu_param_fq = 7.0
+!f2py INTEGER :: npoly_fq = 5, total_num_of_param_fq = 22
+!f2py INTEGER :: nderiv_fq = 3, num_guess = 200
+!f2py REAL*8  :: tol_grad_fq = 1.e-3, regu_param_fq = 7.0
 
 
-      ! Check for inconsistencies in the input parameters
-      IF (total_num_of_param_fq .ne. num_of_poly_param_fq * num_of_l + 7) THEN
-        WRITE(*,'(A50)') 'ERROR: inconsistent argument for glitch_fit!'
-        STOP
-      ENDIF
+      ! Set the seed for the random number generator
+      CALL RANDOM_SEED(size=iseed)
+      ALLOCATE(seed(iseed))
+      seed = 13579
+      call RANDOM_SEED(put=seed)
 
       ! Estimate the parameter ranges to find the global minimum
-      CALL SEARCH_SPACE(tauCZ,dtauCZ,tauHe,dtauHe,dparam)
+      CALL SEARCH_SPACE_FQ(dparam)
 
+      chi2_total = 1.d99
       chi2 = 1.d99
-      reg  = 0.d0
       i0 = total_num_of_param_fq - 7
-      num_of_mode = SUM(num_of_n)
-      DO i = 1, num_of_init_guess
+      DO i = 1, num_guess
 
         ! Initial guess
         CALL RANDOM_NUMBER(ran_num)
@@ -99,43 +107,38 @@
         par(i0+1) = SQRT(par(i0+1))
         par(i0+4) = SQRT(par(i0+4))
         par(i0+5) = SQRT(8.d0 * PI**2 * par(i0+5)**2)
-        CALL BFGS(total_num_of_param_fq,par,chi2_tmp,grad,hess,nfun,&
-             reps,aeps,ier,FCN_FQ,scratch)
+        CALL BFGS(total_num_of_param_fq,par,chi2_total_new,grad,hess,&
+             nfun,reps,aeps,ier,FCN_FQ,scratch)
         par(i0+1) = par(i0+1)**2
         par(i0+3) = MODULO(par(i0+3),2*PI)
         par(i0+4) = par(i0+4)**2
         par(i0+5) = SQRT(par(i0+5)**2/(8.d0 * PI**2))
         par(i0+7) = MODULO(par(i0+7),2*PI)
 
-        ! Consider the fit only if:
+        ! Update the fit only if:
         !--------------------------
-        ! (1) maximum value of derivatives w.r.t. parameters is < 1d-2,
-        ! (2) Acoustic width of He ionization zone > 0.1s,
-        ! (3) acoustic depths of CZ and He > 0 s,
-        ! (4) acoustic depth of CZ > acoustic depth of He,
-        ! (5) acoustic depth of CZ < acoustic radius.
-        IF (MAXVAL(ABS(grad(:))) .LT. tol_grad_fq .AND. &
+        ! (1) Deeper than the previous local minimum,
+        !     i.e. chi2_total_new < chi2_total
+        ! (2) Equally good or better fit than the previous one,
+        !     i.e. chi2_new =< chi2
+        ! (3) maximum value of derivatives w.r.t. parameters is < 1d-2,
+        ! (4) Acoustic width of He ionization zone > 0.1s,
+        ! (5) acoustic depths of CZ and He > 0 s,
+        ! (6) acoustic depth of CZ > acoustic depth of He,
+        ! (7) acoustic depth of CZ < acoustic radius.
+        reg_new = REGU_FQ(par)
+        chi2_new = chi2_total_new - reg_new
+        IF (chi2_total_new .LT. chi2_total .AND. &
+            chi2_new .LE. chi2 .AND. &
+            MAXVAL(ABS(grad(:))) .LT. tol_grad_fq .AND. &
             par(i0+5) .GT. 0.1d0 .AND. &
             par(i0+2) .GT. 0.d0 .AND. par(i0+6) .GT. 0.d0 .AND. &
             par(i0+2) .GT. par(i0+6) .AND. &
             par(i0+2) .LT. acoustic_radius) THEN
-
-          ! Update parameters if chi-square is substantially smaller
-          reg_tmp = REGU_FQ(par)
-          chi2_tmp = chi2_tmp - reg_tmp
-          IF (chi2_tmp/chi2 .LT. 0.7d0) THEN
-            chi2  = chi2_tmp
-            reg   = reg_tmp
-            param = par
-          ! Update parameters even if chi-square is marginally smaller, but in
-          ! that case make sure that the regulariation term is not too small
-          ELSEIF (chi2_tmp/chi2 .GE. 0.7d0 .AND. chi2_tmp/chi2 .LT. 1.d0) THEN
-            IF (reg_tmp/reg .GT. 0.1d0) THEN
-              chi2  = chi2_tmp
-              reg   = reg_tmp
-              param = par
-            ENDIF
-          ENDIF
+          chi2_total = chi2_total_new
+          chi2  = chi2_new
+          reg   = reg_new
+          param = par
         ENDIF
 
       ENDDO
@@ -144,8 +147,11 @@
       ier = 0
       IF (chi2 .GT. 1.d98) THEN
         ier = -1
+        chi2 = -1.d0
+        reg = -1.d0
         param(:) = (dparam(:, 1) + dparam(:, 2)) / 2.d0
       ENDIF
+      DEALLOCATE(seed)
 
 
 
@@ -157,32 +163,26 @@
       !TO INITIALIZE THE PARAMETER SPACE TO SEARCH FOR GLOBAL MINIMUM
       !*************************************************************************
       !
-      !tauCZ : (input) Guess for the acoustic depth of the convection zone (in s)
-      !dtauCZ : (input) Range around tauCZ (in s)
-      !tauHe : (input) Guess for the acoustic depth of the He ionization zone (in s)
-      !dtauHe : (input) Range around tauHe (in s)
       !dparam : (output) Array containing the parameter space to look for the
       !         global minimum
       !
-      !Required routines : LLFIT
-      !
       !*************************************************************************
 
-      SUBROUTINE SEARCH_SPACE(tauCZ,dtauCZ,tauHe,dtauHe,dparam)
+      SUBROUTINE SEARCH_SPACE_FQ(dparam)
+      IMPLICIT NONE
 
       INTEGER :: i, j, k, ns
 
-      REAL*8 :: tauCZ, dtauCZ, tauHe, dtauHe
-      REAL*8 :: dparam(:,:)
+      REAL*8 :: dparam(total_num_of_param_fq,2)
       REAL*8 :: tmp1, tmp2, dtmp1, dtmp2, chi2
 
 
       ! parameters associated with smooth component
       dparam = 0.d0
-      ns = total_num_of_param_fq - 7
       j = 0
       k = 0
       DO i = 1, num_of_l
+        IF (num_of_n(i) .EQ. 0) CYCLE
         CALL LLFIT(num_of_n(i),freq(j+1:j+num_of_n(i),2),&
              freq(j+1:j+num_of_n(i),3),freq(j+1:j+num_of_n(i),4),&
              tmp1,tmp2,dtmp1,dtmp2,chi2)
@@ -197,14 +197,15 @@
         dparam(k+5,1) = -1.d-3
         dparam(k+5,2) = 1.d-3
         j = j + num_of_n(i)
-        k = k + num_of_poly_param_fq
+        k = k + npoly_fq
       ENDDO
 
       ! parameters associated with CZ signature
+      ns = total_num_of_param_fq - 7
       dparam(ns+1,1) = 1.d4
       dparam(ns+1,2) = 1.d7
-      dparam(ns+2,1) = MAX(0.d0,tauCZ - dtauCZ)
-      dparam(ns+2,2) = tauCZ + dtauCZ
+      dparam(ns+2,1) = MAX(0.d0, tauCZ - dtauCZ)
+      dparam(ns+2,2) = MIN(acoustic_radius, tauCZ + dtauCZ)
       dparam(ns+3,1) = 0.d0
       dparam(ns+3,2) = 6.28d0
 
@@ -213,76 +214,12 @@
       dparam(ns+4,2) = 1.d-1
       dparam(ns+5,1) = 20.d0
       dparam(ns+5,2) = 160.d0
-      dparam(ns+6,1) = MAX(0.d0,tauHe - dtauHe)
-      dparam(ns+6,2) = tauHe + dtauHe
+      dparam(ns+6,1) = MAX(0.d0, tauHe - dtauHe)
+      dparam(ns+6,2) = MIN(acoustic_radius, tauHe + dtauHe)
       dparam(ns+7,1) = 0.d0
       dparam(ns+7,2) = 6.28d0
 
-      END SUBROUTINE SEARCH_SPACE
-
-
-
-      !*************************************************************************
-      !TO PERFORM A WEIGHTED LINEAR LEAST-SQUARES FIT
-      !*************************************************************************
-      !
-      !ndata : (input) Number of data point
-      !x : (input) Array of length ndata containing abscissa
-      !y : (input) Array of length ndata containing ordinate
-      !sig : (input) Array of length ndata containing uncertainty on y
-      !a : (output) Intercept
-      !b : (output) Slope
-      !siga : (output) Uncertainty on the intercept
-      !sigb : (output) Uncertainty on the slope
-      !chi2 : (output) Chi-square of the fit
-      !
-      !Required routines : None
-      !
-      !*************************************************************************
-
-      SUBROUTINE LLFIT(ndata,x,y,sig,a,b,siga,sigb,chi2)
-
-      INTEGER :: ndata
-      INTEGER :: i
-
-      REAL*8 :: sig(ndata), x(ndata), y(ndata)
-      REAL*8 :: a, b, chi2, siga, sigb
-      REAL*8 :: sx, sy, st2, ss, sxoss, t, wt
-
-
-      ss  = 0.d0
-      sx  = 0.d0
-      sy  = 0.d0
-      st2 = 0.d0
-      b   = 0.d0
-
-      DO i = 1, ndata
-        wt = 1.d0/sig(i)**2
-        ss = ss + wt
-        sx = sx + x(i) * wt
-        sy = sy + y(i) * wt
-      ENDDO
-
-      sxoss = sx/ss
-
-      DO i = 1, ndata
-        t   = (x(i) - sxoss)/sig(i)
-        st2 = st2 + t * t
-        b   = b + t * y(i)/sig(i)
-      ENDDO
-
-      b = b/st2
-      a = (sy - sx * b)/ss
-      siga = SQRT((1.d0 + sx * sx/(ss * st2))/ss)
-      sigb = SQRT(1.d0/st2)
-
-      chi2 = 0.d0
-
-      DO i = 1, ndata
-        chi2 = chi2 + ((y(i) - a - b * x(i))/sig(i))**2
-      ENDDO
-
-      END SUBROUTINE LLFIT
+      END SUBROUTINE SEARCH_SPACE_FQ
 
 
 
@@ -322,6 +259,7 @@
       !*************************************************************************
 
       SUBROUTINE BFGS(N,X,F,G,H,NUM,REPS,AEPS,IER,FCN,WK)
+      IMPLICIT NONE
 
       LOGICAL :: QC
 
@@ -484,6 +422,7 @@
       !*************************************************************************
 
       SUBROUTINE LINMIN(X1,X2,F1,DF1,REPS,AEPS,IER,F,V,XI,N,NUM)
+      IMPLICIT NONE
 
       LOGICAL :: QB
 
@@ -637,6 +576,7 @@
       !*************************************************************************
 
       FUNCTION FLNM(FCN,X,DF,V,X0,N,NUM)
+      IMPLICIT NONE
 
       INTEGER :: N, NUM
       INTEGER :: I, N2
@@ -671,11 +611,10 @@
       !f : (output) The function value at x
       !g : (output) Real array of length m containing the gradient vector at x
       !
-      !Required routines : FIT_FUNC_FQ, DPOLY_FQ
-      !
       !*************************************************************************
 
       SUBROUTINE FCN_FQ(m,x,f,g)
+      IMPLICIT NONE
 
       INTEGER :: m
       INTEGER :: i, i0, j, j0, k, l, n
@@ -698,16 +637,21 @@
 
         ! Function value
         f = f + ((freq(i,3) - fit_func)/freq(i,4))**2
-        dpoly = DPOLY_FQ(l,n,nderiv_fq,x)
+        dpoly = DPOLY_FQ(l,n,x)
         f = f + (regu_param_fq * dpoly)**2
 
         ! Gradient
         factor = -2.d0 * (freq(i,3) - fit_func)/freq(i,4)**2
-        j0 = num_of_poly_param_fq * l
-        DO j = 1, num_of_poly_param_fq
+        j0 = 0
+        DO j = 1, l
+          IF (num_of_n(j) .GT. 0) THEN
+            j0 = j0 + npoly_fq
+          ENDIF
+        ENDDO
+        DO j = 1, npoly_fq
           g(j0+j) = g(j0+j) + factor * freq(i,2)**(j-1)
         ENDDO
-        DO j = nderiv_fq+1, num_of_poly_param_fq
+        DO j = nderiv_fq+1, npoly_fq
           tmp = 1.d0
           DO k = 1, nderiv_fq
             tmp = tmp * (j-k)
@@ -749,23 +693,27 @@
       !param : (input) Array containing the fitting parameters
       !FIT_FUNC_FQ : (output) Value of the fitting function
       !
-      !Required routines : None
-      !
       !*************************************************************************
 
       FUNCTION FIT_FUNC_FQ(l,n,nu,param)
+      IMPLICIT NONE
 
       INTEGER :: l, n, i, i0
 
       REAL*8 :: nu, piNu
-      REAL*8 :: param(:)
+      REAL*8 :: param(total_num_of_param_fq)
       REAL*8 :: FIT_FUNC_FQ
 
 
       ! Smooth term
       FIT_FUNC_FQ = 0.d0
-      i0 = num_of_poly_param_fq * l
-      DO i = num_of_poly_param_fq, 1, -1
+      i0 = 0
+      DO i = 1, l
+        IF (num_of_n(i) .GT. 0) THEN
+          i0 = i0 + npoly_fq
+        ENDIF
+      ENDDO
+      DO i = npoly_fq, 1, -1
         FIT_FUNC_FQ = FIT_FUNC_FQ * n + param(i0+i)
       ENDDO
 
@@ -790,36 +738,39 @@
       !
       !l : (input) Degree of the mode
       !n : (input) Radial order of the mode
-      !norder : (input) Derivative order
       !param : (input) Array containing the fitting parameters
       !DPOLY_FQ : (output) Derivative of the smooth component
       !
-      !Required routines : None
-      !
       !*************************************************************************
 
-      FUNCTION DPOLY_FQ(l,n,norder,param)
+      FUNCTION DPOLY_FQ(l,n,param)
+      IMPLICIT NONE
 
-      INTEGER :: l, n, norder, i, i0, j
+      INTEGER :: l, n, i, i0, j
 
-      REAL*8 :: param(:)
+      REAL*8 :: param(total_num_of_param_fq)
       REAL*8 :: DPOLY_FQ, tmp
 
 
       ! Check
       DPOLY_FQ = 0.d0
-      IF (norder .GE. num_of_poly_param_fq) THEN
+      IF (nderiv_fq .GE. npoly_fq) THEN
         RETURN
       ENDIF
 
       ! Derivative
-      i0 = num_of_poly_param_fq * l
-      DO i = num_of_poly_param_fq-norder, 1, -1
+      i0 = 0
+      DO i = 1, l
+        IF (num_of_n(i) .GT. 0) THEN
+          i0 = i0 + npoly_fq
+        ENDIF
+      ENDDO
+      DO i = npoly_fq-nderiv_fq, 1, -1
         tmp = 1.d0
-        DO j = 1, norder
+        DO j = 1, nderiv_fq
           tmp = tmp * (i + j - 1)
         ENDDO
-        DPOLY_FQ = DPOLY_FQ * n + tmp * param(i0+i+norder)
+        DPOLY_FQ = DPOLY_FQ * n + tmp * param(i0+i+nderiv_fq)
       ENDDO
 
       END FUNCTION DPOLY_FQ
@@ -830,34 +781,96 @@
       !TO COMPUTE THE REGULARIZATION TERM
       !*************************************************************************
       !
-      !param : (input) Array containing the fitted parameters.
-      !
-      !Required routines : DPOLY_FQ
+      !param : (input) Array containing fitted parameters.
       !
       !*************************************************************************
 
       FUNCTION REGU_FQ(param)
+      IMPLICIT NONE
 
       INTEGER :: i, l, n
 
-      REAL*8 :: param(:)
+      REAL*8 :: param(total_num_of_param_fq)
       REAL*8 :: REGU_FQ
       REAL*8 :: dpoly
 
 
       ! Check
       REGU_FQ = 0.d0
-      IF (nderiv_fq .GE. num_of_poly_param_fq) THEN
+      IF (nderiv_fq .GE. npoly_fq) THEN
         RETURN
       ENDIF
 
       DO i = 1, num_of_mode
         l = NINT(freq(i,1))
         n = NINT(freq(i,2))
-        dpoly = DPOLY_FQ(l,n,nderiv_fq,param)
+        dpoly = DPOLY_FQ(l,n,param)
         REGU_FQ = REGU_FQ + (regu_param_fq * dpoly)**2
       ENDDO
 
       END FUNCTION REGU_FQ
 
-      END SUBROUTINE glitch_fit
+
+
+      !*************************************************************************
+      !TO PERFORM A WEIGHTED LINEAR LEAST-SQUARES FIT
+      !*************************************************************************
+      !
+      !ndata : (input) Number of data point
+      !x : (input) Array of length ndata containing abscissa
+      !y : (input) Array of length ndata containing ordinate
+      !sig : (input) Array of length ndata containing uncertainty on y
+      !a : (output) Intercept
+      !b : (output) Slope
+      !siga : (output) Uncertainty on the intercept
+      !sigb : (output) Uncertainty on the slope
+      !chi2 : (output) Chi-square of the fit
+      !
+      !*************************************************************************
+
+      SUBROUTINE LLFIT(ndata,x,y,sig,a,b,siga,sigb,chi2)
+      IMPLICIT NONE
+
+      INTEGER :: ndata
+      INTEGER :: i
+
+      REAL*8 :: sig(ndata), x(ndata), y(ndata)
+      REAL*8 :: a, b, chi2, siga, sigb
+      REAL*8 :: sx, sy, st2, ss, sxoss, t, wt
+
+
+      ss  = 0.d0
+      sx  = 0.d0
+      sy  = 0.d0
+      st2 = 0.d0
+      b   = 0.d0
+
+      DO i = 1, ndata
+        wt = 1.d0/sig(i)**2
+        ss = ss + wt
+        sx = sx + x(i) * wt
+        sy = sy + y(i) * wt
+      ENDDO
+
+      sxoss = sx/ss
+
+      DO i = 1, ndata
+        t   = (x(i) - sxoss)/sig(i)
+        st2 = st2 + t * t
+        b   = b + t * y(i)/sig(i)
+      ENDDO
+
+      b = b/st2
+      a = (sy - sx * b)/ss
+      siga = SQRT((1.d0 + sx * sx/(ss * st2))/ss)
+      sigb = SQRT(1.d0/st2)
+
+      chi2 = 0.d0
+
+      DO i = 1, ndata
+        chi2 = chi2 + ((y(i) - a - b * x(i))/sig(i))**2
+      ENDDO
+
+      END SUBROUTINE LLFIT
+
+      END SUBROUTINE FIT_FQ

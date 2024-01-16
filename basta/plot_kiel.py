@@ -11,12 +11,13 @@ from basta import fileio as fio
 from basta import utils_seismic as su
 from basta import utils_general as gu
 from basta.constants import parameters
+from basta.downloader import get_basta_dir
 
 # Set the style of all plots
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "basta/plots.mplstyle"))
 
 
 def plot_param(Grid, ax, track, all_segments, label, color):
