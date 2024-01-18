@@ -17,9 +17,9 @@ Name of input file
     xmlfilename = "input_myfit.xml"
 
 Name and location of the produced input file to be run by BASTA. The only requirement
-is for it to end on :py:func:`xml`. From there the user can freely define name and location
+is for it to end on ``xml``. From there the user can freely define name and location
 of the file, e.g. when producing multiple input file for different frequency fitting methods,
-whereby the user might want to store them as :py:func:`freqfits/input03_r012.xml`.
+whereby the user might want to store them as ``freqfits/input03_r012.xml``.
 
 Name of grid file
 -----------------
@@ -34,6 +34,8 @@ The default points to the standard location of grids downloaded
 using the :py:func:`BASTAdownload` command (see :ref:`grids`), that being the ``grids/`` directory
 within the main BASTA directory. The default grid used (``Garstec_16CygA.hdf5``) is the small grid
 computed for the star 16 Cyg A, specifically for the examples given in :ref:`the examples <examples>`.
+
+.. _controls_io_outputdir:
 
 Output directory
 ----------------
@@ -91,7 +93,7 @@ as a distinct column with the same name of the parameter followed by ``_err``.
 
 The only exception is the large frequency separation, :math:`\Delta\nu`, which here should simply
 be ``dnu``, as it has multiple purposes depending on the methods employed. If the parameter is
-fitted directly, the grid value it is compared to is defined in the :ref:`list of fit parameters<fitparams>`.
+fitted directly, the grid value it is compared to is defined in the :ref:`list of fit parameters<controls_fit_fitparams>`.
 
 Note that the provided parameters can exceed the parameters needed by BASTA, as it simply searches
 this list for what it needs. Therefore, the user can supply a single file with all available information
@@ -121,7 +123,7 @@ complete table with bad stars removed, but using this key, missing values can be
 This might be useful if a large pre-computed table is provided, where some data is not available
 for all stars.
 
-Be aware that if a :ref:`parameter to be fitted<fitparams>` is missing, the star will be skipped!
+Be aware that if a :ref:`parameter to be fitted<controls_fit_fitparams>` is missing, the star will be skipped!
 
 .. code-block:: python
 

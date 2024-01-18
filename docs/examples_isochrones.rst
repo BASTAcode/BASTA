@@ -135,6 +135,8 @@ included in **both** ``define_output["outparams"]`` and ``define_plots["cornerpl
 ``BASTA/examples/xmlinput/create_inputfile_parallax.py`` uses the same parameters in both cases and the plot is
 produced.
 
+.. _example_dist_estimate:
+
 Estimating distance
 -------------------
 

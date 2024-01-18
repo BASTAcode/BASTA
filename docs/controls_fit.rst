@@ -12,11 +12,9 @@ example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
 The first group controls which (types of) parameters will be fitted,
 while the remainder primarily are related to different specific fitting types. How the
 different groups relates to the specific fitting types are described in the :ref:`examples<examples>`.
-function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
-controls for specific fitting cases, see the :ref:`examples <examples>` section, or the provided
-example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
+function in the ``create_inputfile.py`` scripts.
 
-.. _fitparams:
+.. _controls_fit_fitparams:
 
 Fit parameters
 --------------
@@ -147,7 +145,7 @@ Individual frequency parameters
 
 Controls related to the treatment of individual frequencies across all methods utilizing these.
 All are not necessary, as they usually have appropriate default values, or are only related to
-specific :ref:`fitting cases <fitparams>`. To see what is usually necessary for each case,
+specific :ref:`fitting cases <controls_fit_fitparams>`. To see what is usually necessary for each case,
 see the :ref:`examples <examples>`.
 
 The control options are:
@@ -155,7 +153,7 @@ The control options are:
 * ``freqpath`` (*str*): **Mandatory** location of the directory containing the ``xml`` files with the individual frequencies of each star. These are generated from ASCII format using the :meth:`fileio.freqs_ascii_to_xml` routine, as shown in this :ref:`example <example_freqs>`.
 * ``fcor`` (*str*): The formulation of the frequency correction applied to the model frequencies when fitting to account for the asteroseismic surface effect. Options are :meth:`"HK08" <freq_fit.HK08>`, :meth:`"BG14" <freq_fit.BG14>`, :meth:`"cubicBG14" <freq_fit.cubicBG14>` (default), or ``"None"`` to disable the correction.
 * ``bexp`` (*float*): Exponent to be used in the :meth:`"HK08" <freq_fit.HK08>` surface correction. It is therefore only necessary to define when using this formulation.
-* ``correlations`` (*bool*): Toggle for including correlations between individual frequencies, or their derived parameters. The behaviour when enabled (``True``, however ``False`` by default) changes with :ref:`fitting case <fitparams>` as follows:
+* ``correlations`` (*bool*): Toggle for including correlations between individual frequencies, or their derived parameters. The behaviour when enabled (``True``, however ``False`` by default) changes with :ref:`fitting case <controls_fit_fitparams>` as follows:
 
    * Individual frequencies: The correlations must be provided by the user in the input ``xml`` along with the frequencies themselves (also converted from ASCII to ``xml`` using :meth:`fileio.freqs_ascii_to_xml`).
    * Ratios/epsilon differences: If provided in the input ``xml`` these will be used. If not provided, they will be determined through Mone-Carlo sampling. *Note:* If no correlations are assumed, but no error on the ratios/epsilon differences have been provided, the error will be sampled through Monte-Carlo sampling, but the correlations discarded.
@@ -183,7 +181,7 @@ Distance/parallax
 
 Controls for the fitting of :ref:`distances/parallaxes <methods_general_distance>` in BASTA,
 see :ref:`example <example_parallax>`. The module is enabled by including ``"parallax"`` in
-the :ref:`list of fitting parameters <fitparams>`, while this block defines how this
+the :ref:`list of fitting parameters <controls_fit_fitparams>`, while this block defines how this
 parallax/distance is fitted. The filters tuple determines what filters from the input should
 be fitted, whereby these must be provided in the :ref:`input parameters <controls_io_paramfile>`.
 The full list of filters are found in the :meth:`parameter list <constants.parameters>`
