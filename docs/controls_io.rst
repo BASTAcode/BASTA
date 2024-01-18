@@ -45,6 +45,8 @@ The directory into which the output from the BASTA run will be stored, relative 
 the :ref:`input file<Name of input file>`. If the directory does not exist, it will be created on
 startup of BASTA.
 
+.. _controls_io_paramfile:
+
 Observed parameters file
 ------------------------
 .. code-block:: python

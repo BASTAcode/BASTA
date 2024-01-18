@@ -141,7 +141,7 @@ class parameters:
               ('Mj_JC', r'mag', r'$J$', r'$J$ magnitude in the Johnson/Cousins photometric system', '#4EB265'),
               ('Mh_JC', r'mag', r'$H$', r'$H$ magnitude in the Johnson/Cousins photometric system', '#CAE0AB'),
               ('Mk_JC', r'mag', r'$K$', r'$K$ magnitude in the Johnson/Cousins photometric system', '#F7F056'),
-              ('Mlp_JC', 'mag', r'$Lp$', r'$Lp$ magnitude in the Johnson/Cousins photometric system', '#F4A736'),
+              ('Mlp_JC', r'mag', r'$Lp$', r'$Lp$ magnitude in the Johnson/Cousins photometric system', '#F4A736'),
               ('Ml_JC', r'mag', r'$L$', r'$L$ magnitude in the Johnson/Cousins photometric system', '#E8601C'),
               ('Mm_JC', r'mag', r'$M$', r'$M$ magnitude in the Johnson/Cousins photometric system', '#DC050C'),
               ('Mu_SAGE', r'mag', r'$u$', r'$u$ magnitude in the SAGE photometric system', '#882E72'),

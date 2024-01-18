@@ -13,5 +13,7 @@ The following topics are covered:
 .. toctree::
     :maxdepth: 2
 
+    methods_stats
+    methods_general
     methods_freqs
     methods_surfind
