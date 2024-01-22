@@ -3,7 +3,7 @@
 Output controls
 =========================
 
-In the following, an overview of the all the controls related to what will be outputed
+In the following, an overview of the all the controls related to what will be outputted
 when running BASTA is given, which corresponds to the fitting controls block in the :py:func:`define_output`
 function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
 controls for specific fitting cases, see the :ref:`examples <examples>` section, or the provided
@@ -70,6 +70,10 @@ between reporting the ``quantiles`` (default) or the standard deviation (``std``
 Plotting controls
 =================
 
+In the following, an overview of the plotting related controls are given. These
+control which of the automatically generatable plots should be produced when
+running BASTA.
+
 Corner plot
 -----------
 .. code-block:: python
@@ -94,16 +98,46 @@ tracks/isochrones considered in the fit, and overlays the observed parameters us
 different colours, to give a visual representation of the convergence of observed
 parameters across the models.
 
+.. _controls_outplots_freqplots:
+
 Individual frequencies plots
 ----------------------------
 .. code-block:: python
 
     define_plots["freqplots"] = False
 
+Controls for which plots to be produced, from the individual frequencies and/or
+quantities derived therefrom, of the best fitting model compared to the observations.
+This requires the individual frequencies to be supplied (see :ref:`controls_fit_freqparams`),
+and be available in the grid. If set to ``False`` none of the plots will be produced,
+while ``True`` will produce *all* figures (with default choices of sequences for the
+derived quantities) for each star being fitted. They are placed in the
+:ref:`output directory <controls_io_outputdir>` following the syntax ``<starid>_<plotname>.<plotfmt>``.
 
+The plots can enabled individually by instead providing a tuple with the names of
+plots to be produced. The options are:
+
+* ``echelle``: Produces two échelle diagrams of the provided observed individual frequencies against the models, one being with the surface-corrected model frequencies, and the other the uncorrected model frequencies, whereby the ``_uncorrected`` is added to the filename. Using different keys, varied versions of the échelle diagrams are produced. The options are:
+
+   * ``echelle``: Simplest version of the diagram, as described above.
+   * ``pairechelle``: Adds a line between the observed frequencies and the matched model frequency.
+   * ``dupechelle``: Same as ``pairechelle``, but adds a duplicated panel, so sequences crossing the axis can be visualized in a clearer way.
+   * ``allechelle``: Produces *all* the above versions.
+* ``ratios``: Produces a plot of the observed frequency ratios against the best fitting model. If ratios are being fitted, it will plot the sequence being fitted. If not fitted, the default ``r01`` sequence will be plotted. Instead of ``ratios``, specific sequences can be set in the list to produce plots for specific sequences. Multiple can be defined at the same time.
+* ``epsdiff``: Same as for ratios, but for the phase shift differences. Default is the ``e012`` sequence.
+
+If ``correlations`` in the :ref:`freqparams <controls_fit_freqparams>` input is set
+to ``True``, a correlation map of the individual frequencies or derived quantities
+will also be produced, following the syntax ``<starid>_<plotname>_cormap.<plotfmt>``.
 
 Plot format
 -----------
 .. code-block:: python
 
     define_plots["plotfmt"] = "pdf"
+
+Defines the format of which figures are created. Default is ``png`` which is a
+small format, so preferable when creating many figures/fitting multiple stars.
+However, if high resolution/vector graphics is desirable, ``pdf`` is recommended.
+Otherwise, it can be any file format compatible with
+`matplotlib.pyplot.savefig <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html>`_.
