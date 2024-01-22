@@ -177,11 +177,11 @@ def BASTA(
 
                 # Always append the special weight for isochrones/tracks
                 if "isochrones" in gridtype.lower():
-                    grid_weights.append("massini")
+                    grid_weights.append("mass")
                 else:
                     grid_weights.append("age")
             except KeyError:
-                grid_weights = ["massini", "FeHini", "age"]
+                grid_weights = ["mass", "FeHini", "age"]
                 print("WARNING: No Bayesian weights specified in grid file!\n")
             bayweights = tuple(grid_weights)
         else:
