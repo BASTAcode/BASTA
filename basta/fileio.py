@@ -1297,14 +1297,19 @@ def _read_freq_ascii(
         else:
             raise ValueError(f"BASTA cannot recognize {colname}")
 
-    if not symmetric_errors:
-        symmetric_check = np.all(
-            [
-                np.any(["error_plus" in col[0] for col in cols]),
-                np.any(["error_minus" in col[0] for col in cols]),
-            ]
+    sym = np.any([col[0] == "error" for col in cols])
+    asym = all(item in col[0] for col in l for item in ["error_plus", "error_minus"])
+    if not sym ^ asym:
+        if sym | asym:
+            raise ValueError(
+                "BASTA found too many uncertainties, please specify which to use."
+            )
+        else:
+            raise ValueError("BASTA is missing frequency uncertainties.")
+    if not symmetric_errors and not asym:
+        raise ValueError(
+            "BASTA is looking for asymmetric frequency uncertainties, but did not find them"
         )
-        assert symmetric_check
 
     freqs = np.genfromtxt(
         filename,
