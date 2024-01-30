@@ -4,7 +4,7 @@ Output controls
 =========================
 
 In the following, an overview of the all the controls related to what will be outputted
-when running BASTA is given, which corresponds to the fitting controls block in the :py:func:`define_output`
+when running BASTA is given, which corresponds to the fitting controls block in the :py:func:`define_input`
 function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
 controls for specific fitting cases, see the :ref:`examples <examples>` section, or the provided
 example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.

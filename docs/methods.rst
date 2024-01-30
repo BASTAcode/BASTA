@@ -17,3 +17,4 @@ The following topics are covered:
     methods_general
     methods_freqs
     methods_surfind
+    methods_intpol
