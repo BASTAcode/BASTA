@@ -29,7 +29,7 @@ Outputted/inferred parameters
     define_output["outparams"] = ("Teff", "FeH", "logg", "radPhot", "massfin", "age")
 
 List of parameters to be inferred and printed to output. Can be any parameter
-contained in the grid, and listed in the :meth:`parameter list <constants.parameters>`.
+contained in the grid, and listed in the :meth:`parameter list <controls_params>`.
 These will be printed to the output file in the same order as provided. It is
 recommended to **always** include the :ref:`parameters being fitted <controls_fit_fitparams>`,
 to compare with the observed values.

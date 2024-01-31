@@ -24,7 +24,7 @@ Fit parameters
 
 The observed parameters to be fitted to the grid of models. For spectroscopic and/or global
 asteroseismic parameters (:ref:`example <example_global>`) these must be from the list of
-parameters known by BASTA, :meth:`constants.parameters`.
+parameters known by BASTA, listed :ref:`here <controls_params>`.
 
 For special fitting cases, the following keys can be included in ``"fitparams"``:
 
@@ -55,7 +55,7 @@ can be any one of :meth:`"baldrygkazebrook2003" <priors.baldrygkazebrook2003>`,
 
 The flat priors are set in any quantity in the grid, to limit the part of the grid considered
 in the statistical inference/cut out models, mostly to save computation time. It is set by the key of the
-parameter (from :meth:`contstants.parameters`), and a dictionary defining how it should be
+parameter (from the :ref:`parameter list <controls_params>`), and a dictionary defining how it should be
 applied, depending on the set keys:
 
 * ``"sigmacut"``: Only possible for fitted parameters. Will cut out models if the values of the set parameter deviate by this number times the inputted error. For the above, if :math:`\sigma_{T_\text{eff}}=75\,\text{K}`, models can only deviate :math:`3\sigma_{T_\text{eff}}=215\,\text{K}` from the observed :math:`T_\text{eff}`.
@@ -184,7 +184,7 @@ see :ref:`example <example_parallax>`. The module is enabled by including ``"par
 the :ref:`list of fitting parameters <controls_fit_fitparams>`, while this block defines how this
 parallax/distance is fitted. The filters tuple determines what filters from the input should
 be fitted, whereby these must be provided in the :ref:`input parameters <controls_io_paramfile>`.
-The full list of filters are found in the :meth:`parameter list <constants.parameters>`
+The full list of filters are found in the :meth:`parameter list <controls_params>`
 which are provided along with associated :meth:`reddening law coeffiecients <constants.extinction>`
 for the following photometric systems, for the following photometric systems.
 

@@ -138,7 +138,7 @@ Control group for how to scale resolution along the tracks.
 
 The ``param`` key defines the parameter for which a certain resolution is desired,
 and can be any continuous, monotonic parameter. The ``value`` key defines the target
-resolution in this parameter, in the units provided in the :meth:`parameter list <constants.parameters>`.
+resolution in this parameter, in the units provided in the :ref:`parameter list <controls_params>`.
 
 The ``baseparam`` key defines what parameter is used as a base for interpolation.
 A transformation between this and the above resolution parameter is then made, as
