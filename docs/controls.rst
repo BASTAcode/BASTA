@@ -14,6 +14,7 @@ separated into individual sections for each control group (python dictionary) be
 .. toctree::
     :maxdepth: 1
 
+    controls_parameters
     controls_io
     controls_fit
     controls_outplots

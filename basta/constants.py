@@ -61,6 +61,9 @@ class parameters:
 
     - Note some parameters are only available for certain tracks.
     - Color is for the Kiel diagram
+
+    The list is available in table format in the
+    :ref:`documentation <controls_params>`.
     """
 
     pcol = "#DDDDDD"  # Placeholder color for non-designated variables
@@ -69,8 +72,6 @@ class parameters:
     # fmt: off
     params = [
               ('modnum', None, r'Model', r'Model number', pcol),
-              ('d02fit', r'microHz', r'$d_{02,{\rm fit}}$ ($\mu$Hz)', r'Weighted mean small frequency separation', '#D36E70'),
-              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)', r'Simple mean small frequency separation', '#D36E70'),
               ('ove', None, r'$\xi_\mathrm{ove}$', r'Overshooting efficiency', pcol),
               ('gcut', None, r'$g_\mathrm{cut}$', r'Geometric cutoff', pcol),
               ('eta', None, r'$\eta$', r'Reimers mass loss', '#858FC2'),
@@ -91,7 +92,7 @@ class parameters:
               ('MeH', r'dex', r'[M/H] (dex)', r'Metallicity', '#A778B4'),
               ('FeH', r'dex', r'[Fe/H] (dex)', r'Iron abundance', '#6F4C98'),
               ('alphaFe', r'dex', r'[$\alpha$/Fe] (dex)', r'Alpha enhancement', '#60AB9E'),
-              ('xsur', None, r'X$_\mathrm{sur}$', r'Surface hydrogen fraction', '#77B77D'),
+              ('xsur', None, r'$X_\mathrm{sur}$', r'Surface hydrogen fraction', '#77B77D'),
               ('ysur', None, r'Y$_\mathrm{sur}$', r'Surface helium fraction', '#A6BE54'),
               ('zsur', None, r'Z$_\mathrm{sur}$', r'Surface heavy elements fraction', '#D18541'),
               ('xcen', None, r'X$_\mathrm{cen}$', r'Central hydrogen fraction', '#77B77D'),
@@ -114,9 +115,9 @@ class parameters:
               ('numax', r'solar', r'$\nu_\mathrm{max}$ ($\mu$Hz)', r'Frequency of maximum oscillation power', '#4477AA'),
               ('dnuscal', r'solar', r'$\Delta \nu_\mathrm{scaling}$ ($\mu$Hz)', r'Large frequency separation from scaling relations', '#228833'),
               ('dnufit', r'microHz', r'$\Delta \nu_\mathrm{fit}$ ($\mu$Hz)', r'Large frequency separation from linear fit to individual $\ell=0$ modes', '#228833'),
-              ('epsfit', None, r'$\eps_\mathrm{fit}$', r'Dimensionless frequency offset', '#B8221E'),
+              ('epsfit', None, r'$\epsilon_\mathrm{fit}$', r'Dimensionless frequency offset', '#B8221E'),
               ('dnufitMos12', r'microHz', r'$\Delta \nu_\mathrm{fit}$ ($\mu$Hz)', r'Large frequency separation from linear fit to individual $\ell=0$ modes (Mosser et al 12)', '#117733'),
-              ('epsfitMos12', None, r'$\eps_\mathrm{fit}$', r'Dimensionless frequency offset (Mosser et al 12)', '#44AA99'),
+              ('epsfitMos12', None, r'$\epsilon_\mathrm{fit}$', r'Dimensionless frequency offset (Mosser et al 12)', '#44AA99'),
               ('dnuAsf', r'solar', r'$\Delta \nu_\mathrm{Sharma22}$ ($\mu$Hz)', r'Large frequency separation corrected following Sharma+22', '#228833'),
               ('numaxAsf', r'solar', r'$\nu_\mathrm{max,\,Sharma22}$ ($\mu$Hz)', r'Frequency of maximum oscillation power corrected following Sharma+22', '#4477AA'),
               ('fdnuAsf', None, r'f$_{\Delta \nu}$ (Sharma 22)', r'Correction factor for large frequency separation from Sharma+22', pcol),
@@ -126,10 +127,12 @@ class parameters:
               ('dnuSer', r'solar', r'$\Delta \nu_\mathrm{Serenelli 17}$', r'Large frequency separation corrected following Serenelli+17', '#228833'),
               ('TPS', r's', r't', r'to be completed', pcol),
               ('PS', r's', r'$\Delta \Pi$ (s)', r'Asymptotic period spacing', '#332288'),
-              ('tau0', r's', r'$\Tau$ (s)', r'Acoustic radius', pcol),
-              ('taubcz', r's', r'$\Tau_\mathrm{bcz,\,integration}$ (s)', r'Acoustic depth of the base the convective envelope by integration', pcol),
-              ('tauhe', r's', r'$\Tau_\mathrm{He,\,integration}$ (s)', r'Acoustic depth of the helium ionization zone by integration', pcol),
-              ('dage', r'Myr', r'Age$_\mathmr{weight}$ (Myr)', r'Bayesian age weight', pcol),
+              ('d02fit', r'microHz', r'$d_{02,{\rm fit}}$ ($\mu$Hz)', r'Weighted mean small frequency separation', '#D36E70'),
+              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)', r'Simple mean small frequency separation', '#D36E70'),
+              ('tau0', r's', r'$\tau$ (s)', r'Acoustic radius', pcol),
+              ('taubcz', r's', r'$\tau_\mathrm{bcz,\,integration}$ (s)', r'Acoustic depth of the base the convective envelope by integration', pcol),
+              ('tauhe', r's', r'$\tau_\mathrm{He,\,integration}$ (s)', r'Acoustic depth of the helium ionization zone by integration', pcol),
+              ('dage', r'Myr', r'Age$_\mathrm{weight}$ (Myr)', r'Bayesian age weight', pcol),
               ('dmass', r'solar', r'$M_\mathrm{weight}$', r'Bayesian mass weight', pcol),
               ('phase', None, r'Phase', r'Evolutionary phase: 1) hydrogen or 2) helium burning', pcol),
               ('Mu_JC', r'mag', r'$U$', r'$U$ magnitude in the Johnson/Cousins photometric system', '#D1BBD7'),
