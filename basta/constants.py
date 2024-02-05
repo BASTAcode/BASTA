@@ -92,7 +92,7 @@ class parameters:
               ('MeH', r'dex', r'[M/H] (dex)', r'Metallicity', '#A778B4'),
               ('FeH', r'dex', r'[Fe/H] (dex)', r'Iron abundance', '#6F4C98'),
               ('alphaFe', r'dex', r'[$\alpha$/Fe] (dex)', r'Alpha enhancement', '#60AB9E'),
-              ('xsur', None, r'$X_\mathrm{sur}$', r'Surface hydrogen fraction', '#77B77D'),
+              ('xsur', None, r'X$_\mathrm{sur}$', r'Surface hydrogen fraction', '#77B77D'),
               ('ysur', None, r'Y$_\mathrm{sur}$', r'Surface helium fraction', '#A6BE54'),
               ('zsur', None, r'Z$_\mathrm{sur}$', r'Surface heavy elements fraction', '#D18541'),
               ('xcen', None, r'X$_\mathrm{cen}$', r'Central hydrogen fraction', '#77B77D'),
