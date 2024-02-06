@@ -14,10 +14,10 @@ separated into individual sections for each control group (python dictionary) be
 .. toctree::
     :maxdepth: 1
 
+    controls_parameters
     controls_io
     controls_fit
-    controls_output
-    controls_plots
+    controls_outplots
     controls_intpol
 
 For examples of input files for each fitting case, with the recommended options, see the template

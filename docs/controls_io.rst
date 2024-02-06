@@ -17,9 +17,9 @@ Name of input file
     xmlfilename = "input_myfit.xml"
 
 Name and location of the produced input file to be run by BASTA. The only requirement
-is for it to end on :py:func:`xml`. From there the user can freely define name and location
+is for it to end on ``xml``. From there the user can freely define name and location
 of the file, e.g. when producing multiple input file for different frequency fitting methods,
-whereby the user might want to store them as :py:func:`freqfits/input03_r012.xml`.
+whereby the user might want to store them as ``freqfits/input03_r012.xml``.
 
 Name of grid file
 -----------------
@@ -35,6 +35,8 @@ using the :py:func:`BASTAdownload` command (see :ref:`grids`), that being the ``
 within the main BASTA directory. The default grid used (``Garstec_16CygA.hdf5``) is the small grid
 computed for the star 16 Cyg A, specifically for the examples given in :ref:`the examples <examples>`.
 
+.. _controls_io_outputdir:
+
 Output directory
 ----------------
 .. code-block:: python
@@ -44,6 +46,8 @@ Output directory
 The directory into which the output from the BASTA run will be stored, relative to the location of
 the :ref:`input file<Name of input file>`. If the directory does not exist, it will be created on
 startup of BASTA.
+
+.. _controls_io_paramfile:
 
 Observed parameters file
 ------------------------
@@ -83,13 +87,13 @@ naming of the files.
 
 The remaining names in the ``params`` tuple *must follow the order* in which they are provided in
 the ASCII file, all columns must be named in the tuple, and the names must match the parameter names
-in BASTA's :meth:`constants.parameters` module, where
+in BASTA's :ref:`parameter list <controls_params>`, where
 the units assumed by BASTA is also available. The associated error of a parameter must be provided
 as a distinct column with the same name of the parameter followed by ``_err``.
 
 The only exception is the large frequency separation, :math:`\Delta\nu`, which here should simply
 be ``dnu``, as it has multiple purposes depending on the methods employed. If the parameter is
-fitted directly, the grid value it is compared to is defined in the :ref:`list of fit parameters<fitparams>`.
+fitted directly, the grid value it is compared to is defined in the :ref:`list of fit parameters <controls_fit_fitparams>`.
 
 Note that the provided parameters can exceed the parameters needed by BASTA, as it simply searches
 this list for what it needs. Therefore, the user can supply a single file with all available information
@@ -119,7 +123,7 @@ complete table with bad stars removed, but using this key, missing values can be
 This might be useful if a large pre-computed table is provided, where some data is not available
 for all stars.
 
-Be aware that if a :ref:`parameter to be fitted<fitparams>` is missing, the star will be skipped!
+Be aware that if a :ref:`parameter to be fitted<controls_fit_fitparams>` is missing, the star will be skipped!
 
 .. code-block:: python
 

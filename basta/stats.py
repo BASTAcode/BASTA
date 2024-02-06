@@ -130,20 +130,16 @@ def chi2_astero(
     mod = su.transform_obj_array(rawmod)
     modkey = su.transform_obj_array(rawmodkey)
 
-    if any(
-        x in [*freqtypes.freqs, *freqtypes.rtypes, *freqtypes.glitches]
-        for x in fitfreqs["fittypes"]
-    ):
-        # If more observed modes than model modes are in one bin, move on
-        joins = freq_fit.calc_join(
-            mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
-        )
-        if joins is None:
-            chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
-        else:
-            joinkeys, join = joins
-            nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
+    # Determine which model modes correspond to observed modes
+    joins = freq_fit.calc_join(
+        mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
+    )
+    if joins is None:
+        chi2rut = np.inf
+        return chi2rut, warnings, shapewarn, 0
+    else:
+        joinkeys, join = joins
+        nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
     if fitfreqs["fcor"] == "None":
@@ -209,7 +205,7 @@ def chi2_astero(
     if any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
+            return chi2rut, warnings, shapewarn, 0
 
         # Add frequency ratios terms
         ratiotype = obsfreqmeta["ratios"]["fit"][0]
@@ -236,7 +232,7 @@ def chi2_astero(
                 ):
                     chi2rut = np.inf
                     shapewarn = 2
-                    return chi2rut, warnings, shapewarn
+                    return chi2rut, warnings, shapewarn, 0
                 intfunc = interp1d(
                     broadratio[1, modmask], broadratio[0, modmask], kind="linear"
                 )

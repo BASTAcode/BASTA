@@ -1,0 +1,67 @@
+Key|Unit|Parameter|Description
+``age``|Myr|Age (Myr)|Current age in Myr
+``alphaFe``|dex|:math:`\text{[}\alpha\text{/Fe] (dex)}`|Alpha enhancement
+``alphaMLT``||:math:`\alpha_\mathrm{MLT}`|Mixing length efficiency
+``d02fit``|microHz|:math:`d_{02,{\rm fit}}\text{ (}\mu\text{Hz)}`|Weighted mean small frequency separation
+``d02mean``|microHz|:math:`d_{02,{\rm mean}}\text{ (}\mu\text{Hz)}`|Simple mean small frequency separation
+``dage``|Myr|:math:`\text{Age}_\mathrm{weight}\text{ (Myr)}`|Bayesian age weight
+``dif``||Diffusion|Atomic diffusion: 0) no and 1) yes
+``distance``|pc|:math:`d\text{ (pc)}`|Stellar distance
+``dmass``|solar|:math:`M_\mathrm{weight}`|Bayesian mass weight
+``dnuAsf``|solar|:math:`\Delta \nu_\mathrm{Sharma22}\text{ (}\mu\text{Hz)}`|Large frequency separation corrected following Sharma+22
+``dnufit``|microHz|:math:`\Delta \nu_\mathrm{fit}\text{ (}\mu\text{Hz)}`|Large frequency separation from linear fit to individual :math:`\ell=0` modes
+``dnufitMos12``|microHz|:math:`\Delta \nu_\mathrm{fit}\text{ (}\mu\text{Hz)}`|Large frequency separation from linear fit to individual :math:`\ell=0` modes (Mosser et al 12)
+``dnuscal``|solar|:math:`\Delta \nu_\mathrm{scaling}\text{ (}\mu\text{Hz)}`|Large frequency separation from scaling relations
+``dnuSer``|solar|:math:`\Delta \nu_\mathrm{Serenelli 17}`|Large frequency separation corrected following Serenelli+17
+``epsfit``||:math:`\epsilon_\mathrm{fit}`|Dimensionless frequency offset
+``epsfitMos12``||:math:`\epsilon_\mathrm{fit}`|Dimensionless frequency offset (Mosser et al 12)
+``errflagSer``||:math:`\text{error}_\mathrm{flag}\text{ (Serenelli 17)}`|Error output of the corrections from Serenelli+17
+``eta``||:math:`\eta`|Reimers mass loss
+``fdnuAsf``||:math:`\text{f}_{\Delta \nu}\text{ (Sharma 22)}`|Correction factor for large frequency separation from Sharma+22
+``fdnuSer``||:math:`\text{f}_\Delta \nu\text{ (Serenelli 17)}`|Correction factor for large frequency separatoin from Serenelli+17
+``FeH``|dex|[Fe/H] (dex)|Iron abundance
+``FeHini``|dex|:math:`\text{[Fe/H]}_\mathrm{ini}\text{ (dex)}`|Initial iron abundance
+``Gconst``|cm3/gs2|G|Gravitational constant
+``gcut``||:math:`g_\mathrm{cut}`|Geometric cutoff
+``logg``|log10(cm/s2)|:math:`\log \, g\text{ (dex)}`|Surface gravity
+``LPhot``|solar|:math:`L\text{ (L}_\odot\text{)}`|Photospheric luminosity
+``massfin``|solar|:math:`M\text{ (M}_\odot\text{)}`|Current mass
+``massini``|solar|:math:`M_\mathrm{ini}\text{ (M}_\odot\text{)}`|Initial mass
+``Mbcz``||:math:`\text{M}_\mathrm{bcz}\text{ (m/M)}`|Mass coordinate of base of the convective zone
+``Mcore``||:math:`\text{M}_\mathrm{core}\text{ (m/M)}`|Mass coordinate of the convective core
+``McoreX``||:math:`\text{M}_\mathrm{core}\text{ (m/M)}`|Mass coordinate of the convective core (old diagnostic)
+``MeH``|dex|[M/H] (dex)|Metallicity
+``MeHini``|dex|:math:`\text{[M/H]}_\mathrm{ini}\text{ (dex)}`|Initial metallicity
+``MMaxNucE``||:math:`\text{M}_\mathrm{max}(\epsilon)\text{ (m/M)}`|Mass coordinate of maximum energy generation
+``modnum``||Model|Model number
+``numax``|solar|:math:`\nu_\mathrm{max}\text{ (}\mu\text{Hz)}`|Frequency of maximum oscillation power
+``numaxAsf``|solar|:math:`\nu_\mathrm{max,\,Sharma22}\text{ (}\mu\text{Hz)}`|Frequency of maximum oscillation power corrected following Sharma+22
+``nummodSer``||:math:`\text{N}_\mathrm{modes}\text{ (Serenelli 17)}`|Number of modes used in the corrections from Serenelli+17
+``ove``||:math:`\xi_\mathrm{ove}`|Overshooting efficiency
+``phase``||Phase|Evolutionary phase: 1) hydrogen or 2) helium burning
+``PS``|s|:math:`\Delta \Pi\text{ (s)}`|Asymptotic period spacing
+``radPhot``|solar|:math:`R_\mathrm{phot}\text{ (R}_\odot\text{)}`|Photospheric radius
+``radTot``|solar|:math:`R_\mathrm{tot}\text{ (R}_\odot\text{)}`|Total radius
+``Rbcz``||:math:`\text{R}_\mathrm{bcz}\text{ (r/R}_\mathrm{phot}\text{)}`|Radius coordinate of base of the convective zone
+``Rcore``||:math:`\text{R}\mathrm{core}\text{ (r/R}_\mathrm{phot}\text{)}`|Radius coordination of the convective core
+``RcoreX``||:math:`\text{R}\mathrm{core}\text{ (r/R}_\mathrm{phot}\text{)}`|Radius coordination of the convective core (old diagnostic)
+``rho``|g/cm3|:math:`\rho\text{ (g/cm}^3\text{)}`|Mean stellar density
+``rhocen``|g/cm3|:math:`\rho_\mathrm{cen}\text{ (g/cm}^3\text{)}`|Central density
+``RMaxNucE``||:math:`\text{R}_\mathrm{max}(\epsilon)\text{ (r/R)}_\mathrm{phot}`|Radius coordinate of maximum energy generation
+``TAMS``||TAMS|Terminal age main sequence (X:math:`_\mathrm{cen}` <1e-5)
+``tau0``|s|:math:`\tau\text{ (s)}`|Acoustic radius
+``taubcz``|s|:math:`\tau_\mathrm{bcz,\,integration}\text{ (s)}`|Acoustic depth of the base the convective envelope by integration
+``tauhe``|s|:math:`\tau_\mathrm{He,\,integration}\text{ (s)}`|Acoustic depth of the helium ionization zone by integration
+``Teff``|K|:math:`T_\mathrm{eff}\text{ (K)}`|Effective temperature
+``TPS``|s|t|to be completed
+``xcen``||:math:`\text{X}_\mathrm{cen}`|Central hydrogen fraction
+``xini``||:math:`\text{X}_\mathrm{ini}`|Initial hydrogen fraction
+``xsur``||:math:`X_\mathrm{sur}`|Surface hydrogen fraction
+``ycen``||:math:`\text{Y}_\mathrm{cen}`|Central helium fraction
+``yini``||:math:`\text{Y}_\mathrm{ini}`|Initial helium fraction
+``ysur``||:math:`\text{Y}_\mathrm{sur}`|Surface helium fraction
+``ZAMSLPhot``|solar|:math:`\text{ZAMS }L\text{ (L}_odot\text{)}`|Luminosity at the ZAMS
+``ZAMSTeff``|K|:math:`\text{ZAMS }T_\mathrm{eff}\text{ (K)}`|Effective temperature at the ZAMS
+``zcen``||:math:`\text{Z}_\mathrm{cen}`|Central heavy elements fraction
+``zini``||:math:`\text{Z}_\mathrm{ini}`|Initial heavy elements fraction
+``zsur``||:math:`\text{Z}_\mathrm{sur}`|Surface heavy elements fraction
