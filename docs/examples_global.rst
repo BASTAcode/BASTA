@@ -5,7 +5,7 @@ Spectroscopy and global asteroseismic parameters
 
 This example describes the fitting of what we call global parameters of the grid, with a specific application to
 asteroseismology for illustration purposes. As a general recommendation, the user should explore the
-:py:meth:`constants.parameters` (in ``BASTA/basta/constants.py``) function for a complete list of available fitting parameters.
+:ref:`parameter list <controls_params>` for a complete list of available fitting parameters.
 
 Block 2 of :py:meth:`create_inputfile.define_input` (in ``BASTA/examples/create_inputfile.py``) defines the fitting parameters. For this example it looks as follows:
 
@@ -23,7 +23,7 @@ the frequency of maximum power :math:`\nu_\mathrm{max}`. Note that the input val
 ``dnufit``. The reason is that BASTA supports several definitions of :math:`\Delta\nu` and it is the user's decision
 which one to fit. A description of the various types of :math:`\Delta\nu` available is given in Section 4.1.1 of
 `The BASTA paper II <https://arxiv.org/abs/2109.14622>`_, and their corresponding variable
-names can be found in :py:meth:`constants.parameters`.
+names can be found in the :ref:`parameter list <controls_params>`.
 
 The next block to be modified is 2a, where priors to the fit can be selected. We will apply a Salpeter IMF and flat
 priors in :math:`T_\mathrm{eff}` and metallicity, where the likelihoods will be calculated only for models within a

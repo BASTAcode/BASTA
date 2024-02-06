@@ -130,20 +130,16 @@ def chi2_astero(
     mod = su.transform_obj_array(rawmod)
     modkey = su.transform_obj_array(rawmodkey)
 
-    if any(
-        x in [*freqtypes.freqs, *freqtypes.rtypes, *freqtypes.glitches]
-        for x in fitfreqs["fittypes"]
-    ):
-        # If more observed modes than model modes are in one bin, move on
-        joins = freq_fit.calc_join(
-            mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
-        )
-        if joins is None:
-            chi2rut = np.inf
-            return chi2rut, warnings, shapewarn, 0
-        else:
-            joinkeys, join = joins
-            nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
+    # Determine which model modes correspond to observed modes
+    joins = freq_fit.calc_join(
+        mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
+    )
+    if joins is None:
+        chi2rut = np.inf
+        return chi2rut, warnings, shapewarn, 0
+    else:
+        joinkeys, join = joins
+        nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
     if fitfreqs["fcor"] == "None":

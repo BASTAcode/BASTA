@@ -4,10 +4,10 @@ Grids of models
 ===============
 
 BASTA uses grids of stellar tracks or isochrones stored in hierarchical data format ``hdf5``. The list of
-parameters included in our grids can be seen in :py:meth:`constants.parameters`, but one should keep in mind that
+parameters included in our grids can be seen in the :ref:`parameter list <controls_params>`, but one should keep in mind that
 not all parameters are included in all grids. As an example, isochrones do not contain individual frequencies of
 oscillations while stellar tracks do, and fits to e.g., frequency ratios can only be performed with grids of stellar
-tracks. If in doubt about a particular entry in :py:meth:`constants.parameters` you are encouraged to contact one of
+tracks. If in doubt about a particular entry in the :ref:`parameter list <controls_params>` you are encouraged to contact one of
 the core developers of BASTA.
 
 A small grid is downloaded automatically with the installation of BASTA and is stored in
