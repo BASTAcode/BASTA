@@ -102,6 +102,7 @@ def kiel(
     Teffout,
     loggout,
     gridtype,
+    nameinplot=False,
     debug=False,
     experimental=False,
     validationmode=False,
@@ -144,6 +145,8 @@ def kiel(
     gridtype : str
         Type of the grid (as read from the grid in bastamain) containing either 'tracks'
         or 'isochrones'.
+    nameinplot : str or bool
+        Star identifier if it is to be included in the figure
     debug : bool, optional
         Debug flag.
     experimental : bool, optional
@@ -508,6 +511,7 @@ def kiel(
             ncol=ncol,
             mode="expand",
             borderaxespad=0.0,
+            title=nameinplot if nameinplot else "",
         )
         _, axlabels, _, _ = parameters.get_keys(["Teff", "logg"])
         ax.set_xlabel(axlabels[0])

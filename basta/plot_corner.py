@@ -53,6 +53,7 @@ def corner(
     uncert="quantiles",
     kde_points=250,
     kde_method="silverman",
+    nameinplot=False,
     **hist2d_kwargs,
 ):
     """
@@ -146,6 +147,9 @@ def corner(
     kde_method : str, optional
         Method used to select the bandwidth in the gaussian KDE. Passed directly to
         the routine in SciPy. Default is Scott's rule.
+
+    nameinplot : str, bool
+        Star identifier if it is to be included in the figure.
 
     **hist2d_kwargs, optional
         Any remaining keyword arguments are sent to `corner.hist2d` to generate
@@ -377,6 +381,8 @@ def corner(
                 ax.set_frame_on(False)
                 ax.set_xticks([])
                 ax.set_yticks([])
+                if j == K - 1 and i == 0:
+                    ax.set_title(nameinplot if nameinplot else "")
                 continue
             elif j == i:
                 continue

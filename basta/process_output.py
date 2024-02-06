@@ -499,6 +499,7 @@ def compute_posterior(
                         Teffout=Teffout,
                         loggout=loggout,
                         gridtype=gridtype,
+                        nameinplot=starid if inputparams["nameinplot"] else False,
                         debug=debug,
                         experimental=experimental,
                         validationmode=validationmode,
@@ -519,6 +520,7 @@ def compute_posterior(
                 truth_color=parameters.get_keys(cornerplots)[3],
                 plotin=plotin,
                 plotout=plotout,
+                nameinplot=starid if inputparams["nameinplot"] else False,
                 **ckwargs,
             )
             cornerfile = outfilename + "_corner." + plottype
@@ -535,6 +537,7 @@ def compute_posterior(
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
+                    nameinplot=starid if inputparams["nameinplot"] else False,
                     **ckwargs,
                 )
                 cornerfile = outfilename + "_DEBUG_likelihood_corner." + plottype
@@ -550,6 +553,7 @@ def compute_posterior(
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
+                    nameinplot=starid if inputparams["nameinplot"] else False,
                     **ckwargs,
                 )
                 cornerfile = outfilename + "_DEBUG_prior_corner." + plottype
@@ -592,6 +596,7 @@ def compute_posterior(
                 Teffout=Teffout,
                 loggout=loggout,
                 gridtype=gridtype,
+                nameinplot=starid if inputparams["nameinplot"] else False,
                 debug=debug,
                 experimental=experimental,
                 validationmode=validationmode,

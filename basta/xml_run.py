@@ -473,6 +473,11 @@ def run_xml(
     # Format of outputted plots, default png for speed, pdf for vector art
     inputparams["plotfmt"] = _find_get(root, "default/plotfmt", "value", "png")
 
+    # Switch to include star identifier in plots, not just in filename, False is default
+    inputparams["nameinplot"] = strtobool(
+        _find_get(root, "default/nameinplot", "value", "False")
+    )
+
     # Path for science-cases in isochrones, only active for that case
     bastiparams = root.find("default/basti")
     if bastiparams:

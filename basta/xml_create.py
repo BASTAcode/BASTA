@@ -24,6 +24,7 @@ def generate_xml(
     centroid=None,
     uncert=None,
     plotfmt=None,
+    nameinplot=False,
     odea=None,
     intpolparams=None,
     bayweights=True,
@@ -86,6 +87,9 @@ def generate_xml(
         Format of outputted plots, simply given directly to pyplot.savefig.
         Default is 'png' for quick figures. For detailed plots, 'pdf' is
         recommended.
+    nameinplot : bool
+        Toggle to include star identifier in plots, not simply in filename
+        of plot.
     odea : tuple or None
         Specifies the input physics used to compute the grid.
         `o` : overshoot efficiency, 0.0 = no overshoot.
@@ -198,6 +202,10 @@ def generate_xml(
     # Add plotformat to <default> if user provided
     if plotfmt is not None:
         SubElement(default, "plotfmt", {"value": str(plotfmt)})
+
+    # Add nameinplot to <default> if set by user
+    if nameinplot:
+        SubElement(default, "nameinplot", {"value": "True"})
 
     # Add ove, eta, diffusion and alphaFe to <basti> if isochrone
     if odea:
