@@ -954,7 +954,6 @@ def freqs_ascii_to_xml(
     starid,
     symmetric_errors=True,
     check_radial_orders=False,
-    nbeforel=True,
     quiet=False,
 ):
     """
@@ -980,10 +979,6 @@ def freqs_ascii_to_xml(
         If True, the routine will correct the radial order printed in the
         xml, based on the calculated epsilon value, with its own dnufit.
         If float, does the same, but uses the inputted float as dnufit.
-    nbeforel : bool, optional
-        Passed to frequency reading. If True (default), the column
-        containing the orders n is [0], and the column containing the
-        degrees l is [1]. If False, it is the other way around.
     quiet : bool, optional
         Toggle to silence the output (useful for running batches)
     """
@@ -1005,7 +1000,7 @@ def freqs_ascii_to_xml(
 
     # Make sure that the frequency file exists, and read the frequencies
     if os.path.exists(freqsfile):
-        freqs = _read_freq_ascii(freqsfile, symmetric_errors, nbeforel)
+        freqs = _read_freq_ascii(freqsfile, symmetric_errors)
         # If covariances are available, read them
         if os.path.exists(covfile):
             cov = _read_freq_cov_ascii(covfile)
@@ -1241,7 +1236,10 @@ def freqs_ascii_to_xml(
         print(pretty_xml, file=xmlfile)
 
 
-def _read_freq_ascii(filename, symmetric_errors=True, nbeforel=True):
+def _read_freq_ascii(
+    filename,
+    symmetric_errors=True,
+):
     """
     Read individual frequencies from an ascii file
 
@@ -1253,10 +1251,6 @@ def _read_freq_ascii(filename, symmetric_errors=True, nbeforel=True):
         If True, assumes the ascii file to contain only one column with
         frequency errors. Otherwise, the file must include asymmetric
         errors (error_plus and error_minus). Default is True.
-    nbeforel : bool, optional
-        If True (default), the column containing the orders n is [0], and
-        the column containing the degrees l is [1].
-        If False, it is the other way around.
 
     Returns
     -------
@@ -1264,62 +1258,75 @@ def _read_freq_ascii(filename, symmetric_errors=True, nbeforel=True):
         Contains the radial order, angular degree, frequency, uncertainty,
         and flag
     """
-    if nbeforel:
-        if symmetric_errors:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("order", "int"),
-                    ("degree", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
+    cols = []
+    data = np.genfromtxt(filename, dtype=None, encoding=None, names=True)
+    for colname in data.dtype.names:
+        if colname.lower() in ["f", "freq", "frequency"]:
+            cols.append(
+                ("frequency", "float"),
+            )
+        elif colname.lower() in ["n", "order"]:
+            cols.append(
+                ("order", "int"),
+            )
+        elif colname.lower() in ["l", "ell", "degree"]:
+            cols.append(
+                ("degree", "int"),
+            )
+        elif colname.lower() in ["error_plus", "err_plus", "error_upper"]:
+            cols.append(
+                ("error_plus", "float"),
+            )
+        elif colname.lower() in ["error_minus", "err_minus", "error_lower"]:
+            cols.append(
+                ("error_minus", "float"),
+            )
+        elif colname.lower() in [
+            "error",
+            "err",
+        ]:
+            cols.append(("error", "float"))
+        elif colname.lower() in [
+            "flag",
+        ]:
+            cols.append(("flag", "int"))
+        elif colname.lower() in [
+            "frequency_mode",
+        ]:
+            cols.append(("frequency_mode", "float"))
+        else:
+            raise ValueError(f"BASTA cannot recognize {colname}")
+
+    sym = np.any([col[0] == "error" for col in cols])
+    asym = all(item in col[0] for col in l for item in ["error_plus", "error_minus"])
+    if not sym ^ asym:
+        if sym | asym:
+            raise ValueError(
+                "BASTA found too many uncertainties, please specify which to use."
             )
         else:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("order", "int"),
-                    ("degree", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("error_plus", "float"),
-                    ("error_minus", "float"),
-                    ("frequency_mode", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
-            )
-    else:
-        if symmetric_errors:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("degree", "int"),
-                    ("order", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
-            )
-        else:
-            freqs = np.genfromtxt(
-                filename,
-                dtype=[
-                    ("degree", "int"),
-                    ("order", "int"),
-                    ("frequency", "float"),
-                    ("error", "float"),
-                    ("error_plus", "float"),
-                    ("error_minus", "float"),
-                    ("frequency_mode", "float"),
-                    ("flag", "int"),
-                ],
-                encoding=None,
-            )
+            raise ValueError("BASTA is missing frequency uncertainties.")
+    if not symmetric_errors and not asym:
+        raise ValueError(
+            "BASTA is looking for asymmetric frequency uncertainties, but did not find them"
+        )
+
+    freqs = np.genfromtxt(
+        filename,
+        dtype=cols,
+        encoding=None,
+    )
+
+    if not np.any(["order" in col[0] for col in cols]):
+        print("BASTA did not find n orders, they are generated")
+        freqcol = [col for col in data.dtype.names if col in ["f", "freq", "frequency"]]
+        assert len(freqcol) == 1, print(freqcol)
+        dnu = data[freqcol[0]][1] - data[freqcol[0]][0]
+        ns = np.asarray(data[freqcol[0]]) // dnu - 1
+        from numpy.lib.recfunctions import append_fields
+
+        freqs = append_fields(freqs, "order", data=ns.astype(int))
+
     return freqs
 
 

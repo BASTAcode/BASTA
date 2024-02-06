@@ -24,9 +24,8 @@ the terminal:
     cd BASTA
     source venv/bin/activate
     cd examples/data/freqs
-    python
-    from basta import fileio
-    fileio.freqs_ascii_to_xml('.','16CygA',check_radial_orders=False,nbeforel=True)
+    python3
+    from basta import fileio; fileio.freqs_ascii_to_xml('.', '16CygA')
 
 Which gives the output:
 
@@ -35,9 +34,25 @@ Which gives the output:
     Star 16CygA has an epsilon of: 0.8.
     No correction made.
 
-This will produce the file ``16CygA.xml``. You can provide ``ascii`` files with the columns (order,degree) swapped and
-simply use the argument ``nbeforel=False``. Note that when the argument ``check_radial_orders=True`` is given, you
-will get the following output when running the command:
+This will produce the file ``16CygA.xml``, which can be used as a direct input in the ``BASTA`` fitting.
+The ``ascii`` file must a header naming the different columns and at a minimum the file must contain:
+
+  - the mode frequencies in µHz, typically named `freq` or `frequency` in header
+  - the angular degrees l, typically named `l`, `ell` or `degree`
+  - the uncertainties of the mode frequenciea in µHz. These can either be
+        - symmetrical and thus only a single column with an uncertainty can be given, typically denoted `error` or `err`.
+        - asymmetrical. In this case, the upper and lower uncertainty must be given as two separate columns, typically denoted `error_plus` and `error_minus`.
+
+Furthermore, feel free to add a column containing radial orders (`order` or `n`) if these are known.
+
+For convenience, you can check your column of radial orders based on the calculated epsilon value.
+This is done by including an additional argument in the ``python`` command:
+
+.. code-block:: bash
+
+    from basta import fileio; fileio.freqs_ascii_to_xml('.', '16CygA', check_radial_orders=True)
+
+This will then output:
 
 .. code-block:: text
 
