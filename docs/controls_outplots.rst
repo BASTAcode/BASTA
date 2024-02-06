@@ -141,3 +141,15 @@ small format, so preferable when creating many figures/fitting multiple stars.
 However, if high resolution/vector graphics is desirable, ``pdf`` is recommended.
 Otherwise, it can be any file format compatible with
 `matplotlib.pyplot.savefig <https://matplotlib.org/stable/api/_as_gen/matplotlib.pyplot.savefig.html>`_.
+
+
+Star identifier in plots
+------------------------
+.. code-block:: python
+
+    define_plots["nameinplot"] = True
+
+The star identifier is normally only contained in the name of plot files.
+However, depending on the preferred post-processing procedure of the user,
+it can be beneficial to include in the plots itself, which can be turned
+on using this key. Currently, only implemented for Kiel diagram and corner plots.

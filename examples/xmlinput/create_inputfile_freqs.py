@@ -400,6 +400,12 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # usually preferred.
     define_plots["plotfmt"] = "pdf"
 
+    # The star identifier is normally only contained in the name of plot files.
+    # However, depending on the preferred post-processing procedure of the user,
+    # it can be beneficial to include in the plots itself, which can be turned
+    # on using this key.
+    # define_plots["nameinplot"] = True
+
     # ==================================================================================
     # BLOCK 5: Interpolation
     # ==================================================================================
