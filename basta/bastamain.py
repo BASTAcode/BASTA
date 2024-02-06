@@ -167,46 +167,25 @@ def BASTA(
         )
 
     # Read available weights if not provided by the user
-    if not isinstance(usebayw, tuple):
-        if usebayw:
-            skipweights = False
-            try:
-                grid_weights = [
-                    x.decode("utf-8") for x in list(Grid["header/active_weights"])
-                ]
+    if usebayw:
+        try:
+            grid_weights = [
+                x.decode("utf-8") for x in list(Grid["header/active_weights"])
+            ]
 
-                # Always append the special weight for isochrones/tracks
-                if "isochrones" in gridtype.lower():
-                    grid_weights.append("mass")
-                else:
-                    grid_weights.append("age")
-            except KeyError:
-                grid_weights = ["mass", "FeHini", "age"]
-                print("WARNING: No Bayesian weights specified in grid file!\n")
-            bayweights = tuple(grid_weights)
-        else:
-            skipweights = True
-    else:
-        bayweights = deepcopy(usebayw)
-        skipweights = False
+        except KeyError:
+            print(
+                "WARNING: Bayesian weights requested, but none specified in grid file!\n"
+            )
+        bayweights = tuple([x + "_weight" for x in grid_weights])
 
-    # Check for the weights which requires special care
-    # --> dmass and dage: dweights
-    if not skipweights:
-        if "isochrones" in gridtype.lower() and "massini" in bayweights:
-            apply_dweights = True
-            bayweights = list(bayweights)
-            bayweights.remove("massini")
-            bayweights = tuple(x + "_weight" for x in bayweights)
-        elif "tracks" in gridtype.lower() and "age" in bayweights:
-            apply_dweights = True
-            bayweights = list(bayweights)
-            bayweights.remove("age")
-            bayweights = tuple(x + "_weight" for x in bayweights)
-        else:
-            apply_dweights = False
-    else:
-        apply_dweights = False
+        # Specify the along weight variable, varies due to conceptual difference
+        # - Isochrones --> dmass
+        # - Tracks     --> dage
+        if "isochrones" in gridtype.lower():
+            dweight = "dmass"
+        elif "tracks" in gridtype.lower():
+            dweight = "dage"
 
     # Get list of parameters
     cornerplots = inputparams["cornerplots"]
@@ -473,20 +452,14 @@ def BASTA(
 
     # Print weights and priors
     print("\nWeights and priors:")
-    if "isochrones" in gridtype.lower() and apply_dweights:
-        gtname = "isochrones"
-        dwname = "mass"
-    elif "tracks" in gridtype.lower() and apply_dweights:
-        gtname = "tracks"
-        dwname = "age"
-    else:
-        print("No Bayesian weights applied")
-        gtname = None
-        dwname = None
+    if usebayw:
+        if "isochrones" in gridtype.lower():
+            gtname = "isochrones"
+            dwname = "mass"
+        elif "tracks" in gridtype.lower():
+            gtname = "tracks"
+            dwname = "age"
 
-    if apply_dweights:
-        assert gtname is not None
-        assert dwname is not None
         print("* Bayesian weights:")
         print("  - Along {0}: {1}".format(gtname, dwname))
         print(
@@ -494,6 +467,8 @@ def BASTA(
                 gtname, ", ".join([q.split("_")[0] for q in bayweights])
             )
         )
+    else:
+        print("No Bayesian weights applied")
 
     print("* Flat, constrained priors and ranges:")
     for lim in limits.keys():
@@ -709,21 +684,16 @@ def BASTA(
                     bayw = 0.0
                     magw = 0.0
                     IMFw = 0.0
-                if not skipweights:
+                if usebayw:
                     for weight in bayweights:
                         logPDF += util.inflog(libitem[weight][()])
                         if debug:
                             bayw += util.inflog(libitem[weight][()])
 
                     # Within a given track/isochrone; these are called dweights
-                    if "isochrones" in gridtype.lower() and apply_dweights:
-                        logPDF += util.inflog(libitem["dmass"][index])
-                        if debug:
-                            bayw += util.inflog(libitem["dmass"][index])
-                    elif "tracks" in gridtype.lower() and apply_dweights:
-                        logPDF += util.inflog(libitem["dage"][index])
-                        if debug:
-                            bayw += util.inflog(libitem["dage"][index])
+                    logPDF += util.inflog(libitem[dweight][index])
+                    if debug:
+                        bayw += util.inflog(libitem[dweight][index])
 
                 # Multiply by absolute magnitudes, if present
                 for f in inputparams["magnitudes"]:

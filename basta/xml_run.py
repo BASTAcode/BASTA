@@ -610,20 +610,7 @@ def run_xml(
 
     # Get bayesian weights
     # --> If not provided by the user, assume them to be active
-    bayw = root.findall("default/bayesianweights/")
-    if bayw:
-        usebayw = []
-        for param in bayw:
-            if param.tag.lower() == "true":
-                usebayw = True
-            elif (param.tag.lower() == "false") or (param.tag.lower() == "none"):
-                usebayw = False
-            else:
-                usebayw.append(param.tag)
-        if isinstance(usebayw, list):
-            usebayw = tuple(usebayw)
-    else:
-        usebayw = True
+    usebayw = strtobool(_find_get(root, "default/bayesianweights", "value", "True"))
 
     # Get optional output files
     optoutput = root.findall("default/optionaloutputfiles/")

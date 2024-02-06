@@ -245,12 +245,8 @@ def generate_xml(
                         intpollim[name] = list(rules[hits])
 
     # Add subelement <bayesianweights> to <default>
-    baywelement = SubElement(default, "bayesianweights")
     if isinstance(bayweights, (bool, str)):
-        SubElement(baywelement, str(bayweights))
-    else:
-        for param in tuple(bayweights):
-            SubElement(baywelement, param)
+        SubElement(default, "bayesianweights", {"value": str(bayweights)})
 
     # Add subelement <fitparams to <default>
     fitelement = SubElement(default, "fitparams")
