@@ -18,6 +18,7 @@ def plot_all_seismic(
     path,
     ind,
     plotfname,
+    nameinplot=False,
     dnusurf=None,
     glitchparams=None,
     debug=False,
@@ -59,6 +60,8 @@ def plot_all_seismic(
         Index of the highest likelihood model in the track
     plotfname : str
         Output plotname format
+    nameinplot : bool
+        Whether to include star identifier in the plots itself
     debug : bool
         Whether to produce debugging output
 

@@ -849,6 +849,7 @@ def BASTA(
             path=maxPDF_path,
             ind=maxPDF_ind,
             plotfname=outfilename + "_{0}." + inputparams["plotfmt"],
+            nameinplot=inputparams["nameinplot"],
             **addstats,
             debug=debug,
         )
