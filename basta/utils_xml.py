@@ -107,21 +107,23 @@ def create_xmltag(
 
     # Handle the special things for frequency fitting
     if freqparams and any(x in fitparams for x in freqtypes.alltypes):
-        # The nottrustedfile object
-        if "nottrustedfile" in freqparams:
-            if isinstance(freqparams["nottrustedfile"], dict):
-                if starid in freqparams["nottrustedfile"].keys():
-                    ntf = freqparams["nottrustedfile"][starid]
+        fps = np.asarray(["excludemodes", "nottrustedfile"])
+        if any(x in freqparams for x in fps):
+            x = fps[np.isin(fps, list(freqparams.keys()))][0]
+            if isinstance(freqparams[x], dict):
+                if starid in freqparams[x].keys():
+                    ntf = freqparams[x][starid]
                 else:
                     ntf = "None"
-                SubElement(star, "nottrustedfile", {"value": ntf})
-            elif isinstance(freqparams["nottrustedfile"], str):
+                SubElement(star, "excludemodes", {"value": ntf})
+            elif isinstance(freqparams[x], str):
                 # Error handling
-                SubElement(
-                    star, "nottrustedfile", {"value": freqparams["nottrustedfile"]}
-                )
+                SubElement(star, "excludemodes", {"value": freqparams[x]})
             else:
-                raise ValueError("Nottrustedfile is neither a dict or a str")
+                raise ValueError("excludemodes is neither a dict or a str")
+        if "onlyradial" in freqparams:
+            if freqparams["onlyradial"] in [True, "True", "true"]:
+                SubElement(star, "onlyradial", {"value": "True"})
 
         # Always add dnu and numax for frequency fitting
         if not nuset["dnu"]:

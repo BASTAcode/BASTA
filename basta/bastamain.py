@@ -14,7 +14,7 @@ from tqdm import tqdm
 from basta import freq_fit, stats, process_output, priors, distances, plot_driver
 from basta import utils_seismic as su
 from basta import utils_general as util
-from basta._version import __version__
+from basta.__about__ import __version__
 from basta import fileio as fio
 from basta.constants import freqtypes
 
@@ -45,7 +45,7 @@ def BASTA(
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
-    (c) 2022, The BASTA Team
+    (c) 2024, The BASTA Team
 
     For a description of how to use BASTA, please explore the documentation (https://github.com/BASTAcode/BASTA).
     This function is typically called by :func:'xmltools.run_xml()'
@@ -100,7 +100,7 @@ def BASTA(
     print()
     util.prt_center("Version {0}".format(__version__), linelen)
     print()
-    util.prt_center("(c) 2022, The BASTA Team", linelen)
+    util.prt_center("(c) 2024, The BASTA Team", linelen)
     util.prt_center("https://github.com/BASTAcode/BASTA", linelen)
     print(linelen * "=")
     print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
@@ -167,46 +167,25 @@ def BASTA(
         )
 
     # Read available weights if not provided by the user
-    if not isinstance(usebayw, tuple):
-        if usebayw:
-            skipweights = False
-            try:
-                grid_weights = [
-                    x.decode("utf-8") for x in list(Grid["header/active_weights"])
-                ]
+    if usebayw:
+        try:
+            grid_weights = [
+                x.decode("utf-8") for x in list(Grid["header/active_weights"])
+            ]
 
-                # Always append the special weight for isochrones/tracks
-                if "isochrones" in gridtype.lower():
-                    grid_weights.append("massini")
-                else:
-                    grid_weights.append("age")
-            except KeyError:
-                grid_weights = ["massini", "FeHini", "age"]
-                print("WARNING: No Bayesian weights specified in grid file!\n")
-            bayweights = tuple(grid_weights)
-        else:
-            skipweights = True
-    else:
-        bayweights = deepcopy(usebayw)
-        skipweights = False
+        except KeyError:
+            print(
+                "WARNING: Bayesian weights requested, but none specified in grid file!\n"
+            )
+        bayweights = tuple([x + "_weight" for x in grid_weights])
 
-    # Check for the weights which requires special care
-    # --> dmass and dage: dweights
-    if not skipweights:
-        if "isochrones" in gridtype.lower() and "massini" in bayweights:
-            apply_dweights = True
-            bayweights = list(bayweights)
-            bayweights.remove("massini")
-            bayweights = tuple(x + "_weight" for x in bayweights)
-        elif "tracks" in gridtype.lower() and "age" in bayweights:
-            apply_dweights = True
-            bayweights = list(bayweights)
-            bayweights.remove("age")
-            bayweights = tuple(x + "_weight" for x in bayweights)
-        else:
-            apply_dweights = False
-    else:
-        apply_dweights = False
+        # Specify the along weight variable, varies due to conceptual difference
+        # - Isochrones --> dmass
+        # - Tracks     --> dage
+        if "isochrones" in gridtype.lower():
+            dweight = "dmass"
+        elif "tracks" in gridtype.lower():
+            dweight = "dage"
 
     # Get list of parameters
     cornerplots = inputparams["cornerplots"]
@@ -263,7 +242,6 @@ def BASTA(
             obsfreqmeta,
             obsintervals,
         ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
-
         # Apply prior on dnufit to mimick the range defined by dnufrac
         if fitfreqs["dnuprior"] and ("dnufit" not in limits):
             dnufit_frac = fitfreqs["dnufrac"] * fitfreqs["dnufit"]
@@ -334,26 +312,25 @@ def BASTA(
 
     # Fitting info: Frequencies
     if fitfreqs["active"]:
-        if "glitches" in fitfreqs["fittypes"]:
-            print("* Fitting of frequency glitches activated!")
-        elif "freqs" in fitfreqs["fittypes"]:
+        if "freqs" in fitfreqs["fittypes"]:
             print("* Fitting of individual frequencies activated!")
         elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
-            print(
-                "* Fitting of frequency ratios {0} activated!".format(
-                    ", ".join(fitfreqs["fittypes"])
-                )
-            )
+            print(f"* Fitting of frequency ratios {fitfreqs['fittypes']} activated!")
             if "r010" in fitfreqs["fittypes"]:
                 print(
                     "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
                 )
+        elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+            print(f"* Fitting of glitches {fitfreqs['fittypes']} activated using:")
+            print(f"  - Method: {fitfreqs['glitchmethod']}")
+            print(f"  - Parameters in smooth component: {fitfreqs['npoly_params']}")
+            print(f"  - Order of derivative: {fitfreqs['nderiv']}")
+            print(f"  - Gradient tolerance: {fitfreqs['tol_grad']}")
+            print(f"  - Regularization parameter: {fitfreqs['regu_param']}")
+            print(f"  - Initial guesses: {fitfreqs['nguesses']}")
+            print("* General frequency fitting configuration:")
         elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
-            print(
-                "* Fitting of epsilon differences {0} activated!".format(
-                    ", ".join(fitfreqs["fittypes"])
-                )
-            )
+            print(f"* Fitting of epsilon differences {fitfreqs['fittypes']} activated!")
 
         # Translate True/False to Yes/No
         strmap = ("No", "Yes")
@@ -376,7 +353,7 @@ def BASTA(
         print("  - Frequency input data: {0}".format(fitfreqs["freqfile"]))
         print(
             "  - Frequency input data (list of ignored modes): {0}".format(
-                fitfreqs["nottrustedfile"]
+                fitfreqs["excludemodes"]
             )
         )
         print(
@@ -465,7 +442,7 @@ def BASTA(
         "fitparams",
         "limits",
         "magnitudes",
-        "nottrustedfile",
+        "excludemodes",
         "numax",
         "warnoutput",
     ]
@@ -475,21 +452,24 @@ def BASTA(
 
     # Print weights and priors
     print("\nWeights and priors:")
-    if "isochrones" in gridtype.lower() and apply_dweights:
-        gtname = "isochrones"
-        dwname = "mass"
-    elif "tracks" in gridtype.lower() and apply_dweights:
-        gtname = "tracks"
-        dwname = "age"
-    else:
-        dwname = ""
-    print("* Bayesian weights:")
-    print("  - Along {0}: {1}".format(gtname, dwname))
-    print(
-        "  - Between {0}: {1}".format(
-            gtname, ", ".join([q.split("_")[0] for q in bayweights])
+    if usebayw:
+        if "isochrones" in gridtype.lower():
+            gtname = "isochrones"
+            dwname = "mass"
+        elif "tracks" in gridtype.lower():
+            gtname = "tracks"
+            dwname = "age"
+
+        print("* Bayesian weights:")
+        print("  - Along {0}: {1}".format(gtname, dwname))
+        print(
+            "  - Between {0}: {1}".format(
+                gtname, ", ".join([q.split("_")[0] for q in bayweights])
+            )
         )
-    )
+    else:
+        print("No Bayesian weights applied")
+
     print("* Flat, constrained priors and ranges:")
     for lim in limits.keys():
         print("  - {0}: {1}".format(lim, limits[lim]))
@@ -525,6 +505,12 @@ def BASTA(
     selectedmodels = {}
     noofind = 0
     noofposind = 0
+    # In some cases we need to store quantities computed at runtime
+    if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+        dnusurfmodels = {}
+    if fitfreqs["active"] and fitfreqs["glitchfit"]:
+        glitchmodels = {}
+
     print(
         "\n\nComputing likelihood of models in the grid ({0} {1}) ...".format(
             trackcounter, entryname
@@ -666,8 +652,12 @@ def BASTA(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if fitfreqs["active"]:
+                    if fitfreqs["dnufit_in_ratios"]:
+                        dnusurf = np.zeros(index.sum())
+                    if fitfreqs["glitchfit"]:
+                        glitchpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
-                        chi2_freq, warn, shapewarn = stats.chi2_astero(
+                        chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
                             obskey,
                             obs,
                             obsfreqmeta,
@@ -683,27 +673,27 @@ def BASTA(
                         )
                         chi2[indd] += chi2_freq
 
+                        if fitfreqs["dnufit_in_ratios"]:
+                            dnusurf[indd] = addpars["dnusurf"]
+                        if fitfreqs["glitchfit"]:
+                            glitchpar[indd] = addpars["glitchparams"]
+
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
                 if debug:
                     bayw = 0.0
                     magw = 0.0
                     IMFw = 0.0
-                if not skipweights:
+                if usebayw:
                     for weight in bayweights:
                         logPDF += util.inflog(libitem[weight][()])
                         if debug:
                             bayw += util.inflog(libitem[weight][()])
 
                     # Within a given track/isochrone; these are called dweights
-                    if "isochrones" in gridtype.lower() and apply_dweights:
-                        logPDF += util.inflog(libitem["dmass"][index])
-                        if debug:
-                            bayw += util.inflog(libitem["dmass"][index])
-                    elif "tracks" in gridtype.lower() and apply_dweights:
-                        logPDF += util.inflog(libitem["dage"][index])
-                        if debug:
-                            bayw += util.inflog(libitem["dage"][index])
+                    logPDF += util.inflog(libitem[dweight][index])
+                    if debug:
+                        bayw += util.inflog(libitem[dweight][index])
 
                 # Multiply by absolute magnitudes, if present
                 for f in inputparams["magnitudes"]:
@@ -730,6 +720,7 @@ def BASTA(
                         libitem["massini"][index][~np.isinf(logPDF)],
                     )
 
+                # Sum the number indexes and nonzero indexes
                 noofind += len(logPDF)
                 noofposind += np.count_nonzero(~np.isinf(logPDF))
                 if debug and verbose:
@@ -738,6 +729,8 @@ def BASTA(
                             group_name + name, ~np.isinf(logPDF)
                         )
                     )
+
+                # Store statistical info
                 if debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
                         index, logPDF, chi2, bayw, magw, IMFw
@@ -745,6 +738,14 @@ def BASTA(
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, logPDF, chi2
+                    )
+                if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+                    dnusurfmodels[group_name + name] = stats.Trackdnusurf(dnusurf)
+                if fitfreqs["active"] and fitfreqs["glitchfit"]:
+                    glitchmodels[group_name + name] = stats.Trackglitchpar(
+                        glitchpar[:, 0],
+                        glitchpar[:, 1],
+                        glitchpar[:, 2],
                     )
             else:
                 if debug and verbose:
@@ -824,6 +825,14 @@ def BASTA(
         experimental=experimental,
         validationmode=validationmode,
     )
+
+    # Collect additional output for plotting and saving
+    addstats = {}
+    if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+        addstats["dnusurf"] = dnusurfmodels
+    if fitfreqs["active"] and fitfreqs["glitchfit"]:
+        addstats["glitchparams"] = glitchmodels
+
     # Make frequency-related plots
     freqplots = inputparams.get("freqplots")
     if fitfreqs["active"] and len(freqplots):
@@ -840,6 +849,8 @@ def BASTA(
             path=maxPDF_path,
             ind=maxPDF_ind,
             plotfname=outfilename + "_{0}." + inputparams["plotfmt"],
+            nameinplot=inputparams["nameinplot"],
+            **addstats,
             debug=debug,
         )
     else:

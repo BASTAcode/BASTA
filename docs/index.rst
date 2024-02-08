@@ -21,6 +21,8 @@ Current stable version: v1.3.1
    grids
    running
    examples
+   methods
+   controls
    troubleshoot
    contributing
    source_code
@@ -51,7 +53,7 @@ The current core developing team members are:
 
 * Jakob Lysgaard Rørsted (maintainer)
 * Mark Lykke Winther (co-maintainer)
-* Amalie Stokholm
+* Amalie Stokholm (co-maintainer)
 * Kuldeep Verma
 
 

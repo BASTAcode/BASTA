@@ -53,7 +53,8 @@ def corner(
     uncert="quantiles",
     kde_points=250,
     kde_method="silverman",
-    **hist2d_kwargs
+    nameinplot=False,
+    **hist2d_kwargs,
 ):
     """
     Make a corner plot showing the projections of a data set in a multi-dimensional
@@ -146,6 +147,9 @@ def corner(
     kde_method : str, optional
         Method used to select the bandwidth in the gaussian KDE. Passed directly to
         the routine in SciPy. Default is Scott's rule.
+
+    nameinplot : str, bool
+        Star identifier if it is to be included in the figure.
 
     **hist2d_kwargs, optional
         Any remaining keyword arguments are sent to `corner.hist2d` to generate
@@ -377,6 +381,8 @@ def corner(
                 ax.set_frame_on(False)
                 ax.set_xticks([])
                 ax.set_yticks([])
+                if j == K - 1 and i == 0:
+                    ax.set_title(nameinplot if nameinplot else "")
                 continue
             elif j == i:
                 continue
@@ -398,7 +404,7 @@ def corner(
                 color=tcolor,
                 smooth=smooth,
                 bins=[bins[j], bins[i]],
-                **hist2d_kwargs
+                **hist2d_kwargs,
             )
 
             if max_n_ticks == 0:
@@ -462,7 +468,7 @@ def hist2d(
     contour_kwargs=None,
     contourf_kwargs=None,
     data_kwargs=None,
-    **kwargs
+    **kwargs,
 ):
     """
     Plot a 2-D histogram of samples.
@@ -635,7 +641,7 @@ def hist2d(
                 Y2,
                 H2.T,
                 np.concatenate([[0], V, [H.max() * (1 + 1e-4)]]),
-                **contourf_kwargs
+                **contourf_kwargs,
             )
 
         # Plot the density map. This can't be plotted at the same time as the

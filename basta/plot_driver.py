@@ -18,6 +18,9 @@ def plot_all_seismic(
     path,
     ind,
     plotfname,
+    nameinplot=False,
+    dnusurf=None,
+    glitchparams=None,
     debug=False,
 ):
     """
@@ -57,6 +60,8 @@ def plot_all_seismic(
         Index of the highest likelihood model in the track
     plotfname : str
         Output plotname format
+    nameinplot : bool
+        Whether to include star identifier in the plots itself
     debug : bool
         Whether to produce debugging output
 
@@ -284,6 +289,70 @@ def plot_all_seismic(
                     print(
                         "\nRatio correlation map for {} sequence failed with the error:".format(
                             ratseq
+                        ),
+                        e,
+                    )
+
+    if obsfreqmeta["getglitch"]:
+        for glitchseq in obsfreqmeta["glitch"]["plot"]:
+            glitchnamestr = "glitches_{0}".format(glitchseq)
+            try:
+                plot_seismic.glitchplot(
+                    obsfreqdata,
+                    glitchseq,
+                    glitchparams,
+                    maxPath=path,
+                    maxInd=np.argmax(selectedmodels[path].logPDF),
+                    output=plotfname.format(glitchnamestr),
+                )
+            except Exception as e:
+                print(
+                    "\nGlitch plot for {} sequence failed with the error:".format(
+                        glitchseq
+                    ),
+                    e,
+                )
+            if glitchseq != "glitches":
+                ratseq = glitchseq[1:]
+                ratnamestr = "ratios_{0}".format(ratseq)
+                if ratseq not in obsfreqdata:
+                    mask = np.where(
+                        np.isin(obsfreqdata[glitchseq]["data"][2, :], [1.0, 2.0, 10.0])
+                    )[0]
+                    obsfreqdata[ratseq] = {
+                        "data": obsfreqdata[glitchseq]["data"][:, mask],
+                        "cov": obsfreqdata[glitchseq]["cov"][np.ix_(mask, mask)],
+                    }
+                try:
+                    plot_seismic.ratioplot(
+                        obsfreqdata,
+                        maxjoinkeys,
+                        maxjoin,
+                        maxmodkey,
+                        maxmod,
+                        ratseq,
+                        output=plotfname.format(ratnamestr),
+                        threepoint=fitfreqs["threepoint"],
+                        interp_ratios=fitfreqs["interp_ratios"],
+                    )
+                except Exception as e:
+                    print(
+                        "\nRatio plot for {} sequence failed with the error:".format(
+                            ratseq
+                        ),
+                        e,
+                    )
+            if fitfreqs["correlations"]:
+                try:
+                    plot_seismic.correlation_map(
+                        glitchseq,
+                        obsfreqdata,
+                        output=plotfname.format(glitchnamestr + "_cormap"),
+                    )
+                except Exception as e:
+                    print(
+                        "\nGlitch correlation map for {} sequence failed with the error:".format(
+                            glitchseq
                         ),
                         e,
                     )

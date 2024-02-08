@@ -11,7 +11,7 @@ from numpy.lib.histograms import _hist_bin_fd
 from scipy.interpolate import interp1d, CubicSpline
 from scipy.ndimage.filters import gaussian_filter1d
 
-from basta import freq_fit, glitch
+from basta import freq_fit, glitch_fit
 from basta import utils_seismic as su
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes, statdata
@@ -19,6 +19,8 @@ from basta.constants import freqtypes, statdata
 # Define named tuple used in selectedmodels
 Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
 priorlogPDF = collections.namedtuple("Trackstats", "index logPDF chi2 bayw magw IMFw")
+Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
+Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
 
 
 def _weight(N, seisw):
@@ -119,50 +121,49 @@ def chi2_astero(
         See 'warnings' above.
     """
 
+    # Additional parameters calculated during fitting
+    addpars = {"dnusurf": None, "glitchparams": None}
+
     # Unpack model frequencies
     rawmod = libitem["osc"][ind]
     rawmodkey = libitem["osckey"][ind]
     mod = su.transform_obj_array(rawmod)
     modkey = su.transform_obj_array(rawmodkey)
 
-    if any(
-        x in [*freqtypes.freqs, *freqtypes.rtypes, *freqtypes.glitches]
-        for x in fitfreqs["fittypes"]
-    ):
-        # If more observed modes than model modes are in one bin, move on
-        joins = freq_fit.calc_join(
-            mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
-        )
-        if joins is None:
-            chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
-        else:
-            joinkeys, join = joins
-            nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
+    # Determine which model modes correspond to observed modes
+    joins = freq_fit.calc_join(
+        mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
+    )
+    if joins is None:
+        chi2rut = np.inf
+        return chi2rut, warnings, shapewarn, 0
+    else:
+        joinkeys, join = joins
+        nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
-    if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]):
-        if fitfreqs["fcor"] == "None":
-            corjoin = join
-        elif fitfreqs["fcor"] == "HK08":
-            corjoin, _ = freq_fit.HK08(
-                joinkeys=joinkeys,
-                join=join,
-                nuref=fitfreqs["numax"],
-                bcor=fitfreqs["bexp"],
-            )
-        elif fitfreqs["fcor"] == "BG14":
-            corjoin, _ = freq_fit.BG14(
-                joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
-            )
-        elif fitfreqs["fcor"] == "cubicBG14":
-            corjoin, _ = freq_fit.cubicBG14(
-                joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
-            )
-        else:
-            print(f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}')
-            return
+    if fitfreqs["fcor"] == "None":
+        corjoin = join
+    elif fitfreqs["fcor"] == "HK08":
+        corjoin, _ = freq_fit.HK08(
+            joinkeys=joinkeys,
+            join=join,
+            nuref=fitfreqs["numax"],
+            bcor=fitfreqs["bexp"],
+        )
+    elif fitfreqs["fcor"] == "BG14":
+        corjoin, _ = freq_fit.BG14(
+            joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
+        )
+    elif fitfreqs["fcor"] == "cubicBG14":
+        corjoin, _ = freq_fit.cubicBG14(
+            joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
+        )
+    else:
+        print(f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}')
+        return
 
+    # Initialize chi2 value
     chi2rut = 0.0
 
     if any(x in freqtypes.freqs for x in fitfreqs["fittypes"]):
@@ -186,32 +187,25 @@ def chi2_astero(
             if debug and verbose:
                 print("DEBUG: chi2 less than zero, setting chi2 to inf")
 
+    # Add large frequency separation term (using corrected frequencies!)
+    # --> Equivalent to 'dnufit', but using the frequencies *after*
+    #     applying the surface correction.
+    # --> Compared to the observed value, which is 'dnudata'.
+    if fitfreqs["dnufit_in_ratios"]:
+        # Read observed dnu
+        dnudata = obsfreqdata["freqs"]["dnudata"]
+        dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
+
+        # Compute surface corrected dnu
+        dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
+
+        chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+
     # Add the chi-square terms for ratios
     if any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
-
-        # Add large frequency separation term (using corrected frequencies!)
-        # --> Equivalent to 'dnufit', but using the frequencies *after*
-        #     applying the surface correction.
-        # --> Compared to the observed value, which is 'dnudata'.
-        if fitfreqs["dnufit_in_ratios"]:
-            # Read observed dnu
-            dnudata = obsfreqdata["freqs"]["dnudata"]
-            dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
-
-            FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-            yfitdnu = corjoin[0, joinkeys[0, :] == 0]
-            xfitdnu = np.arange(0, len(yfitdnu))
-            wfitdnu = np.exp(
-                -1.0
-                * np.power(yfitdnu - fitfreqs["numax"], 2)
-                / (2 * np.power(0.25 * fitfreqs["numax"] / FWHM_sigma, 2.0))
-            )
-            fitcoef = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu))
-            dnusurf = fitcoef[0]
-            chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+            return chi2rut, warnings, shapewarn, 0
 
         # Add frequency ratios terms
         ratiotype = obsfreqmeta["ratios"]["fit"][0]
@@ -238,7 +232,7 @@ def chi2_astero(
                 ):
                     chi2rut = np.inf
                     shapewarn = 2
-                    return chi2rut, warnings, shapewarn
+                    return chi2rut, warnings, shapewarn, 0
                 intfunc = interp1d(
                     broadratio[1, modmask], broadratio[0, modmask], kind="linear"
                 )
@@ -261,39 +255,80 @@ def chi2_astero(
 
     # Add contribution from glitches
     if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
-        # Read model glitch parameters
-        tau0 = libitem["tau0"][ind]
-        tauhe = libitem["tauhe"][ind]
-        taubcz = libitem["taubcz"][ind]
+        # Obtain glitch sequence to be fitted
+        glitchtype = obsfreqmeta["glitch"]["fit"][0]
+        # Compute surface corrected dnu, if not already computed
+        if not fitfreqs["dnufit_in_ratios"]:
+            dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
 
-        if nmodes > 200:
-            raise NotImplementedError("> 200 modes to fit!")
-        freq = np.zeros((200, 4), dtype=float)
+        # Assign acoustic depts for glitch search
+        ac_depths = {
+            "tauHe": libitem["tauhe"][ind],
+            "dtauHe": 100.0,
+            "tauCZ": libitem["taubcz"][ind],
+            "dtauCZ": 200.0,
+        }
 
-        # l and n
-        maxl = 3
-        freq[0:nmodes, 0] = joinkeys[0, joinkeys[0, :] < maxl]
-        freq[0:nmodes, 1] = joinkeys[1, joinkeys[0, :] < maxl]
+        # If interpolating in ratios (default), we need to do an extra step
+        if fitfreqs["interp_ratios"] and "r" in glitchtype:
+            # Get all ratios of model
+            broadglitches = glitch_fit.compute_glitchseqs(
+                joinkeys,
+                join,
+                glitchtype,
+                dnusurf,
+                fitfreqs,
+                ac_depths,
+                debug,
+            )
+            # Construct output array
+            modglitches = copy.deepcopy(obsfreqdata[glitchtype]["data"])
+            modglitches[0, -3:] = broadglitches[0, -3:]
 
-        # Model frequency and observational uncertainty used for weighing
-        freq[0:nmodes, 2] = join[0, joinkeys[0, :] < maxl]
-        freq[0:nmodes, 3] = join[3, joinkeys[0, :] < maxl]
-        nu1 = np.amin(join[2, joinkeys[0, :] < maxl])
-        nu2 = np.amax(join[2, joinkeys[0, :] < maxl])
+            # Separate and interpolate within the separate r01, r10 and r02 sequences
+            # rtype = {7, 8, 9} is glitch parameters, can't interpolate those
+            for rtype in set(modglitches[2, :]) - {7.0, 8.0, 9.0}:
+                joinmask = modglitches[2, :] == rtype
+                broadmask = broadglitches[2, :] == rtype
+                # Check we are in range
+                if (
+                    modglitches[1, joinmask][0] < broadglitches[1, broadmask][0]
+                    or modglitches[1, joinmask][-1] > broadglitches[1, broadmask][-1]
+                ):
+                    chi2rut = np.inf
+                    shapewarn = 2
+                    return chi2rut, warnings, shapewarn, addpars
+                intfunc = interp1d(
+                    broadglitches[1, broadmask],
+                    broadglitches[0, broadmask],
+                    kind="linear",
+                )
+                modglitches[0, joinmask] = intfunc(modglitches[1, joinmask])
 
-        glhParams, nerr = glitch.glh_params(freq, nmodes, nu1, nu2, tau0, tauhe, taubcz)
-        if nerr == 0:
-            x = obsfreqdata["glitches"]["data"] - glhParams
-            covinv = obsfreqdata["glitches"]["covinv"]
-            w = _weight(len(x), fitfreqs["seismicweights"])
-            if x.shape[0] == covinv.shape[0]:
-                chi2rut += (x.T.dot(covinv).dot(x)) / w
-            else:
-                shapewarn = 1
-                chi2rut = np.inf
         else:
+            # Get model glitch sequence
+            modglitches = glitch_fit.compute_glitchseqs(
+                joinkeys,
+                join,
+                glitchtype,
+                dnusurf,
+                fitfreqs,
+                ac_depths,
+                debug,
+            )
+
+        # Calculate chi square difference
+        x = obsfreqdata[glitchtype]["data"][0, :] - modglitches[0, :]
+        w = _weight(len(x), fitfreqs["seismicweights"])
+        covinv = obsfreqdata[glitchtype]["covinv"]
+        if x.shape[0] == covinv.shape[0] and not any(np.isnan(x)):
+            chi2rut += (x.T.dot(covinv).dot(x)) / w
+        else:
+            shapewarn = 1
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn
+
+        # Store the determined glitch parameters for outputting
+        addpars["glitchparams"] = modglitches[0, -3:]
 
     if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
@@ -349,7 +384,11 @@ def chi2_astero(
         elif ~np.isfinite(chi2rut) or chi2rut < 0:
             chi2rut = np.inf
 
-    return chi2rut, warnings, shapewarn
+    # Store dnusurf for output
+    if fitfreqs["dnufit_in_ratios"]:
+        addpars["dnusurf"] = dnusurf
+
+    return chi2rut, warnings, shapewarn, addpars
 
 
 def most_likely(selectedmodels):

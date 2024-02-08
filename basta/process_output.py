@@ -16,13 +16,14 @@ from basta.utils_distances import distance_from_mag
 from basta.distances import get_absorption, LOS_reddening
 from basta import utils_general as util
 from basta import stats, plot_corner, plot_kiel
+from basta.downloader import get_basta_dir
 
 # Change matplotlib backend before loading pyplot
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # Set the style of all plots
-plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "basta/plots.mplstyle"))
 
 # Define a color dictionary for easier change of color
 colors = {"l0": "#D55E00", "l1": "#009E73", "l2": "#0072B2"}
@@ -498,6 +499,7 @@ def compute_posterior(
                         Teffout=Teffout,
                         loggout=loggout,
                         gridtype=gridtype,
+                        nameinplot=starid if inputparams["nameinplot"] else False,
                         debug=debug,
                         experimental=experimental,
                         validationmode=validationmode,
@@ -518,7 +520,8 @@ def compute_posterior(
                 truth_color=parameters.get_keys(cornerplots)[3],
                 plotin=plotin,
                 plotout=plotout,
-                **ckwargs
+                nameinplot=starid if inputparams["nameinplot"] else False,
+                **ckwargs,
             )
             cornerfile = outfilename + "_corner." + plottype
             plt.savefig(cornerfile)
@@ -534,7 +537,8 @@ def compute_posterior(
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
-                    **ckwargs
+                    nameinplot=starid if inputparams["nameinplot"] else False,
+                    **ckwargs,
                 )
                 cornerfile = outfilename + "_DEBUG_likelihood_corner." + plottype
                 plt.savefig(cornerfile)
@@ -549,7 +553,8 @@ def compute_posterior(
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
-                    **ckwargs
+                    nameinplot=starid if inputparams["nameinplot"] else False,
+                    **ckwargs,
                 )
                 cornerfile = outfilename + "_DEBUG_prior_corner." + plottype
                 plt.savefig(cornerfile)
@@ -591,6 +596,7 @@ def compute_posterior(
                 Teffout=Teffout,
                 loggout=loggout,
                 gridtype=gridtype,
+                nameinplot=starid if inputparams["nameinplot"] else False,
                 debug=debug,
                 experimental=experimental,
                 validationmode=validationmode,

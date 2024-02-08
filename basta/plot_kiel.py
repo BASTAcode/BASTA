@@ -11,12 +11,13 @@ from basta import fileio as fio
 from basta import utils_seismic as su
 from basta import utils_general as gu
 from basta.constants import parameters
+from basta.downloader import get_basta_dir
 
 # Set the style of all plots
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-plt.style.use(os.path.join(os.environ["BASTADIR"], "basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "basta/plots.mplstyle"))
 
 
 def plot_param(Grid, ax, track, all_segments, label, color):
@@ -101,6 +102,7 @@ def kiel(
     Teffout,
     loggout,
     gridtype,
+    nameinplot=False,
     debug=False,
     experimental=False,
     validationmode=False,
@@ -143,6 +145,8 @@ def kiel(
     gridtype : str
         Type of the grid (as read from the grid in bastamain) containing either 'tracks'
         or 'isochrones'.
+    nameinplot : str or bool
+        Star identifier if it is to be included in the figure
     debug : bool, optional
         Debug flag.
     experimental : bool, optional
@@ -507,6 +511,7 @@ def kiel(
             ncol=ncol,
             mode="expand",
             borderaxespad=0.0,
+            title=nameinplot if nameinplot else "",
         )
         _, axlabels, _, _ = parameters.get_keys(["Teff", "logg"])
         ax.set_xlabel(axlabels[0])

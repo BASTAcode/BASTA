@@ -4,24 +4,22 @@ Grids of models
 ===============
 
 BASTA uses grids of stellar tracks or isochrones stored in hierarchical data format ``hdf5``. The list of
-parameters included in our grids can be seen in :py:meth:`constants.parameters`, but one should keep in mind that
+parameters included in our grids can be seen in the :ref:`parameter list <controls_params>`, but one should keep in mind that
 not all parameters are included in all grids. As an example, isochrones do not contain individual frequencies of
 oscillations while stellar tracks do, and fits to e.g., frequency ratios can only be performed with grids of stellar
-tracks. If in doubt about a particular entry in :py:meth:`constants.parameters` you are encouraged to contact one of
+tracks. If in doubt about a particular entry in the :ref:`parameter list <controls_params>` you are encouraged to contact one of
 the core developers of BASTA.
 
 A small grid is downloaded automatically with the installation of BASTA and is stored in
-``${BASTADIR}/grids/Garstec_16CygA.hdf5``. As the name suggest, this grid is built with the GARching STellar Evolution
+``BASTA/grids/Garstec_16CygA.hdf5``. As the name suggest, this grid is built with the GARching STellar Evolution
 Code around the observed parameters of the *Kepler* target 16 Cyg A. Many of the :ref:`examples` are built using
 this grid, while others are constructed from larger grids that can be downloaded.
 
 For this purpose, BASTA includes a grid download tool that can be easily accessed from the command line. After
-installing the code, type in the following commands:
+installing the code, go to the BASTA folder and run the following:
 
     .. code-block:: bash
 
-        cd ${BASTADIR}
-        source venv/bin/activate
         BASTAdownload -h
 
 and follow the instructions to download the grids. Currently the following grids are available for download:

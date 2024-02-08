@@ -2,11 +2,13 @@
 Interpolation for BASTA: Helper routines
 """
 import os
+import warnings
 
 import numpy as np
 import bottleneck as bn
 from tqdm import tqdm
 from scipy import interpolate
+from scipy.stats import qmc
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 
@@ -102,6 +104,39 @@ def interpolation_wrapper(x, y, xnew, method="linear", along=False):
     else:
         raise ValueError("Unavaliable interpolation method requested!")
     return interp(xnew).flatten()
+
+
+def sobol_wrapper(ndim: int, nsamples: int, seed: int, debug=False):
+    """
+    Wrapper for the common Sobol-sampling routine, to disable UserWarning. This
+    usually highlights that the sequence has to be sampled as 2^n points, to be
+    perfectly balanced, which we can not enforce in this framework.
+
+    Parameters
+    ----------
+    ndim : int
+        Number of dimensions/sampling parameters.
+    nsamples : int
+        Number of points to be sampled.
+    seed : int
+        Seed to be used for the random sampler.
+
+    Returns
+    -------
+    numbers : numpy array
+        Array of (ndim, nsamples) sampled points.
+    """
+
+    with warnings.catch_warnings():
+        if not debug:
+            # Suppress warning, catch by substring (regex?)
+            warnings.filterwarnings("ignore", message="^.*balance properties.*$")
+        # Initialize sampler
+        sampler = qmc.Sobol(ndim, scramble=False, seed=seed)
+        # Sample points
+        numbers = sampler.random(nsamples)
+
+    return numbers
 
 
 def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
@@ -706,7 +741,7 @@ def recalculate_param_weights(outfile, basepath):
                 outfile[weight_path] = weights[i]
 
 
-def recalculate_weights(outfile, basepath, sobnums, extend=False):
+def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False):
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
@@ -770,7 +805,6 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False):
 
     # Import necessary packages only used here
     import bottleneck as bn
-    from basta import sobol_numbers
 
     # Use IntStatus mask, read key numbers
     sobnums = sobnums[mask, :]
@@ -778,12 +812,9 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False):
     ndim = sobnums.shape[1]
 
     # Generate oversampled grid
-    iseed = 2
     osfactor = 100
     osntracks = osfactor * ntracks
-    osbase = np.zeros((osntracks, ndim))
-    for i in range(osntracks):
-        iseed, osbase[i, :] = sobol_numbers.i8_sobol(ndim, iseed)
+    osbase = sobol_wrapper(ndim, osntracks, 2, debug=debug)
 
     # For every track in the grid, gather all the points from the
     # oversampled grid which are closest to the track at hand

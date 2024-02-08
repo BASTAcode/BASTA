@@ -24,12 +24,14 @@ def generate_xml(
     centroid=None,
     uncert=None,
     plotfmt=None,
+    nameinplot=False,
     odea=None,
     intpolparams=None,
     bayweights=True,
     priors=None,
     overwriteparams=None,
     freqparams=None,
+    glitchparams=None,
     filters=None,
     dustframe=None,
     cornerplots=False,
@@ -85,6 +87,9 @@ def generate_xml(
         Format of outputted plots, simply given directly to pyplot.savefig.
         Default is 'png' for quick figures. For detailed plots, 'pdf' is
         recommended.
+    nameinplot : bool
+        Toggle to include star identifier in plots, not simply in filename
+        of plot.
     odea : tuple or None
         Specifies the input physics used to compute the grid.
         `o` : overshoot efficiency, 0.0 = no overshoot.
@@ -114,6 +119,9 @@ def generate_xml(
     freqparams : dict
         A dictionary containing the input for fitting individual frequencies
         or ratios.
+    grparams : dict
+        A dictionary containing control options for fitting glitches along
+        with ratios.
     filters : tuple of strings
         If calculating distances to stars, specify photometric filters
     dustframe : str
@@ -195,6 +203,10 @@ def generate_xml(
     if plotfmt is not None:
         SubElement(default, "plotfmt", {"value": str(plotfmt)})
 
+    # Add nameinplot to <default> if set by user
+    if nameinplot:
+        SubElement(default, "nameinplot", {"value": "True"})
+
     # Add ove, eta, diffusion and alphaFe to <basti> if isochrone
     if odea:
         # Add <basti> to <default>
@@ -241,12 +253,8 @@ def generate_xml(
                         intpollim[name] = list(rules[hits])
 
     # Add subelement <bayesianweights> to <default>
-    baywelement = SubElement(default, "bayesianweights")
     if isinstance(bayweights, (bool, str)):
-        SubElement(baywelement, str(bayweights))
-    else:
-        for param in tuple(bayweights):
-            SubElement(baywelement, param)
+        SubElement(default, "bayesianweights", {"value": str(bayweights)})
 
     # Add subelement <fitparams to <default>
     fitelement = SubElement(default, "fitparams")
@@ -292,10 +300,16 @@ def generate_xml(
     if freqparams and any(x in fitparams for x in freqtypes.alltypes):
         freqelement = SubElement(default, "freqparams")
         for param in freqparams:
-            # Nottrusted is handled in `create_xmltag`
-            if param == "nottrustedfile":
+            # The following are handled in create_xmltag
+            if param in ["excludemodes", "nottrustedfile", "onlyradial"]:
                 continue
             SubElement(freqelement, param, {"value": str(freqparams[param])})
+
+    # Add subelement grparams to <default> if specified
+    if glitchparams and any(x in fitparams for x in freqtypes.glitches):
+        glitchelement = SubElement(default, "glitchparams")
+        for param in glitchparams:
+            SubElement(glitchelement, param, {"value": str(glitchparams[param])})
 
     # We need to check these before handling distance input
     if isinstance(cornerplots, (str, bool)) and len(cornerplots):

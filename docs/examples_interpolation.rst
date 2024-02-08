@@ -16,16 +16,16 @@ Example: main-sequence star and tracks
 --------------------------------------
 
 In this first example we will use the grid provided with the code for the target 16 Cyg A in
-``${BASTADIR}/grids/Garstec_16CygA.hdf5``.
+``BASTA/grids/Garstec_16CygA.hdf5``.
 
 **Checking/previewing the interpolation**
 
-Before running the interpolation, we always recommend to check what the original coverage of the grid is, and what would be the resulting coverage given certain values for the interpolation. We have included a script in ``${BASTADIR}/examples/preview_interpolation.py`` that serves this purpose, and requires the following input:
+Before running the interpolation, we always recommend to check what the original coverage of the grid is, and what would be the resulting coverage given certain values for the interpolation. We have included a script in ``BASTA/examples/preview_interpolation.py`` that serves this purpose, and requires the following input:
 
 .. code-block:: python
 
     define_input["gridfile"] = os.path.join(
-        os.environ["BASTADIR"], "grids", "Garstec_16CygA.hdf5"
+        BASTADIR, "grids", "Garstec_16CygA.hdf5"
     )
 
     define_input["construction"] = "bystar"
@@ -146,7 +146,7 @@ interpolation.
 
 `Please note that performing the interpolation can take a while! With the settings specified above, it takes around 20 minutes on our testing machine`
 
-After the interpolation and fit are performed the results are stored in ``${BASTADIR}/examples/output/interp_MS/``,
+After the interpolation and fit are performed the results are stored in ``BASTA/examples/output/interp_MS/``,
 including the new interpolated grid. The following figures compare the Kiel diagrams of the grids with and without
 interpolation, as well as the corner plots.
 

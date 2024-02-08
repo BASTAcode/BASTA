@@ -11,9 +11,12 @@ import numpy as np
 from scipy.interpolate import CubicSpline
 
 from basta import freq_fit
+from basta import glitch_fit
 from basta import fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
+
+from sklearn import covariance as skcov
 
 
 def solar_scaling(Grid, inputparams, diffusion=None):
@@ -530,6 +533,8 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         seqs_function = freq_fit.compute_ratioseqs
     elif fittype in freqtypes.epsdiff:
         seqs_function = freq_fit.compute_epsilondiffseqs
+    elif fittype in freqtypes.glitches:
+        seqs_function = glitch_fit.compute_glitchseqs
     else:
         raise NotImplementedError(
             "Science case for covariance matrix is not implemented"
@@ -550,17 +555,39 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         )
         nvalues[i, :] = tmp[0]
 
+    nfailed = np.sum(np.isnan(nvalues[:, -1]))
+    if nfailed / nrealisations > 0.3:
+        print(f"Warning: {nfailed} of {nrealisations} failed")
+
+    # Filter out bad failed iterations
+    nvalues = nvalues[~np.isnan(nvalues).any(axis=1), :]
+
     # Derive covariance matrix from MC-realisations and test convergence
-    n = int(round(nrealisations / 2))
-    cov = np.cov(nvalues[:n, :], rowvar=False)
-    n_cov = np.cov(nvalues, rowvar=False)
-    fnorm = np.linalg.norm(n_cov - cov) / (nr**2)
+    n = int(round((nrealisations - nfailed) / 2))
+    tmpcov = skcov.MinCovDet().fit(nvalues[:n, :]).covariance_
+    fullcov = skcov.MinCovDet().fit(nvalues).covariance_
 
-    if fnorm > 1.0e-6:
-        print(f"Frobenius norm {fnorm} > 1e-6")
-        print("Warning: Covariance failed to converge")
+    # Test the convergence (change in standard deviations below a relative tolerance)
+    rdif = np.amax(
+        np.abs(
+            np.divide(
+                np.sqrt(np.diag(tmpcov)) - np.sqrt(np.diag(fullcov)),
+                np.sqrt(np.diag(fullcov)),
+            )
+        )
+    )
 
-    return n_cov
+    if rdif > 0.1:
+        print("Warning: Covariance failed to converge!")
+        print("Maximum relative difference = {:.2e} (>0.1)".format(rdif))
+
+    # Glitch parameters are more robnustly determined as median of realizations
+    if fittype in freqtypes.glitches:
+        # Simply overwrite values in tmp with median values
+        tmp[0, :] = np.median(nvalues, axis=0)
+        return tmp, fullcov
+    else:
+        return fullcov
 
 
 def extend_modjoin(joinkey, join, modkey, mod):
