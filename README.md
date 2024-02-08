@@ -7,7 +7,7 @@
 [![ADS](https://img.shields.io/badge/ads-2022MNRAS.509.4344A-blue.svg)](https://ui.adsabs.harvard.edu/abs/2022MNRAS.509.4344A/abstract)
 [![DOI](https://img.shields.io/badge/doi-10.1093/mnras/stab2911-orange.svg)](https://doi.org/10.1093/mnras/stab2911)
 
-Current stable version: v1.3.1
+Current stable version: v1.4.0
 
 **Important note:** BASTA is currently developed for Python 3.12, but Python >= 3.9 should in principle suffice. *Please be aware that Python 3.12 will not* work if you need to fit glitches (please see the installation instructions) due to to known build issues in NumPy/f2py (as the glitch fitting relies on Fortran-routines) and we recommend 3.11 in that case.
 
@@ -29,6 +29,7 @@ If you are curious on what BASTA can do, we have created several [fitting
 examples](https://basta.readthedocs.io/en/latest/examples.html) and the exact
 code to run them available.
 
+If you have any questions, or encounter any issues, feel free to write to us through the [discussions page](https://github.com/orgs/BASTAcode/discussions).
 
 ## References and acknowledgments
 

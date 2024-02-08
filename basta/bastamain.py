@@ -100,7 +100,7 @@ def BASTA(
     print()
     util.prt_center("Version {0}".format(__version__), linelen)
     print()
-    util.prt_center("(c) 2022, The BASTA Team", linelen)
+    util.prt_center("(c) 2024, The BASTA Team", linelen)
     util.prt_center("https://github.com/BASTAcode/BASTA", linelen)
     print(linelen * "=")
     print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
