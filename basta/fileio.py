@@ -1385,11 +1385,15 @@ def _read_freq_ascii(
             for col in data.dtype.names
             if col in rdict["frequency"]["recognisednames"]
         ]
+        lcol = [
+            col for col in data.dtype.names if col in rdict["degree"]["recognisednames"]
+        ]
         assert len(freqcol) == 1, freqcol
-        assert (
-            len(data[freqcol[0]]) > 1
-        ), "More than 1 l=0 mode is required for estimation of dnu"
-        dnu = data[freqcol[0]][1] - data[freqcol[0]][0]
+        assert len(lcol) == 1, lcol
+        mask = data[lcol[0]] == 0
+        l0s = data[freqcol[0]][mask]
+        assert len(l0s) > 1, "More than 1 l=0 mode is required for estimation of dnu"
+        dnu = np.median(np.diff(l0s))
         ns = np.asarray(data[freqcol[0]]) // dnu - 1
         from numpy.lib.recfunctions import append_fields
 
