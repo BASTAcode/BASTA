@@ -952,6 +952,11 @@ def read_allseismic(
 def freqs_ascii_to_xml(
     directory,
     starid,
+    freqsfile: str | None = None,
+    covfile: str | None = None,
+    ratiosfile: str | None = None,
+    cov010file: str | None = None,
+    cov02file: str | None = None,
     symmetric_errors=True,
     check_radial_orders=False,
     quiet=False,
@@ -984,11 +989,16 @@ def freqs_ascii_to_xml(
     """
 
     # (Potential) filepaths
-    freqsfile = os.path.join(directory, starid + ".fre")
-    covfile = os.path.join(directory, starid + ".cov")
-    ratiosfile = os.path.join(directory, starid + ".ratios")
-    cov010file = os.path.join(directory, starid + ".cov010")
-    cov02file = os.path.join(directory, starid + ".cov02")
+    if freqsfile is None:
+        freqsfile = os.path.join(directory, starid + ".fre")
+    if covfile is None:
+        covfile = os.path.join(directory, starid + ".cov")
+    if ratiosfile is None:
+        ratiosfile = os.path.join(directory, starid + ".ratios")
+    if cov010file is None:
+        cov010file = os.path.join(directory, starid + ".cov010")
+    if cov02file is None:
+        cov02file = os.path.join(directory, starid + ".cov02")
 
     # Flags for existence of ratios and covariances
     cov_flag, ratios_flag, cov010_flag, cov02_flag = 1, 1, 1, 1
