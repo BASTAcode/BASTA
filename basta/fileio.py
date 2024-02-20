@@ -1308,7 +1308,9 @@ def _read_freq_ascii(
             raise ValueError(f"BASTA cannot recognize {colname}")
 
     sym = np.any([col[0] == "error" for col in cols])
-    asym = all(item in col[0] for col in l for item in ["error_plus", "error_minus"])
+    asym = all(
+        [item in col[0] for col in cols for item in ["error_plus", "error_minus"]]
+    )
     if not sym ^ asym:
         if sym | asym:
             raise ValueError(
