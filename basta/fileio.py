@@ -1247,8 +1247,8 @@ def freqs_ascii_to_xml(
 
 
 def _read_freq_ascii(
-    filename,
-    symmetric_errors=True,
+    filename: str,
+    symmetric_errors: bool = True,
 ):
     """
     Read individual frequencies from an ascii file
@@ -1270,46 +1270,94 @@ def _read_freq_ascii(
     """
     cols = []
     data = np.genfromtxt(filename, dtype=None, encoding=None, names=True)
+
+    rdict = {
+        "frequency": {
+            "dtype": "float",
+            "recognisednames": [
+                "f",
+                "freq",
+                "freqs",
+                "frequency",
+                "modefrequency",
+            ],
+        },
+        "order": {
+            "dtype": "int",
+            "recognisednames": [
+                "n",
+                "ns",
+                "order",
+                "radialorder",
+            ],
+        },
+        "degree": {
+            "dtype": "int",
+            "recognisednames": [
+                "l",
+                "ls",
+                "ell",
+                "ells",
+                "degree",
+                "angulardegree",
+            ],
+        },
+        "error": {
+            "dtype": "float",
+            "recognisednames": [
+                "error",
+                "err",
+                "e",
+                "uncertainty",
+                "uncert",
+            ],
+        },
+        "error_plus": {
+            "dtype": "float",
+            "recognisednames": [
+                "error_plus",
+                "err_plus",
+                "error_upper",
+                "upper_error",
+            ],
+        },
+        "error_minus": {
+            "dtype": "float",
+            "recognisednames": [
+                "error_minus",
+                "err_minus",
+                "error_lower",
+                "lower_error",
+            ],
+        },
+        "flag": {
+            "dtype": "int",
+            "recognisednames": [
+                "flag",
+            ],
+        },
+        "frequency_mode": {
+            "dtype": "float",
+            "recognisednames": [
+                "frequency_mode",
+            ],
+        },
+    }
+
     for colname in data.dtype.names:
-        if colname.lower() in ["f", "freq", "frequency"]:
-            cols.append(
-                ("frequency", "float"),
-            )
-        elif colname.lower() in ["n", "order"]:
-            cols.append(
-                ("order", "int"),
-            )
-        elif colname.lower() in ["l", "ell", "degree"]:
-            cols.append(
-                ("degree", "int"),
-            )
-        elif colname.lower() in ["error_plus", "err_plus", "error_upper"]:
-            cols.append(
-                ("error_plus", "float"),
-            )
-        elif colname.lower() in ["error_minus", "err_minus", "error_lower"]:
-            cols.append(
-                ("error_minus", "float"),
-            )
-        elif colname.lower() in [
-            "error",
-            "err",
-        ]:
-            cols.append(("error", "float"))
-        elif colname.lower() in [
-            "flag",
-        ]:
-            cols.append(("flag", "int"))
-        elif colname.lower() in [
-            "frequency_mode",
-        ]:
-            cols.append(("frequency_mode", "float"))
-        else:
+        param = [p for p in rdict if colname.lower() in rdict[p]["recognisednames"]]
+        if not param:
             raise ValueError(f"BASTA cannot recognize {colname}")
+        assert len(param) == 1, (colname, param)
+        cols.append((param[0], rdict[param[0]]["dtype"]))
 
     sym = np.any([col[0] == "error" for col in cols])
     asym = all(
-        [item in col[0] for col in cols for item in ["error_plus", "error_minus"]]
+        [
+            item in col[0]
+            for col in cols
+            for item in rdict["error_plus"]["recognisednames"]
+        ]
     )
     if not sym ^ asym:
         if sym | asym:
@@ -1330,9 +1378,17 @@ def _read_freq_ascii(
     )
 
     if not np.any(["order" in col[0] for col in cols]):
-        print("BASTA did not find n orders, they are generated")
-        freqcol = [col for col in data.dtype.names if col in ["f", "freq", "frequency"]]
-        assert len(freqcol) == 1, print(freqcol)
+        print("BASTA did not find column with radial orders, they will be generated")
+
+        freqcol = [
+            col
+            for col in data.dtype.names
+            if col in rdict["frequency"]["recognisednames"]
+        ]
+        assert len(freqcol) == 1, freqcol
+        assert (
+            len(data[freqcol[0]]) > 1
+        ), "More than 1 l=0 mode is required for estimation of dnu"
         dnu = data[freqcol[0]][1] - data[freqcol[0]][0]
         ns = np.asarray(data[freqcol[0]]) // dnu - 1
         from numpy.lib.recfunctions import append_fields
@@ -1342,7 +1398,7 @@ def _read_freq_ascii(
     return freqs
 
 
-def _read_freq_cov_ascii(filename):
+def _read_freq_cov_ascii(filename: str):
     """
     Read covariance and correlations for individual frequencies from an
     ascii file
