@@ -136,7 +136,7 @@ def chi2_astero(
     )
     if joins is None:
         chi2rut = np.inf
-        return chi2rut, warnings, shapewarn, 0
+        return chi2rut, warnings, shapewarn, addpars
     else:
         joinkeys, join = joins
         nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
@@ -160,8 +160,9 @@ def chi2_astero(
             joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
         )
     else:
-        print(f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}')
-        return
+        raise ValueError(
+            f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}'
+        )
 
     # Initialize chi2 value
     chi2rut = 0.0
@@ -205,7 +206,7 @@ def chi2_astero(
     if any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn, 0
+            return chi2rut, warnings, shapewarn, addpars
 
         # Add frequency ratios terms
         ratiotype = obsfreqmeta["ratios"]["fit"][0]
@@ -232,7 +233,7 @@ def chi2_astero(
                 ):
                     chi2rut = np.inf
                     shapewarn = 2
-                    return chi2rut, warnings, shapewarn, 0
+                    return chi2rut, warnings, shapewarn, addpars
                 intfunc = interp1d(
                     broadratio[1, modmask], broadratio[0, modmask], kind="linear"
                 )
