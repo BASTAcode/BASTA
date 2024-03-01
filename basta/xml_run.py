@@ -770,6 +770,7 @@ def run_xml(
                     fitfreqs["glitchfile"] = os.path.join(
                         fitfreqs["freqpath"], starid + ".hdf5"
                     )
+                    fitfreqs = _read_glitch_controls(fitfreqs)
                 else:
                     fitfreqs["glhfile"] = None
                 for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
