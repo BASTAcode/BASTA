@@ -607,7 +607,7 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
     getglitch = False
     getepsdiff = False
 
-    obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
+    obscovinv = np.linalg.pinv(obscov, rcond=1e-12)
     obsls = np.unique(obskey[0, :])
 
     # Large frequency separation from individual frequencies
@@ -938,7 +938,7 @@ def read_allseismic(
             )
         if "covinv" not in obsfreqdata[key].keys():
             obsfreqdata[key]["covinv"] = np.linalg.pinv(
-                obsfreqdata[key]["cov"], rcond=1e-8
+                obsfreqdata[key]["cov"], rcond=1e-12
             )
 
     return obskey, obs, obsfreqdata, obsfreqmeta
