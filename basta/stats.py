@@ -226,16 +226,12 @@ def chi2_astero(
             for rtype in set(modratio[2, :]):
                 obsmask = modratio[2, :] == rtype
                 modmask = broadratio[2, :] == rtype
-                # Check we have the range to interpolate
-                if (
-                    modratio[1, obsmask][0] < broadratio[1, modmask][0]
-                    or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
-                ):
-                    chi2rut = np.inf
-                    shapewarn = 2
-                    return chi2rut, warnings, shapewarn, addpars
                 intfunc = interp1d(
-                    broadratio[1, modmask], broadratio[0, modmask], kind="linear"
+                    broadratio[1, modmask],
+                    broadratio[0, modmask],
+                    kind="linear",
+                    bounds_error=False,
+                    fill_value="extrapolate",
                 )
                 modratio[0, obsmask] = intfunc(modratio[1, obsmask])
 
@@ -291,18 +287,12 @@ def chi2_astero(
             for rtype in set(modglitches[2, :]) - {7.0, 8.0, 9.0}:
                 joinmask = modglitches[2, :] == rtype
                 broadmask = broadglitches[2, :] == rtype
-                # Check we are in range
-                if (
-                    modglitches[1, joinmask][0] < broadglitches[1, broadmask][0]
-                    or modglitches[1, joinmask][-1] > broadglitches[1, broadmask][-1]
-                ):
-                    chi2rut = np.inf
-                    shapewarn = 2
-                    return chi2rut, warnings, shapewarn, addpars
                 intfunc = interp1d(
                     broadglitches[1, broadmask],
                     broadglitches[0, broadmask],
                     kind="linear",
+                    bounds_error=False,
+                    fill_value="extrapolate",
                 )
                 modglitches[0, joinmask] = intfunc(modglitches[1, joinmask])
 
