@@ -959,6 +959,7 @@ def compute_epsilondiff(
     osckey,
     osc,
     avgdnu,
+    numax,
     sequence="e012",
     nsorting=True,
     extrapolation=False,
@@ -1037,14 +1038,14 @@ def compute_epsilondiff(
         osckey = osckey[:, indall]
 
     epsdiff = compute_epsilondiffseqs(
-        osckey, osc, avgdnu, sequence=sequence, nsorting=nsorting
+        osckey, osc, avgdnu, numax, sequence=sequence, nsorting=nsorting
     )
     epsdiff_cov = su.compute_cov_from_mc(
         epsdiff.shape[1],
         osckey,
         osc,
         fittype=sequence,
-        args={"avgdnu": avgdnu, "nsorting": nsorting},
+        args={"avgdnu": avgdnu, "numax": numax, "nsorting": nsorting},
         nrealisations=nrealisations,
     )
 
@@ -1055,6 +1056,7 @@ def compute_epsilondiffseqs(
     osckey,
     osc,
     avgdnu,
+    numax,
     sequence,
     nsorting=True,
 ):
@@ -1099,14 +1101,18 @@ def compute_epsilondiffseqs(
     """
 
     # Select the sequence(s) to use
-    if sequence == "e012":
+    if sequence.startswith("e012"):
         l_used = [1, 2]
-    elif sequence == "e02":
+    elif sequence.startswith("e02"):
         l_used = [2]
-    elif sequence == "e01":
+    elif sequence.startswith("e01"):
         l_used = [1]
     else:
         raise KeyError("Undefined epsilon difference sequence requested!")
+
+    # If sampling dnu for dnusurf fitting, recompute avgdnu
+    if "dnu" in sequence:
+        avgdnu, _ = compute_dnu_wfit(osckey, osc, numax)
 
     # Epsilon is computed analytically from the frequency information
     epsilon = np.zeros(osc.shape[1])
@@ -1147,4 +1153,9 @@ def compute_epsilondiffseqs(
     if nsorting:
         mask = np.argsort(deps[3, :] + deps[2, :] * 0.1)
         deps = deps[:, mask]
+
+    # If fitting dnusurf, add avgdnu to end of sequence
+    if "dnu" in sequence:
+        deps = np.hstack((deps, [[avgdnu], [0], [-1], [-1]]))
+
     return deps

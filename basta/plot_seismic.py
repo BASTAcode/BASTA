@@ -835,8 +835,7 @@ def epsilon_difference_diagram(
     obsepsdiff = obsfreqdata[sequence]["data"]
     obsepsdiff_cov = obsfreqdata[sequence]["cov"]
     obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
-
-    l_available = [int(ll) for ll in set(obsepsdiff[2])]
+    l_available = [int(ll) for ll in set(obsepsdiff[2][obsepsdiff[2] > 0])]
     lindex = np.zeros(mod.shape[1], dtype=bool)
 
     for ll in [0, *l_available]:
@@ -848,7 +847,8 @@ def epsilon_difference_diagram(
         modkey,
         mod,
         moddnu,
-        sequence,
+        0,
+        sequence.strip("dnu"),
     )
 
     # Mixed modes results in negative differences. Flag using nans, not displayed
@@ -1005,6 +1005,10 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
     labs = []
     for l, n in ln_zip:
         labs.append(fmtstr.format(int(l), int(n)))
+
+    # Label is different for dnusurf in epsdiff
+    if fittype in freqtypes.epsdiff and "dnu" in fittype:
+        labs[-1] = r"$\Delta\nu_{\rm cor}$"
 
     # Append special glitches labels
     if fittype in freqtypes.glitches:

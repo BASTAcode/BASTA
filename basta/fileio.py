@@ -649,8 +649,13 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
         getratios = True
         getepsdiff = True
 
-        plotratiotypes = list(set(freqtypes.defaultrtypes) | set(fitratiotypes))
-        plotepsdifftypes = list(set(freqtypes.defaultepstypes) | set(fitepsdifftypes))
+        # If no types fitted/specified, use default
+        plotratiotypes = (
+            fitratiotypes if len(fitratiotypes) else freqtypes.defaultrtypes
+        )
+        plotepsdifftypes = (
+            fitepsdifftypes if len(fitepsdifftypes) else freqtypes.defaultepstypes
+        )
 
         # Only turn on glitches if they are fitted (expensive)
         if getglitch:
@@ -910,6 +915,7 @@ def read_allseismic(
                     obskey,
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
+                    fitfreqs["numax"],
                     sequence=epsdifffit,
                     nsorting=fitfreqs["nsorting"],
                     debug=debug,
@@ -921,6 +927,7 @@ def read_allseismic(
                     obskey,
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
+                    fitfreqs["numax"],
                     sequence=epsdifffit,
                     nsorting=fitfreqs["nsorting"],
                     nrealisations=2000,

@@ -191,7 +191,7 @@ def chi2_astero(
     # --> Equivalent to 'dnufit', but using the frequencies *after*
     #     applying the surface correction.
     # --> Compared to the observed value, which is 'dnudata'.
-    if fitfreqs["dnufit_in_ratios"]:
+    if fitfreqs["dnufit_in_ratios"] or any("dnu" in x for x in fitfreqs["fittypes"]):
         # Read observed dnu
         dnudata = obsfreqdata["freqs"]["dnudata"]
         dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
@@ -334,7 +334,7 @@ def chi2_astero(
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
         # Purge model freqs of unused modes
-        l_available = [int(ll) for ll in obsepsdiff[2]]
+        l_available = [int(ll) for ll in set(obsepsdiff[2][obsepsdiff[2] > 0])]
         index = np.zeros(mod.shape[1], dtype=bool)
         for ll in [0, *l_available]:
             index |= modkey[0] == ll
@@ -347,14 +347,14 @@ def chi2_astero(
             modkey,
             mod,
             libitem["dnufit"][ind],
-            sequence=epsdifftype,
+            libitem["numax"][ind],
+            sequence=epsdifftype.strip("dnu"),
             nsorting=fitfreqs["nsorting"],
         )
 
         # Mixed modes results in negative differences. Flag using nans
         mask = np.where(modepsdiff[0, :] < 0)[0]
         modepsdiff[0, mask] = np.nan
-
         # Interpolate model epsdiff to the frequencies of the observations
         evalepsdiff = np.zeros(obsepsdiff.shape[1])
         evalepsdiff[:] = np.nan
@@ -369,6 +369,10 @@ def chi2_astero(
                     extrapolate=False,
                 )
                 evalepsdiff[indobs] = spline(obsepsdiff[1][indobs])
+
+        # Add dnusurf if fitting together with epsdiff
+        if "dnu" in epsdifftype:
+            evalepsdiff[-1] = dnusurf
 
         # Compute chi^2 of epsilon contribution
         chi2rut = 0.0
