@@ -251,6 +251,11 @@ def BASTA(
                 fitfreqs["dnufit"] + dnuerr,
             ]
 
+        # Determine the "anchor" observed l=0 mode
+        nmatchind = su.matching_n_index(
+            obskey, obs, fitfreqs["numax"], fitfreqs["anchor"]
+        )
+
     # Check if grid is interpolated
     try:
         Grid["header/interpolation_time"][()]
@@ -612,7 +617,7 @@ def BASTA(
                     modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
                     # As mod is ordered (stacked in increasing n and l),
                     # then [0, 0] is the lowest l=0 mode
-                    same_n = modkeyl0[1, :] == obskey[1, 0]
+                    same_n = modkeyl0[1, :] == obskey[1, nmatchind]
                     cl0 = modl0[0, same_n]
                     if len(cl0) > 1:
                         cl0 = cl0[0]
@@ -621,13 +626,13 @@ def BASTA(
                     if (
                         cl0
                         >= (
-                            obs[0, 0]
+                            obs[0, nmatchind]
                             - min(
                                 (fitfreqs["dnufrac"] / 2 * fitfreqs["dnufit"]),
-                                (3 * obs[1, 0]),
+                                (3 * obs[1, nmatchind]),
                             )
                         )
-                    ) and (cl0 - obs[0, 0]) <= (
+                    ) and (cl0 - obs[0, nmatchind]) <= (
                         fitfreqs["dnufrac"] * fitfreqs["dnufit"]
                     ):
                         indexf[ind] = True

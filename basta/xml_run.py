@@ -571,6 +571,9 @@ def run_xml(
         fitfreqs["dnubias"] = float(
             _find_get(root, "default/freqparams/dnubias", "value", 0)
         )
+        fitfreqs["anchor"] = _find_get(
+            root, "default/freqparams/anchor", "value", "lowest"
+        )
 
         # Read seismic weight quantities
         dof = _find_get(root, "default/freqparams/dof", "value", None)

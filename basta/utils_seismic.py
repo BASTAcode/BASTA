@@ -323,6 +323,28 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     )
 
 
+def matching_n_index(obskey, obs, numax, anchor="lowest"):
+    if anchor == "numax":
+        # Mode just below numax
+        l0s = obskey[0, :] == 0
+
+        # Index in l=0 list
+        indl0 = np.where(obs[0, l0s] - numax < 0, obs[0, l0s] - numax, -np.inf).argmax()
+
+        # Index in list of all
+        nmatchind = np.where(
+            np.logical_and(l0s, obskey[1, :] == obskey[1, l0s][indl0])
+        )[0][0]
+    elif anchor == "lowest":
+        # Lowest l=0
+        l0s = obskey[0, :] == 0
+        nmatchind = np.where(np.logical_and(l0s, obskey[1, :] == min(obskey[1, l0s])))[
+            0
+        ][0]
+
+    return nmatchind
+
+
 def get_givenl(l, osc, osckey):
     """
     Returns frequencies, radial orders, and inertias or uncertainties of a

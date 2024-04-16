@@ -1056,6 +1056,7 @@ def epsilon_difference_components_diagram(
     obs,
     obskey,
     dnudata,
+    numax,
     obsfreqdata,
     obsfreqmeta,
     output,
@@ -1078,6 +1079,8 @@ def epsilon_difference_components_diagram(
         Array of mode identification of observed frequency modes.
     dnudata : float
         Inputted average large frequency separation (dnu) of observations.
+    numax : float
+        Inputted frequency of maximum power
     obsfreqdata : dict
         Requested frequency-dependent data such as glitches, ratios, and
         epsilon difference. It also contains the covariance matrix and its
@@ -1115,6 +1118,7 @@ def epsilon_difference_components_diagram(
         modkey,
         mod,
         moddnu,
+        0,
         epsdifftype,
     )
 
@@ -1123,6 +1127,7 @@ def epsilon_difference_components_diagram(
         obskey,
         obs,
         dnudata,
+        numax,
         epsdifftype,
     )
     nu12 = edextrapol[1][edextrapol[2] > 0]

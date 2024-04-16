@@ -402,6 +402,7 @@ def plot_all_seismic(
                     obs=obs,
                     obskey=obskey,
                     dnudata=obsfreqdata["freqs"]["dnudata"],
+                    numax=fitfreqs["numax"],
                     obsfreqdata=obsfreqdata,
                     obsfreqmeta=obsfreqmeta,
                     output=plotfname.format("DEBUG_epsdiff_components"),
