@@ -105,19 +105,6 @@ def create_xmltag(
         if not np.isclose(paramval, missingval):
             SubElement(star, param, {"value": str(paramval)})
 
-    # Check if extinction is provided for distance fit
-    # If provided with no error, error is zero
-    if len(distparams) and "EBV" in params:
-        EBVval = _get_param(paramvals, params, "EBV")
-        if "EBV_err" in params:
-            EBVerr = _get_param(paramvals, params, "EBV_err")
-            if np.isclose(EBVerr, missingval):
-                EBVerr = 0
-        else:
-            EBVerr = 0
-        if not np.isclose(EBVval, missingval):
-            SubElement(star, "EBV", {"value": str(EBVval), "error": str(EBVerr)})
-
     # Handle the special things for frequency fitting
     if freqparams and any(x in fitparams for x in freqtypes.alltypes):
         fps = np.asarray(["excludemodes", "nottrustedfile"])

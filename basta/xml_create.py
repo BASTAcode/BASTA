@@ -346,6 +346,10 @@ def generate_xml(
             print("Illegal dustframe specified! Not adding coordinates.")
             distparams = ()
 
+        # If EBV is supplied, read for each star
+        if "EBV" in params:
+            distparams += ("EBV",)
+
         # Add magnitudes to list of parameters
         starparams = fitparams + filters
     else:

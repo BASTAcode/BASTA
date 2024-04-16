@@ -829,15 +829,12 @@ def run_xml(
                 # Load extinction or use dustmap
                 EBV = star.find("EBV")
                 if EBV is not None:
-                    val, err = float(EBV.get("value")), float(EBV.get("error"))
-                    distanceparams["EBV"] = [min(val - err, 0), val, val + err]
-                    distanceparams["dustframe"] = _find_get(
-                        root, "default/distanceInput/dustframe", "value"
-                    )
-                else:
-                    distanceparams["dustframe"] = _find_get(
-                        root, "default/distanceInput/dustframe", "value"
-                    )
+                    val = float(EBV.get("value"))
+                    distanceparams["EBV"] = [val, val, val]
+
+                distanceparams["dustframe"] = _find_get(
+                    root, "default/distanceInput/dustframe", "value"
+                )
 
                 # Find available filters and load corresponding magnitudes
                 distanceparams["filters"] = []

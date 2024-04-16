@@ -163,6 +163,11 @@ def corner(
     if label_kwargs is None:
         label_kwargs = {}
 
+    formatter = ScalarFormatter()
+    formatter.set_scientific("%.2e")
+    formatter.set_useMathText(True)
+    formatter.set_powerlimits((-2, 4))
+
     # Deal with 1D sample lists.
     xs = np.atleast_1d(xs)
     if len(xs.shape) == 1:
@@ -373,7 +378,7 @@ def corner(
                     ax.xaxis.set_label_coords(0.5, -0.35)
 
             # use MathText for axes ticks
-            ax.xaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))
+            ax.xaxis.set_major_formatter(formatter)
 
         for j, y in enumerate(xs):
             if np.shape(xs)[0] == 1:
@@ -434,7 +439,7 @@ def corner(
                         ax.xaxis.set_label_coords(0.5, -0.35)
 
                 # use MathText for axes ticks
-                ax.xaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))
+                ax.xaxis.set_major_formatter(formatter)
 
             if j > 0:
                 ax.set_yticklabels([])
@@ -451,7 +456,7 @@ def corner(
                         ax.yaxis.set_label_coords(-0.35, 0.5)
 
                 # use MathText for axes ticks
-                ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))
+                ax.yaxis.set_major_formatter(formatter)
 
     return fig
 
@@ -662,7 +667,10 @@ def hist2d(
             contour_kwargs["colors"] = contour_kwargs.get("colors", color)
             ax.contour(X2, Y2, H2.T, V, **contour_kwargs)
 
+    # Set axis limits if plotting dimension
+    if not np.all(x == x[0]):
         ax.set_xlim(prange[0])
+    if not np.all(y == y[0]):
         ax.set_ylim(prange[1])
 
 
