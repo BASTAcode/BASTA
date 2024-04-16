@@ -274,23 +274,29 @@ def corner(
                 n = gaussian_filter(n, smooth1d)
                 x0 = np.array(list(zip(b[:-1], b[1:]))).flatten()
                 y0 = np.array(list(zip(n, n))).flatten()
+                ax.plot(x0, y0, **hist_kwargs)
+                ax.fill_between(
+                    x0, y0, y2=-1, interpolate=True, color=tcolor, alpha=0.15
+                )
             else:
                 try:
                     kernel = gaussian_kde(x, bw_method=kde_method)
+                    x0 = np.linspace(np.amin(x), np.amax(x), num=kde_points)
+                    y0 = kernel(x0)
+                    y0 /= np.amax(y0)
+                    n = gaussian_filter(n, 1)
+                    ax.plot(x0, y0, **hist_kwargs)
+                    ax.fill_between(
+                        x0, y0, y2=-1, interpolate=True, color=tcolor, alpha=0.15
+                    )
                 except np.linalg.LinAlgError:
-                    print("WARNING! Unable to create KDE. Skipping plot...")
-                    raise
-                x0 = np.linspace(np.amin(x), np.amax(x), num=kde_points)
-                y0 = kernel(x0)
-                y0 /= np.amax(y0)
-                n = gaussian_filter(n, 1)
-                x0_hist = np.array(list(zip(b[:-1], b[1:]))).flatten()
-                y0_hist = np.array(list(zip(n, n))).flatten() / np.amax(n)
-                ax.fill_between(
-                    x0_hist, y0_hist, y2=-1, interpolate=True, color=tcolor, alpha=0.15
-                )
-            ax.plot(x0, y0, **hist_kwargs)
-            ax.fill_between(x0, y0, y2=-1, interpolate=True, color=tcolor, alpha=0.15)
+                    print("WARNING! Unable to create a KDE...")
+
+            x0_hist = np.array(list(zip(b[:-1], b[1:]))).flatten()
+            y0_hist = np.array(list(zip(n, n))).flatten() / np.amax(n)
+            ax.fill_between(
+                x0_hist, y0_hist, y2=-1, interpolate=True, color=tcolor, alpha=0.15
+            )
 
         # Plot quantiles
         q = plotout[3 * i]
@@ -656,8 +662,8 @@ def hist2d(
             contour_kwargs["colors"] = contour_kwargs.get("colors", color)
             ax.contour(X2, Y2, H2.T, V, **contour_kwargs)
 
-    ax.set_xlim(prange[0])
-    ax.set_ylim(prange[1])
+        ax.set_xlim(prange[0])
+        ax.set_ylim(prange[1])
 
 
 def lighten_color(color, amount=0.5):
