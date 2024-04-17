@@ -102,7 +102,7 @@ def create_xmltag(
     # Handle additional parameters (without errors)
     for param in distparams:
         paramval = _get_param(paramvals, params, param)
-        if not np.isclose(paramerr, missingval):
+        if not np.isclose(paramval, missingval):
             SubElement(star, param, {"value": str(paramval)})
 
     # Handle the special things for frequency fitting

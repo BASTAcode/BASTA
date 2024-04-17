@@ -201,7 +201,7 @@ def compute_posterior(
             )
 
             d_samples[:, j] = d_all[nonzeroprop][sampled_indices]
-            d_samples[:, j + 1] = EBV_all[nonzeroprop][sampled_indices]
+            d_samples[:, j + 1] = A_all[nonzeroprop][sampled_indices]
             j += 2
 
         # Compute joint distance and extinction posteriors
