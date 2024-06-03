@@ -304,13 +304,14 @@ def corner(
             )
 
         # Plot quantiles
-        q = plotout[3 * i]
-        p = plotout[3 * i + 1]
-        m = plotout[3 * i + 2]
+        if plotout is not None:
+            q = plotout[3 * i]
+            p = plotout[3 * i + 1]
+            m = plotout[3 * i + 2]
 
-        ax.axvline(q, ls="solid", color=color)
-        ax.axvline(q + p, ls="dashed", color=color)
-        ax.axvline(q - m, ls="dashed", color=color)
+            ax.axvline(q, ls="solid", color=color)
+            ax.axvline(q + p, ls="dashed", color=color)
+            ax.axvline(q - m, ls="dashed", color=color)
 
         # Plot input parameters when they are given
         if plotin is not None:
