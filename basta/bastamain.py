@@ -119,13 +119,9 @@ def BASTA(
         sys.exit(1)
 
     # Verbose information on the grid file
-    print("\nFitting star id: {0} .".format(starid))
-    print("* Using the grid '{0}' of type '{1}'.".format(gridfile, gridtype))
-    print(
-        "  - Grid built with BASTA version {0}, timestamp: {1}.".format(
-            gridver, gridtime
-        )
-    )
+    print(f"\nFitting star id: {starid} .")
+    print(f"* Using the grid '{gridfile}' of type '{gridtype}'.")
+    print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
 
     # Check type of grid (isochrones/tracks) and set default grid path
     if "tracks" in gridtype.lower():
@@ -136,9 +132,7 @@ def BASTA(
         entryname = "isochrones"
         if gridid:
             difsolarmodel = int(gridid[1])
-            defaultpath = "ove={0:.4f}/dif={1:.4f}/eta={2:.4f}/alphaFe={3:.4f}/".format(
-                gridid[0], gridid[1], gridid[2], gridid[3]
-            )
+            defaultpath = f"ove={gridid[0]:.4f}/dif={gridid[1]:.4f}/eta={gridid[2]:.4f}/alphaFe={gridid[3]:.4f}/"
         else:
             print(
                 "Unable to construct path for science case."
@@ -148,9 +142,7 @@ def BASTA(
 
     else:
         raise OSError(
-            "Gridtype {} not supported, only 'tracks' and 'isochrones'!".format(
-                gridtype
-            )
+            f"Gridtype {gridtype} not supported, only 'tracks' and 'isochrones'!"
         )
 
     # Read available weights if not provided by the user
@@ -275,7 +267,7 @@ def BASTA(
         noofskips = [0, 0]
         for cpar in gridcut:
             if cpar != "dif":
-                print("* {0}: {1}".format(cpar, gridcut[cpar]))
+                print(f"* {cpar}: {gridcut[cpar]}")
 
         # Diffusion switch printed in a more readable format
         if "dif" in gridcut:
@@ -292,10 +284,10 @@ def BASTA(
     print("* Fitting parameters with values and uncertainties:")
     for fp in fitparams.keys():
         if fp in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
-            fpstr = "{0} (solar units)".format(fp)
+            fpstr = f"{fp} (solar units)"
         else:
             fpstr = fp
-        print("  - {0}: {1}".format(fpstr, fitparams[fp]))
+        print(f"  - {fpstr}: {fitparams[fp]}")
 
     # Fitting info: Frequencies
     if fitfreqs["active"]:
@@ -321,42 +313,26 @@ def BASTA(
 
         # Translate True/False to Yes/No
         strmap = ("No", "Yes")
-        print("  - Automatic prior on dnu: {0}".format(strmap[fitfreqs["dnuprior"]]))
+        print(f"  - Automatic prior on dnu: {strmap[fitfreqs['dnuprior']]}")
         print(
-            "  - Constraining lowest l = 0 (n = {0}) with f = {1:.3f} +/-".format(
-                obskey[1, 0], obs[0, 0]
-            ),
-            "{0:.3f} muHz to within {1:.1f} % of dnu ({2:.3f} microHz)".format(
-                obs[1, 0],
-                fitfreqs["dnufrac"] * 100,
-                fitfreqs["dnufrac"] * fitfreqs["dnufit"],
-            ),
+            f"  - Constraining lowest l = 0 (n = {obskey[1, 0]}) with f = {obs[0, 0]:.3f} +/-",
+            f"{obs[1, 0]:.3f} muHz to within {fitfreqs['dnufrac'] * 100:.1f} % of dnu ({fitfreqs['dnufrac'] * fitfreqs['dnufit']:.3f} microHz)",
         )
         if fitfreqs["bexp"] is not None:
-            bexpstr = " with b = {0}".format(fitfreqs["bexp"])
+            bexpstr = f" with b = {fitfreqs['bexp']}"
         else:
             bexpstr = ""
-        print("  - Correlations: {0}".format(strmap[fitfreqs["correlations"]]))
-        print("  - Frequency input data: {0}".format(fitfreqs["freqfile"]))
+        print(f"  - Correlations: {strmap[fitfreqs['correlations']]}")
+        print(f"  - Frequency input data: {fitfreqs['freqfile']}")
         print(
-            "  - Frequency input data (list of ignored modes): {0}".format(
-                fitfreqs["excludemodes"]
-            )
+            f"  - Frequency input data (list of ignored modes): {fitfreqs['excludemodes']}"
         )
         print(
-            "  - Inclusion of dnu in ratios fit: {0}".format(
-                strmap[fitfreqs["dnufit_in_ratios"]]
-            )
+            f"  - Inclusion of dnu in ratios fit: {strmap[fitfreqs['dnufit_in_ratios']]}"
         )
-        print(
-            "  - Interpolation in ratios: {0}".format(strmap[fitfreqs["interp_ratios"]])
-        )
-        print("  - Surface effect correction: {0}{1}".format(fitfreqs["fcor"], bexpstr))
-        print(
-            "  - Use alternative ratios (3-point): {0}".format(
-                strmap[fitfreqs["threepoint"]]
-            )
-        )
+        print(f"  - Interpolation in ratios: {strmap[fitfreqs['interp_ratios']]}")
+        print(f"  - Surface effect correction: {fitfreqs['fcor']}{bexpstr}")
+        print(f"  - Use alternative ratios (3-point): {strmap[fitfreqs['threepoint']]}")
         if fitfreqs["dnufit_err"]:
             print(
                 "  - Value of dnu: {0:.3f} +/- {1:.3f} microHz".format(
