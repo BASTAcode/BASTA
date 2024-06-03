@@ -37,7 +37,7 @@ def compute_posterior(
     outfilename,
     gridtype,
     debug=False,
-    experimental=False,
+    developermode=False,
     validationmode=False,
     compareinputoutput=False,
 ):
@@ -61,7 +61,7 @@ def compute_posterior(
         or 'isochrones'.
     debug : bool, optional
         Debug flag for developers.
-    experimental : bool, optional
+    developermode : bool, optional
         If True, experimental features will be used in run.
     validationmode : bool, optional
         If True, assume a validation run with changed behaviour
@@ -454,7 +454,7 @@ def compute_posterior(
                     )
 
     # Compare input to output and produce a comparison plot
-    if compareinputoutput | experimental:
+    if compareinputoutput | developermode:
         comparewarn = util.compare_output_to_input(
             starid, inputparams, hout, out, hout_dist, out_dist, uncert=uncert
         )
@@ -501,7 +501,7 @@ def compute_posterior(
                         gridtype=gridtype,
                         nameinplot=starid if inputparams["nameinplot"] else False,
                         debug=debug,
-                        experimental=experimental,
+                        developermode=developermode,
                         validationmode=validationmode,
                     )
                     kielfile = outfilename + "_warn_kiel." + plottype
@@ -598,7 +598,7 @@ def compute_posterior(
                 gridtype=gridtype,
                 nameinplot=starid if inputparams["nameinplot"] else False,
                 debug=debug,
-                experimental=experimental,
+                developermode=developermode,
                 validationmode=validationmode,
                 color_by_likelihood=False,
             )

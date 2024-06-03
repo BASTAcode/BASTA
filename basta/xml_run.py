@@ -412,7 +412,7 @@ def run_xml(
     seed=None,
     debug=False,
     verbose=False,
-    experimental=False,
+    developermode=False,
     validationmode=False,
 ):
     """
@@ -428,7 +428,7 @@ def run_xml(
         Activate additional output for debugging (for developers)
     verbose : bool, optional
         Activate a lot (!) of additional output (for developers)
-    experimental : bool, optional
+    developermode : bool, optional
         Activate experimental features (for developers)
     validationmode : bool, optional
         Activate validation mode features (for validation purposes only)
@@ -910,7 +910,7 @@ def run_xml(
                     seed=seed,
                     debug=debug,
                     verbose=verbose,
-                    experimental=experimental,
+                    developermode=developermode,
                     validationmode=validationmode,
                 )
             except KeyboardInterrupt:

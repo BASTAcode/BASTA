@@ -268,7 +268,7 @@ def _interpolate_grid(
     # Pretty print a marker of mode activation
     starsep = int(79 / 2) * "*"
     intnamestr = "Interpolation activated"
-    tmpexpstr = "(experimental)"
+    tmpexpstr = "(developermode)"
     print(starsep)
     print("{0}{1}{0}".format(int((79 / 2 - len(intnamestr)) / 2) * " ", intnamestr))
     print("{0}{1}{0}".format(int((79 / 2 - len(tmpexpstr)) / 2) * " ", tmpexpstr))

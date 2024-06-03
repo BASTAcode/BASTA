@@ -87,7 +87,7 @@ def main():
 
     # Add optional argument: Experimental features
     parser.add_argument(
-        "--experimental", action="store_true", help="Enable experimental features."
+        "--developermode", action="store_true", help="Enable experimental features."
     )
 
     # Add optional argument: Validation mode
@@ -126,7 +126,7 @@ def main():
         seed=seed,
         debug=args.debug,
         verbose=args.verbose,
-        experimental=args.experimental,
+        developermode=args.developermode,
         validationmode=args.validation,
     )
 

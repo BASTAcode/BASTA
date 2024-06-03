@@ -40,7 +40,7 @@ def BASTA(
     seed: int | None = None,
     debug: bool = False,
     verbose: bool = False,
-    experimental: bool = False,
+    developermode: bool = False,
     validationmode: bool = False,
 ):
     """
@@ -78,7 +78,7 @@ def BASTA(
         Activate additional output for debugging (for developers)
     verbose : bool, optional
         Activate a lot (!) of additional output (for developers)
-    experimental : bool, optional
+    developermode : bool, optional
         Activate experimental features (for developers)
     validationmode : bool, optional
         Activate validation mode features (for validation purposes only)
@@ -104,7 +104,7 @@ def BASTA(
     util.prt_center("https://github.com/BASTAcode/BASTA", linelen)
     print(linelen * "=")
     print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
-    if experimental:
+    if developermode:
         print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
     print(f"Random numbers initialised with seed: {seed} .")
 
@@ -822,7 +822,7 @@ def BASTA(
         outfilename=outfilename,
         gridtype=gridtype,
         debug=debug,
-        experimental=experimental,
+        developermode=developermode,
         validationmode=validationmode,
     )
 
