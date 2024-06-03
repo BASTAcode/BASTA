@@ -30,18 +30,18 @@ class LibraryError(Exception):
 
 # The main driver!
 def BASTA(
-    starid,
-    gridfile,
-    idgrid=None,
-    usebayw=True,
-    usepriors=(None,),
-    inputparams=False,
-    optionaloutputs=False,
-    seed=None,
-    debug=False,
-    verbose=False,
-    experimental=False,
-    validationmode=False,
+    starid: str,
+    gridfile: str,
+    inputparams: dict,
+    idgrid: bool | tuple = False,
+    usebayw: bool = True,
+    usepriors: tuple = (None,),
+    optionaloutputs: bool = False,
+    seed: int | None = None,
+    debug: bool = False,
+    verbose: bool = False,
+    experimental: bool = False,
+    validationmode: bool = False,
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
@@ -57,6 +57,9 @@ def BASTA(
     gridfile : str
         Path and name of the hdf5 file containing the isochrones or tracks
         used in the fitting
+    inputparams : dict
+        Dictionary containing most information needed, e.g. controls, fitparameters,
+        output options.
     idgrid : bool or tuple
         For isochrones, a tuple containing (overshooting [f],
         diffusion [0 or 1], mass loss [eta], alpha enhancement [0.0 ... 0.4])
@@ -67,9 +70,6 @@ def BASTA(
     usepriors : tuple
         Tuple of strings containing name of priors (e.g., an IMF).
         See :func:`priors` for details.
-    inputparams : dict
-        Dictionary containing most information needed, e.g. controls, fitparameters,
-        output options.
     optionaloutputs : bool, optional
         If True, saves a 'json' file for each star with the global results and the PDF.
     seed : int, optional
