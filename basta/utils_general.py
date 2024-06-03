@@ -2,9 +2,11 @@
 General mix of utility functions
 """
 import sys
+import time
 from io import IOBase
 
 import numpy as np
+from basta.__about__ import __version__
 
 
 def h5py_to_array(xs):
@@ -43,6 +45,38 @@ def prt_center(text, llen):
     None
     """
     print("{0}{1}{0}".format(int((llen - len(text)) / 2) * " ", text))
+
+
+def print_bastaheader(
+    t0: time.struct_time, seed: int, llen: int = 88, developermode: bool = False
+):
+    """
+    Prints the header of the BASTA run
+
+    Parameters
+    ----------
+    llen : int
+        Length of the line, default=88
+    t0 : time.struct_time
+        Local time of the beginning of the BASTA run
+    seed : int
+        Seed for BASTA run
+    developermode : bool, optional
+        Activate experimental features (for developers)
+    """
+    print(llen * "=")
+    util.prt_center("BASTA", llen)
+    util.prt_center("The BAyesian STellar Algorithm", llen)
+    print()
+    util.prt_center("Version {0}".format(__version__), llen)
+    print()
+    util.prt_center("(c) 2024, The BASTA Team", llen)
+    util.prt_center("https://github.com/BASTAcode/BASTA", llen)
+    print(llen * "=")
+    print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
+    if developermode:
+        print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
+    print(f"Random numbers initialised with seed: {seed} .")
 
 
 class Logger(object):

@@ -93,20 +93,7 @@ def BASTA(
     sys.stdout = util.Logger(outfilename)
 
     # Pretty printing a header
-    linelen = 88
-    print(linelen * "=")
-    util.prt_center("BASTA", linelen)
-    util.prt_center("The BAyesian STellar Algorithm", linelen)
-    print()
-    util.prt_center("Version {0}".format(__version__), linelen)
-    print()
-    util.prt_center("(c) 2024, The BASTA Team", linelen)
-    util.prt_center("https://github.com/BASTAcode/BASTA", linelen)
-    print(linelen * "=")
-    print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
-    if developermode:
-        print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
-    print(f"Random numbers initialised with seed: {seed} .")
+    util.print_bastaheader(t0=t0, seed=seed, developermode=developermode)
 
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(gridfile, "r")
