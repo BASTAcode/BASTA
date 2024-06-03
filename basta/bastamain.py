@@ -33,7 +33,7 @@ def BASTA(
     starid: str,
     gridfile: str,
     inputparams: dict,
-    idgrid: bool | tuple = False,
+    gridid: bool | tuple = False,
     usebayw: bool = True,
     usepriors: tuple = (None,),
     optionaloutputs: bool = False,
@@ -60,7 +60,7 @@ def BASTA(
     inputparams : dict
         Dictionary containing most information needed, e.g. controls, fitparameters,
         output options.
-    idgrid : bool or tuple
+    gridid : bool or tuple
         For isochrones, a tuple containing (overshooting [f],
         diffusion [0 or 1], mass loss [eta], alpha enhancement [0.0 ... 0.4])
         used for selecting a science case / path in the library.
@@ -147,10 +147,10 @@ def BASTA(
         difsolarmodel = None
     elif "isochrones" in gridtype.lower():
         entryname = "isochrones"
-        if idgrid:
-            difsolarmodel = int(idgrid[1])
+        if gridid:
+            difsolarmodel = int(gridid[1])
             defaultpath = "ove={0:.4f}/dif={1:.4f}/eta={2:.4f}/alphaFe={3:.4f}/".format(
-                idgrid[0], idgrid[1], idgrid[2], idgrid[3]
+                gridid[0], gridid[1], gridid[2], gridid[3]
             )
         else:
             print(

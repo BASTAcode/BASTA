@@ -485,9 +485,9 @@ def run_xml(
         dif = float(_find_get(root, "default/basti/dif", "value"))
         eta = float(_find_get(root, "default/basti/eta", "value"))
         alphaFe = float(_find_get(root, "default/basti/alphaFe", "value"))
-        idgrid = (ove, dif, eta, alphaFe)
+        gridid = (ove, dif, eta, alphaFe)
     else:
-        idgrid = None
+        gridid = None
 
     # Type of reported values for centroid and reported uncertainties
     inputparams = _centroid_and_uncert(root, inputparams)
@@ -866,7 +866,7 @@ def run_xml(
                 if starid in allintpol:
                     gridfile = perform_interpolation(
                         gridfile,
-                        idgrid,
+                        gridid,
                         allintpol[starid],
                         inputparams,
                         debug=debug,
@@ -902,7 +902,7 @@ def run_xml(
                 BASTA(
                     starid,
                     gridfile,
-                    idgrid,
+                    gridid,
                     usebayw=usebayw,
                     usepriors=usepriors,
                     inputparams=inputparams,
