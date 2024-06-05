@@ -120,6 +120,7 @@ def BASTA(
 
     # Verbose information on the grid file
     print(f"\nFitting star id: {starid} .")
+
     print(f"* Using the grid '{gridfile}' of type '{gridtype}'.")
     print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
 
@@ -335,23 +336,19 @@ def BASTA(
         print(f"  - Use alternative ratios (3-point): {strmap[fitfreqs['threepoint']]}")
         if fitfreqs["dnufit_err"]:
             print(
-                "  - Value of dnu: {0:.3f} +/- {1:.3f} microHz".format(
-                    fitfreqs["dnufit"], fitfreqs["dnufit_err"]
-                )
+                f"  - Value of dnu: {fitfreqs['dnufit']:.3f} +/- {fitfreqs['dnufit_err']:.3f} microHz"
             )
         else:
-            print("  - Value of dnu: {0:.3f} microHz".format(fitfreqs["dnufit"]))
-        print("  - Value of numax: {0:.3f} microHz".format(fitfreqs["numax"]))
+            print(f"  - Value of dnu: {fitfreqs['dnufit']:.3f} microHz")
+        print(f"  - Value of numax: {fitfreqs['numax']:.3f} microHz")
 
         weightcomment = ""
         if fitfreqs["seismicweights"]["dof"]:
-            weightcomment += "  |  dof = {0}".format(fitfreqs["seismicweights"]["dof"])
+            weightcomment += f"  |  dof = {fitfreqs['seismicweights']['dof']}"
         if fitfreqs["seismicweights"]["N"]:
-            weightcomment += "  |  N = {0}".format(fitfreqs["seismicweights"]["N"])
+            weightcomment += f"  |  N = {fitfreqs['seismicweights']['N']}"
         print(
-            "  - Weighting scheme: {0}{1}".format(
-                fitfreqs["seismicweights"]["weight"], weightcomment
-            )
+            f"  - Weighting scheme: {fitfreqs['seismicweights']['weight']}{weightcomment}"
         )
 
     # Fitting info: Distance
@@ -365,27 +362,24 @@ def BASTA(
 
         if distparams["dustframe"] == "icrs":
             print(
-                "  - Coordinates (icrs): RA = {0}, DEC = {1}".format(
-                    distparams["RA"], distparams["DEC"]
-                )
+                f"  - Coordinates (icrs): RA = {distparams['RA']}, DEC = {distparams['DEC']}"
             )
         elif distparams["dustframe"] == "galactic":
             print(
-                "  - Coordinates (galactic): lat = {0}, lon = {1}".format(
-                    distparams["lat"], distparams["lon"]
-                )
+                f"  - Coordinates (galactic): lat = {distparams['lat']}, lon = {distparams['lon']}"
             )
 
         print("  - Filters (magnitude value and uncertainty): ")
         for filt in distparams["filters"]:
             print(
-                "    + {0}: [{1}, {2}]".format(
-                    filt, distparams["m"][filt], distparams["m_err"][filt]
-                )
+                f"    + {filt}: [{distparams['m'][filt]}, {distparams['m_err'][filt]}]"
             )
 
         if "parallax" in distparams:
-            print("  - Parallax: {0}".format(distparams["parallax"]))
+            print(f"  - Parallax: {distparams['parallax']}")
+
+        if "EBV" in distparams:
+            print(f"  - EBV: {distparams['EBV']} (uniform across all distance samples)")
 
     # Fitting info: Phase
     if "phase" in inputparams:
@@ -411,7 +405,7 @@ def BASTA(
     ]
     for ip in sorted(inputparams.keys()):
         if ip not in noprint:
-            print("* {0}: {1}".format(ip, inputparams[ip]))
+            print(f"* {ip}: {inputparams[ip]}")
 
     # Print weights and priors
     print("\nWeights and priors:")
@@ -424,19 +418,17 @@ def BASTA(
             dwname = "age"
 
         print("* Bayesian weights:")
-        print("  - Along {0}: {1}".format(gtname, dwname))
+        print(f"  - Along {gtname}: {dwname}")
         print(
-            "  - Between {0}: {1}".format(
-                gtname, ", ".join([q.split("_")[0] for q in bayweights])
-            )
+            f"  - Between {gtname}: {', '.join([q.split('_')[0] for q in bayweights])}"
         )
     else:
         print("No Bayesian weights applied")
 
     print("* Flat, constrained priors and ranges:")
     for lim in limits.keys():
-        print("  - {0}: {1}".format(lim, limits[lim]))
-    print("* Additional priors (IMF): {0}".format(", ".join(usepriors)))
+        print(f"  - {lim}: {limits[lim]}")
+    print(f"* Additional priors (IMF): {', '.join(usepriors)}")
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Start likelihood computation
@@ -457,7 +449,8 @@ def BASTA(
     trackcounter = 0
     for FeH in metal:
         if "grid" not in defaultpath:
-            group_name = defaultpath + "FeH=" + format(FeH, ".4f") + "/"
+            group_name = f"{defaultpath}FeH={FeH:.4f}/"
+            assert group_name == defaultpath + "FeH=" + format(FeH, ".4f") + "/"
 
         group = Grid[group_name]
         trackcounter += len(group.items())
@@ -475,16 +468,14 @@ def BASTA(
         glitchmodels = {}
 
     print(
-        "\n\nComputing likelihood of models in the grid ({0} {1}) ...".format(
-            trackcounter, entryname
-        )
+        f"\n\nComputing likelihood of models in the grid ({trackcounter} {entryname}) ..."
     )
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
     for FeH in metal:
         if "grid" not in defaultpath:
-            group_name = defaultpath + "FeH=" + format(FeH, ".4f") + "/"
+            group_name = f"{defaultpath}FeH={FeH:.4f}/"
 
         group = Grid[group_name]
         for noingrid, (name, libitem) in enumerate(group.items()):
@@ -688,9 +679,7 @@ def BASTA(
                 noofposind += np.count_nonzero(~np.isinf(logPDF))
                 if debug and verbose:
                     print(
-                        "DEBUG: Index found: {0}, {1}".format(
-                            group_name + name, ~np.isinf(logPDF)
-                        )
+                        f"DEBUG: Index found: {group_name + name}, {~np.isinf(logPDF)}"
                     )
 
                 # Store statistical info
@@ -713,9 +702,7 @@ def BASTA(
             else:
                 if debug and verbose:
                     print(
-                        "DEBUG: Index not found: {0}, {1}".format(
-                            group_name + name, ~np.isinf(logPDF)
-                        )
+                        f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDF)}"
                     )
         # End loop over isochrones/tracks
         #######################################################################
@@ -723,14 +710,12 @@ def BASTA(
     ###########################################################################
     pbar.close()
     print(
-        "Done! Computed the likelihood of {0} models,".format(str(noofind)),
-        "found {0} models with non-zero likelihood!\n".format(str(noofposind)),
+        f"Done! Computed the likelihood of {str(noofind)} models,",
+        f"found {str(noofposind)} models with non-zero likelihood!\n",
     )
     if gridcut:
         print(
-            "(Note: The use of 'gridcut' skipped {0} out of {1} {2})\n".format(
-                noofskips[0], noofskips[1], gridtype
-            )
+            f"(Note: The use of 'gridcut' skipped {noofskips[0]} out of {noofskips[1]} {gridtype})\n"
         )
 
     # Raise possible warnings
@@ -825,18 +810,18 @@ def BASTA(
     if optionaloutputs:
         pfname = outfilename + ".json"
         fio.save_selectedmodels(pfname, selectedmodels)
-        print("Saved dictionary to {0}".format(pfname))
+        print(f"Saved dictionary to {pfname}")
 
     # Print time of completion
     t1 = time.localtime()
     print(
-        "\nFinished on {0}".format(time.strftime("%Y-%m-%d %H:%M:%S", t1)),
-        "(runtime {0} s).\n".format(time.mktime(t1) - time.mktime(t0)),
+        f"\nFinished on {time.strftime('%Y-%m-%d %H:%M:%S', t1)}",
+        f"(runtime {time.mktime(t1) - time.mktime(t0)} s).\n",
     )
 
     # Save log and recover standard output
     sys.stdout = stdout
-    print("Saved log to {0}.log".format(outfilename))
+    print("Saved log to {outfilename}.log")
 
     # Close grid, close open plots, and try to free memory between multiple runs
     Grid.close()
