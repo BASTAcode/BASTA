@@ -900,12 +900,12 @@ def run_xml(
             # Call BASTA itself!
             try:
                 BASTA(
-                    starid,
-                    gridfile,
-                    gridid,
+                    starid=starid,
+                    gridfile=gridfile,
+                    inputparams=inputparams,
+                    gridid=gridid,
                     usebayw=usebayw,
                     usepriors=usepriors,
-                    inputparams=inputparams,
                     optionaloutputs=useoptoutput,
                     seed=seed,
                     debug=debug,
