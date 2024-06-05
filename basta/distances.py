@@ -58,16 +58,7 @@ def LOS_reddening(distanceparams):
        excess color function
     """
     if "EBV" in distanceparams:
-        return lambda x: np.asarray(
-            np.random.normal(
-                distanceparams["EBV"][0],
-                distanceparams["EBV"][2] - distanceparams["EBV"][0],
-                size=[
-                    len(i) if isinstance(i, collections.abc.Iterable) else 1
-                    for i in [x]
-                ][0],
-            )
-        )
+        return lambda x: np.ones(len(x)) * distanceparams["EBV"][1]
 
     frame = distanceparams["dustframe"]
 
@@ -404,7 +395,7 @@ def add_absolute_magnitudes(
     # Get an estimate from all filters
     labsms_joined = np.exp(llabsms_joined - np.log(np.sum(np.exp(llabsms_joined))))
 
-    distanceparams["EBV"] = list(
+    distanceparams["priorEBV"] = list(
         stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles)
     )
     distanceparams["priordistance"] = list(
