@@ -97,26 +97,7 @@ def BASTA(
 
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(gridfile, "r")
-    try:
-        gridtype = Grid["header/library_type"][()]
-        gridver = Grid["header/version"][()]
-        gridtime = Grid["header/buildtime"][()]
-
-        # Allow for usage of both h5py 2.10.x and 3.x.x
-        # --> If things are encoded as bytes, they must be made into standard strings
-        if isinstance(gridtype, bytes):
-            gridtype = gridtype.decode("utf-8")
-            gridver = gridver.decode("utf-8")
-            gridtime = gridtime.decode("utf-8")
-    except KeyError:
-        print("Error: Some information is missing in the header of the grid!")
-        print(
-            "Please check the entries in the header! It must include all",
-            "of the following:\n * header/library_type\n * header/version",
-            "\n * header/buildtime",
-        )
-        Grid.close()
-        sys.exit(1)
+    gridtype, gridver, gridtime, grid_is_intpol = utils.read_grid_header(Grid)
 
     # Verbose information on the grid file
     print(f"\nFitting star id: {starid} .")
@@ -124,80 +105,22 @@ def BASTA(
     print(f"* Using the grid '{gridfile}' of type '{gridtype}'.")
     print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
 
-    # Check type of grid (isochrones/tracks) and set default grid path
-    if "tracks" in gridtype.lower():
-        entryname = "tracks"
-        defaultpath = "grid/"
-        difsolarmodel = None
-    elif "isochrones" in gridtype.lower():
-        entryname = "isochrones"
-        if gridid:
-            difsolarmodel = int(gridid[1])
-            defaultpath = f"ove={gridid[0]:.4f}/dif={gridid[1]:.4f}/eta={gridid[2]:.4f}/alphaFe={gridid[3]:.4f}/"
-        else:
-            print(
-                "Unable to construct path for science case."
-                + " Probably missing (ove, dif, eta, alphaFe) in input!"
-            )
-            raise LibraryError
-
-    else:
-        raise OSError(
-            f"Gridtype {gridtype} not supported, only 'tracks' and 'isochrones'!"
-        )
+    entryname, defaultpath, difsolarmodel = utils.check_gridtype(gridtype)
 
     # Read available weights if not provided by the user
-    if usebayw:
-        try:
-            grid_weights = [
-                x.decode("utf-8") for x in list(Grid["header/active_weights"])
-            ]
-
-        except KeyError:
-            print(
-                "WARNING: Bayesian weights requested, but none specified in grid file!\n"
-            )
-        bayweights = tuple([x + "_weight" for x in grid_weights])
-
-        # Specify the along weight variable, varies due to conceptual difference
-        # - Isochrones --> dmass
-        # - Tracks     --> dage
-        if "isochrones" in gridtype.lower():
-            dweight = "dmass"
-        elif "tracks" in gridtype.lower():
-            dweight = "dage"
+    bayweights, dweight = utils.read_grid_bayweights(Grid) if usebayw else (None, None)
 
     # Get list of parameters
     cornerplots = inputparams["cornerplots"]
     outparams = inputparams["asciiparams"]
     allparams = list(np.unique(cornerplots + outparams))
 
-    #
-    # *** BEGIN: Preparation for distance fitting ***
-    #
-    # Special case if assuming gaussian magnitudes
-    if "gaussian_magnitudes" in inputparams:
-        use_gaussian_priors = inputparams["gaussian_magnitudes"]
-    else:
-        use_gaussian_priors = False
-
-    # Add magnitudes and colors to fitparams if fitting distance
-    inputparams = distances.add_absolute_magnitudes(
-        inputparams,
+    inputparams, allparams = utils.prepare_distancefitting(
+        inputparams=inputparams,
         debug=debug,
         outfilename=outfilename,
-        use_gaussian_priors=use_gaussian_priors,
+        allparams=allparams,
     )
-
-    # If keyword present, add individual filters
-    if "distance" in allparams:
-        allparams = list(
-            np.unique(allparams + inputparams["distanceparams"]["filters"])
-        )
-        allparams.remove("distance")
-    #
-    # *** END: Preparation for distance fitting ***
-    #
 
     # Create list of all available input parameters
     fitparams = inputparams.get("fitparams")
@@ -231,23 +154,16 @@ def BASTA(
                 fitfreqs["dnufit"] + dnuerr,
             ]
 
-    # Check if grid is interpolated
-    try:
-        Grid["header/interpolation_time"][()]
-    except KeyError:
-        grid_is_intpol = False
-    else:
-        grid_is_intpol = True
-
     # Check if any specified limit in prior is in header, and can be used to
     # skip computation of models, in order to speed up computation
+    tracks_headerpath = "header/"
     if "tracks" in gridtype.lower():
-        headerpath = "header/"
+        headerpath: str | bool = tracks_headerpath
     elif "isochrones" in gridtype.lower():
-        headerpath = "header/" + defaultpath
+        headerpath = tracks_headerpath + defaultpath
         if "FeHini" in limits:
             del limits["FeHini"]
-            print("Warning: Dropping prior in FeHini, " + "redundant for isochrones!")
+            print("Warning: Dropping prior in FeHini, redundant for isochrones!")
     else:
         headerpath = False
 
@@ -280,155 +196,12 @@ def BASTA(
                 "{:s}!".format(["on", "off"][switch]),
             )
 
-    # Print fitparams
-    print("\nFitting information:")
-    print("* Fitting parameters with values and uncertainties:")
-    for fp in fitparams.keys():
-        if fp in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
-            fpstr = f"{fp} (solar units)"
-        else:
-            fpstr = fp
-        print(f"  - {fpstr}: {fitparams[fp]}")
-
-    # Fitting info: Frequencies
-    if fitfreqs["active"]:
-        if "freqs" in fitfreqs["fittypes"]:
-            print("* Fitting of individual frequencies activated!")
-        elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
-            print(f"* Fitting of frequency ratios {fitfreqs['fittypes']} activated!")
-            if "r010" in fitfreqs["fittypes"]:
-                print(
-                    "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
-                )
-        elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
-            print(f"* Fitting of glitches {fitfreqs['fittypes']} activated using:")
-            print(f"  - Method: {fitfreqs['glitchmethod']}")
-            print(f"  - Parameters in smooth component: {fitfreqs['npoly_params']}")
-            print(f"  - Order of derivative: {fitfreqs['nderiv']}")
-            print(f"  - Gradient tolerance: {fitfreqs['tol_grad']}")
-            print(f"  - Regularization parameter: {fitfreqs['regu_param']}")
-            print(f"  - Initial guesses: {fitfreqs['nguesses']}")
-            print("* General frequency fitting configuration:")
-        elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
-            print(f"* Fitting of epsilon differences {fitfreqs['fittypes']} activated!")
-
-        # Translate True/False to Yes/No
-        strmap = ("No", "Yes")
-        print(f"  - Automatic prior on dnu: {strmap[fitfreqs['dnuprior']]}")
-        print(
-            f"  - Constraining lowest l = 0 (n = {obskey[1, 0]}) with f = {obs[0, 0]:.3f} +/-",
-            f"{obs[1, 0]:.3f} muHz to within {fitfreqs['dnufrac'] * 100:.1f} % of dnu ({fitfreqs['dnufrac'] * fitfreqs['dnufit']:.3f} microHz)",
-        )
-        if fitfreqs["bexp"] is not None:
-            bexpstr = f" with b = {fitfreqs['bexp']}"
-        else:
-            bexpstr = ""
-        print(f"  - Correlations: {strmap[fitfreqs['correlations']]}")
-        print(f"  - Frequency input data: {fitfreqs['freqfile']}")
-        print(
-            f"  - Frequency input data (list of ignored modes): {fitfreqs['excludemodes']}"
-        )
-        print(
-            f"  - Inclusion of dnu in ratios fit: {strmap[fitfreqs['dnufit_in_ratios']]}"
-        )
-        print(f"  - Interpolation in ratios: {strmap[fitfreqs['interp_ratios']]}")
-        print(f"  - Surface effect correction: {fitfreqs['fcor']}{bexpstr}")
-        print(f"  - Use alternative ratios (3-point): {strmap[fitfreqs['threepoint']]}")
-        if fitfreqs["dnufit_err"]:
-            print(
-                f"  - Value of dnu: {fitfreqs['dnufit']:.3f} +/- {fitfreqs['dnufit_err']:.3f} microHz"
-            )
-        else:
-            print(f"  - Value of dnu: {fitfreqs['dnufit']:.3f} microHz")
-        print(f"  - Value of numax: {fitfreqs['numax']:.3f} microHz")
-
-        weightcomment = ""
-        if fitfreqs["seismicweights"]["dof"]:
-            weightcomment += f"  |  dof = {fitfreqs['seismicweights']['dof']}"
-        if fitfreqs["seismicweights"]["N"]:
-            weightcomment += f"  |  N = {fitfreqs['seismicweights']['N']}"
-        print(
-            f"  - Weighting scheme: {fitfreqs['seismicweights']['weight']}{weightcomment}"
-        )
-
-    # Fitting info: Distance
-    if distparams:
-        if ("parallax" in distparams) and "distance" in inputparams["asciiparams"]:
-            print("* Parallax fitting and distance inference activated!")
-        elif "parallax" in distparams:
-            print("* Parallax fitting activated!")
-        elif "distance" in inputparams["asciiparams"]:
-            print("* Distance inference activated!")
-
-        if distparams["dustframe"] == "icrs":
-            print(
-                f"  - Coordinates (icrs): RA = {distparams['RA']}, DEC = {distparams['DEC']}"
-            )
-        elif distparams["dustframe"] == "galactic":
-            print(
-                f"  - Coordinates (galactic): lat = {distparams['lat']}, lon = {distparams['lon']}"
-            )
-
-        print("  - Filters (magnitude value and uncertainty): ")
-        for filt in distparams["filters"]:
-            print(
-                f"    + {filt}: [{distparams['m'][filt]}, {distparams['m_err'][filt]}]"
-            )
-
-        if "parallax" in distparams:
-            print(f"  - Parallax: {distparams['parallax']}")
-
-        if "EBV" in distparams:
-            print(f"  - EBV: {distparams['EBV']} (uniform across all distance samples)")
-
-    # Fitting info: Phase
-    if "phase" in inputparams:
-        print("* Fitting evolutionary phase!")
-
-    # Print additional info on given input
-    print("\nAdditional input parameters and settings in alphabetical order:")
-    noprint = [
-        "asciioutput",
-        "asciioutput_dist",
-        "distanceparams",
-        "dnufit",
-        "dnufrac",
-        "erroutput",
-        "fcor",
-        "fitfreqs",
-        "fitparams",
-        "limits",
-        "magnitudes",
-        "excludemodes",
-        "numax",
-        "warnoutput",
-    ]
-    for ip in sorted(inputparams.keys()):
-        if ip not in noprint:
-            print(f"* {ip}: {inputparams[ip]}")
-
-    # Print weights and priors
-    print("\nWeights and priors:")
-    if usebayw:
-        if "isochrones" in gridtype.lower():
-            gtname = "isochrones"
-            dwname = "mass"
-        elif "tracks" in gridtype.lower():
-            gtname = "tracks"
-            dwname = "age"
-
-        print("* Bayesian weights:")
-        print(f"  - Along {gtname}: {dwname}")
-        print(
-            f"  - Between {gtname}: {', '.join([q.split('_')[0] for q in bayweights])}"
-        )
-    else:
-        print("No Bayesian weights applied")
-
-    print("* Flat, constrained priors and ranges:")
-    for lim in limits.keys():
-        print(f"  - {lim}: {limits[lim]}")
-    print(f"* Additional priors (IMF): {', '.join(usepriors)}")
+    utils.print_fitparams(fitparams)
+    utils.print_seismic(fitfreqs)
+    utils.print_distances(distparams, inputparams["asciiparams"])
+    utils.print_additional(inputparams)
+    utils.print_weights(bayweights, gridtype)
+    utils.print_priors(limits, usepriors)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Start likelihood computation
@@ -510,7 +283,7 @@ def BASTA(
                 docut = False
                 for param in gridcut:
                     if "tracks" in gridtype.lower():
-                        value = Grid[headerpath][param][noingrid]
+                        value = Grid[tracks_headerpath][param][noingrid]
                     elif "isochrones" in gridtype.lower():
                         # For isochrones, metallicity is already cut from the
                         # metal list and lookup of age is simplest and fastest
@@ -638,13 +411,14 @@ def BASTA(
                     bayw = 0.0
                     magw = 0.0
                     IMFw = 0.0
-                if usebayw:
+                if bayweights is not None:
                     for weight in bayweights:
                         logPDF += util.inflog(libitem[weight][()])
                         if debug:
                             bayw += util.inflog(libitem[weight][()])
 
                     # Within a given track/isochrone; these are called dweights
+                    assert dweight is not None
                     logPDF += util.inflog(libitem[dweight][index])
                     if debug:
                         bayw += util.inflog(libitem[dweight][index])
