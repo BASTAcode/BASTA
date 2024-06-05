@@ -292,7 +292,7 @@ def print_distances(distparams, asciiparams) -> None:
         print(f"  - Parallax: {distparams['parallax']}")
 
     if "EBV" in distparams:
-        print(f"  - EBV: {distparams['EBV']} (uniform across all distance samples)")
+        print(f"  - EBV: {distparams['EBV'][1]} (uniform across all distance samples)")
 
 
 def print_additional(inputparams) -> None:
