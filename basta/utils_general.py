@@ -67,13 +67,13 @@ def print_bastaheader(
         Activate experimental features (for developers)
     """
     print(llen * "=")
-    util.prt_center("BASTA", llen)
-    util.prt_center("The BAyesian STellar Algorithm", llen)
+    prt_center("BASTA", llen)
+    prt_center("The BAyesian STellar Algorithm", llen)
     print()
-    util.prt_center("Version {0}".format(__version__), llen)
+    prt_center("Version {0}".format(__version__), llen)
     print()
-    util.prt_center("(c) 2024, The BASTA Team", llen)
-    util.prt_center("https://github.com/BASTAcode/BASTA", llen)
+    prt_center("(c) 2024, The BASTA Team", llen)
+    prt_center("https://github.com/BASTAcode/BASTA", llen)
     print(llen * "=")
     print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
     if developermode:
@@ -143,7 +143,7 @@ def read_grid_header(Grid) -> tuple[str, str, str, bool]:
     return gridtype, gridver, gridtime, grid_is_intpol
 
 
-def read_grid_bayweights(Grid) -> tuple[tuple[str, ...], str]:
+def read_grid_bayweights(Grid, gridtype) -> tuple[tuple[str, ...], str]:
     try:
         grid_weights = [x.decode("utf-8") for x in list(Grid["header/active_weights"])]
 

@@ -97,7 +97,7 @@ def BASTA(
 
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(gridfile, "r")
-    gridtype, gridver, gridtime, grid_is_intpol = utils.read_grid_header(Grid)
+    gridtype, gridver, gridtime, grid_is_intpol = util.read_grid_header(Grid)
 
     # Verbose information on the grid file
     print(f"\nFitting star id: {starid} .")
@@ -105,17 +105,19 @@ def BASTA(
     print(f"* Using the grid '{gridfile}' of type '{gridtype}'.")
     print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
 
-    entryname, defaultpath, difsolarmodel = utils.check_gridtype(gridtype)
+    entryname, defaultpath, difsolarmodel = util.check_gridtype(gridtype)
 
     # Read available weights if not provided by the user
-    bayweights, dweight = utils.read_grid_bayweights(Grid) if usebayw else (None, None)
+    bayweights, dweight = (
+        util.read_grid_bayweights(Grid, gridtype) if usebayw else (None, None)
+    )
 
     # Get list of parameters
     cornerplots = inputparams["cornerplots"]
     outparams = inputparams["asciiparams"]
     allparams = list(np.unique(cornerplots + outparams))
 
-    inputparams, allparams = utils.prepare_distancefitting(
+    inputparams, allparams = util.prepare_distancefitting(
         inputparams=inputparams,
         debug=debug,
         outfilename=outfilename,
@@ -196,12 +198,12 @@ def BASTA(
                 "{:s}!".format(["on", "off"][switch]),
             )
 
-    utils.print_fitparams(fitparams)
-    utils.print_seismic(fitfreqs)
-    utils.print_distances(distparams, inputparams["asciiparams"])
-    utils.print_additional(inputparams)
-    utils.print_weights(bayweights, gridtype)
-    utils.print_priors(limits, usepriors)
+    util.print_fitparams(fitparams)
+    util.print_seismic(fitfreqs)
+    util.print_distances(distparams, inputparams["asciiparams"])
+    util.print_additional(inputparams)
+    util.print_weights(bayweights, gridtype)
+    util.print_priors(limits, usepriors)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Start likelihood computation
