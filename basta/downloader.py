@@ -14,7 +14,7 @@ from dustmaps.config import config
 DUSTMAPFILE = "_dustpath.py"
 
 
-def get_basta_dir():
+def get_basta_dir() -> str:
     """
     Helper to obtain location of BASTA root directory
     """
@@ -24,7 +24,7 @@ def get_basta_dir():
     return rootdir
 
 
-def get_grid(case, gridpath=None):
+def get_grid(case: str, gridpath=None):
     """
     Download a grid from the BASTAcode grid repository. Will be stored in the default
     location: BASTA/grids/ .
@@ -33,10 +33,8 @@ def get_grid(case, gridpath=None):
     ----------
     case : str
         Which grid to download. Possible value: "16CygA", "validation", "iso".
-
-    Returns
-    -------
-    None
+    gridpath : str, optional
+        Path to user-defined location of where to save grids
     """
     # Settings
     block_size = 1024
@@ -111,7 +109,7 @@ def get_grid(case, gridpath=None):
         print("The grid '{0}' already exists! Will not download.".format(gridpath))
 
 
-def get_dustmaps(dustpath=None, skip=False):
+def get_dustmaps(dustpath: str | None = None, skip: bool = False):
     """
     Configure dustmaps and download if necessary
 
@@ -119,13 +117,8 @@ def get_dustmaps(dustpath=None, skip=False):
     ----------
     dustpath : str, optional
         Where to store/find dustmaps
-
     skip : bool, optional
         Skip the download of the dustmaps
-
-    Returns
-    -------
-    None
     """
     home = get_basta_dir()
 
