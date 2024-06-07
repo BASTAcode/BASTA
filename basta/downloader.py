@@ -53,10 +53,10 @@ def get_grid(case: str, gridpath=None):
     if case == "iso":
         gridname = "BaSTI_iso2018.hdf5"
     elif case in ["16CygA", "validation", "validation_new-weights"]:
-        gridname = "Garstec_{0}.hdf5".format(case)
+        gridname = f"Garstec_{case}.hdf5"
     else:
         raise ValueError("Unknown grid!")
-    url = os.path.join(baseurl, "{0}.gz".format(gridname))
+    url = os.path.join(baseurl, f"{gridname}.gz")
 
     # Default or user-defined location?
     if gridpath:
@@ -75,7 +75,7 @@ def get_grid(case: str, gridpath=None):
         try:
             # Step 1: Download
             gz_tmp = gridpath + ".gz"
-            print("Downloading '{0}' to '{1}'".format(gridname, gz_tmp))
+            print(f"Downloading '{gridname}' to '{gz_tmp}'")
             res = requests.get(url, stream=True)
             res.raise_for_status()
             total_size = int(res.headers.get("content-length", 0))
@@ -87,7 +87,7 @@ def get_grid(case: str, gridpath=None):
 
             # Step 2: Extract
             print(
-                "Decompressing grid into '{0}' ... ".format(gridpath),
+                f"Decompressing grid into '{gridpath}' ... ",
                 end="",
                 flush=True,
             )
@@ -106,7 +106,7 @@ def get_grid(case: str, gridpath=None):
                 os.remove(gz_tmp)
 
     else:
-        print("The grid '{0}' already exists! Will not download.".format(gridpath))
+        print(f"The grid '{gridpath}' already exists! Will not download.")
 
 
 def get_dustmaps(dustpath: str | None = None, skip: bool = False):
@@ -131,13 +131,13 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
     # Configure package to use the specified path
     config["data_dir"] = dustfolder
     print("\n=========================")
-    print("Location of dustmaps: {0}".format(dustfolder))
+    print(f"Location of dustmaps: {dustfolder}")
     if not os.path.exists(dustfolder):
         os.mkdir(dustfolder)
 
     # Write dustmap datafolder to file
     with open(os.path.join(home, "basta", DUSTMAPFILE), "w") as f:
-        f.write("__dustpath__ = '{0}'\n".format(dustfolder))
+        f.write(f"__dustpath__ = '{dustfolder}'\n")
 
     # Install if required
     if not skip:
@@ -178,7 +178,7 @@ def main():
         "validation_new-weights",
     ]
     parser.add_argument(
-        "grid", help="The grid to download. Allowed cases: {0}".format(allowed_grids)
+        "grid", help=f"The grid to download. Allowed cases: {allowed_grids}"
     )
 
     # Optional argument: Where to save the grid
@@ -203,9 +203,7 @@ def main():
     # Parse and check
     args = parser.parse_args()
     if args.grid not in allowed_grids:
-        raise ValueError(
-            "Unknown grid requsted! Select from: {0}".format(allowed_grids)
-        )
+        raise ValueError(f"Unknown grid requsted! Select from: {allowed_grids}")
 
     get_grid(case=args.grid, gridpath=args.gridpath)
     get_dustmaps(dustpath=args.dustpath, skip=args.no_dustmaps)
