@@ -11,7 +11,7 @@ from basta import distances
 from basta.constants import freqtypes
 
 
-def h5py_to_array(xs):
+def h5py_to_array(xs) -> np.array:
     """
     Copy vector/dataset from an HDF5 file to a NumPy array
 
@@ -30,7 +30,7 @@ def h5py_to_array(xs):
     return res
 
 
-def prt_center(text, llen):
+def prt_center(text: str, llen: int) -> None:
     """
     Prints a centered line
 
@@ -38,20 +38,16 @@ def prt_center(text, llen):
     ----------
     text : str
         The text string to print
-
     llen : int
         Length of the line
-
-    Returns
-    -------
-    None
     """
-    print("{0}{1}{0}".format(int((llen - len(text)) / 2) * " ", text))
+    sp = int((llen - len(text)) / 2) * " "
+    print(f"{sp}{text}{sp}")
 
 
 def print_bastaheader(
     t0: time.struct_time, seed: int, llen: int = 88, developermode: bool = False
-):
+) -> None:
     """
     Prints the header of the BASTA run
 
