@@ -597,7 +597,7 @@ def BASTA(
 
     # Save log and recover standard output
     sys.stdout = stdout
-    print("Saved log to {outfilename}.log")
+    print(f"Saved log to {outfilename}.log")
 
     # Close grid, close open plots, and try to free memory between multiple runs
     Grid.close()
