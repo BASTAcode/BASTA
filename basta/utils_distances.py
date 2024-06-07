@@ -2,14 +2,13 @@
 Utility functions for the distance calculation and parallax fitting
 """
 import numpy as np
-
 import matplotlib
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def compute_absmag(m, dist, A):
+def compute_absmag(m: float, dist: float, A: float) -> float:
     """
     Use distance moduli to compute the absolute magnitudes
     from distances, apparent magnitudes m, and absorption A.
@@ -31,14 +30,55 @@ def compute_absmag(m, dist, A):
     return m - 5 * np.log10(dist / 10) - A
 
 
+def compute_distance_from_mag(m: float, M: float, A: float) -> float:
+    """
+    Compute distance from magnitudes.
+
+    Parameters
+    ----------
+    m : float
+        Apparent magnitude
+    M : float
+        Absolute magnitude
+    A : float
+        Absorption
+
+    Returns
+    -------
+    d : float
+        distance in parsec
+    """
+    return 10 ** (1 + (m - M - A) / 5.0)
+
+
 def compute_distlikelihoods(
-    r, plxobs, plxobs_err, L=None, debug_dirpath="", debug=False
+    r,
+    plxobs: float,
+    plxobs_err: float,
+    L: float | None = None,
+    debug_dirpath: str = "",
+    debug: bool = False,
 ):
     """
     Compute the likelihood as the product between a gaussian of the parallax
     and the exponentially decreasing volume density prior.
     For the unnormalised posterior, see Eq. 18 in Bailer-Jones 2015.
     This also works for nonpositive parallaxes.
+
+    Parameters
+    ----------
+    r : float
+    plxobs : float
+        Observed parallax
+    plsobs_err : float
+        Uncertainty in observed parallax
+    L : float
+        Characteristic scale length of the galaxy
+    debug : bool
+        Debug flag, used to trigger certain plots
+    debug_dirpath : str
+        Path to where to store debug plots
+
     """
     if L is None:
         L = EDSD(None, None) * 1e3
@@ -72,27 +112,6 @@ def compute_mslikelihoods(ms, mobs, mobs_err):
     lls -= np.amax(lls)
     lls -= np.log(np.sum(np.exp(lls)))
     return lls
-
-
-def distance_from_mag(m, M, A):
-    """
-    Compute distance from magnitudes.
-
-    Parameters
-    ----------
-    m : float
-        Apparent magnitude
-    M : float
-        Absolute magnitude
-    A : float
-        Absorption
-
-    Returns
-    -------
-    d : float
-        distance in parsec
-    """
-    return 10 ** (1 + (m - M - A) / 5.0)
 
 
 def EDSD(libitem, index):

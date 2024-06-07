@@ -12,7 +12,7 @@ import matplotlib
 import basta.fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import parameters, statdata
-from basta.utils_distances import distance_from_mag
+from basta.utils_distances import compute_distance_from_mag
 from basta.distances import get_absorption, get_EBV_along_LOS
 from basta import utils_general as util
 from basta import stats, plot_corner, plot_kiel
@@ -146,11 +146,11 @@ def compute_posterior(
             A_all = np.zeros(noofind)
 
             # Compute distances and extinction iteratively
-            d_all = distance_from_mag(m_all, M_all, A_all)
+            d_all = compute_distance_from_mag(m_all, M_all, A_all)
             for i in range(3):
                 EBV_all = LOS_EBV(d_all)
                 A_all = get_absorption(EBV_all, fitparams, m)
-                d_all = distance_from_mag(m_all, M_all, A_all)
+                d_all = compute_distance_from_mag(m_all, M_all, A_all)
 
             # Create posteriors from weighted histograms
             dinterp.append(
