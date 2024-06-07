@@ -13,7 +13,7 @@ import basta.fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import parameters, statdata
 from basta.utils_distances import distance_from_mag
-from basta.distances import get_absorption, LOS_reddening
+from basta.distances import get_absorption, get_EBV_along_LOS
 from basta import utils_general as util
 from basta import stats, plot_corner, plot_kiel
 from basta.downloader import get_basta_dir
@@ -133,7 +133,7 @@ def compute_posterior(
         distanceparams = inputparams["distanceparams"]
         ms = list(distanceparams["filters"])
         d_samples = np.zeros((nsamples, 2 * (len(ms) + 1)))
-        LOS_EBV = LOS_reddening(distanceparams)
+        LOS_EBV = get_EBV_along_LOS(distanceparams)
         if "distance" in cornerplots:
             plotout = np.zeros(3 * (2 * (len(ms) + 1)))
         j = 0

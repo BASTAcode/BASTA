@@ -120,7 +120,7 @@ def BASTA(
     inputparams, allparams = util.prepare_distancefitting(
         inputparams=inputparams,
         debug=debug,
-        outfilename=outfilename,
+        debug_dirpath=outfilename,
         allparams=allparams,
     )
 

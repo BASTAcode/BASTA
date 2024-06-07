@@ -2,6 +2,7 @@
 Production of asteroseismic plots
 """
 import os
+import h5py
 import numpy as np
 import matplotlib
 
@@ -44,8 +45,8 @@ splinecolor = "0.7"
 
 
 def echelle(
-    selectedmodels,
-    Grid,
+    selectedmodels: dict,
+    Grid: h5py.File,
     obs,
     obskey,
     mod=None,
@@ -55,8 +56,8 @@ def echelle(
     joinkeys=False,
     coeffs=None,
     scalnu=None,
-    freqcor="BG14",
-    pair=False,
+    freqcor: str = "BG14",
+    pair: bool = False,
     duplicate=False,
     output=None,
 ):

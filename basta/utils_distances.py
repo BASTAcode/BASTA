@@ -31,7 +31,9 @@ def compute_absmag(m, dist, A):
     return m - 5 * np.log10(dist / 10) - A
 
 
-def compute_distlikelihoods(r, plxobs, plxobs_err, L=None, outfilename="", debug=False):
+def compute_distlikelihoods(
+    r, plxobs, plxobs_err, L=None, debug_dirpath="", debug=False
+):
     """
     Compute the likelihood as the product between a gaussian of the parallax
     and the exponentially decreasing volume density prior.
@@ -49,7 +51,7 @@ def compute_distlikelihoods(r, plxobs, plxobs_err, L=None, outfilename="", debug
         plt.plot(r, np.exp(lls), "-")
         plt.xlabel("Distance (pc)")
         plt.ylabel("log PDF")
-        plt.savefig(outfilename + "_DEBUG_distance_lls.png")
+        plt.savefig(debug_dirpath + "_DEBUG_distance_lls.png")
         plt.close()
 
     # Convert from PDF to probability

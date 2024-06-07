@@ -165,7 +165,7 @@ def read_grid_bayweights(Grid, gridtype) -> tuple[tuple[str, ...], str]:
 
 
 def prepare_distancefitting(
-    inputparams: dict, debug: bool, outfilename: str, allparams: list[str]
+    inputparams: dict, debug: bool, debug_dirpath: str, allparams: list[str]
 ) -> tuple[dict, list[str]]:
     # Special case if assuming gaussian magnitudes
     if "gaussian_magnitudes" in inputparams:
@@ -177,7 +177,7 @@ def prepare_distancefitting(
     inputparams = distances.add_absolute_magnitudes(
         inputparams,
         debug=debug,
-        outfilename=outfilename,
+        debug_dirpath=debug_dirpath,
         use_gaussian_priors=use_gaussian_priors,
     )
 
