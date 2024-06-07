@@ -190,7 +190,7 @@ def prepare_distancefitting(
     return inputparams, allparams
 
 
-def print_fitparams(fitparams) -> None:
+def print_fitparams(fitparams: dict) -> None:
     # Print fitparams
     print("\nFitting information:")
     print("* Fitting parameters with values and uncertainties:")
@@ -202,7 +202,7 @@ def print_fitparams(fitparams) -> None:
         print(f"  - {fpstr}: {fitparams[fp]}")
 
 
-def print_seismic(fitfreqs) -> None:
+def print_seismic(fitfreqs: dict, obskey: np.array, obs: np.array) -> None:
     # Fitting info: Frequencies
     if not fitfreqs["active"]:
         return

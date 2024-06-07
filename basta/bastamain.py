@@ -198,8 +198,8 @@ def BASTA(
                 "{:s}!".format(["on", "off"][switch]),
             )
 
-    util.print_fitparams(fitparams)
-    util.print_seismic(fitfreqs)
+    util.print_fitparams(fitparams=fitparams)
+    util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
     util.print_distances(distparams, inputparams["asciiparams"])
     util.print_additional(inputparams)
     util.print_weights(bayweights, gridtype)
