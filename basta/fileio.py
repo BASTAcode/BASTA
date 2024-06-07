@@ -19,7 +19,7 @@ from basta import utils_general as util
 from basta.constants import freqtypes
 
 
-def _export_selectedmodels(selectedmodels):
+def _export_selectedmodels(selectedmodels: dict) -> dict:
     res = {}
     for trackno, ts in selectedmodels.items():
         index = ts.index.nonzero()[0].tolist()
@@ -33,7 +33,7 @@ def _export_selectedmodels(selectedmodels):
     return res
 
 
-def _import_selectedmodels(data):
+def _import_selectedmodels(data: dict) -> dict:
     res = {}
     for trackno, ts in data.items():
         index = np.zeros(ts["n"], dtype=bool)
@@ -45,20 +45,20 @@ def _import_selectedmodels(data):
     return res
 
 
-def save_selectedmodels(fname, selectedmodels):
+def save_selectedmodels(fname: str, selectedmodels):
     s = json.dumps(_export_selectedmodels(selectedmodels))
     with open(fname, "w") as fp:
         fp.write(s)
 
 
-def load_selectedmodels(fname):
+def load_selectedmodels(fname: str):
     with open(fname) as fp:
         data = json.load(fp)
 
     return _import_selectedmodels(data)
 
 
-def write_star_to_errfile(starid, inputparams, errormessage):
+def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str):
     """
     Write starid and error message to .err-file
 
@@ -80,7 +80,7 @@ def write_star_to_errfile(starid, inputparams, errormessage):
             ef.write("{}\t{}\n".format(starid, errormessage))
 
 
-def no_models(starid, inputparams, errormessage):
+def no_models(starid: str, inputparams: dict, errormessage: str):
     """
     If no models are found in the grid, create an outputfile with nans (for consistency reasons).
 
@@ -205,7 +205,7 @@ def no_models(starid, inputparams, errormessage):
     write_star_to_errfile(starid, inputparams, errormessage)
 
 
-def read_freq_xml(filename):
+def read_freq_xml(filename: str) -> tuple[np.array, np.array, np.array, np.array]:
     """
     Read frequencies from an xml file
 
@@ -249,7 +249,7 @@ def read_freq_xml(filename):
     return frequencies, errors, orders, degrees
 
 
-def _read_freq_cov_xml(filename, obskey):
+def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.array]:
     """
     Read frequency covariances from xml-file
 
@@ -306,7 +306,12 @@ def _read_freq_cov_xml(filename, obskey):
     return corr, cov
 
 
-def read_freq(filename, excludemodes=None, onlyradial=False, covarfre=False):
+def read_freq(
+    filename: str,
+    excludemodes: str | None = None,
+    onlyradial: bool = False,
+    covarfre: bool = False,
+) -> tuple[np.array, np.array, np.array]:
     """
     Routine to extract the frequencies in the desired n-range, and the
     corresponding covariance matrix
@@ -432,8 +437,13 @@ def _read_precomputed_glitches(
 
 
 def _read_precomputed_ratios_xml(
-    filename, ratiotype, obskey, obs, excludemodes=None, correlations=True
-):
+    filename: str,
+    ratiotype: str,
+    obskey: np.array,
+    obs: np.array,
+    excludemodes: str | None = None,
+    correlations: bool = True,
+) -> tuple[np.array, np.array]:
     """
     Read the precomputed ratios and covariance matrix from xml-file.
 
@@ -521,7 +531,7 @@ def _read_precomputed_ratios_xml(
     return ratios, cov
 
 
-def _read_ratios_cov_xml(xmlroot, types, order):
+def _read_ratios_cov_xml(xmlroot, types: np.array, order: np.array) -> np.array:
     """
     Read the precomputed covariance matrix of the read precomputed ratios.
 
@@ -560,20 +570,32 @@ def _read_ratios_cov_xml(xmlroot, types, order):
     return cov
 
 
-def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
+def _make_obsfreqs(
+    obskey: np.array,
+    obs: np.array,
+    obscov: np.array,
+    allfits: list[str, ...],
+    freqplots: list[str, ...],
+    numax: float,
+    debug: bool = False,
+) -> tuple[dict, dict]:
     """
     Make a dictionary of frequency-dependent data
 
     Parameters
     ----------
+    obskey : array
+        Array containing the angular degrees and radial orders of obs
+    obs : array
+        Individual frequencies and uncertainties.
+    obscov : array
+        Covariance matrix of the individual frequencies
     allfits : list
         Type of fits available for individual frequencies
     freqplots : list
         List of frequency-dependent fits
-    obscov : array
-        Covariance matrix of the individual frequencies
-    obscovinv : array
-        The inverse of the ovariance matrix of the individual frequencies
+    numax : float
+        The input numax of the target
     debug : bool, optional
         Activate additional output for debugging (for developers)
 
@@ -735,11 +757,11 @@ def _make_obsfreqs(obskey, obs, obscov, allfits, freqplots, numax, debug=False):
 
 
 def read_allseismic(
-    fitfreqs,
-    freqplots,
-    verbose=False,
-    debug=False,
-):
+    fitfreqs: dict,
+    freqplots: list,
+    verbose: bool = False,
+    debug: bool = False,
+) -> tuple[np.array, np.array, dict, dict]:
     """
     Routine to all necesary data from individual frequencies for the
     desired fit
@@ -772,12 +794,6 @@ def read_allseismic(
     obsfreqmeta : dict
         The requested information about which frequency products to fit or
         plot, unpacked for easier access later.
-    dnudata : scalar
-        Large frequency separation obtained by fitting the radial mode observed
-        frequencies. Similar to dnufit, but from data and not from the
-        theoretical frequencies in the grid of models.
-    dnudata_err : scalar
-        Uncertainty on dnudata.
     """
 
     if "freqs" in fitfreqs["fittypes"] and fitfreqs["correlations"]:
@@ -947,11 +963,9 @@ def read_allseismic(
 ##############################################################
 # Routines related to reading ascii-files and convert to xml #
 ##############################################################
-
-
 def freqs_ascii_to_xml(
-    directory,
-    starid,
+    directory: str,
+    starid: str,
     freqsfile: str | None = None,
     covfile: str | None = None,
     ratiosfile: str | None = None,
@@ -1249,7 +1263,7 @@ def freqs_ascii_to_xml(
 def _read_freq_ascii(
     filename: str,
     symmetric_errors: bool = True,
-):
+) -> np.array:
     """
     Read individual frequencies from an ascii file
 
@@ -1402,7 +1416,7 @@ def _read_freq_ascii(
     return freqs
 
 
-def _read_freq_cov_ascii(filename: str):
+def _read_freq_cov_ascii(filename: str) -> np.array:
     """
     Read covariance and correlations for individual frequencies from an
     ascii file
@@ -1433,7 +1447,7 @@ def _read_freq_cov_ascii(filename: str):
     return cov
 
 
-def _read_ratios_ascii(filename, symmetric_errors=True):
+def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.array:
     """
     Read frequency ratios from an ascii file
 
@@ -1480,7 +1494,7 @@ def _read_ratios_ascii(filename, symmetric_errors=True):
     return ratios
 
 
-def _read_ratios_cov_ascii(filename):
+def _read_ratios_cov_ascii(filename: str) -> np.array:
     """
     Read covariance and correlations for frequency ratios from an
     ascii file
