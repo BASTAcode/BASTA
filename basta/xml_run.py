@@ -99,7 +99,9 @@ def _centroid_and_uncert(root, inputparams):
     return inputparams
 
 
-def _get_true_or_list(params, deflist=None, check=True):
+def _get_true_or_list(
+    params: list, deflist: list | None = None, check: bool = True
+) -> list:
     """
     Several input lists can simply be set to true, in order to follow default
     behaviour, while inputting parameters changes the behaviour to the user
