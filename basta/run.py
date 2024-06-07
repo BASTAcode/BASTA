@@ -9,7 +9,7 @@ from basta.xml_run import run_xml
 
 
 @contextmanager
-def cd(newdir):
+def cd(newdir: str):
     """Change directory"""
     prevdir = os.getcwd()
     os.chdir(os.path.expanduser(newdir))
@@ -19,7 +19,9 @@ def cd(newdir):
         os.chdir(prevdir)
 
 
-def _process_xmldir(rundir, nproc=4, debug=False, seed=None):
+def _process_xmldir(
+    rundir: str, nproc: int = 4, seed: int | None = None, debug: bool = False
+):
     """
     Run BASTA on all files in a given directory. Multi-threaded version.
 
@@ -34,8 +36,8 @@ def _process_xmldir(rundir, nproc=4, debug=False, seed=None):
     debug : bool, optional
         Add --debug option for BASTA
 
-    seed : float, optional
-        Add a seed for BASTA
+    seed : int, optional
+        Initialise using a specific seed for BASTA
 
     Returns
     -------
@@ -165,6 +167,6 @@ def multi():
     _process_xmldir(
         rundir=os.path.abspath(args.xmlpath),
         nproc=numthread,
-        debug=args.debug,
         seed=args.seed,
+        debug=args.debug,
     )
