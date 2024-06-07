@@ -5,13 +5,12 @@ import os
 import json
 import h5py
 import warnings
+import numpy as np
 from io import IOBase
 from copy import deepcopy
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
-
-import numpy as np
 
 from basta import stats, freq_fit, glitch_fit
 from basta import utils_seismic as su
@@ -971,9 +970,9 @@ def freqs_ascii_to_xml(
     ratiosfile: str | None = None,
     cov010file: str | None = None,
     cov02file: str | None = None,
-    symmetric_errors=True,
-    check_radial_orders=False,
-    quiet=False,
+    symmetric_errors: bool = True,
+    check_radial_orders: bool = False,
+    verbose: bool = True,
 ):
     """
     Creates frequency xml-file based on ascii-files.
@@ -990,6 +989,16 @@ def freqs_ascii_to_xml(
     starid : str
         id of the star. The ascii files must be named 'starid.xxx' and
         the generated xml-file will be named 'starid.xml'
+    freqsfile : str | None, optional
+        File containing individual frequency modes, ends in `.fre`.
+    covfile : str | None, optional
+        File containing covariances, ends in `.cov`.
+    ratiosfile : str | None, optional
+        File containing precomputed ratios, end in `.ratios`.
+    cov010file : str | None, optional
+        File containing precomputed ratio 010 covariances, end in `.cov010`.
+    cov02file : str | None, optional
+        File containing precomputed ratio 02 covariances, end in `.cov02`.
     symmetric_errors : bool, optional
         If True, the ascii files are assumed to only include symmetric
         errors. Otherwise, asymmetric errors are assumed. Default is
@@ -1036,14 +1045,18 @@ def freqs_ascii_to_xml(
     # Check the value of epsilon, to estimate if the radial orders
     # are correctly identified. Correct them, if user allows to.
     ncorrection = su.check_epsilon_of_freqs(
-        freqs, starid, check_radial_orders, quiet=quiet
+        freqs,
+        starid,
+        check_radial_orders,
+        quiet=~verbose,
     )
     if check_radial_orders:
         freqs["order"] += ncorrection
-        if not quiet:
+        if verbose:
             print("The proposed correction has been implemented.\n")
-    elif not quiet:
-        print("No correction made.\n")
+    else:
+        if verbose:
+            print("No correction made.\n")
 
     # Look for ratios and their covariances, read if available
     if os.path.exists(ratiosfile):
