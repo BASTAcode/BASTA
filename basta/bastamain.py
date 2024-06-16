@@ -28,7 +28,6 @@ class LibraryError(Exception):
     pass
 
 
-# The main driver!
 def BASTA(
     starid: str,
     gridfile: str,

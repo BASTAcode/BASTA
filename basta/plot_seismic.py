@@ -5,6 +5,7 @@ import os
 import h5py
 import numpy as np
 import matplotlib
+import typing
 
 from scipy.interpolate import interp1d, CubicSpline
 
@@ -49,18 +50,18 @@ def echelle(
     Grid: h5py.File,
     obs: np.array,
     obskey: np.array,
-    mod: np.array | None = None,
-    modkey: np.array | None = None,
+    mod: typing.Optional[np.array] = None,
+    modkey: typing.Optional[np.array] = None,
     dnu: float = None,
-    join: np.array | None = None,
-    joinkeys: np.array | bool = False,
-    coeffs: np.array | None = None,
+    join: typing.Optional[np.array] = None,
+    joinkeys: typing.Optional[np.array] | bool = False,
+    coeffs: typing.Optional[np.array] | None = None,
     scalnu: float | None = None,
     freqcor: str = "BG14",
     pair: bool = False,
     duplicate: bool = False,
     output: str | None = None,
-):
+) -> None:
     """
     Echelle diagram. It is possible to either make a single Echelle diagram
     or plot it twice making patterns across the moduli-limit easier to see.
