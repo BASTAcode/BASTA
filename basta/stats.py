@@ -206,6 +206,7 @@ def chi2_astero(
     if any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
+            shapewarn = 2
             return chi2rut, warnings, shapewarn, addpars
 
         # Add frequency ratios terms
@@ -226,12 +227,18 @@ def chi2_astero(
             for rtype in set(modratio[2, :]):
                 obsmask = modratio[2, :] == rtype
                 modmask = broadratio[2, :] == rtype
+                # Check we have the range to interpolate
+                if (
+                    modratio[1, obsmask][0] < broadratio[1, modmask][0]
+                    or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
+                ):
+                    chi2rut = np.inf
+                    shapewarn = 3
+                    return chi2rut, warnings, shapewarn, addpars
                 intfunc = interp1d(
                     broadratio[1, modmask],
                     broadratio[0, modmask],
                     kind="linear",
-                    bounds_error=False,
-                    fill_value="extrapolate",
                 )
                 modratio[0, obsmask] = intfunc(modratio[1, obsmask])
 
@@ -247,7 +254,7 @@ def chi2_astero(
         if x.shape[0] == covinv.shape[0]:
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
-            shapewarn = 1
+            shapewarn = 4
             chi2rut = np.inf
 
     # Add contribution from glitches
@@ -258,7 +265,7 @@ def chi2_astero(
         if not fitfreqs["dnufit_in_ratios"]:
             dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
 
-        # Assign acoustic depts for glitch search
+        # Assign acoustic depths for glitch search
         ac_depths = {
             "tauHe": libitem["tauhe"][ind],
             "dtauHe": 100.0,
@@ -268,33 +275,47 @@ def chi2_astero(
 
         # If interpolating in ratios (default), we need to do an extra step
         if fitfreqs["interp_ratios"] and "r" in glitchtype:
-            # Get all ratios of model
-            broadglitches = glitch_fit.compute_glitchseqs(
+            # Get all model ratios
+            ratiotype = glitchtype[1:]
+            broadratio = freq_fit.compute_ratioseqs(
+                modkey,
+                mod,
+                ratiotype,
+                threepoint=fitfreqs["threepoint"],
+            )
+            modratio = copy.deepcopy(obsfreqdata[glitchtype]["data"][:, 1:-3])
+
+            # Seperate and interpolate within the separate r01, r10 and r02 sequences
+            for rtype in set(modratio[2, :]):
+                obsmask = modratio[2, :] == rtype
+                modmask = broadratio[2, :] == rtype
+                # Check we have the range to interpolate
+                if (
+                    modratio[1, obsmask][0] < broadratio[1, modmask][0]
+                    or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
+                ):
+                    chi2rut = np.inf
+                    shapewarn = 5
+                    return chi2rut, warnings, shapewarn, addpars
+                intfunc = interp1d(
+                    broadratio[1, modmask],
+                    broadratio[0, modmask],
+                    kind="linear",
+                )
+                modratio[0, obsmask] = intfunc(modratio[1, obsmask])
+
+            # Get all glitch parameters
+            modglitches = glitch_fit.compute_glitchseqs(
                 joinkeys,
                 join,
-                glitchtype,
+                "glitches",
                 dnusurf,
                 fitfreqs,
                 ac_depths,
                 debug,
             )
             # Construct output array
-            modglitches = copy.deepcopy(obsfreqdata[glitchtype]["data"])
-            modglitches[0, -3:] = broadglitches[0, -3:]
-
-            # Separate and interpolate within the separate r01, r10 and r02 sequences
-            # rtype = {7, 8, 9} is glitch parameters, can't interpolate those
-            for rtype in set(modglitches[2, :]) - {7.0, 8.0, 9.0}:
-                joinmask = modglitches[2, :] == rtype
-                broadmask = broadglitches[2, :] == rtype
-                intfunc = interp1d(
-                    broadglitches[1, broadmask],
-                    broadglitches[0, broadmask],
-                    kind="linear",
-                    bounds_error=False,
-                    fill_value="extrapolate",
-                )
-                modglitches[0, joinmask] = intfunc(modglitches[1, joinmask])
+            modglitches = np.hstack((modratio, modglitches))
 
         else:
             # Get model glitch sequence
@@ -309,18 +330,22 @@ def chi2_astero(
             )
 
         # Calculate chi square difference
+        dnucol = np.array([[dnusurf], [np.nan], [10], [np.nan]])
+        modglitches = np.hstack((dnucol, modglitches))
         x = obsfreqdata[glitchtype]["data"][0, :] - modglitches[0, :]
         w = _weight(len(x), fitfreqs["seismicweights"])
         covinv = obsfreqdata[glitchtype]["covinv"]
+        covinv[0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
         if x.shape[0] == covinv.shape[0] and not any(np.isnan(x)):
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
-            shapewarn = 1
+            shapewarn = 6
             chi2rut = np.inf
 
         # Store the determined glitch parameters for outputting
         addpars["glitchparams"] = modglitches[0, -3:]
 
+    # Add contribution from epsilon differences
     if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
@@ -371,7 +396,7 @@ def chi2_astero(
         # Check extreme values
         if any(np.isnan(evalepsdiff)):
             chi2rut = np.inf
-            shapewarn = 3
+            shapewarn = 7
         elif ~np.isfinite(chi2rut) or chi2rut < 0:
             chi2rut = np.inf
 
