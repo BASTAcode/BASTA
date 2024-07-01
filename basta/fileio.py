@@ -866,6 +866,9 @@ def read_allseismic(
             obsfreqmeta["glitch"]["plot"]
         ):
             obsfreqdata[glitchtype] = {}
+            dnucol = np.array(
+                [[obsfreqdata["freqs"]["dnudata"]], [np.nan], [5], [np.nan]]
+            )
             if fitfreqs["readglitchfile"]:
                 datos = _read_precomputed_glitches(fitfreqs["glitchfile"], glitchtype)
                 # Precomputed from glitchpy lacks the data structure, so sample once to obtain that
@@ -874,6 +877,7 @@ def read_allseismic(
                 )
                 # Store data in new structure, overwrite old
                 obsseq[0] = datos[0]
+                datos[1][0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
                 datos = (obsseq, datos[1])
             else:
                 datos = glitch_fit.compute_observed_glitches(

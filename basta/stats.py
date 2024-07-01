@@ -330,7 +330,7 @@ def chi2_astero(
             )
 
         # Calculate chi square difference
-        dnucol = np.array([[dnusurf], [np.nan], [10], [np.nan]])
+        dnucol = np.array([[dnusurf], [np.nan], [5], [np.nan]])
         modglitches = np.hstack((dnucol, modglitches))
         x = obsfreqdata[glitchtype]["data"][0, :] - modglitches[0, :]
         w = _weight(len(x), fitfreqs["seismicweights"])

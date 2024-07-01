@@ -204,9 +204,13 @@ def compute_glitchseqs(
         ratios = freq_fit.compute_ratioseqs(
             osckey, osc, sequence[1:], fitfreqs["threepoint"]
         )
+        dnu, dnu_err = freq_fit.compute_dnu_wfit(osckey, osc, fitfreqs["numax"])
 
         # Stack arrays and return full sequence
         glitchseq = np.hstack((ratios, glitchseq))
+        dnucol = np.array([[dnu], [np.nan], [5], [np.nan]])
+        glitchseq = np.hstack((dnucol, glitchseq))
+
         return glitchseq
 
 
