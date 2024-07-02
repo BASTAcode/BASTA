@@ -506,7 +506,7 @@ def ratioplot(
         )
 
     handles = []
-    for rtype in set(obsratio[2, :]):
+    for rtype in set(obsratio[2, :]) - {5.0}:
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
         rtname = "r{:02d}".format(int(rtype))
@@ -579,7 +579,7 @@ def ratioplot(
         [h.get_label() for h in handles],
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
-        ncol=nbase * len(set(obsratio[2, :])),
+        ncol=nbase * len(set(obsratio[2, :]) - {5.0}),
         mode="expand",
         borderaxespad=0.0,
     )
@@ -982,7 +982,10 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
         if data is None:
             return
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
-        ln_zip = zip(data[2, :], data[3, :])
+        if np.isnan(data[3, 0]):
+            ln_zip = zip(data[2, 1:], data[3, 1:])
+        else:
+            ln_zip = zip(data[2, :], data[3, :])
 
     elif fittype in freqtypes.epsdiff:
         data = obsfreqdata[fittype]["data"]
@@ -997,23 +1000,31 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
             return
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         if fittype != "glitches":
-            ln_zip = zip(data[2, :-3], data[3, :-3])
+            if np.isnan(data[3, 0]):
+                ln_zip = zip(data[2, 1:-3], data[3, 1:-3])
+            else:
+                ln_zip = zip(data[2, :-3], data[3, :-3])
         else:
             ln_zip = []
 
     # Construct labels
-    labs = []
+    # Special large separation (if it exists)
+    if np.isnan(data[3, 0]):
+        labs = [r"$\Delta\nu$"]
+    else:
+        labs = []
+
+    # Append ratio labels
     for l, n in ln_zip:
         labs.append(fmtstr.format(int(l), int(n)))
 
     # Append special glitches labels
     if fittype in freqtypes.glitches:
         glitchlabels = {
-            7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
-            8: r"$\Delta_{\mathrm{He}}$ (s)",
-            9: r"$\tau_{\mathrm{He}}$ (s)",
+            7: r"$\langle A_{\mathrm{He}}\rangle$",
+            8: r"$\Delta_{\mathrm{He}}$",
+            9: r"$\tau_{\mathrm{He}}$",
         }
-
         for glitchtype in data[2, -3:]:
             labs.append(glitchlabels[int(glitchtype)])
 

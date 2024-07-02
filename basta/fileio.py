@@ -817,7 +817,7 @@ def read_allseismic(
         )
         print(f"to {obsfreqdata['freqs']['dnudata_err']:.3f}")
 
-    # Compute or dataread in required ratios
+    # Compute or data-read in required ratios
     if obsfreqmeta["getratios"]:
         if fitfreqs["readratios"]:
             # Read all requested ratio sequences
@@ -843,10 +843,17 @@ def read_allseismic(
             ):
                 obsfreqdata[ratiotype] = {}
                 datos = freq_fit.compute_ratios(
-                    obskey, obs, ratiotype, threepoint=fitfreqs["threepoint"]
+                    obskey,
+                    obs,
+                    ratiotype,
+                    threepoint=fitfreqs["threepoint"],
+                    dnufit_in_ratios=fitfreqs["dnufit_in_ratios"],
+                    numax=fitfreqs["numax"],
                 )
                 if datos is not None:
                     obsfreqdata[ratiotype]["data"] = datos[0]
+                    if fitfreqs["dnufit_in_ratios"]:
+                        datos[1][0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
                     obsfreqdata[ratiotype]["cov"] = datos[1]
                 elif ratiotype in obsfreqmeta["ratios"]["fit"]:
                     # Fail
@@ -866,9 +873,6 @@ def read_allseismic(
             obsfreqmeta["glitch"]["plot"]
         ):
             obsfreqdata[glitchtype] = {}
-            dnucol = np.array(
-                [[obsfreqdata["freqs"]["dnudata"]], [np.nan], [5], [np.nan]]
-            )
             if fitfreqs["readglitchfile"]:
                 datos = _read_precomputed_glitches(fitfreqs["glitchfile"], glitchtype)
                 # Precomputed from glitchpy lacks the data structure, so sample once to obtain that
@@ -877,7 +881,6 @@ def read_allseismic(
                 )
                 # Store data in new structure, overwrite old
                 obsseq[0] = datos[0]
-                datos[1][0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
                 datos = (obsseq, datos[1])
             else:
                 datos = glitch_fit.compute_observed_glitches(
@@ -890,6 +893,8 @@ def read_allseismic(
                 )
             if datos is not None:
                 obsfreqdata[glitchtype]["data"] = datos[0]
+                if fitfreqs["dnufit_in_ratios"]:
+                    datos[1][0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
                 obsfreqdata[glitchtype]["cov"] = datos[1]
             elif glitchtype in obsfreqmeta["glitches"]["fit"]:
                 # Fail

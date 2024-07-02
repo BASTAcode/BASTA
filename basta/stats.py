@@ -188,19 +188,11 @@ def chi2_astero(
             if debug and verbose:
                 print("DEBUG: chi2 less than zero, setting chi2 to inf")
 
-    # Add large frequency separation term (using corrected frequencies!)
-    # --> Equivalent to 'dnufit', but using the frequencies *after*
-    #     applying the surface correction.
-    # --> Compared to the observed value, which is 'dnudata'.
+    # Compute surface corrected large frequency separation
     if fitfreqs["dnufit_in_ratios"]:
-        # Read observed dnu
-        dnudata = obsfreqdata["freqs"]["dnudata"]
-        dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
-
-        # Compute surface corrected dnu
-        dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
-
-        chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+        dnusurf, _ = freq_fit.compute_dnu_wfit(
+            joinkeys, corjoin, sydc.SUNnumax * libitem["numax"][ind]
+        )
 
     # Add the chi-square terms for ratios
     if any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
@@ -216,17 +208,17 @@ def chi2_astero(
         if fitfreqs["interp_ratios"]:
             # Get all available model ratios
             broadratio = freq_fit.compute_ratioseqs(
-                modkey,
-                mod,
-                ratiotype,
-                threepoint=fitfreqs["threepoint"],
+                modkey, mod, ratiotype, threepoint=fitfreqs["threepoint"]
             )
             modratio = copy.deepcopy(obsfreqdata[ratiotype]["data"])
+            if fitfreqs["dnufit_in_ratios"]:
+                modratio[0, 0] = dnusurf
 
             # Seperate and interpolate within the separate r01, r10 and r02 sequences
-            for rtype in set(modratio[2, :]):
+            for rtype in set(modratio[2, :]) - {5.0}:
                 obsmask = modratio[2, :] == rtype
                 modmask = broadratio[2, :] == rtype
+
                 # Check we have the range to interpolate
                 if (
                     modratio[1, obsmask][0] < broadratio[1, modmask][0]
@@ -241,11 +233,13 @@ def chi2_astero(
                     kind="linear",
                 )
                 modratio[0, obsmask] = intfunc(modratio[1, obsmask])
-
         else:
             modratio = freq_fit.compute_ratioseqs(
                 joinkeys, join, ratiotype, threepoint=fitfreqs["threepoint"]
             )
+            if fitfreqs["dnufit_in_ratios"]:
+                dnucol = np.array([[dnusurf], [np.nan], [5.0], [np.nan]])
+                modratio = np.hstack((dnucol, modratio))
 
         # Calculate chi square with chosen asteroseismic weight
         x = obsfreqdata[ratiotype]["data"][0, :] - modratio[0, :]
@@ -261,9 +255,12 @@ def chi2_astero(
     if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
         # Obtain glitch sequence to be fitted
         glitchtype = obsfreqmeta["glitch"]["fit"][0]
-        # Compute surface corrected dnu, if not already computed
+
+        # Compute surface corrected dnu, if not already calculated
         if not fitfreqs["dnufit_in_ratios"]:
-            dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
+            dnusurf, _ = freq_fit.compute_dnu_wfit(
+                joinkeys, corjoin, sydc.SUNnumax * libitem["numax"][ind]
+            )
 
         # Assign acoustic depths for glitch search
         ac_depths = {
@@ -283,12 +280,15 @@ def chi2_astero(
                 ratiotype,
                 threepoint=fitfreqs["threepoint"],
             )
-            modratio = copy.deepcopy(obsfreqdata[glitchtype]["data"][:, 1:-3])
+            modratio = copy.deepcopy(obsfreqdata[glitchtype]["data"][:, :-3])
+            if fitfreqs["dnufit_in_ratios"]:
+                modratio[0, 0] = dnusurf
 
             # Seperate and interpolate within the separate r01, r10 and r02 sequences
-            for rtype in set(modratio[2, :]):
+            for rtype in set(modratio[2, :]) - {5.0}:
                 obsmask = modratio[2, :] == rtype
                 modmask = broadratio[2, :] == rtype
+
                 # Check we have the range to interpolate
                 if (
                     modratio[1, obsmask][0] < broadratio[1, modmask][0]
@@ -314,11 +314,11 @@ def chi2_astero(
                 ac_depths,
                 debug,
             )
+
             # Construct output array
             modglitches = np.hstack((modratio, modglitches))
-
         else:
-            # Get model glitch sequence
+            # Get model ratio-glitch sequence
             modglitches = glitch_fit.compute_glitchseqs(
                 joinkeys,
                 join,
@@ -328,14 +328,13 @@ def chi2_astero(
                 ac_depths,
                 debug,
             )
+            if fitfreqs["dnufit_in_ratios"]:
+                modglitches[0, 0] = dnusurf
 
         # Calculate chi square difference
-        dnucol = np.array([[dnusurf], [np.nan], [5], [np.nan]])
-        modglitches = np.hstack((dnucol, modglitches))
         x = obsfreqdata[glitchtype]["data"][0, :] - modglitches[0, :]
         w = _weight(len(x), fitfreqs["seismicweights"])
         covinv = obsfreqdata[glitchtype]["covinv"]
-        covinv[0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
         if x.shape[0] == covinv.shape[0] and not any(np.isnan(x)):
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:

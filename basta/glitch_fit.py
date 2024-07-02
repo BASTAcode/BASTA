@@ -58,7 +58,12 @@ def compute_observed_glitches(
     else:
         # Ratios and glitch parameters
         ratios = freq_fit.compute_ratioseqs(
-            osckey, osc, sequence[1:], fitfreqs["threepoint"]
+            osckey,
+            osc,
+            sequence[1:],
+            threepoint=fitfreqs["threepoint"],
+            dnufit_in_ratios=fitfreqs["dnufit_in_ratios"],
+            numax=fitfreqs["numax"],
         )
         sequence_length = ratios.shape[1] + 3
 
@@ -202,14 +207,16 @@ def compute_glitchseqs(
     else:
         # Compute ratio sequence
         ratios = freq_fit.compute_ratioseqs(
-            osckey, osc, sequence[1:], fitfreqs["threepoint"]
+            osckey,
+            osc,
+            sequence[1:],
+            threepoint=fitfreqs["threepoint"],
+            dnufit_in_ratios=fitfreqs["dnufit_in_ratios"],
+            numax=fitfreqs["numax"],
         )
-        dnu, dnu_err = freq_fit.compute_dnu_wfit(osckey, osc, fitfreqs["numax"])
 
         # Stack arrays and return full sequence
         glitchseq = np.hstack((ratios, glitchseq))
-        dnucol = np.array([[dnu], [np.nan], [5], [np.nan]])
-        glitchseq = np.hstack((dnucol, glitchseq))
 
         return glitchseq
 

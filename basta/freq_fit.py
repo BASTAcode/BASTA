@@ -667,7 +667,15 @@ Frequency ratios
 """
 
 
-def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False):
+def compute_ratios(
+    obskey,
+    obs,
+    ratiotype,
+    nrealisations=10000,
+    threepoint=False,
+    dnufit_in_ratios=False,
+    numax=None,
+):
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
     frequencies, and return the desired ratio sequence, both individual
@@ -693,6 +701,10 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     threepoint : bool
         If True, use three point definition of r01 and r10 ratios
         instead of default five point definition.
+    dnufit_in_ratios : bool
+        If True, calculate large frequency separation
+    numax : float
+        When dnufit_in_ratios=True, it is used to compute large separation
 
     Returns
     -------
@@ -701,24 +713,39 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     ratio_cov : array
         Covariance matrix of the requested ratio.
     """
-    ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
+    ratio = compute_ratioseqs(
+        obskey,
+        obs,
+        ratiotype,
+        threepoint=threepoint,
+        dnufit_in_ratios=dnufit_in_ratios,
+        numax=numax,
+    )
 
     # Check for valid return
     if ratio is None:
         return None
 
+    # Compute covariance matrix
+    args = {
+        "threepoint": threepoint,
+        "dnufit_in_ratios": dnufit_in_ratios,
+        "numax": numax,
+    }
     ratio_cov = su.compute_cov_from_mc(
         ratio.shape[1],
         obskey,
         obs,
         ratiotype,
-        args={"threepoint": threepoint},
+        args=args,
         nrealisations=nrealisations,
     )
     return ratio, ratio_cov
 
 
-def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
+def compute_ratioseqs(
+    obskey, obs, sequence, threepoint=False, dnufit_in_ratios=False, numax=None
+):
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
     frequencies, and return the desired ratio sequence, both individual
@@ -740,6 +767,10 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
     threepoint : bool
         If True, use three point definition of r01 and r10 ratios
         instead of default five point definition.
+    dnufit_in_ratios : bool
+        If True, calculate large frequency separation
+    numax : float
+        When dnufit_in_ratios=True, it is used to compute large separation
 
     Returns
     -------
@@ -916,38 +947,80 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
                 r10[0, i] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
                 r10[0, i] /= f0[i00 + i] - f0[i00 + i + 1]
 
-    if sequence == "r02":
-        return r02
+    if dnufit_in_ratios:
+        dnu, _ = compute_dnu_wfit(obskey, obs, numax)
+        dnucol = np.array([[dnu], [np.nan], [5.0], [np.nan]])
+        if sequence == "r02":
+            if r02 is None:
+                return None
+            return np.hstack((dnucol, r02))
 
-    elif sequence == "r01":
-        return r01
+        elif sequence == "r01":
+            if r01 is None:
+                return None
+            return np.hstack((dnucol, r01))
 
-    elif sequence == "r10":
-        return r10
+        elif sequence == "r10":
+            if r10 is None:
+                return None
+            return np.hstack((dnucol, r10))
 
-    elif sequence == "r012":
-        if r01 is None or r02 is None:
-            return None
-        # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
-        mask = np.argsort(np.append(r01[3, :], r02[3, :] + 0.1))
-        r012 = np.hstack((r01, r02))[:, mask]
-        return r012
+        elif sequence == "r012":
+            if r01 is None or r02 is None:
+                return None
+            # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
+            mask = np.argsort(np.append(r01[3, :], r02[3, :] + 0.1))
+            r012 = np.hstack((r01, r02))[:, mask]
+            return np.hstack((dnucol, r012))
 
-    elif sequence == "r102":
-        if r10 is None or r02 is None:
-            return None
-        # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
-        mask = np.argsort(np.append(r10[3, :], r02[3, :] + 0.1))
-        r102 = np.hstack((r10, r02))[:, mask]
-        return r102
+        elif sequence == "r102":
+            if r10 is None or r02 is None:
+                return None
+            # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
+            mask = np.argsort(np.append(r10[3, :], r02[3, :] + 0.1))
+            r102 = np.hstack((r10, r02))[:, mask]
+            return np.hstack((dnucol, r102))
 
-    elif sequence == "r010":
-        if r01 is None or r10 is None:
-            return None
-        # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
-        mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
-        r010 = np.hstack((r01, r10))[:, mask]
-        return r010
+        elif sequence == "r010":
+            if r01 is None or r10 is None:
+                return None
+            # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
+            mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
+            r010 = np.hstack((r01, r10))[:, mask]
+            return np.hstack((dnucol, r010))
+    else:
+        if sequence == "r02":
+            return r02
+
+        elif sequence == "r01":
+            return r01
+
+        elif sequence == "r10":
+            return r10
+
+        elif sequence == "r012":
+            if r01 is None or r02 is None:
+                return None
+            # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
+            mask = np.argsort(np.append(r01[3, :], r02[3, :] + 0.1))
+            r012 = np.hstack((r01, r02))[:, mask]
+            return r012
+
+        elif sequence == "r102":
+            if r10 is None or r02 is None:
+                return None
+            # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
+            mask = np.argsort(np.append(r10[3, :], r02[3, :] + 0.1))
+            r102 = np.hstack((r10, r02))[:, mask]
+            return r102
+
+        elif sequence == "r010":
+            if r01 is None or r10 is None:
+                return None
+            # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
+            mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
+            r010 = np.hstack((r01, r10))[:, mask]
+            return r010
 
 
 """
