@@ -78,7 +78,9 @@ def print_bastaheader(
 
 
 def check_gridtype(
-    gridtype: str, allowed_gridtype: list[str] = ["tracks", "isochrones"]
+    gridtype: str,
+    allowed_gridtype: list[str] = ["tracks", "isochrones"],
+    gridid: str | bool = False,
 ) -> tuple[str, str, None | int]:
     # Check type of grid (isochrones/tracks) and set default grid path
     gridtype = gridtype.lower()

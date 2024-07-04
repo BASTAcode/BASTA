@@ -104,7 +104,7 @@ def BASTA(
     print(f"* Using the grid '{gridfile}' of type '{gridtype}'.")
     print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
 
-    entryname, defaultpath, difsolarmodel = util.check_gridtype(gridtype)
+    entryname, defaultpath, difsolarmodel = util.check_gridtype(gridtype, gridid=gridid)
 
     # Read available weights if not provided by the user
     bayweights, dweight = (
@@ -198,7 +198,8 @@ def BASTA(
             )
 
     util.print_fitparams(fitparams=fitparams)
-    util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
+    if fitfreqs["active"]:
+        util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
     util.print_distances(distparams, inputparams["asciiparams"])
     util.print_additional(inputparams)
     util.print_weights(bayweights, gridtype)

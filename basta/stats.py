@@ -23,7 +23,7 @@ Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
 Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
 
 
-def _weight(N, seisw):
+def _weight(N: int, seisw: dict) -> int:
     """
     Determine weighting scheme dependent on given method
 
