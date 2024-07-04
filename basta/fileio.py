@@ -806,17 +806,6 @@ def read_allseismic(
         debug=debug,
     )
 
-    # Add large frequency separation bias (default is 0)
-    if fitfreqs["dnubias"]:
-        print(
-            f"Added {fitfreqs['dnubias']}muHz bias/systematic to dnu error, from {obsfreqdata['freqs']['dnudata_err']:.3f}",
-            end=" ",
-        )
-        obsfreqdata["freqs"]["dnudata_err"] = np.sqrt(
-            obsfreqdata["freqs"]["dnudata_err"] ** 2.0 + fitfreqs["dnubias"] ** 2.0
-        )
-        print(f"to {obsfreqdata['freqs']['dnudata_err']:.3f}")
-
     # Compute or data-read in required ratios
     if obsfreqmeta["getratios"]:
         if fitfreqs["readratios"]:
@@ -852,9 +841,16 @@ def read_allseismic(
                 )
                 if datos is not None:
                     obsfreqdata[ratiotype]["data"] = datos[0]
-                    if fitfreqs["dnufit_in_ratios"]:
-                        datos[1][0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
                     obsfreqdata[ratiotype]["cov"] = datos[1]
+                    if fitfreqs["dnufit_in_ratios"] and fitfreqs["dnubias"]:
+                        sigma1 = np.sqrt(datos[1][0, 0])
+                        sigma2 = np.sqrt(sigma1**2 + fitfreqs["dnubias"] ** 2)
+                        obsfreqdata[ratiotype]["cov"][0, :] = datos[1][0, :] * (
+                            sigma2 / sigma1
+                        )
+                        obsfreqdata[ratiotype]["cov"][:, 0] = datos[1][:, 0] * (
+                            sigma2 / sigma1
+                        )
                 elif ratiotype in obsfreqmeta["ratios"]["fit"]:
                     # Fail
                     raise ValueError(
@@ -893,9 +889,16 @@ def read_allseismic(
                 )
             if datos is not None:
                 obsfreqdata[glitchtype]["data"] = datos[0]
-                if fitfreqs["dnufit_in_ratios"]:
-                    datos[1][0, 0] = obsfreqdata["freqs"]["dnudata_err"] ** 2
                 obsfreqdata[glitchtype]["cov"] = datos[1]
+                if fitfreqs["dnufit_in_ratios"] and fitfreqs["dnubias"]:
+                    sigma1 = np.sqrt(datos[1][0, 0])
+                    sigma2 = np.sqrt(sigma1**2 + fitfreqs["dnubias"] ** 2)
+                    obsfreqdata[glitchtype]["cov"][0, :] = datos[1][0, :] * (
+                        sigma2 / sigma1
+                    )
+                    obsfreqdata[glitchtype]["cov"][:, 0] = datos[1][:, 0] * (
+                        sigma2 / sigma1
+                    )
             elif glitchtype in obsfreqmeta["glitches"]["fit"]:
                 # Fail
                 raise ValueError(
