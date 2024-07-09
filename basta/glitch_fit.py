@@ -138,7 +138,8 @@ def compute_glitchseqs(
         }
 
     # Reformat frequencies for input to methods and filter out l=3
-    freqs = np.zeros((len(osckey[0, osckey[0, :] < 3]), 4))
+    num_of_mode = len(osckey[0, osckey[0, :] < 3])
+    freqs = np.zeros((num_of_mode, 4))
     freqs[:, 0] = osckey[0, osckey[0, :] < 3]
     freqs[:, 1] = osckey[1, osckey[0, :] < 3]
     freqs[:, 2] = osc[0, osckey[0, :] < 3]
@@ -168,10 +169,13 @@ def compute_glitchseqs(
             num_guess=fitfreqs["nguesses"],
         )
     elif fitfreqs["glitchmethod"].lower() == "secdif":
-        freq_sd = sd(freqs, num_of_n, icov_sd.shape[0])
+        num_of_l = len(num_of_n)
+        num_of_dif2 = num_of_mode - 2 * num_of_l
+        freq_sd = sd(freqs, num_of_n, num_of_dif2)
+        icov = icov_sd(num_of_l, num_of_n, freqs, num_of_dif2)
         param, _, _, ier = fit_sd(
             freq_sd,
-            icov_sd,
+            icov,
             acousticRadius,
             ac_depths["tauHe"],
             ac_depths["dtauHe"],
