@@ -843,6 +843,11 @@ def read_allseismic(
                     obsfreqdata[ratiotype]["data"] = datos[0]
                     obsfreqdata[ratiotype]["cov"] = datos[1]
                     if fitfreqs["dnufit_in_ratios"] and fitfreqs["dnubias"]:
+                        print(
+                            "Scaling covariance matrix as per given dnubias =",
+                            fitfreqs["dnubias"],
+                            "muHz",
+                        )
                         sigma1 = np.sqrt(datos[1][0, 0])
                         sigma2 = np.sqrt(sigma1**2 + fitfreqs["dnubias"] ** 2)
                         obsfreqdata[ratiotype]["cov"][0, :] = datos[1][0, :] * (
@@ -891,6 +896,11 @@ def read_allseismic(
                 obsfreqdata[glitchtype]["data"] = datos[0]
                 obsfreqdata[glitchtype]["cov"] = datos[1]
                 if fitfreqs["dnufit_in_ratios"] and fitfreqs["dnubias"]:
+                    print(
+                        "Scaling covariance matrix as per given dnubias =",
+                        fitfreqs["dnubias"],
+                        "muHz",
+                    )
                     sigma1 = np.sqrt(datos[1][0, 0])
                     sigma2 = np.sqrt(sigma1**2 + fitfreqs["dnubias"] ** 2)
                     obsfreqdata[glitchtype]["cov"][0, :] = datos[1][0, :] * (
