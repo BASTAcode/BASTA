@@ -1,4 +1,4 @@
-#order, degree, frequency, error (symmetric), flag (not in use yet)
+#order, degree, frequency, error, flag
 11    1     1334.28530945   1.00643301638   1
 12    0     1390.80818859   0.8633433785   	1
 12    1     1437.38529836   0.447420447278	1
