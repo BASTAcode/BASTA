@@ -1,6 +1,7 @@
 """
 Utilities for handling of XML files
 """
+
 from builtins import str
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -88,7 +89,7 @@ def create_xmltag(
         paramval = _get_param(paramvals, params, param)
         if isinstance(paramval, np.str_) and paramval != missingval:
             SubElement(star, param, {"value": str(paramval)})
-        if (not isinstance(paramval, np.unicode_)) and (
+        if (not isinstance(paramval, np.str_)) and (
             not np.isclose(paramval, missingval)
         ):
             paramerr = _get_param(paramvals, params, param + "_err")
