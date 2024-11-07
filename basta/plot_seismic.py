@@ -1,6 +1,7 @@
 """
 Production of asteroseismic plots
 """
+
 import os
 import numpy as np
 import matplotlib
@@ -268,7 +269,7 @@ def echelle(
                     linewidths=1,
                     edgecolors="k",
                     zorder=3,
-                    label=f"Best fit $\ell={l}$",
+                    label=f"Best fit $\\ell={l}$",
                 )
                 if duplicate:
                     ax.scatter(
@@ -289,7 +290,7 @@ def echelle(
                     mfc=colors["l" + l],
                     ecolor=colors["l" + l],
                     zorder=1,
-                    label=f"Measured $\ell={l}$",
+                    label=f"Measured $\\ell={l}$",
                 )
                 if duplicate:
                     ax.errorbar(
