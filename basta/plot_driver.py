@@ -128,8 +128,8 @@ def plot_all_seismic(
                 dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
-                pair=True,
-                duplicate=False,
+                pairmode=True,
+                duplicatemode=False,
                 outputfilename=plotfname.format("pairechelle_uncorrected"),
             )
         except Exception as e:
@@ -147,8 +147,8 @@ def plot_all_seismic(
                 dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
-                duplicate=True,
-                pair=True,
+                duplicatemode=True,
+                pairmode=True,
                 outputfilename=plotfname.format("dupechelle_uncorrected"),
             )
         except Exception as e:
@@ -193,8 +193,8 @@ def plot_all_seismic(
                 freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
                 scalnu=fitfreqs["numax"],
-                pair=False,
-                duplicate=False,
+                pairmode=False,
+                duplicatemode=False,
                 outputfilename=plotfname.format("echelle"),
             )
         except Exception as e:
@@ -215,8 +215,8 @@ def plot_all_seismic(
                 freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
                 scalnu=fitfreqs["numax"],
-                pair=True,
-                duplicate=False,
+                pairmode=True,
+                duplicatemode=False,
                 outputfilename=plotfname.format("pairechelle"),
             )
         except Exception as e:
@@ -237,8 +237,8 @@ def plot_all_seismic(
                 freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
                 scalnu=fitfreqs["numax"],
-                duplicate=True,
-                pair=True,
+                duplicatemode=True,
+                pairmode=True,
                 outputfilename=plotfname.format("dupechelle"),
             )
         except Exception as e:
