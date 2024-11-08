@@ -1,6 +1,7 @@
 """
 Auxiliary functions for file operations
 """
+
 import os
 import json
 import h5py

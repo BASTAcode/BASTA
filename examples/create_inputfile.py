@@ -1,6 +1,7 @@
 """
 Make an input file for BASTA in XML format. Template version.
 """
+
 import os
 from basta.downloader import get_basta_dir
 

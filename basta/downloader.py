@@ -1,6 +1,7 @@
 """
 Routines to download assets
 """
+
 import os
 import gzip
 import shutil

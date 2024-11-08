@@ -1,6 +1,7 @@
 """
 Utility functions for the distance calculation and parallax fitting
 """
+
 import numpy as np
 import matplotlib
 

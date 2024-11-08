@@ -1,6 +1,7 @@
 """
 Auxiliary functions for running the examples
 """
+
 import os
 import sys
 import argparse

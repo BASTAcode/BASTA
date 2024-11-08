@@ -1,6 +1,7 @@
 """
 Parallax fitting and computation of distances
 """
+
 import os
 import warnings
 import collections

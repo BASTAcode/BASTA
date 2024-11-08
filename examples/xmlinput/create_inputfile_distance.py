@@ -3,6 +3,7 @@ Make an input file for BASTA in XML format
 
 This is a specific example of the template.
 """
+
 import os
 from basta.downloader import get_basta_dir
 
