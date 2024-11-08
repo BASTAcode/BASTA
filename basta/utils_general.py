@@ -1,6 +1,7 @@
 """
 General mix of utility functions
 """
+
 import sys
 from io import IOBase
 
@@ -363,3 +364,25 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     else:
         print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
     print("-----------------------------------------------------")
+
+
+def strtobool(val):
+    """
+    Convert a string representation of truth to true (1) or false (0).
+    True values are 'y', 'yes', 't', 'true', 'on', and '1'.
+    False values are 'n', 'no', 'f', 'false', 'off', and '0'.
+
+    Raises ValueError if 'val' is anything else.
+
+    Parameter
+    ---------
+    val: str
+        String value to be converted into a boolean.
+    """
+    val = val.lower()
+    if val in ("y", "yes", "t", "true", "on", "1"):
+        return 1
+    elif val in ("n", "no", "f", "false", "off", "0"):
+        return 0
+    else:
+        raise ValueError("invalid truth value %r" % (val,))

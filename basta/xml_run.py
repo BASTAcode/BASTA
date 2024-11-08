@@ -1,6 +1,7 @@
 """
 Running BASTA from XML files. Main wrapper!
 """
+
 import os
 import gc
 import sys
@@ -8,7 +9,6 @@ import copy
 import h5py
 import traceback
 from xml.etree import ElementTree
-from distutils.util import strtobool
 
 import numpy as np
 
@@ -18,7 +18,7 @@ from basta.constants import parameters
 from basta.constants import freqtypes
 from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
-from basta.utils_general import unique_unsort
+from basta.utils_general import strtobool, unique_unsort
 from basta.interpolation_driver import perform_interpolation
 
 
@@ -676,11 +676,14 @@ def run_xml(
 
     # First, delete any existing file, then open file for appending
     # --> This is essential when running on multiple stars
-    with open(asciifilepath, "wb"), open(asciifilepath, "ab+") as fout, open(
-        errfilepath, "w"
-    ), open(errfilepath, "a+") as ferr, open(warnfilepath, "w"), open(
-        warnfilepath, "a+"
-    ) as fwarn:
+    with (
+        open(asciifilepath, "wb"),
+        open(asciifilepath, "ab+") as fout,
+        open(errfilepath, "w"),
+        open(errfilepath, "a+") as ferr,
+        open(warnfilepath, "w"),
+        open(warnfilepath, "a+") as fwarn,
+    ):
         inputparams["asciioutput"] = fout
         inputparams["erroutput"] = ferr
         inputparams["warnoutput"] = fwarn
