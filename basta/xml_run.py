@@ -99,7 +99,9 @@ def _centroid_and_uncert(root, inputparams):
     return inputparams
 
 
-def _get_true_or_list(params, deflist=None, check=True):
+def _get_true_or_list(
+    params: list, deflist: list | None = None, check: bool = True
+) -> list:
     """
     Several input lists can simply be set to true, in order to follow default
     behaviour, while inputting parameters changes the behaviour to the user
@@ -412,7 +414,7 @@ def run_xml(
     seed=None,
     debug=False,
     verbose=False,
-    experimental=False,
+    developermode=False,
     validationmode=False,
 ):
     """
@@ -428,7 +430,7 @@ def run_xml(
         Activate additional output for debugging (for developers)
     verbose : bool, optional
         Activate a lot (!) of additional output (for developers)
-    experimental : bool, optional
+    developermode : bool, optional
         Activate experimental features (for developers)
     validationmode : bool, optional
         Activate validation mode features (for validation purposes only)
@@ -485,9 +487,9 @@ def run_xml(
         dif = float(_find_get(root, "default/basti/dif", "value"))
         eta = float(_find_get(root, "default/basti/eta", "value"))
         alphaFe = float(_find_get(root, "default/basti/alphaFe", "value"))
-        idgrid = (ove, dif, eta, alphaFe)
+        gridid = (ove, dif, eta, alphaFe)
     else:
-        idgrid = None
+        gridid = None
 
     # Type of reported values for centroid and reported uncertainties
     inputparams = _centroid_and_uncert(root, inputparams)
@@ -869,7 +871,7 @@ def run_xml(
                 if starid in allintpol:
                     gridfile = perform_interpolation(
                         gridfile,
-                        idgrid,
+                        gridid,
                         allintpol[starid],
                         inputparams,
                         debug=debug,
@@ -903,17 +905,17 @@ def run_xml(
             # Call BASTA itself!
             try:
                 BASTA(
-                    starid,
-                    gridfile,
-                    idgrid,
+                    starid=starid,
+                    gridfile=gridfile,
+                    inputparams=inputparams,
+                    gridid=gridid,
                     usebayw=usebayw,
                     usepriors=usepriors,
-                    inputparams=inputparams,
                     optionaloutputs=useoptoutput,
                     seed=seed,
                     debug=debug,
                     verbose=verbose,
-                    experimental=experimental,
+                    developermode=developermode,
                     validationmode=validationmode,
                 )
             except KeyboardInterrupt:

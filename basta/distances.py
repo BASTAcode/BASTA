@@ -5,6 +5,7 @@ import os
 import warnings
 import collections
 from bisect import bisect_left
+from typing import Callable
 
 import h5py
 import numpy as np
@@ -38,9 +39,9 @@ except ModuleNotFoundError:
     raise
 
 
-def LOS_reddening(distanceparams):
+def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
     """
-    Returns color excess E(B-V) for a line of sight using a
+    Returns color excess E(B-V) for a line of sight, mainly using a
     pre-downloaded 3D extinction map provided by Green et al. 2015/2018 - see
     http://argonaut.skymaps.info/.
 
@@ -49,20 +50,19 @@ def LOS_reddening(distanceparams):
 
     Parameters
     ----------
-    distanceparams : dictionary
-        Dictionary with distance parameters
+    distanceparams : dict
+        Dictionary with parameters required for constructing likelihood for absolute magnitude constraint, i.e. coordinates, given dustframe, etc..
 
     Returns
     -------
-    EBV : function
-       excess color function
+    EBV_along_LOS : function
+       Reddening or excess color function along the given line-of-sight
     """
     if "EBV" in distanceparams:
         return lambda x: np.ones(len(x)) * distanceparams["EBV"][1]
 
-    frame = distanceparams["dustframe"]
-
     # Convert to galactic coordinates
+    frame = distanceparams["dustframe"]
     if frame == "icrs":
         ra = distanceparams["RA"]
         dec = distanceparams["DEC"]
@@ -119,8 +119,8 @@ def LOS_reddening(distanceparams):
         print("WARNING: Coordinates outside dust map boundaries!")
         print("Default to Schegel 1998 dust map")
         sfd = SFDQuery()
-        EBV_fun = lambda x: np.full_like(x, sfd(c))
-        return EBV_fun
+        EBV_along_LOS = lambda x: np.full_like(x, sfd(c))
+        return EBV_along_LOS
 
     Egr_med, Egr_err = [], []
     for i in range(len(dmbin)):
@@ -136,15 +136,20 @@ def LOS_reddening(distanceparams):
 
     dcube.close()
 
-    def EBV_fun(dm):
+    def EBV_along_LOS(dm):
         Egr = np.asarray(np.random.normal(Egr_med_fun(dm), Egr_err_fun(dm)))
         EBV = cnsts.extinction.Conv_Bayestar * Egr
         return EBV
 
-    return EBV_fun
+    return EBV_along_LOS
 
 
-def get_EBV(dist, LOS_EBV, debug=False, outfilename=""):
+def get_EBV(
+    dist: np.array,
+    EBV_along_LOS: Callable[[np.array], np.array],
+    debug: bool = False,
+    debug_dirpath: str = "",
+) -> np.array:
     """
     Estimate E(B-V) by drawing distances from a normal parallax
     distribution with EDSD prior.
@@ -153,35 +158,35 @@ def get_EBV(dist, LOS_EBV, debug=False, outfilename=""):
     -----
     dist : array
         The drawn distances
-    LOS_EBV : func
+    EBV_along_LOS : func
         EBV function.
     debug : bool, optional
         Debug flag.
         If True, this function outputs two plots, one of distance modulus
         vs. E(B-V) and a histogram of the E(B-V).
-    outfilename : str, optional
+    debug_dirpath : str, optional
         Name of directory of where to put plots outputted if debug is True.
 
     Returns
     -------
     EBVs : array
-        E(B-V) at distances
+        E(B-V) at distances specified in `dist` along the line-of-sight
     """
     dmod = 5 * np.log10(dist / 10)
-    EBVs = LOS_EBV(dmod)
+    EBVs = EBV_along_LOS(dmod)
 
     if debug:
         plt.figure()
         plt.plot(dmod, EBVs, ".")
         plt.xlabel("dmod")
         plt.ylabel("E(B-V)")
-        plt.savefig(outfilename + "_DEBUG_dmod_EBVs.png")
+        plt.savefig(debug_dirpath + "_DEBUG_dmod_EBVs.png")
         plt.close()
 
     return EBVs
 
 
-def get_absorption(EBV, fitparams, filt):
+def get_absorption(EBV: np.array, fitparams: dict, filt: str) -> np.array:
     """
     Compute extinction coefficient Rzeta for band zeta.
     Using parameterized law from Casagrande & VandenBerg 2014.
@@ -234,10 +239,15 @@ def get_absorption(EBV, fitparams, filt):
 
 
 def add_absolute_magnitudes(
-    inputparams, n=1000, k=1000, outfilename="", debug=False, use_gaussian_priors=False
-):
+    inputparams: dict,
+    n: int = 1000,
+    k: int = 1000,
+    use_gaussian_priors: bool = False,
+    debug=False,
+    debug_dirpath="",
+) -> dict:
     """
-    Convert apparent magnitudes to absolute magnitudes using the distance
+    Convert apparent magnitudes to absolute magnitudes using the distance and add it to `inputparams`.
     Extinction E(B-V) is estimated based on Green et al. (2015) dust map.
     Extinction is converted to reddening using Casagrande & VandenBerg 2014.
     The converted colors and magnitudes are added to fitsparams.
@@ -250,7 +260,7 @@ def add_absolute_magnitudes(
         Number of samples from parallax range
     k : int
         Number of samples from apparent magnitude range.
-    outfilename : str, optional
+    debug_dirpath : str, optional
         Name of directory of where to put plots outputted if debug is True.
     debug : bool, optional
         Debug flag. If True, debugging plots will be outputted.
@@ -314,14 +324,21 @@ def add_absolute_magnitudes(
     dist = np.concatenate([dist, lindist])
     dist = np.sort(dist)
     lldist = udist.compute_distlikelihoods(
-        dist, plxobs, plxobs_err, L, outfilename=outfilename, debug=debug
+        dist,
+        plxobs,
+        plxobs_err,
+        L,
+        debug=debug,
+        debug_dirpath=debug_dirpath,
     )
     dists = np.repeat(dist, k)
     lldists = np.repeat(lldist, k)
 
     # Get EBV values
-    LOS_EBV = LOS_reddening(distanceparams)
-    EBV = get_EBV(dist, LOS_EBV, debug=debug, outfilename=outfilename)
+    EBV_along_LOS = get_EBV_along_LOS(distanceparams=distanceparams)
+    EBV = get_EBV(
+        dist=dist, EBV_along_LOS=EBV_along_LOS, debug=debug, debug_dirpath=debug_dirpath
+    )
     EBVs = np.repeat(EBV, k)
 
     distanceparams["As"] = {}
@@ -376,7 +393,7 @@ def add_absolute_magnitudes(
             plt.figure()
             plt.hist(absms, bins=150, weights=labsms)
             plt.xlabel("Abs %s" % filt)
-            plt.savefig(outfilename + "_DEBUG_absms_%s.png" % filt)
+            plt.savefig(debug_dirpath + "_DEBUG_absms_%s.png" % filt)
             plt.close()
 
         absms_qs = stats.quantile_1D(absms, labsms, cnsts.statdata.quantiles)

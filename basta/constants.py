@@ -273,7 +273,7 @@ class parameters:
             if par in parnames:
                 parnames.remove(par)
             else:
-                print("Parameter {} is not in params!".format(par))
+                print(f"Parameter {par} is not in params!")
                 exit()
 
         return parnames

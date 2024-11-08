@@ -268,7 +268,7 @@ def _interpolate_grid(
     # Pretty print a marker of mode activation
     starsep = int(79 / 2) * "*"
     intnamestr = "Interpolation activated"
-    tmpexpstr = "(experimental)"
+    tmpexpstr = "(developermode)"
     print(starsep)
     print("{0}{1}{0}".format(int((79 / 2 - len(intnamestr)) / 2) * " ", intnamestr))
     print("{0}{1}{0}".format(int((79 / 2 - len(tmpexpstr)) / 2) * " ", tmpexpstr))
@@ -412,7 +412,7 @@ def _interpolate_grid(
 
 def perform_interpolation(
     grid,
-    idgrid,
+    gridid,
     intpol,
     inputparams,
     debug=False,
@@ -424,7 +424,7 @@ def perform_interpolation(
     ----------
     grid : str
         Name of input gridfile.
-    idgrid : tuple
+    gridid : tuple
         Science case for isochrones
     intpol : dict
         Interpolation settings.
@@ -501,9 +501,9 @@ def perform_interpolation(
     if "tracks" in gridtype.lower():
         basepath = "grid/"
     elif "isochrones" in gridtype.lower():
-        if idgrid:
+        if gridid:
             basepath = "ove={0:.4f}/dif={1:.4f}/eta={2:.4f}/alphaFe={3:.4f}/".format(
-                idgrid[0], idgrid[1], idgrid[2], idgrid[3]
+                gridid[0], gridid[1], gridid[2], gridid[3]
             )
         else:
             print(

@@ -3,8 +3,10 @@ Production of asteroseismic plots
 """
 
 import os
+import h5py
 import numpy as np
 import matplotlib
+import typing
 
 from scipy.interpolate import interp1d, CubicSpline
 
@@ -45,22 +47,22 @@ splinecolor = "0.7"
 
 
 def echelle(
-    selectedmodels,
-    Grid,
-    obs,
-    obskey,
-    mod=None,
-    modkey=None,
-    dnu=None,
-    join=None,
-    joinkeys=False,
-    coeffs=None,
-    scalnu=None,
-    freqcor="BG14",
-    pair=False,
-    duplicate=False,
-    output=None,
-):
+    selectedmodels: dict,
+    Grid: h5py.File,
+    obs: np.ndarray,
+    obskey: np.ndarray,
+    mod: typing.Optional[np.ndarray] = None,
+    modkey: typing.Optional[np.ndarray] = None,
+    dnu: float = None,
+    join: typing.Optional[np.ndarray] = None,
+    joinkeys: typing.Optional[np.ndarray] | bool = False,
+    coeffs: typing.Optional[np.ndarray] | None = None,
+    scalnu: float | None = None,
+    freqcor: str = "BG14",
+    pair: bool = False,
+    duplicate: bool = False,
+    output: str | None = None,
+) -> None:
     """
     Echelle diagram. It is possible to either make a single Echelle diagram
     or plot it twice making patterns across the moduli-limit easier to see.

@@ -23,7 +23,7 @@ Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
 Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
 
 
-def _hist_bin_fd(x, range):
+def _hist_bin_fd(x: np.array) -> float:
     """
     The Freedman-Diaconis histogram bin estimator.
 
@@ -48,12 +48,11 @@ def _hist_bin_fd(x, range):
     -------
     h : An estimate of the optimal bin width for the given data.
     """
-    del range  # unused
     iqr = np.subtract(*np.percentile(x, [75, 25]))
     return 2.0 * iqr * x.size ** (-1.0 / 3.0)
 
 
-def _weight(N, seisw):
+def _weight(N: int, seisw: dict) -> int:
     """
     Determine weighting scheme dependent on given method
 
@@ -686,7 +685,7 @@ def posterior(x, nonzeroprop, sampled_indices, nsigma=0.25):
 
     # Compute bin width and number of bins
     N = len(samples)
-    bin_width = _hist_bin_fd(samples, None)
+    bin_width = _hist_bin_fd(samples)
     if math.isclose(bin_width, 0, rel_tol=1e-5):
         nbins = int(np.ceil(np.sqrt(N)))
     else:

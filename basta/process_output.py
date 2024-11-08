@@ -12,8 +12,8 @@ import matplotlib
 import basta.fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import parameters, statdata
-from basta.utils_distances import distance_from_mag
-from basta.distances import get_absorption, LOS_reddening
+from basta.utils_distances import compute_distance_from_mag
+from basta.distances import get_absorption, get_EBV_along_LOS
 from basta import utils_general as util
 from basta import stats, plot_corner, plot_kiel
 from basta.downloader import get_basta_dir
@@ -37,7 +37,7 @@ def compute_posterior(
     outfilename,
     gridtype,
     debug=False,
-    experimental=False,
+    developermode=False,
     validationmode=False,
     compareinputoutput=False,
 ):
@@ -61,7 +61,7 @@ def compute_posterior(
         or 'isochrones'.
     debug : bool, optional
         Debug flag for developers.
-    experimental : bool, optional
+    developermode : bool, optional
         If True, experimental features will be used in run.
     validationmode : bool, optional
         If True, assume a validation run with changed behaviour
@@ -133,7 +133,7 @@ def compute_posterior(
         distanceparams = inputparams["distanceparams"]
         ms = list(distanceparams["filters"])
         d_samples = np.zeros((nsamples, 2 * (len(ms) + 1)))
-        LOS_EBV = LOS_reddening(distanceparams)
+        LOS_EBV = get_EBV_along_LOS(distanceparams)
         if "distance" in cornerplots:
             plotout = np.zeros(3 * (2 * (len(ms) + 1)))
         j = 0
@@ -146,11 +146,11 @@ def compute_posterior(
             A_all = np.zeros(noofind)
 
             # Compute distances and extinction iteratively
-            d_all = distance_from_mag(m_all, M_all, A_all)
+            d_all = compute_distance_from_mag(m_all, M_all, A_all)
             for i in range(3):
                 EBV_all = LOS_EBV(d_all)
                 A_all = get_absorption(EBV_all, fitparams, m)
-                d_all = distance_from_mag(m_all, M_all, A_all)
+                d_all = compute_distance_from_mag(m_all, M_all, A_all)
 
             # Create posteriors from weighted histograms
             dinterp.append(
@@ -454,7 +454,7 @@ def compute_posterior(
                     )
 
     # Compare input to output and produce a comparison plot
-    if compareinputoutput | experimental:
+    if compareinputoutput | developermode:
         comparewarn = util.compare_output_to_input(
             starid, inputparams, hout, out, hout_dist, out_dist, uncert=uncert
         )
@@ -501,7 +501,7 @@ def compute_posterior(
                         gridtype=gridtype,
                         nameinplot=starid if inputparams["nameinplot"] else False,
                         debug=debug,
-                        experimental=experimental,
+                        developermode=developermode,
                         validationmode=validationmode,
                     )
                     kielfile = outfilename + "_warn_kiel." + plottype
@@ -598,7 +598,7 @@ def compute_posterior(
                 gridtype=gridtype,
                 nameinplot=starid if inputparams["nameinplot"] else False,
                 debug=debug,
-                experimental=experimental,
+                developermode=developermode,
                 validationmode=validationmode,
                 color_by_likelihood=False,
             )
