@@ -412,8 +412,8 @@ def echelle(
         mode="expand",
         borderaxespad=0.0,
     )
-    for i in range(len(lgnd.legendHandles)):
-        lgnd.legendHandles[i]._sizes = [50]
+    for i in range(len(lgnd.legend_handles)):
+        lgnd.legend_handles[i]._sizes = [50]
 
     if duplicate:
         ax.set_xlim([-1, 1])
@@ -586,8 +586,8 @@ def ratioplot(
         mode="expand",
         borderaxespad=0.0,
     )
-    for i in range(len(lgnd.legendHandles)):
-        lgnd.legendHandles[i]._sizes = [50]
+    for i in range(len(lgnd.legend_handles)):
+        lgnd.legend_handles[i]._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(f"Frequency ratio ({ratiotype})")
@@ -940,8 +940,8 @@ def epsilon_difference_diagram(
         mode="expand",
         borderaxespad=0.0,
     )
-    for i in range(len(lgnd.legendHandles)):
-        lgnd.legendHandles[i]._sizes = [50]
+    for i in range(len(lgnd.legend_handles)):
+        lgnd.legend_handles[i]._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
