@@ -25,6 +25,7 @@ dependencies = [
 BASTArun = "basta.run:main"
 BASTAmultirun = "basta.run:multi"
 BASTAdownload = "basta.downloader:main"
+BASTAexamples = "basta.downloader_examples:main"
 
 [build-system]
 requires = ["hatchling"]
