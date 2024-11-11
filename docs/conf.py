@@ -15,7 +15,7 @@ import sys
 
 # Make the modules importable
 sys.path.insert(0, os.path.abspath(".."))
-sys.path.insert(0, os.path.abspath("../basta"))
+sys.path.insert(0, os.path.abspath("../src/basta"))
 sys.path.insert(0, os.path.abspath("../examples"))
 
 # -- Project information -----------------------------------------------------
