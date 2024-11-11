@@ -29,7 +29,34 @@ If you have any questions, or encounter any issues, feel free to write to us thr
 
 ## Quick start guide
 
-ADD TEXT JAKOB
+BASTA can ba obtained from GitHub or from the Python Package Index (PyPI); the full details are given in the documentation.
+
+*We strongly recommend to create a fresh virtual environment to install BASTA in!*
+
+With the virtual environment activated:
+
+```
+pip install basta
+```
+
+To make the code ready to run you need to download some additional assets: a grid of stellar models and the dustmaps. To complete the setup of the code and download the grid used in most of our examples run the following (feel free to change the paths as you like):
+
+```
+mkdir -p ~/BASTA/grids
+mkdir -p ~/BASTA/dust
+BASTAdownload --gridpath ~/BASTA/grids --dustpath ~/BASTA/dust 16CygA
+```
+
+Finally, to obtain the full suite of examples run:
+
+```
+cd ~/BASTA
+BASTAexamples full
+```
+
+Congratulations! You now have a fully functional installation of BASTA! We strongly recommend looking at the documentation for information on how to use the code.
+
+
 
 
 
