@@ -66,18 +66,16 @@ def get_grid(case: str, gridpath=None):
     if gridpath:
         basedir = os.path.abspath(gridpath)
     else:
-        basedir = os.path.join(home, "grids")
-
-    # Make sure target exists
-    if not os.path.exists(basedir):
-        os.makedirs(basedir)
+        basedir = os.path.abspath("grids")
 
     # Write grid datafolder to file (for easy reference in the examples)
-    gridpath = os.path.join(basedir, gridname)
     with open(os.path.join(home, GRIDPATHFILE), "w") as f:
-        f.write(f"__gridpath__ = '{os.path.abspath(gridpath)}'\n")
+        f.write(f"__gridpath__ = '{os.path.abspath(basedir)}'\n")
 
     # Obtain the grid if it does not exist
+    if not os.path.exists(basedir):
+        os.makedirs(basedir)
+    gridpath = os.path.join(basedir, gridname)
     if not os.path.exists(gridpath):
         try:
             # Step 1: Download
@@ -133,7 +131,11 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
     if dustpath:
         dustfolder = os.path.abspath(dustpath)
     else:
-        dustfolder = os.path.join(home, "dustmaps")
+        dustfolder = os.path.abspath("dustmaps")
+
+    # Write dustmap datafolder to file
+    with open(os.path.join(home, DUSTMAPFILE), "w") as f:
+        f.write(f"__dustpath__ = '{dustfolder}'\n")
 
     # Configure package to use the specified path
     config["data_dir"] = dustfolder
@@ -141,10 +143,6 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
     print(f"Location of dustmaps: {dustfolder}")
     if not os.path.exists(dustfolder):
         os.mkdir(dustfolder)
-
-    # Write dustmap datafolder to file
-    with open(os.path.join(home, DUSTMAPFILE), "w") as f:
-        f.write(f"__dustpath__ = '{dustfolder}'\n")
 
     # Install if required
     if not skip:
