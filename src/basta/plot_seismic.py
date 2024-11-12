@@ -21,7 +21,7 @@ import matplotlib.pyplot as plt
 import matplotlib.patches as patches
 import matplotlib.transforms as transforms
 
-plt.style.use(os.path.join(get_basta_dir(), "basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "src/basta/plots.mplstyle"))
 
 # Define a color dictionary for easier change of color
 colors = {

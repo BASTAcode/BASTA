@@ -264,7 +264,7 @@ def test_along_interpolation(
     None
     """
     # Load standard plotstyle
-    plt.style.use(os.path.join(BASTADIR, "basta/plots.mplstyle"))
+    plt.style.use(os.path.join(BASTADIR, "src/basta/plots.mplstyle"))
     freqres = ["freq", "freqs", "frequency", "frequencies", "osc"]
 
     # Unpack options

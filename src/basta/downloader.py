@@ -20,7 +20,7 @@ def get_basta_dir() -> str:
     Helper to obtain location of BASTA root directory
     """
     rootdir = os.path.dirname(
-        os.path.abspath(os.path.join(os.path.abspath(__file__), ".."))
+        os.path.abspath(os.path.join(os.path.abspath(__file__), "../.."))
     )
     return rootdir
 
@@ -137,7 +137,7 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
         os.mkdir(dustfolder)
 
     # Write dustmap datafolder to file
-    with open(os.path.join(home, "basta", DUSTMAPFILE), "w") as f:
+    with open(os.path.join(home, "src/basta", DUSTMAPFILE), "w") as f:
         f.write(f"__dustpath__ = '{dustfolder}'\n")
 
     # Install if required
