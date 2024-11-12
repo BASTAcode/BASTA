@@ -30,10 +30,10 @@ To ensure functionality, we suggest to install the code in a fresh virtual envir
     source ~/venvs/bastaenv/bin/activate
 
 
-.. _ref_pypi:
+.. _ref_pip:
 
-Python Package Index
-====================
+Using pip (from PyPI or GitHub)
+===============================
 As mentioned above, we strongly recommend to install the code in a fresh virtual environment.
 
 With the environment installed and activated, you can obtain BASTA and all dependencies:
@@ -43,27 +43,20 @@ With the environment installed and activated, you can obtain BASTA and all depen
     pip install basta
 
 
-
-.. _ref_github:
-
-GitHub repository
-=================
-
-As mentioned above, we strongly recommend to install the code in a fresh virtual environment.
-
-With the environment installed and activated, you can obtain BASTA and all dependencies:
+It is also possible to instead obtain the code package directly from GitHub:
 
 .. code-block:: bash
 
     pip install https://github.com/BASTAcode/BASTA/archive/refs/heads/main.zip
 
+Note that by changing `main.zip` to `devel.zip` in the line above, you will get the most recent (and perhaps unstable!) development version of the code (*not recommended*).
 
 
 
 .. _ref_github_dev:
 
-GitHub repository for developers
-================================
+Clone the GitHub repository (for developers)
+============================================
 
 Cloning from GitHub has the advantage that it is easier to modify the source code if you wish to do so.
 

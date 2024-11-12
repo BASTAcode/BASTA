@@ -1,7 +1,7 @@
 .. _utilfuncs:
 
 BASTA utility functions
-========================
+***********************
 
 .. automodule:: utils_distances
    :members:

@@ -1,7 +1,7 @@
 .. _example_freqs:
 
 Methods using individual frequencies
-========================================
+************************************
 
 Using grids that include theoretically computed oscillation frequencies (see :ref:`grids`) BASTA can fit these
 individual frequencies with a surface correction, as well as combination of frequencies. In the following we show
@@ -10,7 +10,7 @@ examples of the blocks that must be modified in :py:meth:`create_inputfile.defin
 .. _example_freqs_individual:
 
 Individual frequencies: main sequence
--------------------------------------
+=====================================
 
 BASTA is shipped with individual frequencies for the Kepler main-sequence target 16 Cyg A derived by
 `Davies et al. 2015 <https://ui.adsabs.harvard.edu/abs/2015MNRAS.446.2959D/abstract>`_. These are included in the
@@ -121,7 +121,7 @@ diagrams for both corrected and uncorrected frequencies:
 .. _example_freqs_ratios:
 
 Frequency ratios
-----------------
+================
 
 BASTA also has the option to fit the frequency ratios (:math:`r_{01}, r_{10}, r_{02}, r_{010}, r_{012}`). To do this,
 one simply adds the following ``fitparam`` (for the case of :math:`r_{012}` as an example):
@@ -197,7 +197,9 @@ As noted above for the ratios, correlations/covariances are taken into account i
 .. _example_freqs_glitches:
 
 Frequency glitches
-------------------
+==================
+
+*Important: To use this feature, please compile the required modules! Please refer to the installation instructions for help.*
 
 Another feature of BASTA is the fit of frequency glitches related to the He ionisation zones.
 These are comprised of three parameters, which are:
@@ -257,8 +259,10 @@ where the fitted glitch parameters are shown in ``16CygA_gltches_gr012.png``, wh
 
    Fitted glitch parameters of 16 Cyg A fitted using glitches and ratios.
 
+
+
 Individual frequencies: subgiants
----------------------------------
+=================================
 
 Reproducing the frequency spectrum of subgiant stars is a challenging task from a technical point of view, as the radial
 order of the observed mixed-modes does not correspond to the theoretical values used to label them in models. We have

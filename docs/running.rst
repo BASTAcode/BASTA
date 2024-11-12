@@ -15,15 +15,10 @@ The input to the code is given using an ``.xml`` file containing all the relevan
 
 A Python routine to produce such ``.xml`` files in a semi-automatic way is included in the code repository and can be found in ``BASTA/examples/create_inputfile.py`` if you cloned the code from GitHub or installed the full examples suite with `BASTAexamples full`. You can also obtain this file with `BASTAexamples simple`. This is meant as a basic version just to check that the code is running. It also serves as a template with all options documented. For examples of 'real' fits, have a look at the examples sections in this tutorial (:ref:`examples`).
 
-The basic procedure to run BASTA can be reduced to the following steps:
+The basic procedure to run BASTA can be reduced to the two following steps:
 
-* Create an input file for the code
-
-* Run the fit
-
-
-Create the input file
-=====================
+1. Create the input file
+========================
 
 The following commands will create a file named ``input_myfit.xml`` in the directory ``BASTA/examples/``.
 
@@ -34,8 +29,8 @@ The following commands will create a file named ``input_myfit.xml`` in the direc
     cd examples/
     python create_inputfile.py
 
-Run BASTA
-=========
+2. Run BASTA
+============
 
 Once the ``input_myfit.xml`` has been correctly created, BASTA is simply run as follows (with the virtual environment activated):
 

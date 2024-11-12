@@ -1,7 +1,9 @@
 .. _methods:
 
 Methods
-=======
+#######
+
+*Note: This part of the documentation is work in progress!*
 
 In these sections, the methods adapted and applied by BASTA is detailed.
 

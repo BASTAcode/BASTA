@@ -1,7 +1,7 @@
 .. _controls_params:
 
 Available model parameters
-==========================
+**************************
 
 In the following, the list of all parameters that are recognized
 by BASTA is listed, which is extracted from the :meth:`constants.parameters`
@@ -15,7 +15,7 @@ these can also be fitted using BASTA.
 .. _controls_params_classic:
 
 Classical parameters
---------------------
+====================
 
 .. csv-table:: Model parameters available in BASTA
     :file: ../docs/param_classic.csv
@@ -26,7 +26,7 @@ Classical parameters
 .. _controls_params_filters:
 
 Synthetic magnitudes
---------------------
+====================
 
 .. csv-table:: Magnitudes for given filters
     :file: ../docs/param_filters.csv
