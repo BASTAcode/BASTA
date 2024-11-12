@@ -1,7 +1,7 @@
 .. _controls_io:
 
 I/O controls
-============
+************
 
 The following lists all possible control options for the I/O control block in the :py:func:`define_input`
 function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
@@ -11,7 +11,7 @@ example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
 .. _Name of input file:
 
 Name of input file
-------------------
+==================
 .. code-block:: python
 
     xmlfilename = "input_myfit.xml"
@@ -22,7 +22,7 @@ of the file, e.g. when producing multiple input file for different frequency fit
 whereby the user might want to store them as ``freqfits/input03_r012.xml``.
 
 Name of grid file
------------------
+=================
 .. code-block:: python
 
     define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
@@ -38,7 +38,7 @@ computed for the star 16 Cyg A, specifically for the examples given in :ref:`the
 .. _controls_io_outputdir:
 
 Output directory
-----------------
+================
 .. code-block:: python
 
     define_io["outputpath"] = os.path.join("output", "myfit")
@@ -50,7 +50,7 @@ startup of BASTA.
 .. _controls_io_paramfile:
 
 Observed parameters file
-------------------------
+========================
 .. code-block:: python
 
     define_io["asciifile"] = os.path.join("data", "16CygA.ascii")
@@ -102,7 +102,7 @@ as long as the necessary parameters are provided.
 
 
 Format options
-^^^^^^^^^^^^^^
+--------------
 If the user has a parameter file in a specific format, the following options can be passed to
 the `numpy.genfromtxt <https://numpy.org/doc/stable/reference/generated/numpy.genfromtxt.html>`_
 routine, to allow BASTA to load it.

@@ -1,6 +1,7 @@
 """
 Creation of XML input files
 """
+
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, SubElement, tostring
 import numpy as np
@@ -10,35 +11,35 @@ from basta.utils_xml import create_xmltag
 
 
 def generate_xml(
-    gridfile,
-    asciifile,
-    outputpath,
-    params,
-    fitparams,
-    outparams,
-    outputfile="results.ascii",
-    sunnumax=sydc.SUNnumax,
-    sundnu=sydc.SUNdnu,
-    solarmodel=False,
-    missingval=-999.999,
-    centroid=None,
-    uncert=None,
-    plotfmt=None,
-    nameinplot=False,
-    odea=None,
-    intpolparams=None,
-    bayweights=True,
-    priors=None,
-    overwriteparams=None,
-    freqparams=None,
-    glitchparams=None,
-    filters=None,
-    dustframe=None,
-    cornerplots=False,
-    kielplots=False,
-    freqplots=False,
-    optionaloutputs=True,
-    delimiter=None,
+    gridfile: str,
+    asciifile: str,
+    outputpath: str,
+    params: tuple[str, ...],
+    fitparams: tuple[str, ...],
+    outparams: tuple[str, ...],
+    outputfile: str = "results.ascii",
+    sunnumax: float = sydc.SUNnumax,
+    sundnu: float = sydc.SUNdnu,
+    solarmodel: bool = False,
+    missingval: float | int = -999.999,
+    centroid: str = "median",
+    uncert: str = "quantiles",
+    plotfmt: str = "png",
+    nameinplot: bool = False,
+    odea: tuple[str, str, str, str] | None = None,
+    intpolparams: dict | None = None,
+    bayweights: bool = True,
+    priors: dict | None = None,
+    overwriteparams: dict | None = None,
+    freqparams: dict | None = None,
+    glitchparams: dict | None = None,
+    filters: tuple[str, ...] | None = None,
+    dustframe: str | None = None,
+    cornerplots: tuple[str, ...] | bool = False,
+    kielplots: tuple[str, ...] | bool = False,
+    freqplots: bool = False,
+    optionaloutputs: bool = True,
+    delimiter: str | None = None,
 ):
     """
     Converts an ascii table into an xml input file. Defines the properties
@@ -345,6 +346,10 @@ def generate_xml(
         else:
             print("Illegal dustframe specified! Not adding coordinates.")
             distparams = ()
+
+        # If EBV is supplied, read for each star
+        if "EBV" in params:
+            distparams += ("EBV",)
 
         # Add magnitudes to list of parameters
         starparams = fitparams + filters

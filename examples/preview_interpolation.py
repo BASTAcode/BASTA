@@ -2,6 +2,7 @@
 Preview the change in resolution and final distribution of tracks/isochrones
 for running BASTA with interpolation.
 """
+
 from basta.downloader import get_basta_dir
 
 # Definition of the path to BASTA, just in case you need it
@@ -263,7 +264,7 @@ def test_along_interpolation(
     None
     """
     # Load standard plotstyle
-    plt.style.use(os.path.join(BASTADIR, "basta/plots.mplstyle"))
+    plt.style.use(os.path.join(BASTADIR, "src/basta/plots.mplstyle"))
     freqres = ["freq", "freqs", "frequency", "frequencies", "osc"]
 
     # Unpack options

@@ -1,6 +1,7 @@
 """
 Fitting of frequencies and frequency-dependent properties.
 """
+
 import numpy as np
 import itertools
 from sklearn import linear_model

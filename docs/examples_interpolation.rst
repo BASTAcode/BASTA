@@ -1,7 +1,7 @@
 .. _example_interp:
 
 Interpolation of tracks and isochrones
-=======================================
+**************************************
 
 If the resolutions of a particular grid is considered insufficient for a particular fit, BASTA includes the option of
 performing interpolation across and/or along tracks and isochrones. What the procedure does is to produce a new
@@ -13,12 +13,13 @@ As a general rule, since the interpolation takes place in a restricted parameter
 example do not include additional priors than the IMF in block 2a.
 
 Example: main-sequence star and tracks
---------------------------------------
+======================================
 
 In this first example we will use the grid provided with the code for the target 16 Cyg A in
 ``BASTA/grids/Garstec_16CygA.hdf5``.
 
-**Checking/previewing the interpolation**
+Checking/previewing the interpolation
+-------------------------------------
 
 Before running the interpolation, we always recommend to check what the original coverage of the grid is, and what would be the resulting coverage given certain values for the interpolation. We have included a script in ``BASTA/examples/preview_interpolation.py`` that serves this purpose, and requires the following input:
 
@@ -83,9 +84,10 @@ Since the input grid we are using has been constructed using Sobol sampling, we 
    Distribution in individual frequency resolution of the current grid.
 
 
-**Running the fit with interpolation**
+Running the fit with interpolation
+----------------------------------
 
-If this resolution is satisfactory for your needs, the relevant parameters to be modified in :py:meth:`create_inputfile.define_input` are those given in block 5 of the included example ``create_inputfile_interp_MS.py``.
+If the resolution is satisfactory for your needs, the relevant parameters to be modified in :py:meth:`create_inputfile.define_input` are those given in block 5 of the included example ``create_inputfile_interp_MS.py``.
 
 .. code-block:: python
 

@@ -1,7 +1,7 @@
 .. _example_global:
 
 Spectroscopy and global asteroseismic parameters
-================================================
+************************************************
 
 This example describes the fitting of what we call global parameters of the grid, with a specific application to
 asteroseismology for illustration purposes. As a general recommendation, the user should explore the

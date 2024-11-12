@@ -3,6 +3,7 @@ An example of how to extract information from a BASTA .json file.
 
 IMPORTANT: Please run an example producing a json-file to run this tutorial!!
 """
+
 import os
 import sys
 

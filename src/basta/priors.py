@@ -8,6 +8,7 @@ PRIOR = PRIORFUN(LIBITEM, INDEX)
 
 Any prior defined here can be used from an .xml input file.
 """
+
 import numpy as np
 from basta import utils_general as util
 

@@ -21,21 +21,24 @@ examples/output*/
 .idea
 docs/old
 docs/.idea
-grids/
 examples/make_input.py
 
 # Demo scripts
 examples/*.xml
 examples/*/*.xml
 examples/grids/
+reference_*/
+reference_note.txt
 
 # Editor
 *.swp
 .vscode/
 
-# Folder for downloading/storing the dustmaps
+# Folder for downloading/storing the dustmaps (and grids)
 dustmaps/
 _dustpath.py
+grids/
+_gridpath.py
 
 # Virtual environment
 /venv*/

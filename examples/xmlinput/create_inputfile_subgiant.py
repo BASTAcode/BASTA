@@ -3,11 +3,11 @@ Make an input file for BASTA in XML format
 
 This is a specific example of the template.
 """
-import os
-from basta.downloader import get_basta_dir
 
-# Definition of the path to BASTA, just in case you need it
-BASTADIR = get_basta_dir()
+import os
+
+# If you ran the recommended helper routines, this should be defined
+from basta._gridpath import __gridpath__
 
 
 #
@@ -30,10 +30,10 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
     # --> If you need the location of BASTA, it is in BASTADIR
-    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_validation.hdf5")
+    define_io["gridfile"] = os.path.join(__gridpath__, "Garstec_validation.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = os.path.join(BASTADIR, "examples", "output/subgiant")
+    define_io["outputpath"] = os.path.abspath(os.path.join("../output", "subgiant"))
 
     # BASTA is designed to fit multiple stars in the same run. To generate the input
     # file, a table in plain ascii with the observed stellar parameters must be
@@ -55,7 +55,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> Only those relevant are included in the produced input file.
 
     # Example of the columns in the example file:
-    define_io["asciifile"] = os.path.join(BASTADIR, "examples/data", "subgiant.ascii")
+    define_io["asciifile"] = os.path.join("../data", "subgiant.ascii")
     define_io["params"] = (
         "starid",
         "Teff",
@@ -250,7 +250,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # Example of typical settings for a frequency fit (with default seismic weights):
     define_fit["freqparams"] = {
-        "freqpath": os.path.join(BASTADIR, "examples/data/freqs"),
+        "freqpath": os.path.abspath("../data/freqs"),
         "fcor": "BG14",
         "correlations": False,
         "dnufrac": 0.15,

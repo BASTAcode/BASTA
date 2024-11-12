@@ -11,6 +11,7 @@ This modified version:
  - Add KDE to non-contour panels
  - Cleaned
 """
+
 import logging
 import colorsys
 
@@ -163,6 +164,11 @@ def corner(
     if label_kwargs is None:
         label_kwargs = {}
 
+    formatter = ScalarFormatter()
+    formatter.set_scientific("%.2e")
+    formatter.set_useMathText(True)
+    formatter.set_powerlimits((-2, 4))
+
     # Deal with 1D sample lists.
     xs = np.atleast_1d(xs)
     if len(xs.shape) == 1:
@@ -274,32 +280,39 @@ def corner(
                 n = gaussian_filter(n, smooth1d)
                 x0 = np.array(list(zip(b[:-1], b[1:]))).flatten()
                 y0 = np.array(list(zip(n, n))).flatten()
+                ax.plot(x0, y0, **hist_kwargs)
+                ax.fill_between(
+                    x0, y0, y2=-1, interpolate=True, color=tcolor, alpha=0.15
+                )
             else:
                 try:
                     kernel = gaussian_kde(x, bw_method=kde_method)
+                    x0 = np.linspace(np.amin(x), np.amax(x), num=kde_points)
+                    y0 = kernel(x0)
+                    y0 /= np.amax(y0)
+                    n = gaussian_filter(n, 1)
+                    ax.plot(x0, y0, **hist_kwargs)
+                    ax.fill_between(
+                        x0, y0, y2=-1, interpolate=True, color=tcolor, alpha=0.15
+                    )
                 except np.linalg.LinAlgError:
-                    print("WARNING! Unable to create KDE. Skipping plot...")
-                    raise
-                x0 = np.linspace(np.amin(x), np.amax(x), num=kde_points)
-                y0 = kernel(x0)
-                y0 /= np.amax(y0)
-                n = gaussian_filter(n, 1)
-                x0_hist = np.array(list(zip(b[:-1], b[1:]))).flatten()
-                y0_hist = np.array(list(zip(n, n))).flatten() / np.amax(n)
-                ax.fill_between(
-                    x0_hist, y0_hist, y2=-1, interpolate=True, color=tcolor, alpha=0.15
-                )
-            ax.plot(x0, y0, **hist_kwargs)
-            ax.fill_between(x0, y0, y2=-1, interpolate=True, color=tcolor, alpha=0.15)
+                    print("WARNING! Unable to create a KDE...")
+
+            x0_hist = np.array(list(zip(b[:-1], b[1:]))).flatten()
+            y0_hist = np.array(list(zip(n, n))).flatten() / np.amax(n)
+            ax.fill_between(
+                x0_hist, y0_hist, y2=-1, interpolate=True, color=tcolor, alpha=0.15
+            )
 
         # Plot quantiles
-        q = plotout[3 * i]
-        p = plotout[3 * i + 1]
-        m = plotout[3 * i + 2]
+        if plotout is not None:
+            q = plotout[3 * i]
+            p = plotout[3 * i + 1]
+            m = plotout[3 * i + 2]
 
-        ax.axvline(q, ls="solid", color=color)
-        ax.axvline(q + p, ls="dashed", color=color)
-        ax.axvline(q - m, ls="dashed", color=color)
+            ax.axvline(q, ls="solid", color=color)
+            ax.axvline(q + p, ls="dashed", color=color)
+            ax.axvline(q - m, ls="dashed", color=color)
 
         # Plot input parameters when they are given
         if plotin is not None:
@@ -367,7 +380,7 @@ def corner(
                     ax.xaxis.set_label_coords(0.5, -0.35)
 
             # use MathText for axes ticks
-            ax.xaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))
+            ax.xaxis.set_major_formatter(formatter)
 
         for j, y in enumerate(xs):
             if np.shape(xs)[0] == 1:
@@ -428,7 +441,7 @@ def corner(
                         ax.xaxis.set_label_coords(0.5, -0.35)
 
                 # use MathText for axes ticks
-                ax.xaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))
+                ax.xaxis.set_major_formatter(formatter)
 
             if j > 0:
                 ax.set_yticklabels([])
@@ -445,7 +458,7 @@ def corner(
                         ax.yaxis.set_label_coords(-0.35, 0.5)
 
                 # use MathText for axes ticks
-                ax.yaxis.set_major_formatter(ScalarFormatter(useMathText=use_math_text))
+                ax.yaxis.set_major_formatter(formatter)
 
     return fig
 
@@ -656,8 +669,11 @@ def hist2d(
             contour_kwargs["colors"] = contour_kwargs.get("colors", color)
             ax.contour(X2, Y2, H2.T, V, **contour_kwargs)
 
-    ax.set_xlim(prange[0])
-    ax.set_ylim(prange[1])
+    # Set axis limits if plotting dimension
+    if not np.all(x == x[0]):
+        ax.set_xlim(prange[0])
+    if not np.all(y == y[0]):
+        ax.set_ylim(prange[1])
 
 
 def lighten_color(color, amount=0.5):

@@ -1,7 +1,7 @@
 .. _source_code:
 
 Source code structure
-=======================
+#####################
 
 .. toctree::
    :maxdepth: 2
