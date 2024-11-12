@@ -1,6 +1,7 @@
 """
 Production of Kiel diagrams
 """
+
 import os
 import numpy as np
 import matplotlib

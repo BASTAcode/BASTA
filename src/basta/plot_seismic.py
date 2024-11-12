@@ -59,9 +59,9 @@ def echelle(
     coeffs: typing.Optional[np.ndarray] | None = None,
     scalnu: float | None = None,
     freqcor: str = "BG14",
-    pair: bool = False,
-    duplicate: bool = False,
-    output: str | None = None,
+    pairmode: bool = False,
+    duplicatemode: bool = False,
+    outputfilename: str | None = None,
 ) -> None:
     """
     Echelle diagram. It is possible to either make a single Echelle diagram
@@ -103,16 +103,16 @@ def echelle(
         `numax` is often used.
     freqcor : str {'None', 'HK08', 'BG14', 'cubicBG14'}
         Flag determining the frequency correction.
-    pair : bool
+    pairmode : bool
         Flag determining whether to link matched observed and modelled
         frequencies.
-    duplicate : bool
+    duplicatemode : bool
         Flag determining whether to plot two echelle diagrams next to one
         another.
-    output : str or None
+    outputfilename : str or None
         Filename for saving the figure.
     """
-    if pair:
+    if pairmode:
         lw = 1
     else:
         lw = 0
@@ -122,7 +122,7 @@ def echelle(
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
         dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
 
-    if duplicate:
+    if duplicatemode:
         modx = 1
         scalex = dnu
     else:
@@ -182,7 +182,7 @@ def echelle(
     # Create plot
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
-    if duplicate:
+    if duplicatemode:
         # Plot something to set the scale on one y-axis
         ax1.errorbar(
             fobs_all[obsls[0]] % modx,
@@ -223,7 +223,7 @@ def echelle(
             zorder=1,
             alpha=0.5,
         )
-        if duplicate:
+        if duplicatemode:
             ax.errorbar(
                 fobs_all[l] % modx - modx,
                 fobs_all[l],
@@ -246,7 +246,7 @@ def echelle(
             alpha=0.5,
             zorder=2,
         )
-        if duplicate:
+        if duplicatemode:
             ax.scatter(
                 fmod_all[l] % modx - modx,
                 fmod_all[l],
@@ -273,7 +273,7 @@ def echelle(
                     zorder=3,
                     label=f"Best fit $\\ell={l}$",
                 )
-                if duplicate:
+                if duplicatemode:
                     ax.scatter(
                         fmod[l] % modx - modx,
                         fmod[l],
@@ -294,7 +294,7 @@ def echelle(
                     zorder=1,
                     label=f"Measured $\\ell={l}$",
                 )
-                if duplicate:
+                if duplicatemode:
                     ax.errorbar(
                         fobs[l] % modx - modx,
                         fobs[l],
@@ -305,14 +305,14 @@ def echelle(
                         zorder=1,
                     )
 
-                if pair:
+                if pairmode:
                     fm = fmod[l]
                     fo = fobs[l]
                     for i in range(len(fm)):
                         if ((fm[i] % modx) > linelimit) & (
                             (fo[i] % modx) < (modx - linelimit)
                         ):
-                            if duplicate:
+                            if duplicatemode:
                                 x0 = -1
                             else:
                                 x0 = 0
@@ -343,7 +343,7 @@ def echelle(
                         elif ((fo[i] % modx) > linelimit) & (
                             (fm[i] % modx) < (modx - linelimit)
                         ):
-                            if duplicate:
+                            if duplicatemode:
                                 x0 = -1
                             else:
                                 x0 = 0
@@ -380,7 +380,7 @@ def echelle(
                                 zorder=10,
                                 lw=lw,
                             )
-                            if duplicate:
+                            if duplicatemode:
                                 ax.plot(
                                     (fm[i] % modx - modx, fo[i] % modx - modx),
                                     (fm[i], fo[i]),
@@ -392,7 +392,7 @@ def echelle(
 
                     """
                     elif (
-                        duplicate
+                        duplicatemode
                         & ((fo[i] % modx) > linelimit)
                         & ((fm[i] % modx) < (modx - linelimit))
                     ):
@@ -412,10 +412,10 @@ def echelle(
         mode="expand",
         borderaxespad=0.0,
     )
-    for i in range(len(lgnd.legendHandles)):
-        lgnd.legendHandles[i]._sizes = [50]
+    for i in range(len(lgnd.legend_handles)):
+        lgnd.legend_handles[i]._sizes = [50]
 
-    if duplicate:
+    if duplicatemode:
         ax.set_xlim([-1, 1])
         aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
         aax.set_xlabel(
@@ -434,9 +434,9 @@ def echelle(
         ax.set_ylabel(r"Frequency ($\mu$Hz)")
         aax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
 
-    if output is not None:
-        plt.savefig(output, bbox_inches="tight")
-        print("Saved figure to " + output)
+    if outputfilename is not None:
+        plt.savefig(outputfilename, bbox_inches="tight")
+        print("Saved figure to " + outputfilename)
         plt.close(fig)
 
 
@@ -447,7 +447,7 @@ def ratioplot(
     modkey,
     mod,
     ratiotype,
-    output=None,
+    outputfilename=None,
     threepoint=False,
     interp_ratios=True,
 ):
@@ -475,7 +475,7 @@ def ratioplot(
         Array containing the modelled modes.
     ratiotype : str
         Key for the ratio sequence to be plotted (e.g. `r01`, `r02`, `r012`)
-    output : str or None, optional
+    outputfilename : str or None, optional
         Filename for saving the plot.
     nonewfig : bool, optional
         If True, this creates a new canvas. Otherwise, the plot is added
@@ -586,17 +586,17 @@ def ratioplot(
         mode="expand",
         borderaxespad=0.0,
     )
-    for i in range(len(lgnd.legendHandles)):
-        lgnd.legendHandles[i]._sizes = [50]
+    for i in range(len(lgnd.legend_handles)):
+        lgnd.legend_handles[i]._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(f"Frequency ratio ({ratiotype})")
     ylim = ax.get_ylim()
     ax.set_ylim(max(ylim[0], 0), ylim[1])
 
-    if output is not None:
-        fig.savefig(output, bbox_inches="tight")
-        print("Saved figure to " + output)
+    if outputfilename is not None:
+        fig.savefig(outputfilename, bbox_inches="tight")
+        print("Saved figure to " + outputfilename)
         plt.close(fig)
 
 
@@ -658,7 +658,7 @@ def glitchplot(
     modelvalues,
     maxPath,
     maxInd,
-    output,
+    outputfilename,
 ):
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
@@ -790,9 +790,9 @@ def glitchplot(
     )
     ax[1, 1].set_xlabel(labels[9])
 
-    if output is not None:
-        fig.savefig(output, bbox_inches="tight")
-        print("Saved figure to " + output)
+    if outputfilename is not None:
+        fig.savefig(outputfilename, bbox_inches="tight")
+        print("Saved figure to " + outputfilename)
         plt.close(fig)
 
 
@@ -802,7 +802,7 @@ def epsilon_difference_diagram(
     moddnu,
     sequence,
     obsfreqdata,
-    output,
+    outputfilename,
 ):
     """
     Full comparison figure of observed and best-fit model epsilon
@@ -829,8 +829,8 @@ def epsilon_difference_diagram(
     obsfreqmeta : dict
         The requested information about which frequency products to fit or
         plot, unpacked for easier access later.
-    output : str
-        Name and path of output plotfile.
+    outputfilename : str
+        Name and path of outputfilename plotfile.
     """
 
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
@@ -940,8 +940,8 @@ def epsilon_difference_diagram(
         mode="expand",
         borderaxespad=0.0,
     )
-    for i in range(len(lgnd.legendHandles)):
-        lgnd.legendHandles[i]._sizes = [50]
+    for i in range(len(lgnd.legend_handles)):
+        lgnd.legend_handles[i]._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
@@ -949,15 +949,15 @@ def epsilon_difference_diagram(
     ax.set_ylim(max(ylim[0], 0), ylim[1])
 
     fig.tight_layout()
-    if output is not None:
-        print("Saved figure to " + output)
-        fig.savefig(output)
+    if outputfilename is not None:
+        print("Saved figure to " + outputfilename)
+        fig.savefig(outputfilename)
         plt.close(fig)
     else:
         return fig
 
 
-def correlation_map(fittype, obsfreqdata, output, obskey=None):
+def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None):
     """
     Routine for plotting a correlation map of the plotted ratios
 
@@ -968,8 +968,8 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
         differences) for which to to the correlation map of.
     obsfreqdata : dict
         All necessary frequency related data from observations.
-    output : str
-        Name and path to output figure.
+    outputfilename : str
+        Name and path to outputfilename figure.
     obskey : array, optional
         Contains radial order and degree of frequencies, used if plotting
         for individual frequencies.
@@ -1037,9 +1037,9 @@ def correlation_map(fittype, obsfreqdata, output, obskey=None):
     ax.set_yticklabels(labs)
     fig.tight_layout()
 
-    if output is not None:
-        fig.savefig(output, bbox_inches="tight")
-        print("Saved figure to " + output)
+    if outputfilename is not None:
+        fig.savefig(outputfilename, bbox_inches="tight")
+        print("Saved figure to " + outputfilename)
         plt.close(fig)
 
 
@@ -1057,7 +1057,7 @@ def epsilon_difference_components_diagram(
     dnudata,
     obsfreqdata,
     obsfreqmeta,
-    output,
+    outputfilename,
 ):
     """
     Full comparison figure of observed and best-fit model epsilon
@@ -1088,8 +1088,8 @@ def epsilon_difference_components_diagram(
     obsfreqmeta : dict
         The requested information about which frequency products to fit or
         plot, unpacked for easier access later.
-    output : str
-        Name and path of output plotfile.
+    outputfilename : str
+        Name and path of outputfilename plotfile.
     """
 
     # Prepared labels and markers
@@ -1256,6 +1256,6 @@ def epsilon_difference_components_diagram(
     fig.tight_layout()
     # fig.subplots_adjust(wspace=0.2, hspace=0.4)
 
-    fig.savefig(output)
-    print("Saved figure to " + output)
+    fig.savefig(outputfilename)
+    print("Saved figure to " + outputfilename)
     plt.close(fig)

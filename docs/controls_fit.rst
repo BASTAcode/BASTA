@@ -1,23 +1,24 @@
 .. _controls_fit:
 
 Fitting controls
-================
+****************
 
 In the following, an overview of the all the controls related to what will be fitted
 with BASTA is given, which corresponds to the fitting controls block in the :py:func:`define_input`
 function in the ``create_inputfile.py`` scripts. To see the recommended/default usage of these
 controls for specific fitting cases, see the :ref:`examples <examples>` section, or the provided
-example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
+example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py`` (obtainable with `BASTAexamples`).
 
 The first group controls which (types of) parameters will be fitted,
 while the remainder primarily are related to different specific fitting types. How the
 different groups relates to the specific fitting types are described in the :ref:`examples<examples>`.
 function in the ``create_inputfile.py`` scripts.
 
+
 .. _controls_fit_fitparams:
 
 Fit parameters
---------------
+==============
 .. code-block:: python
 
     define_fit["fitparams"] = ("Teff", "FeH", "logg")
@@ -37,7 +38,7 @@ For special fitting cases, the following keys can be included in ``"fitparams"``
 .. _controls_fit_priors:
 
 Priors and weights
-------------------
+==================
 .. code-block:: python
 
     define_fit["priors"] = {"IMF": "salpeter1955", "Teff": {"sigmacut": "3"},
@@ -73,7 +74,7 @@ evolutionary speed of stars in different phases. It is **not recommended to disb
 use of weights, but can be done for testing or debugging grids.
 
 Solar scaling
--------------
+=============
 .. code-block:: python
 
     define_fit["solarmodel"] = True
@@ -93,7 +94,7 @@ of the observations. By default, BASTA uses the values from the
 `SYD pipeline <https://arxiv.org/abs/2108.00582>`_, as given here.
 
 Isochrones
-----------
+==========
 .. code-block:: python
 
     define_fit["odea"] = (0, 0, 0, 0)
@@ -122,7 +123,7 @@ currently available in the grid are
 .. _controls_fit_freqparams:
 
 Individual frequency parameters
--------------------------------
+===============================
 .. code-block:: python
 
     define_fit["freqparams"] = {
@@ -170,10 +171,11 @@ The control options are:
 * ``threepoint`` (*bool*): Toggle between the three- and five-point formulation of the small frequency differences used to construct the :math:`r_{01}` and :math:`r_{10}` sequences. Default is ``False``, whereby the five-point formulation is used.
 * ``readglitchfile`` (*str*): Toggle to look for an input file containing precomputed frequency glitches, when these are utilized in BASTA. Default is ``False``. If ``True``, the input file must be an ``hdf5`` file, named the same as the star, and following the structure of the output from `GlitchPy <https://github.com/kuldeepv89/GlitchPy>`_. If this is read, the options used for the method by which the observed glitches have been computed is also used for the method for computing the frequency glitches of the models, whereby the frequency glitches :ref:`control group <controls_fit_glitches>` is ignored.
 
+
 .. _controls_fit_parallax:
 
 Distance/parallax
------------------
+=================
 .. code-block:: python
 
     define_fit["filters"] = ("Mj_2MASS", "Mh_2MASS", "Mk_2MASS")
@@ -268,10 +270,11 @@ corresponding coordinates are:
       - Longitude, Lattitude
 
 
+
 .. _controls_fit_glitches:
 
 Frequency glitches
-------------------
+==================
 .. code-block:: python
 
     define_fit["glitchparams"] = {

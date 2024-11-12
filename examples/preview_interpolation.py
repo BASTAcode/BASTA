@@ -2,6 +2,7 @@
 Preview the change in resolution and final distribution of tracks/isochrones
 for running BASTA with interpolation.
 """
+
 from basta.downloader import get_basta_dir
 
 # Definition of the path to BASTA, just in case you need it

@@ -21,7 +21,7 @@ separated into individual sections for each control group (python dictionary) be
     controls_intpol
 
 For examples of input files for each fitting case, with the recommended options, see the template
-files ``BASTA/examples/xmlinput/create_inputfile_*.py``.
+files ``BASTA/examples/xmlinput/create_inputfile_*.py`` (which can be obtained with the `BASTAexamples` tools, if you do not already have it).
 
 When the control options have been set, the fit is performed (as explained in :ref:`running`) by
 creating the ``xml`` input file, which is then run by BASTA. This is done using the commands

@@ -1,6 +1,7 @@
 """
 Calculation and generation of output, and driver for producing plots
 """
+
 import os
 import copy
 from io import IOBase

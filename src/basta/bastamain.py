@@ -1,6 +1,7 @@
 """
 Main module for running BASTA analysis
 """
+
 import os
 import gc
 import sys
@@ -82,6 +83,11 @@ def BASTA(
     validationmode : bool, optional
         Activate validation mode features (for validation purposes only)
     """
+    # Enable legacy printing of NumPy data types
+    # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
+    #     and 'Teff' instead of np.str_('Teff') to the .log file
+    np.set_printoptions(legacy="1.25")
+
     # Set output directory and filenames
     t0 = time.localtime()
     outputdir = inputparams.get("output")

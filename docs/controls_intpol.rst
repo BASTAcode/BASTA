@@ -1,7 +1,7 @@
 .. _controls_intpol:
 
 Interpolation controls
-======================
+**********************
 
 In the following, an overview of all control options related to the BASTA
 interpolation routine is given, which corresponds to the interpolation controls
@@ -32,7 +32,7 @@ the words tracks and isocohrones are interchangeable in the descriptions.
 
 
 Sub-grid from limits
---------------------
+====================
 .. code-block:: python
 
     define_intpol["intpolparams"]["limits"] = {
@@ -49,7 +49,7 @@ following fit.
 
 
 Definition of applied method
-----------------------------
+============================
 .. code-block:: python
 
     define_intpol["intpolparams"]["method"] = {
@@ -76,7 +76,7 @@ limit of 300K is set for a sample of stars ranging from 5500K to 6100K in
 effective temperature, the sub-grid will span fram 5350K to 6250K.
 
 Name of interpolated grid
--------------------------
+=========================
 
 .. code-block:: python
 
@@ -89,7 +89,7 @@ to the name. If not provided, the name will be the same as the original
 grid.
 
 Across tracks resolution
-------------------------
+========================
 
 .. code-block:: python
 
@@ -125,7 +125,7 @@ for a denser occupation of the parameter space.
 
 
 Along tracks resolution
------------------------
+=======================
 .. code-block:: python
 
     define_intpol["intpolparams"]["trackresolution"] = {

@@ -1,6 +1,7 @@
 """
 Creation of XML input files
 """
+
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, SubElement, tostring
 import numpy as np

@@ -11,6 +11,7 @@ This modified version:
  - Add KDE to non-contour panels
  - Cleaned
 """
+
 import logging
 import colorsys
 

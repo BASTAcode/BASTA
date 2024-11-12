@@ -1,7 +1,7 @@
 .. _controls_outplots:
 
 Output controls
-=========================
+***************
 
 In the following, an overview of the all the controls related to what will be outputted
 when running BASTA is given, which corresponds to the fitting controls block in the :py:func:`define_input`
@@ -10,7 +10,7 @@ controls for specific fitting cases, see the :ref:`examples <examples>` section,
 example scripts ``BASTA/examples/xmlinput/create_inputfile_*.py``.
 
 Output file
------------
+===========
 
 .. code-block:: python
 
@@ -22,8 +22,8 @@ any format that can be created using `numpy.savetxt <https://numpy.org/doc/stabl
 
 .. _controls_outplots_outparams:
 
-Outputted/inferred parameters
------------------------------
+Output/inferred parameters
+==========================
 .. code-block:: python
 
     define_output["outparams"] = ("Teff", "FeH", "logg", "radPhot", "massfin", "age")
@@ -40,7 +40,7 @@ shown in :ref:`the example <example_dist_estimate>` or explained in
 :ref:`the method section <methods_general_distance>`.
 
 Optional outputs
-----------------
+================
 .. code-block:: python
 
     define_output["optionaloutputs"] = True
@@ -51,8 +51,8 @@ by default ``False``. This can be read into python using :meth:`filio.load_selec
 and used to determine and compare the N'th best fitting model, or similar statistics.
 
 
-Outputted statistics
---------------------
+Output statistics
+=================
 By default, BASTA reports/outputs the median, 16th and 84th quantiles of the
 posterior distribution of the given parameter. However, should the user want
 to change this (e.g. to compare against other methods), it is done through
