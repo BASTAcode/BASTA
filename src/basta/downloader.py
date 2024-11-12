@@ -137,7 +137,7 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
         os.mkdir(dustfolder)
 
     # Write dustmap datafolder to file
-    with open(os.path.join(home, "src/basta", DUSTMAPFILE), "w") as f:
+    with open(os.path.join(home, DUSTMAPFILE), "w") as f:
         f.write(f"__dustpath__ = '{dustfolder}'\n")
 
     # Install if required
