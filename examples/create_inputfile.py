@@ -3,10 +3,9 @@ Make an input file for BASTA in XML format. Template version.
 """
 
 import os
-from basta.downloader import get_basta_dir
 
-# Definition of the path to BASTA, just in case you need it
-BASTADIR = get_basta_dir()
+# If you ran the recommended helper routines, this should be defined
+from basta._gridpath import __gridpath__
 
 
 #
@@ -29,7 +28,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
     # --> If you need the location of BASTA, it is in BASTADIR
-    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "Garstec_16CygA.hdf5")
+    define_io["gridfile"] = os.path.join(__gridpath__, "Garstec_16CygA.hdf5")
 
     # Where to store the output of the BASTA run
     define_io["outputpath"] = os.path.join("output", "myfit")

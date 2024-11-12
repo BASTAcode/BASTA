@@ -13,15 +13,17 @@ from tqdm import tqdm
 from dustmaps.config import config
 
 DUSTMAPFILE = "_dustpath.py"
+GRIDPATHFILE = "_gridpath.py"
 
 
 def get_basta_dir() -> str:
     """
-    Helper to obtain location of BASTA root directory
+    Helper to obtain location of BASTA *source code* directory
+
+    Note: This function was changed in 1.5.0 to not point at the top-level/root dir to
+          properly handle pip-installations
     """
-    rootdir = os.path.dirname(
-        os.path.abspath(os.path.join(os.path.abspath(__file__), "../.."))
-    )
+    rootdir = os.path.dirname(os.path.abspath(__file__))
     return rootdir
 
 
@@ -60,18 +62,22 @@ def get_grid(case: str, gridpath=None):
     url = os.path.join(baseurl, f"{gridname}.gz")
 
     # Default or user-defined location?
+    home = get_basta_dir()
     if gridpath:
         basedir = os.path.abspath(gridpath)
     else:
-        home = get_basta_dir()
         basedir = os.path.join(home, "grids")
 
     # Make sure target exists
     if not os.path.exists(basedir):
         os.makedirs(basedir)
 
-    # Obtain the grid if it does not exist
+    # Write grid datafolder to file (for easy reference in the examples)
     gridpath = os.path.join(basedir, gridname)
+    with open(os.path.join(home, GRIDPATHFILE), "w") as f:
+        f.write(f"__gridpath__ = '{os.path.abspath(gridpath)}'\n")
+
+    # Obtain the grid if it does not exist
     if not os.path.exists(gridpath):
         try:
             # Step 1: Download

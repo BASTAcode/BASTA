@@ -11,6 +11,9 @@ import argparse
 from tqdm import tqdm
 
 from basta.__about__ import __version__
+from basta.downloader import get_basta_dir
+
+EXAMPLESFILE = "_examplespath.py"
 
 
 def get_bundle(version: float, force: bool = False):
@@ -38,13 +41,13 @@ def get_bundle(version: float, force: bool = False):
     # Mapping to download location
     baseurl = "https://www.erda.au.dk/vgrid/BASTA/public-examples/"
 
-    # Resolve grid name and location
+    # Resolve grid name, location and write to file for easy reference
     getname = "basta-examples_v" + version.replace(".", "-") + ".tar.gz"
     url = os.path.join(baseurl, getname)
-
-    # Obtain the grid if it does not exist
     basedir = os.path.abspath(".")
     outpath = os.path.join(basedir, "examples")
+
+    # Obtain the grid if it does not exist
     tmptar = "examples.tar"
     if not os.path.exists(outpath) or force:
         try:

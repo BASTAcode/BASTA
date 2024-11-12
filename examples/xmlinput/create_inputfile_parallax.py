@@ -5,10 +5,9 @@ This is a specific example of the template.
 """
 
 import os
-from basta.downloader import get_basta_dir
 
-# Definition of the path to BASTA, just in case you need it
-BASTADIR = get_basta_dir()
+# If you ran the recommended helper routines, this should be defined
+from basta._gridpath import __gridpath__
 
 
 #
@@ -31,10 +30,10 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
     # --> If you need the location of BASTA, it is in BASTADIR
-    define_io["gridfile"] = os.path.join(BASTADIR, "grids", "BaSTI_iso2018.hdf5")
+    define_io["gridfile"] = os.path.join(__gridpath__, "BaSTI_iso2018.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = os.path.join(BASTADIR, "examples", "output/parallax")
+    define_io["outputpath"] = os.path.abspath(os.path.join("../output", "parallax"))
 
     # BASTA is designed to fit multiple stars in the same run. To generate the input
     # file, a table in plain ascii with the observed stellar parameters must be
@@ -56,7 +55,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> Only those relevant are included in the produced input file.
 
     # Example of the columns in the example file:
-    define_io["asciifile"] = os.path.join(BASTADIR, "examples/data", "Kepler_RGB.ascii")
+    define_io["asciifile"] = os.path.join("../data", "Kepler_RGB.ascii")
     define_io["params"] = (
         "starid",
         "RA",

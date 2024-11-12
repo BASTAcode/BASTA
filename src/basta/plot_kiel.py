@@ -18,7 +18,7 @@ from basta.downloader import get_basta_dir
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-plt.style.use(os.path.join(get_basta_dir(), "src/basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
 
 def plot_param(Grid, ax, track, all_segments, label, color):

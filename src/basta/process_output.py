@@ -24,7 +24,7 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 # Set the style of all plots
-plt.style.use(os.path.join(get_basta_dir(), "src/basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
 # Define a color dictionary for easier change of color
 colors = {"l0": "#D55E00", "l1": "#009E73", "l2": "#0072B2"}
