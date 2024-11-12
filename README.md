@@ -96,3 +96,4 @@ In addition to the shields/icons in the top, BASTA can be found in the following
 
 * Astrophysics Source Code Library / [ASCL](https://ascl.net/2110.010)
 * Exoplanet Modeling and Analysis Center / [EMAC](https://emac.gsfc.nasa.gov#bbcded4b-27d8-49f5-be4d-76e1fec748eb)
+* The Python Package Index / [PyPI](https://pypi.org/project/basta/)

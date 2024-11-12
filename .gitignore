@@ -27,6 +27,8 @@ examples/make_input.py
 examples/*.xml
 examples/*/*.xml
 examples/grids/
+reference_*/
+reference_note.txt
 
 # Editor
 *.swp

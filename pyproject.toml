@@ -13,6 +13,9 @@ dynamic = ["version"]
 authors = [
   { name="The BASTA Team", email="jakob@phys.au.dk" },
 ]
+maintainers = [
+  { name="Jakob Lysgaard Rørsted", email="jakob@phys.au.dk" },
+]
 readme = "README.md"
 license = { file = "LICENSE" }
 classifiers = [
