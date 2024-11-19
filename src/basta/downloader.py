@@ -53,9 +53,14 @@ def get_grid(case: str, gridpath=None):
     baseurl = "https://www.erda.au.dk/vgrid/BASTA/public-grids/"
 
     # Resolve grid name and location
+    # --> Overwrite settings for 'secret' experimental/development grids
     if case == "iso":
         gridname = "BaSTI_iso2018.hdf5"
     elif case in ["16CygA", "validation", "validation_new-weights"]:
+        gridname = f"Garstec_{case}.hdf5"
+    elif case in ["barbieMS", "kenMS"]:
+        print("Important information: Development grid selected!\n")
+        baseurl = "https://www.erda.au.dk/vgrid/BASTA/internal-grids/"
         gridname = f"Garstec_{case}.hdf5"
     else:
         raise ValueError("Unknown grid!")
@@ -182,6 +187,10 @@ def main():
         "iso",
         "validation_new-weights",
     ]
+    dev_grids = [
+        "barbieMS",
+        "kenMS",
+    ]
     parser.add_argument(
         "grid", help=f"The grid to download. Allowed cases: {allowed_grids}"
     )
@@ -208,7 +217,8 @@ def main():
     # Parse and check
     args = parser.parse_args()
     if args.grid not in allowed_grids:
-        raise ValueError(f"Unknown grid requsted! Select from: {allowed_grids}")
+        if args.grid not in dev_grids:
+            raise ValueError(f"Unknown grid requsted! Select from: {allowed_grids}")
 
     get_grid(case=args.grid, gridpath=args.gridpath)
     get_dustmaps(dustpath=args.dustpath, skip=args.no_dustmaps)
