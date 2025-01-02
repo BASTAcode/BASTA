@@ -1,10 +1,10 @@
 """
 Auxiliary functions for frequency analysis
 """
+
 from math import frexp
 import os
 from copy import deepcopy
-from distutils.util import strtobool
 from tqdm import tqdm
 
 import numpy as np
@@ -15,6 +15,7 @@ from basta import glitch_fit
 from basta import fileio as fio
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
+from basta.utils_general import strtobool
 
 from sklearn import covariance as skcov
 

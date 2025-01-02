@@ -1,6 +1,7 @@
 """
 Auxiliary functions for glitch fitting
 """
+
 import numpy as np
 
 from basta import freq_fit

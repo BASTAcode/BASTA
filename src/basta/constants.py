@@ -1,6 +1,7 @@
 """
 Collection of all constants used in BASTA
 """
+
 from dataclasses import dataclass  # Python 3.7+ !
 import numpy as np
 
@@ -272,7 +273,7 @@ class parameters:
             if par in parnames:
                 parnames.remove(par)
             else:
-                print("Parameter {} is not in params!".format(par))
+                print(f"Parameter {par} is not in params!")
                 exit()
 
         return parnames
@@ -472,7 +473,7 @@ class extinction:
             ("Mw2_WISE", 0.15, 0.15, 0, 0, 0),
         ],
         dtype=[
-            ("Filter", np.unicode_, 16),
+            ("Filter", np.str_, 16),
             ("RZ_mean", float),
             ("a0", float),
             ("a1", float),

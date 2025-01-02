@@ -1,25 +1,27 @@
 .. _trouble:
 
 Troubleshoot
-============
+############
 
 Here is an overview of some common/known problems and how to solve them.
+
 
 .. _trouble_quick:
 
 I don't want to read this whole thing — I just have a question!
----------------------------------------------------------------
+***************************************************************
 
 **Please do not file an issue to ask a question.** You can use the `discussion tab
 <https://github.com/BASTAcode/BASTA/discussions>`_ on GitHub if you have a
 question. You are also free to get in touch with us using some other channel.
 
+
 .. _trouble_virt:
 
 Installation of the virtual environment
----------------------------------------
+***************************************
 
-On certain Linux systems (e.g. specific versions of Debian and Ubuntu), the
+On certain Linux systems (e.g., specific versions of Debian and Ubuntu), the
 creation of the virtualenv will fail with the output:
 
 .. code-block:: bash
@@ -42,10 +44,11 @@ do the following:
 
 and everything should be setup correctly. Now, continue following the :ref:`install` instructions.
 
+
 .. _trouble_hdf5:
 
 Unable to open HDF5 file
-------------------------
+************************
 
 HDF5 files are known to sometimes cause problems on NFS-mounted filesystems. This can cause errors of the
 form:

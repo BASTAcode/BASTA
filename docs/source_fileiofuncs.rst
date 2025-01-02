@@ -1,7 +1,7 @@
 .. _fileiofuncs:
 
 BASTA FIle I/O functions
-========================
+************************
 
 .. automodule:: fileio
    :members:

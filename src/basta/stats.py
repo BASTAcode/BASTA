@@ -1,13 +1,13 @@
 """
 Key statistics functions
 """
+
 import os
 import copy
 import math
 import collections
 
 import numpy as np
-from numpy.lib.histograms import _hist_bin_fd
 from scipy.interpolate import interp1d, CubicSpline
 from scipy.ndimage.filters import gaussian_filter1d
 
@@ -23,7 +23,36 @@ Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
 Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
 
 
-def _weight(N, seisw):
+def _hist_bin_fd(x: np.array) -> float:
+    """
+    The Freedman-Diaconis histogram bin estimator.
+
+    The Freedman-Diaconis rule uses interquartile range (IQR) to
+    estimate binwidth. It is considered a variation of the Scott rule
+    with more robustness as the IQR is less affected by outliers than
+    the standard deviation. However, the IQR depends on fewer points
+    than the standard deviation, so it is less accurate, especially for
+    long tailed distributions.
+
+    If the IQR is 0, this function returns 0 for the bin width.
+    Binwidth is inversely proportional to the cube root of data size
+    (asymptotically optimal).
+
+    Parameters
+    ----------
+    x : array_like
+        Input data that is to be histogrammed, trimmed to range. May not
+        be empty.
+
+    Returns
+    -------
+    h : An estimate of the optimal bin width for the given data.
+    """
+    iqr = np.subtract(*np.percentile(x, [75, 25]))
+    return 2.0 * iqr * x.size ** (-1.0 / 3.0)
+
+
+def _weight(N: int, seisw: dict) -> int:
     """
     Determine weighting scheme dependent on given method
 
@@ -671,7 +700,7 @@ def posterior(x, nonzeroprop, sampled_indices, nsigma=0.25):
 
     # Compute bin width and number of bins
     N = len(samples)
-    bin_width = _hist_bin_fd(samples, None)
+    bin_width = _hist_bin_fd(samples)
     if math.isclose(bin_width, 0, rel_tol=1e-5):
         nbins = int(np.ceil(np.sqrt(N)))
     else:

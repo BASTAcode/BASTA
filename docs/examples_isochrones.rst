@@ -1,7 +1,7 @@
 .. _example_isoch:
 
 Isochrones, distances, and evolutionary phase
-=============================================
+*********************************************
 
 BASTA is shipped with a complete set of isochrones from the
 `BaSTI library <http://basti-iac.oa-abruzzo.inaf.it/index.html>`_. The input physics, science cases, and mixtures are
@@ -60,10 +60,11 @@ desired science case:
 This will select the isochrones including overshoot in the main sequence, no microscopic diffusion, with mass-loss, and
 no alpha-enhancement.
 
+
 .. _example_parallax:
 
 Fitting parallax
-----------------
+================
 
 The first fit in this example will include spectroscopy, global asteroseismic parameters, and parallax. The
 ``fitparams`` entry must be modified:
@@ -135,10 +136,11 @@ included in **both** ``define_output["outparams"]`` and ``define_plots["cornerpl
 ``BASTA/examples/xmlinput/create_inputfile_parallax.py`` uses the same parameters in both cases and the plot is
 produced.
 
+
 .. _example_dist_estimate:
 
 Estimating distance
--------------------
+===================
 
 One additional feature of BASTA is that distances can be predicted when fitting any quantity. The only requirement is
 that in addition to ``fitparams`` the user must specify (at least) one apparent magnitude to use in the distance
@@ -184,7 +186,7 @@ The distance corner plot including only the *J* magnitude looks as follows:
 The derived distance is consistent with the value obtained when parallaxes are included.
 
 Fitting evolutionary phase
---------------------------
+==========================
 
 BASTA offers the possibility of imposing a certain evolutionary phase for a star when this information is known from
 e.g., asteroseismic observations. The target KIC 11129442 used in the examples above is clearly an RGB star, and this

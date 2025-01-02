@@ -1,6 +1,7 @@
 """
 Production of Kiel diagrams
 """
+
 import os
 import numpy as np
 import matplotlib
@@ -17,7 +18,7 @@ from basta.downloader import get_basta_dir
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
-plt.style.use(os.path.join(get_basta_dir(), "basta/plots.mplstyle"))
+plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
 
 def plot_param(Grid, ax, track, all_segments, label, color):
@@ -104,7 +105,7 @@ def kiel(
     gridtype,
     nameinplot=False,
     debug=False,
-    experimental=False,
+    developermode=False,
     validationmode=False,
     color_by_likelihood=False,
 ):
@@ -149,7 +150,7 @@ def kiel(
         Star identifier if it is to be included in the figure
     debug : bool, optional
         Debug flag.
-    experimental : bool, optional
+    developermode : bool, optional
         If True, experimental features will be used in run.
     validationmode : bool, optional
         If True, style the plots as required for validation runs
@@ -160,7 +161,7 @@ def kiel(
         Kiel diagram
     """
     # Inflate parameter ranges if requested
-    if experimental:
+    if developermode:
         print("\nACTIVATED EXPERIMENTAL FEATURE:")
         print(
             "Extending the selection ranges (from the default quantiles)",

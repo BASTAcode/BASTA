@@ -1,10 +1,10 @@
 .. _mainfuncs:
 
 BASTA main functions
-====================
+********************
 
 The main BASTA programme
-------------------------
+========================
 
 .. automodule:: bastamain
    :members:
@@ -12,19 +12,19 @@ The main BASTA programme
 .. _constants:
 
 The constants module
---------------------
+====================
 
 .. automodule:: constants
    :members:
 
 The distance module
---------------------
+===================
 
 .. automodule:: distances
    :members:
 
 The asteroseismic module
-------------------------
+========================
 
 .. automodule:: freq_fit
    :members:
@@ -33,7 +33,7 @@ The asteroseismic module
    :members:
 
 The stats module
-----------------
+================
 
 .. automodule:: priors
    :members:

@@ -100,18 +100,18 @@ def plot_all_seismic(
     if allfplots or "echelle" in freqplots:
         try:
             plot_seismic.echelle(
-                selectedmodels,
-                Grid,
-                obs,
-                obskey,
+                selectedmodels=selectedmodels,
+                Grid=Grid,
+                obs=obs,
+                obskey=obskey,
                 mod=maxmod,
                 modkey=maxmodkey,
                 dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
-                pair=False,
-                duplicate=False,
-                output=plotfname.format("echelle_uncorrected"),
+                pairmode=False,
+                duplicatemode=False,
+                outputfilename=plotfname.format("echelle_uncorrected"),
             )
         except Exception as e:
             print("\nUncorrected echelle failed with the error:", e)
@@ -128,9 +128,9 @@ def plot_all_seismic(
                 dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
-                pair=True,
-                duplicate=False,
-                output=plotfname.format("pairechelle_uncorrected"),
+                pairmode=True,
+                duplicatemode=False,
+                outputfilename=plotfname.format("pairechelle_uncorrected"),
             )
         except Exception as e:
             print("\nUncorrected pairechelle failed with the error:", e)
@@ -147,9 +147,9 @@ def plot_all_seismic(
                 dnu=plotdnu,
                 join=maxjoin,
                 joinkeys=maxjoinkeys,
-                duplicate=True,
-                pair=True,
-                output=plotfname.format("dupechelle_uncorrected"),
+                duplicatemode=True,
+                pairmode=True,
+                outputfilename=plotfname.format("dupechelle_uncorrected"),
             )
         except Exception as e:
             print("\nUncorrected dupechelle failed with the error:", e)
@@ -193,9 +193,9 @@ def plot_all_seismic(
                 freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
                 scalnu=fitfreqs["numax"],
-                pair=False,
-                duplicate=False,
-                output=plotfname.format("echelle"),
+                pairmode=False,
+                duplicatemode=False,
+                outputfilename=plotfname.format("echelle"),
             )
         except Exception as e:
             print("\nEchelle failed with the error:", e)
@@ -215,9 +215,9 @@ def plot_all_seismic(
                 freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
                 scalnu=fitfreqs["numax"],
-                pair=True,
-                duplicate=False,
-                output=plotfname.format("pairechelle"),
+                pairmode=True,
+                duplicatemode=False,
+                outputfilename=plotfname.format("pairechelle"),
             )
         except Exception as e:
             print("\nPairechelle failed with the error:", e)
@@ -237,9 +237,9 @@ def plot_all_seismic(
                 freqcor=fitfreqs["fcor"],
                 coeffs=coeffs,
                 scalnu=fitfreqs["numax"],
-                duplicate=True,
-                pair=True,
-                output=plotfname.format("dupechelle"),
+                duplicatemode=True,
+                pairmode=True,
+                outputfilename=plotfname.format("dupechelle"),
             )
         except Exception as e:
             print("\nDupechelle failed with the error:", e)
@@ -266,7 +266,7 @@ def plot_all_seismic(
                     maxmodkey,
                     maxmod,
                     ratseq,
-                    output=plotfname.format(ratnamestr),
+                    outputfilename=plotfname.format(ratnamestr),
                     threepoint=fitfreqs["threepoint"],
                     interp_ratios=fitfreqs["interp_ratios"],
                 )
@@ -283,7 +283,7 @@ def plot_all_seismic(
                     plot_seismic.correlation_map(
                         ratseq,
                         obsfreqdata,
-                        output=plotfname.format(ratnamestr + "_cormap"),
+                        outputfilename=plotfname.format(ratnamestr + "_cormap"),
                     )
                 except Exception as e:
                     print(
@@ -303,7 +303,7 @@ def plot_all_seismic(
                     glitchparams,
                     maxPath=path,
                     maxInd=np.argmax(selectedmodels[path].logPDF),
-                    output=plotfname.format(glitchnamestr),
+                    outputfilename=plotfname.format(glitchnamestr),
                 )
             except Exception as e:
                 print(
@@ -331,7 +331,7 @@ def plot_all_seismic(
                         maxmodkey,
                         maxmod,
                         ratseq,
-                        output=plotfname.format(ratnamestr),
+                        outputfilename=plotfname.format(ratnamestr),
                         threepoint=fitfreqs["threepoint"],
                         interp_ratios=fitfreqs["interp_ratios"],
                     )
@@ -347,7 +347,7 @@ def plot_all_seismic(
                     plot_seismic.correlation_map(
                         glitchseq,
                         obsfreqdata,
-                        output=plotfname.format(glitchnamestr + "_cormap"),
+                        outputfilename=plotfname.format(glitchnamestr + "_cormap"),
                     )
                 except Exception as e:
                     print(
@@ -367,7 +367,7 @@ def plot_all_seismic(
                     moddnu=maxmoddnu,
                     sequence=epsseq,
                     obsfreqdata=obsfreqdata,
-                    output=plotfname.format(epsnamestr),
+                    outputfilename=plotfname.format(epsnamestr),
                 )
             except Exception as e:
                 print(
@@ -382,7 +382,7 @@ def plot_all_seismic(
                     plot_seismic.correlation_map(
                         epsseq,
                         obsfreqdata,
-                        output=plotfname.format(epsnamestr + "_cormap"),
+                        outputfilename=plotfname.format(epsnamestr + "_cormap"),
                     )
                 except Exception as e:
                     print(
@@ -404,7 +404,7 @@ def plot_all_seismic(
                     dnudata=obsfreqdata["freqs"]["dnudata"],
                     obsfreqdata=obsfreqdata,
                     obsfreqmeta=obsfreqmeta,
-                    output=plotfname.format("DEBUG_epsdiff_components"),
+                    outputfilename=plotfname.format("DEBUG_epsdiff_components"),
                 )
             except Exception as e:
                 print("\nEpsilon difference compoenent plot failed with the error:", e)

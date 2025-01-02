@@ -1,7 +1,7 @@
 .. _grids:
 
 Grids of models
-===============
+###############
 
 BASTA uses grids of stellar tracks or isochrones stored in hierarchical data format ``hdf5``. The list of
 parameters included in our grids can be seen in the :ref:`parameter list <controls_params>`, but one should keep in mind that
@@ -10,7 +10,7 @@ oscillations while stellar tracks do, and fits to e.g., frequency ratios can onl
 tracks. If in doubt about a particular entry in the :ref:`parameter list <controls_params>` you are encouraged to contact one of
 the core developers of BASTA.
 
-A small grid is downloaded automatically with the installation of BASTA and is stored in
+A small grid is downloaded automatically if you follow the recommended installation instructions and is (as a default) stored in
 ``BASTA/grids/Garstec_16CygA.hdf5``. As the name suggest, this grid is built with the GARching STellar Evolution
 Code around the observed parameters of the *Kepler* target 16 Cyg A. Many of the :ref:`examples` are built using
 this grid, while others are constructed from larger grids that can be downloaded.

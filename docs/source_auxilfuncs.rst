@@ -1,10 +1,10 @@
 .. _auxilfuncs:
 
 BASTA auxiliary functions
-=========================
+*************************
 
 Plotting functions
-------------------
+==================
 
 .. automodule:: plot_corner
    :members:
@@ -19,7 +19,7 @@ Plotting functions
    :members:
 
 Processing tools
-----------------
+================
 
 .. automodule:: create_inputfile
    :members:

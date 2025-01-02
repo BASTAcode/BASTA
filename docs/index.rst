@@ -1,5 +1,5 @@
 BASTA: The BAyesian STellar Algorithm
-=====================================
+#####################################
 
 **Welcome to BASTA's documentation!**
 
@@ -7,7 +7,7 @@ BASTA is a Python-based fitting tool designed to determine properties of stars u
 models. It calculates the probability density function of a given stellar property based on a set of observational
 constraints defined by the user.
 
-Current stable version: v1.4.1
+Current stable version: v1.5.0
 
 *Please follow the repository on* `GitHub <https://github.com/BASTAcode/BASTA>`_ *to get notifications on new releases: Click "Watch" then "Custom" and tick "Releases.*
 
@@ -27,10 +27,11 @@ Current stable version: v1.4.1
    contributing
    source_code
 
+
 .. _ref_refs:
 
 References and acknowledgements
--------------------------------
+*******************************
 
 There are two articles containing the rationale, main features, and capabilities of the code:
 
@@ -48,7 +49,7 @@ that showcases these applications. If your paper using BASTA results is missing 
 .. _ref_authors:
 
 Authors
--------
+*******
 The current core developing team members are:
 
 * Jakob Lysgaard Rørsted (maintainer)
@@ -67,8 +68,9 @@ Throughout the years, many people have contributed to the addition and developme
 BASTA. We welcome further contributions from the community as well as issues reporting. Please look at the section
 :ref:`contrib` for further details.
 
+
 Find what you are looking for
-=============================
+*****************************
 
 * :ref:`genindex`
 * :ref:`modindex`
