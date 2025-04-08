@@ -961,7 +961,7 @@ def read_allseismic(
                     obsfreqdata["freqs"]["dnudata"],
                     sequence=epsdifffit,
                     nsorting=fitfreqs["nsorting"],
-                    nrealisations=2000,
+                    nrealisations=20000,
                     debug=debug,
                 )
                 obsfreqdata[epsdifffit]["data"] = datos[0]
