@@ -21,8 +21,10 @@ from basta.utils_xml import ascii_to_xml
 from basta.utils_general import strtobool, unique_unsort, flush_all
 from basta.interpolation_driver import perform_interpolation
 
+from typing import Optional, Union
 
-def _find_get(root, path, value, *default):
+
+def _find_get(root:Element, path: str, value: str, *default: Optional[Union[str, int, bool, None]] = None):
     """
     Error catching of things required to be set in xml. Gives useful
     errormessage instead of stuff like "AttributeError: 'NoneType' object
@@ -44,20 +46,20 @@ def _find_get(root, path, value, *default):
     val : str
         Extracted value upon location in xml
     """
-    # Protect against calls like
-    # _find_get(root, path, value, 0, "foo", 42, None, True, [1, 2])
-    assert len(default) <= 1
     tag = path.split("/")[-1]
-    place = root.find(path)
-    if place == None:
-        if default:
-            return default[0]
-        raise KeyError("Missing tag '{0}' in input!".format(tag))
-    val = place.get(value)
-    if val == None:
-        if default:
-            return default[0]
-        raise ValueError("Missing '{0}' in tag '{1}'!".format(value, tag))
+    element = root.find(path)
+
+    if element is None:
+        if default is not None:
+            return default
+        raise KeyError(f"Missing tag '{tag}' in input!")
+
+    val = element.get(value)
+    if val is None:
+        if default is not None:
+            return default
+        raise ValueError(f"Missing attribute '{value}' in tag '{tag}'!")
+
     return val
 
 
@@ -486,6 +488,7 @@ def run_xml(
     # Check for frequency fitting and activate
     fitparams = [param.tag for param in root.findall("default/fitparams/")]
 
+    fitfreqs = {}
     fitfreqs["active"] = any(param in freqtypes.alltypes for param in fitparams)
     fitfreqs["fittypes"] = [param for param in fitparams if param in freqtypes.alltypes]
     fitdist = "parallax" in fitparams  # If parallax is included, fit for distance
@@ -652,188 +655,188 @@ def run_xml(
 
     # First, delete any existing file, then open file for appending
     # --> This is essential when running on multiple stars
-    with open(asciifilepath, "wb"), open(errfilepath, "w"), open(warnfilepath, "w"):
-    with open(asciifilepath, "ab+") as fout, open(errfilepath, "a+") as ferr, open(warnfilepath, "a+") as fwarn:
-        inputparams.update({"asciioutput": fout, "erroutput": ferr, "warnoutput": fwarn})
+    with open(output_paths["ascii"], "wb"), open(output_paths["error"], "w"), open(output_paths["warning"], "w"):
+        with open(output_paths["ascii"], "ab+") as fout, open(output_paths["error"], "a+") as ferr, open(output_paths["warning"], "a+") as fwarn:
+            inputparams.update({"asciioutput": fout, "erroutput": ferr, "warnoutput": fwarn})
 
-        # Ensure distance file is cleared
-        if os.path.exists(asciifile_dist):
-            open(asciifile_dist, "wb").close()
+            # Ensure distance file is cleared
+            if os.path.exists(output_paths["ascii_distance"]):
+                open(asciifile_dist, "wb").close()
 
-        # Loop over stars
-        for star in root.findall("star"):
-            starid = star.get("starid")
-            starfitparams = {}
-            skipstar = False
-            gridfile = grid
+            # Loop over stars
+            for star in root.findall("star"):
+                starid = star.get("starid")
+                starfitparams = {}
+                skipstar = False
+                gridfile = grid
 
-            # Get fitparameters for the given star
-            for param in fitparams:
-                kid = star.find("dnu") if "dnu" in param else star.find(param)
-                
-                if param in [*overwriteparams, *freqtypes.alltypes]:
-                    continue # Skip special fitting keys, handled later
+                # Get fitparameters for the given star
+                for param in fitparams:
+                    kid = star.find("dnu") if "dnu" in param else star.find(param)
+                    
+                    if param in [*overwriteparams, *freqtypes.alltypes]:
+                        continue # Skip special fitting keys, handled later
 
-                val = kid.get("value") if kid is not None else None
-                err = kid.get("error") if kid is not None else None
+                    val = kid.get("value") if kid is not None else None
+                    err = kid.get("error") if kid is not None else None
 
-                # Handle the special phase tag behaviour
-                if param in ["phase", "dif"]:
-                    if val is None:
-                        inputparams.pop(param, None)
-                    elif "," in val:
-                        inputparams[param] = tuple(val.split(","))
-                    else:
-                        inputparams[param] = val
-                elif val is not None:
-                    starfitparams[param] = [
-                        float(val),
-                        float(err),
-                    ]
-                else:
-                    skipstar = True
-                    msg = f"Fitparameter '{param}' not provided for star {starid} and will be skipped"
-                    no_models(starid, inputparams, msg)
-                    print(msg)
-                    break
-
-            # Check if any overwriting of fitparameter is requested
-            for param, gparams in overwriteparams.items():
-                if param in fitparams:
+                    # Handle the special phase tag behaviour
                     if param in ["phase", "dif"]:
-                        if "," in val:
-                            inputparams[param] = tuple(gparams.split(","))
+                        if val is None:
+                            inputparams.pop(param, None)
+                        elif "," in val:
+                            inputparams[param] = tuple(val.split(","))
+                        else:
+                            inputparams[param] = val
+                    elif val is not None:
+                        starfitparams[param] = [
+                            float(val),
+                            float(err),
+                        ]
+                    else:
+                        skipstar = True
+                        msg = f"Fitparameter '{param}' not provided for star {starid} and will be skipped"
+                        no_models(starid, inputparams, msg)
+                        print(msg)
+                        break
+
+                # Check if any overwriting of fitparameter is requested
+                for param, gparams in overwriteparams.items():
+                    if param in fitparams:
+                        if param in ["phase", "dif"]:
+                            if "," in val:
+                                inputparams[param] = tuple(gparams.split(","))
+                            else:
+                                inputparams[param] = (float(gparams[0]), float(gparams[1]))
                         else:
                             inputparams[param] = (float(gparams[0]), float(gparams[1]))
-                    else:
-                        inputparams[param] = (float(gparams[0]), float(gparams[1]))
 
-            # Collect by-star frequency fit information
-            if fitfreqs["active"]:
-                fitfreqs.update({
-                    "freqfile": os.path.join(fitfreqs["freqpath"], f"{starid}.xml"),
-                    "glitchfile": os.path.join(fitfreqs["freqpath"], f"{starid}.hdf5") if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"] else None,
-                    "dnufit": float(_find_get(star, "dnu", "value")),
-                    "numax": float(_find_get(star, "numax", "value")),
-                    "dnufit_err": float(_find_get(star, "dnu", "error", default="nan")),
-                })
-                for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
-                    fitfreqs[fp] = star.find(fp).get("value") if star.find(fp) is not None else None
-                inputparams["fitfreqs"] = fitfreqs
+                # Collect by-star frequency fit information
+                if fitfreqs["active"]:
+                    fitfreqs.update({
+                        "freqfile": os.path.join(fitfreqs["freqpath"], f"{starid}.xml"),
+                        "glitchfile": os.path.join(fitfreqs["freqpath"], f"{starid}.hdf5") if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"] else None,
+                        "dnufit": float(_find_get(star, "dnu", "value")),
+                        "numax": float(_find_get(star, "numax", "value")),
+                        "dnufit_err": float(_find_get(star, "dnu", "error", default="nan")),
+                    })
+                    for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
+                        fitfreqs[fp] = star.find(fp).get("value") if star.find(fp) is not None else None
+                    inputparams["fitfreqs"] = fitfreqs
 
-            # Add fitparams and limits
-            inputparams["fitparams"] = starfitparams
-            inputparams["magnitudes"] = {}
-            inputparams["limits"] = {}
-            for param, (minval, maxval, abstol, nsigma) in limits.items():
-                if param in starfitparams:
-                    val, err = starfitparams[param]
-                    abstol = max(abstol, 2 * err * nsigma)
-                    minval, maxval = max(minval, val - abstol / 2), min(maxval, val + abstol / 2)
-                if minval != -np.inf or maxval != np.inf:
-                    inputparams["limits"][param] = [minval, maxval]
+                # Add fitparams and limits
+                inputparams["fitparams"] = starfitparams
+                inputparams["magnitudes"] = {}
+                inputparams["limits"] = {}
+                for param, (minval, maxval, abstol, nsigma) in limits.items():
+                    if param in starfitparams:
+                        val, err = starfitparams[param]
+                        abstol = max(abstol, 2 * err * nsigma)
+                        minval, maxval = max(minval, val - abstol / 2), min(maxval, val + abstol / 2)
+                    if minval != -np.inf or maxval != np.inf:
+                        inputparams["limits"][param] = [minval, maxval]
 
-            # Add parallax and other distance parameters to dictionary
-            if fitdist:
-                distanceparams = {
-                    "parallax": [float(_find_get(star, "parallax", "value")), float(_find_get(star, "parallax", "error"))] if "parallax" in fitparams else None,
-                    "dustframe": _find_get(root, "default/distanceInput/dustframe", "value"),
-                    "filters": [f.tag for f in root.findall("default/distanceInput/filters/")],
-                    "m": {}, "m_err": {}
-                }
+                # Add parallax and other distance parameters to dictionary
+                if fitdist:
+                    distanceparams = {
+                        "parallax": [float(_find_get(star, "parallax", "value")), float(_find_get(star, "parallax", "error"))] if "parallax" in fitparams else None,
+                        "dustframe": _find_get(root, "default/distanceInput/dustframe", "value"),
+                        "filters": [f.tag for f in root.findall("default/distanceInput/filters/")],
+                        "m": {}, "m_err": {}
+                    }
 
-                for coord in ["lon", "lat", "RA", "DEC"]:
-                    fc = star.find(coord)
-                    if fc is not None:
-                        distanceparams[coord] = float(fc.get("value"))
+                    for coord in ["lon", "lat", "RA", "DEC"]:
+                        fc = star.find(coord)
+                        if fc is not None:
+                            distanceparams[coord] = float(fc.get("value"))
 
-                # Load extinction or use dustmap
-                EBV = star.find("EBV")
-                if EBV is not None:
-                    distanceparams["EBV"] = [0, float(EBV.get("value")), 0]
+                    # Load extinction or use dustmap
+                    EBV = star.find("EBV")
+                    if EBV is not None:
+                        distanceparams["EBV"] = [0, float(EBV.get("value")), 0]
 
-                # Find available filters and load corresponding magnitudes
-                for f in distanceparams["filters"]:
-                    try:
-                        distanceparams["m"][f] = float(star.find(f).get("value"))
-                        distanceparams["m_err"][f] = float(star.find(f).get("error"))
-                    except Exception:
-                        print("WARNING: Could not find values for " + f)
+                    # Find available filters and load corresponding magnitudes
+                    for f in distanceparams["filters"]:
+                        try:
+                            distanceparams["m"][f] = float(star.find(f).get("value"))
+                            distanceparams["m_err"][f] = float(star.find(f).get("error"))
+                        except Exception:
+                            print("WARNING: Could not find values for " + f)
 
-                inputparams["distanceparams"] = distanceparams
+                    inputparams["distanceparams"] = distanceparams
 
-            # Seperate treatment of distance output file
-            if "distance" in inputparams["asciiparams"]:
-                with open(asciifile_dist, "ab+") as fout_dist:
-                    inputparams["asciioutput_dist"] = fout_dist
+                # Seperate treatment of distance output file
+                if "distance" in inputparams["asciiparams"]:
+                    with open(asciifile_dist, "ab+") as fout_dist:
+                        inputparams["asciioutput_dist"] = fout_dist
 
-            # Skip star if it was marked as broken earlier
-            if skipstar:
-                continue
+                # Skip star if it was marked as broken earlier
+                if skipstar:
+                    continue
 
-            # Perform interpolation routine if requested
-            try:
-                if starid in allintpol:
-                    gridfile = perform_interpolation(
-                        gridfile,
-                        gridid,
-                        allintpol[starid],
-                        inputparams,
+                # Perform interpolation routine if requested
+                try:
+                    if starid in allintpol:
+                        gridfile = perform_interpolation(
+                            gridfile,
+                            gridid,
+                            allintpol[starid],
+                            inputparams,
+                            debug=flag_debug,
+                        )
+                except KeyboardInterrupt:
+                    print("BASTA interpolation stopped manually. Goodbye!")
+                    traceback.print_exc()
+                    return
+                except ValueError as e:
+                    print("\nBASTA interpolation stopped due to a value error!\n")
+                    traceback.print_exc()
+                    write_star_to_errfile(starid, inputparams, f"Interpolation Error: {e}")
+                    continue
+                except Exception as e:
+                    error_msg = f"BASTA interpolation failed for star {starid}: {e}"
+                    print(error_msg)
+                    print(traceback.format_exc())
+                    no_models(starid, inputparams, f"Unhandled Error: {e}")
+
+                # Call BASTA itself!
+                try:
+                    BASTA(
+                        starid=starid,
+                        gridfile=gridfile,
+                        inputparams=inputparams,
+                        gridid=gridid,
+                        usebayw=usebayw,
+                        usepriors=usepriors,
+                        optionaloutputs=useoptoutput,
+                        seed=seed,
                         debug=flag_debug,
+                        verbose=verbose,
+                        developermode=flag_developermode,
+                        validationmode=flag_validationmode,
                     )
-            except KeyboardInterrupt:
-                print("BASTA interpolation stopped manually. Goodbye!")
-                traceback.print_exc()
-                return
-            except ValueError as e:
-                print("\nBASTA interpolation stopped due to a value error!\n")
-                traceback.print_exc()
-                write_star_to_errfile(starid, inputparams, f"Interpolation Error: {e}")
-                continue
-            except Exception as e:
-                error_msg = f"BASTA interpolation failed for star {starid}: {e}"
-                print(error_msg)
-                print(traceback.format_exc())
-                no_models(starid, inputparams, f"Unhandled Error: {e}")
+                except KeyboardInterrupt:
+                    print("BASTA stopped manually. Goodbye!")
+                    traceback.print_exc()
+                    return
+                except LibraryError:
+                    print("BASTA stopped due to a library error!")
+                    return
+                except Exception as e:
+                    error_msg = f"BASTA failed for star {starid} due to: {e}"
+                    print(error_msg)
+                    print(traceback.format_exc())
+                    no_models(starid, inputparams, f"Unhandled Error: {e}")
 
-            # Call BASTA itself!
-            try:
-                BASTA(
-                    starid=starid,
-                    gridfile=gridfile,
-                    inputparams=inputparams,
-                    gridid=gridid,
-                    usebayw=usebayw,
-                    usepriors=usepriors,
-                    optionaloutputs=useoptoutput,
-                    seed=seed,
-                    debug=flag_debug,
-                    verbose=verbose,
-                    developermode=flag_developermode,
-                    validationmode=flag_validationmode,
-                )
-            except KeyboardInterrupt:
-                print("BASTA stopped manually. Goodbye!")
-                traceback.print_exc()
-                return
-            except LibraryError:
-                print("BASTA stopped due to a library error!")
-                return
-            except Exception as e:
-                error_msg = f"BASTA failed for star {starid} due to: {e}"
-                print(error_msg)
-                print(traceback.format_exc())
-                no_models(starid, inputparams, f"Unhandled Error: {e}")
+                # Ensure output files are written and clean up memory
+                flush_all(fout, ferr, fwarn)
 
-            # Ensure output files are written and clean up memory
-            flush_all(fout, ferr, fwarn)
+                # Flush distance output only if it's open
+                if "distance" in inputparams["asciiparams"]:
+                    with open(asciifile_dist, "ab+") as fout_dist:
+                        fout_dist.flush()
 
-            # Flush distance output only if it's open
-            if "distance" in inputparams["asciiparams"]:
-                with open(asciifile_dist, "ab+") as fout_dist:
-                    fout_dist.flush()
-
-            gc.collect()
+                gc.collect()
 
     # Create XML output from results.ascii
     xmlfilepath = asciifilepath.rsplit(".", 1)[0] + ".xml"
