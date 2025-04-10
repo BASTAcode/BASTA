@@ -11,6 +11,8 @@ from basta.__about__ import __version__
 from basta import distances
 from basta.constants import freqtypes
 
+from typing import Union, IO
+
 
 def h5py_to_array(xs) -> np.array:
     """
@@ -686,3 +688,10 @@ def strtobool(val):
         return 0
     else:
         raise ValueError("invalid truth value %r" % (val,))
+
+
+def flush_all(*files: Union[IO, None]) -> None:
+    """Flush multiple file buffers to ensure data is written."""
+    for f in files:
+        if f:
+            f.flush()

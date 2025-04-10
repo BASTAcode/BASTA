@@ -18,7 +18,7 @@ from basta.constants import parameters
 from basta.constants import freqtypes
 from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
-from basta.utils_general import strtobool, unique_unsort
+from basta.utils_general import strtobool, unique_unsort, flush_all
 from basta.interpolation_driver import perform_interpolation
 
 
@@ -764,14 +764,14 @@ def run_xml(
 
             # Seperate treatment of distance output file
             if "distance" in inputparams["asciiparams"]:
-                fout_dist = open(asciifile_dist, "ab+")
-                inputparams["asciioutput_dist"] = fout_dist
+                with open(asciifile_dist, "ab+") as fout_dist:
+                    inputparams["asciioutput_dist"] = fout_dist
 
-            # Check if star has been broken along the way
+            # Skip star if it was marked as broken earlier
             if skipstar:
                 continue
 
-            # Call interpolation routine
+            # Perform interpolation routine if requested
             try:
                 if starid in allintpol:
                     gridfile = perform_interpolation(
@@ -788,24 +788,13 @@ def run_xml(
             except ValueError as e:
                 print("\nBASTA interpolation stopped due to a value error!\n")
                 traceback.print_exc()
-                write_star_to_errfile(
-                    starid,
-                    inputparams,
-                    "Interpolation {}: {}".format(e.__class__.__name__, e),
-                )
+                write_star_to_errfile(starid, inputparams, f"Interpolation Error: {e}")
                 continue
             except Exception as e:
-                print(
-                    "BASTA interpolation failed for star {0} with the error:".format(
-                        starid
-                    )
-                )
+                error_msg = f"BASTA interpolation failed for star {starid}: {e}"
+                print(error_msg)
                 print(traceback.format_exc())
-                no_models(
-                    starid,
-                    inputparams,
-                    "Unhandled {}: {}".format(e.__class__.__name__, e),
-                )
+                no_models(starid, inputparams, f"Unhandled Error: {e}")
 
             # Call BASTA itself!
             try:
@@ -831,30 +820,25 @@ def run_xml(
                 print("BASTA stopped due to a library error!")
                 return
             except Exception as e:
-                print("BASTA failed for star {0} with the error:".format(starid))
+                error_msg = f"BASTA failed for star {starid} due to: {e}"
+                print(error_msg)
                 print(traceback.format_exc())
-                no_models(
-                    starid,
-                    inputparams,
-                    "Unhandled {}: {}".format(e.__class__.__name__, e),
-                )
+                no_models(starid, inputparams, f"Unhandled Error: {e}")
 
-            # Make sure to write to file, and clear memory
+            # Ensure output files are written and clean up memory
+            flush_all(fout, ferr, fwarn)
+
+            # Flush distance output only if it's open
             if "distance" in inputparams["asciiparams"]:
-                fout_dist.flush()
-            sys.stdout = stdout
-            fout.flush()
-            ferr.flush()
-            fwarn.flush()
+                with open(asciifile_dist, "ab+") as fout_dist:
+                    fout_dist.flush()
+
             gc.collect()
 
     # Create XML output from results.ascii
     xmlfilepath = asciifilepath.rsplit(".", 1)[0] + ".xml"
     ascii_to_xml(asciifilepath, xmlfilepath, uncert=inputparams["uncert"])
 
-    # If the distance file was opened, close it again
-    if "distance" in inputparams["asciiparams"]:
-        fout_dist.close()
-
     # Reset path and return
-    os.chdir(oldpath)
+    if os.getcwd() != oldpath:
+        os.chdir(oldpath)
