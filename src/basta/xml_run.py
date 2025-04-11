@@ -12,7 +12,7 @@ from xml.etree import ElementTree
 
 import numpy as np
 
-from typing import Optional, Union, Dict, List
+from typing import Optional, Union, Dict, List, Any, Tuple
 
 from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
@@ -28,40 +28,39 @@ def _find_get(
     root: ElementTree.Element,
     path: str,
     value: str,
-    default: Optional[Union[str, int, bool, None]] = "no-default",
-) -> Optional[Union[str, int, bool, None]]:
+    default: Optional[Union[str, float, int]] = 'no-default',  # Default can be str, int, or float
+) -> str:
     """
     Error catching of things required to be set in xml. Gives useful
-    errormessage instead of stuff like "AttributeError: 'NoneType' object
-    has no attribute 'get'"
+    error messages instead of AttributeError.
 
     Parameters
     ----------
     root : Element
-        Element in xml-tree to find parameter in
+        Element in XML tree to find parameter in.
     path : str
-        What path in the xml-tree the wanted value should be at
+        Path in the XML tree where the wanted value should be.
     value : str
-        Name of the value to be extracted, e.g. "value", "path", "error"
-    default : str, int, None, bool
-        Default to return if not set
+        Name of the value to be extracted, e.g., "value", "path", "error".
+    default : Optional[Union[str, int, float]]
+        Default value to return if not set.
 
     Returns
     -------
     val : str
-        Extracted value upon location in xml
+        Extracted value from the XML.
     """
     tag = path.split("/")[-1]
     element = root.find(path)
 
     if element is None:
-        if default != "no-default":
+        if default != 'no-default':
             return default
         raise KeyError(f"Missing tag '{tag}' in input!")
 
     val = element.get(value)
     if val is None:
-        if default != "no-default":
+        if default != 'no-default':
             return default
         raise ValueError(f"Missing attribute '{value}' in tag '{tag}'!")
 
@@ -192,7 +191,8 @@ def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> Tuple[float, f
     fmax : float
         Maximum frequency value
     """
-    freqfile = os.path.join(freqpath, star.get("starid") + ".xml")
+    starid = star.get("starid", "unknowntarget") 
+    freqfile = os.path.join(freqpath, f"{starid}.xml")
 
     if not os.path.exists(freqfile):
         raise FileNotFoundError(f"Frequency file not found: {freqfile}")
@@ -205,13 +205,16 @@ def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> Tuple[float, f
             f"Missing 'dnu' value for star {star.get('starid', 'unknown')}."
         )
 
+    dnu_value = dnu_element.get("value")
+    if dnu_value is None:
+        raise ValueError(f"Missing 'dnu' value: {dnu_element.get('value')}")
     try:
-        dnu = float(dnu_element.get("value"))
+        dnu = float(dnu_value)
     except ValueError:
         raise ValueError(f"Invalid 'dnu' value: {dnu_element.get('value')}")
 
-    fmin = f.min() - 2.0 * dnu
-    fmax = f.max() + 2.0 * dnu
+    fmin = np.amin(f) - 2.0 * dnu
+    fmax = np.amax(f) + 2.0 * dnu
 
     return fmin, fmax
 
@@ -482,7 +485,7 @@ def _read_glitch_controls(fitfreqs: Dict[str, Any]) -> Dict[str, Any]:
 #####################
 def run_xml(
     xmlfile: str,
-    seed: int | None = None,
+    seed: int,
     verbose: bool = False,
     flag_debug: bool = False,
     flag_developermode: bool = False,
@@ -528,8 +531,8 @@ def run_xml(
         "nameinplot": strtobool(
             _find_get(root, "default/nameinplot", "value", "False")
         ),
-        "dnusun": float(_find_get(root, "default/solardnu", "value", sydc.SUNdnu)),
-        "numsun": float(_find_get(root, "default/solarnumax", "value", sydc.SUNnumax)),
+        "dnusun": float(_find_get(root, "default/solardnu", "value", default=sydc.SUNdnu)),
+        "numsun": float(_find_get(root, "default/solarnumax", "value", default=sydc.SUNnumax)),
         "solarmodel": _find_get(root, "default/solarmodel", "value", ""),
     }
 
@@ -760,7 +763,7 @@ def run_xml(
 
             # Ensure distance file is cleared
             if os.path.exists(output_paths["ascii_distance"]):
-                open(asciifile_dist, "wb").close()
+                open(output_paths["ascii_distance"], "wb").close()
 
             # Loop over stars
             for star in root.findall("star"):
@@ -833,11 +836,10 @@ def run_xml(
                         }
                     )
                     for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
-                        fitfreqs[fp] = (
-                            star.find(fp).get("value")
-                            if star.find(fp) is not None
-                            else None
-                        )
+                        if star.find(fp) is not None:
+                            fitfreqs[fp] = (star.find(fp).get("value"))
+                        else:
+                            fitfreqs[fp] = None
                     inputparams["fitfreqs"] = fitfreqs
 
                 # Add fitparams and limits
@@ -900,7 +902,7 @@ def run_xml(
 
                 # Seperate treatment of distance output file
                 if "distance" in inputparams["asciiparams"]:
-                    with open(asciifile_dist, "ab+") as fout_dist:
+                    with open(output_paths["ascii_distance"], "ab+") as fout_dist:
                         inputparams["asciioutput_dist"] = fout_dist
 
                 # Skip star if it was marked as broken earlier
@@ -968,7 +970,7 @@ def run_xml(
 
                 # Flush distance output only if it's open
                 if "distance" in inputparams["asciiparams"]:
-                    with open(asciifile_dist, "ab+") as fout_dist:
+                    with open(output_paths["ascii_distance"], "ab+") as fout_dist:
                         fout_dist.flush()
 
                 gc.collect()
