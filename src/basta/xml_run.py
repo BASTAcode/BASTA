@@ -1,6 +1,7 @@
 """
 Running BASTA from XML files. Main wrapper!
 """
+
 import os
 import gc
 import sys
@@ -11,7 +12,7 @@ from xml.etree import ElementTree
 
 import numpy as np
 
-from typing import Optional, Union, Dict
+from typing import Optional, Union, Dict, List
 
 from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
@@ -24,7 +25,7 @@ from basta.interpolation_driver import perform_interpolation
 
 
 def _find_get(
-    root,
+    root: ElementTree.Element,
     path: str,
     value: str,
     default: Optional[Union[str, int, bool, None]] = "no-default",
@@ -67,7 +68,9 @@ def _find_get(
     return val
 
 
-def _define_centroid_and_uncertainties(root, inputparams: Dict[str, str]) -> Dict[str, str]:
+def _define_centroid_and_uncertainties(
+    root: ElementTree.Element, inputparams: Dict[str, str]
+) -> Dict[str, str]:
     """
     Extract the centroid and uncertainty definitions for the fit. These need to
     apply default values if not set, therefore this check exists.
@@ -89,9 +92,11 @@ def _define_centroid_and_uncertainties(root, inputparams: Dict[str, str]) -> Dic
         if centroid_element is not None:
             inputparams["centroid"] = centroid_element.get("value", "").lower()
         else:
-            inputparams["centroid"]  = "median"
+            inputparams["centroid"] = "median"
         if inputparams["centroid"] not in {"median", "mean"}:
-            raise ValueError(f"Centroid must be either 'median' or 'mean', but got '{inputparams['centroid']}'")
+            raise ValueError(
+                f"Centroid must be either 'median' or 'mean', but got '{inputparams['centroid']}'"
+            )
     except (AttributeError, ValueError) as e:
         inputparams["centroid"] = "median"
         print(f"Warning: {e}")
@@ -103,7 +108,9 @@ def _define_centroid_and_uncertainties(root, inputparams: Dict[str, str]) -> Dic
         else:
             inputparams["uncert"] = "quantiles"
         if inputparams["uncert"] not in {"quantiles", "std"}:
-            raise ValueError(f"Uncertainty must be either 'quantiles' or 'std', but got '{inputparams['uncert']}'")
+            raise ValueError(
+                f"Uncertainty must be either 'quantiles' or 'std', but got '{inputparams['uncert']}'"
+            )
     except (AttributeError, ValueError) as e:
         inputparams["uncert"] = "quantiles"
         print(f"Warning: {e}")
@@ -112,12 +119,13 @@ def _define_centroid_and_uncertainties(root, inputparams: Dict[str, str]) -> Dic
 
 
 def _get_true_or_list(
-    params: list, deflist: list | None = None, check: bool = True
-) -> list:
+    params: List[ElementTree.Element],
+    deflist: Optional[List[str]] = None,
+    check: bool = True,
+) -> Union[List[str], List[bool]]:
     """
-    Several input lists can simply be set to true, in order to follow default
-    behaviour, while inputting parameters changes the behaviour to the user
-    specified. This function extracts the input of that.
+    Handles input lists that may be set to True to follow a default behavior or
+    specified parameters for custom behavior.
 
     Parameters
     ----------
@@ -127,38 +135,45 @@ def _get_true_or_list(
         List to copy, if input in params is simply True
     check : bool
         Whether to check the entrances in the list with available parameters in
-        BASTA, defined in basta.constants.parameters
+        BASTA, defined in `basta.constants.parameters`
 
     Returns
     -------
     extract : list
-        List depending on the input. The 'False' case is an empty list, for
-        simplification of later code. The 'True' case is '[True]'.
+        - Returns an empty list if `params` is empty or 'False'.
+        - Returns `[True]` if `params` is 'True' and `deflist` is `None`.
+        - Returns `deflist` if `params` is 'True' and `deflist` exists.
+        - Otherwise, extracts the tags from `params`.
+
+    Notes
+    -----
+    - If `check` is True, filters the extracted list based on available parameters.
     """
-    # This is not pretty, but reduces the amount of repeated code
-    if len(params) == 0:
-        extract = []
-    elif len(params) == 1:
-        if params[0].tag.lower() == "true" and type(deflist) == type(None):
-            extract = [True]
-        elif params[0].tag.lower() == "true":
-            extract = [par for par in deflist]
-        elif params[0].tag.lower() != "false":
-            extract = [params[0].tag]
-        else:
-            extract = []
-    else:
-        extract = []
-        for par in params:
-            extract.append(par.tag)
-    if check and not type(deflist) == type(None):
-        checklist = ["distance", "parallax", *parameters.names]
-        mask = [True if par in checklist else False for par in extract]
-        extract = list(np.asarray(extract)[mask])
+    if not params:
+        return []
+
+    first_tag = params[0].tag.lower()
+
+    if len(params) == 1:
+        if first_tag == "true":
+            if deflist is None:
+                return [True]
+            else:
+                deflist[:]
+        if first_tag == "false":
+            return []
+        return [first_tag]
+
+    extract = [par.tag for par in params]
+
+    if check and deflist is not None:
+        checklist = {"distance", "parallax", *parameters.names}
+        extract = [par for par in extract if par in checklist]
+
     return extract
 
 
-def _get_freq_minmax(star, freqpath):
+def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> Tuple[float, float]:
     """
     Extract the frequency interval of the star, using dnu as an
     estimation of the extension of the boundaries.
@@ -178,14 +193,30 @@ def _get_freq_minmax(star, freqpath):
         Maximum frequency value
     """
     freqfile = os.path.join(freqpath, star.get("starid") + ".xml")
+
+    if not os.path.exists(freqfile):
+        raise FileNotFoundError(f"Frequency file not found: {freqfile}")
+
     f, _, _, _ = read_freq_xml(freqfile)
-    dnu = float(star.find("dnu").get("value"))
+
+    dnu_element = star.find("dnu")
+    if dnu_element is None or dnu_element.get("value") is None:
+        raise ValueError(
+            f"Missing 'dnu' value for star {star.get('starid', 'unknown')}."
+        )
+
+    try:
+        dnu = float(dnu_element.get("value"))
+    except ValueError:
+        raise ValueError(f"Invalid 'dnu' value: {dnu_element.get('value')}")
+
     fmin = f.min() - 2.0 * dnu
     fmax = f.max() + 2.0 * dnu
+
     return fmin, fmax
 
 
-def _get_intpol(root, gridfile, freqpath=None):
+def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
     """
     Extract interpolation settings.
 
@@ -384,37 +415,65 @@ def _get_intpol(root, gridfile, freqpath=None):
     return allintpol
 
 
-def _read_glitch_controls(fitfreqs: dict) -> dict:
+def _read_glitch_controls(fitfreqs: Dict[str, Any]) -> Dict[str, Any]:
     """
-    If glitches have been pre-computed, read the options used, to
-    be used for model computation.
+    Reads precomputed glitch options to be used for model computation.
 
     Parameters
     ----------
     fitfreqs : dict
-        Frequency fitting options to write options to
+        Frequency fitting options to write options to, expected to contain "glitchfile"
 
     Returns
     -------
     fitfreqs : dict
         Updated frequency fitting options dictionary
+
+    Raises
+    ------
+    KeyError:
+        If the required "glitchfile" key is missing in `fitfreqs`.
+    FileNotFoundError:
+        If the glitch file does not exist.
+    KeyError:
+        If the required dataset keys are missing in the HDF5 file.
     """
+    if "glitchfile" not in fitfreqs:
+        raise KeyError("Missing 'glitchfile' key in fitfreqs dictionary.")
 
-    # Translation dict of options
-    translate = {"FQ": "Freq", "SD": "SecDif"}
-    # Read file
-    gfile = h5py.File(fitfreqs["glitchfile"])
+    try:
+        with h5py.File(fitfreqs["glitchfile"], "r") as gfile:
+            # Translation dictionary of options
+            translate = {"FQ": "Freq", "SD": "SecDif"}
 
-    # Read/translate the options
-    fitfreqs["glitchmethod"] = translate[gfile["header/method"][()].decode("UTF-8")]
-    fitfreqs["npoly_params"] = gfile["header/npoly_params"][()]
-    fitfreqs["nderiv"] = gfile["header/nderiv"][()]
-    fitfreqs["tol_grad"] = gfile["header/tol_grad"][()]
-    fitfreqs["regu_param"] = gfile["header/regu_param"][()]
-    fitfreqs["nguesses"] = gfile["header/n_guess"][()]
+            # Check if required keys exist
+            required_keys = [
+                "header/method",
+                "header/npoly_params",
+                "header/nderiv",
+                "header/tol_grad",
+                "header/regu_param",
+                "header/n_guess",
+            ]
 
-    # Release file
-    gfile.close()
+            for key in required_keys:
+                if key not in gfile:
+                    raise KeyError(f"Missing key in glitch file: {key}")
+
+            # Read and translate the options
+            method_key = gfile["header/method"][()].decode("UTF-8")
+            fitfreqs["glitchmethod"] = translate.get(method_key, method_key)
+            fitfreqs["npoly_params"] = gfile["header/npoly_params"][()]
+            fitfreqs["nderiv"] = gfile["header/nderiv"][()]
+            fitfreqs["tol_grad"] = gfile["header/tol_grad"][()]
+            fitfreqs["regu_param"] = gfile["header/regu_param"][()]
+            fitfreqs["nguesses"] = gfile["header/n_guess"][()]
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Glitch file not found: {fitfreqs['glitchfile']}")
+    except KeyError as e:
+        raise KeyError(f"Key error while reading glitch file: {e}")
+
     return fitfreqs
 
 
@@ -914,7 +973,9 @@ def run_xml(
 
                 gc.collect()
 
-    ascii_to_xml(output_paths['ascii'], output_paths['xml'], uncert=inputparams["uncert"])
+    ascii_to_xml(
+        output_paths["ascii"], output_paths["xml"], uncert=inputparams["uncert"]
+    )
 
     # Reset path and return
     if os.getcwd() != oldpath:
