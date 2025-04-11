@@ -1,7 +1,6 @@
 """
 Running BASTA from XML files. Main wrapper!
 """
-
 import os
 import gc
 import sys
@@ -12,6 +11,8 @@ from xml.etree import ElementTree
 
 import numpy as np
 
+from typing import Optional, Union, Dict
+
 from basta.bastamain import BASTA, LibraryError
 from basta.constants import sydsun as sydc
 from basta.constants import parameters
@@ -20,8 +21,6 @@ from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
 from basta.utils_xml import ascii_to_xml
 from basta.utils_general import strtobool, unique_unsort, flush_all
 from basta.interpolation_driver import perform_interpolation
-
-from typing import Optional, Union
 
 
 def _find_get(
@@ -68,7 +67,7 @@ def _find_get(
     return val
 
 
-def _centroid_and_uncert(root, inputparams):
+def _define_centroid_and_uncertainties(root, inputparams: Dict[str, str]) -> Dict[str, str]:
     """
     Extract the centroid and uncertainty definitions for the fit. These need to
     apply default values if not set, therefore this check exists.
@@ -83,26 +82,32 @@ def _centroid_and_uncert(root, inputparams):
     Returns
     -------
     inputparams : dict
-        Dictionary of inputparameters for BASTA extracted from the xml
+        Updated dictionary of input parameters
     """
     try:
-        inputparams["centroid"] = root.find("default/centroid").get("value").lower()
-        if inputparams["centroid"] not in ["median", "mean"]:
-            raise KeyError(
-                "Centroid must be either 'median' or 'mean', "
-                + "currently set to '{:s}'".format(inputparams["centroid"])
-            )
-    except AttributeError:
+        centroid_element = root.find("default/centroid")
+        if centroid_element is not None:
+            inputparams["centroid"] = centroid_element.get("value", "").lower()
+        else:
+            inputparams["centroid"]  = "median"
+        if inputparams["centroid"] not in {"median", "mean"}:
+            raise ValueError(f"Centroid must be either 'median' or 'mean', but got '{inputparams['centroid']}'")
+    except (AttributeError, ValueError) as e:
         inputparams["centroid"] = "median"
+        print(f"Warning: {e}")
+
     try:
-        inputparams["uncert"] = root.find("default/uncert").get("value").lower()
-        if inputparams["uncert"] not in ["quantiles", "std"]:
-            raise KeyError(
-                "Unceartainty must be either 'quantiles' or 'std', "
-                + "currently set to '{:s}'".format(inputparams["uncert"])
-            )
-    except AttributeError:
+        uncert_element = root.find("default/uncert")
+        if uncert_element is not None:
+            inputparams["uncert"] = uncert_element.get("value", "").lower()
+        else:
+            inputparams["uncert"] = "quantiles"
+        if inputparams["uncert"] not in {"quantiles", "std"}:
+            raise ValueError(f"Uncertainty must be either 'quantiles' or 'std', but got '{inputparams['uncert']}'")
+    except (AttributeError, ValueError) as e:
         inputparams["uncert"] = "quantiles"
+        print(f"Warning: {e}")
+
     return inputparams
 
 
@@ -485,7 +490,7 @@ def run_xml(
         gridid = None
 
     # Handle centroid and uncertainty settings
-    inputparams = _centroid_and_uncert(root, inputparams)
+    inputparams = _define_centroid_and_uncertainties(root, inputparams)
 
     # Restore original working directory
     os.chdir(oldpath)
