@@ -2,8 +2,8 @@
 Collection of all constants used in BASTA
 """
 
-from dataclasses import dataclass  # Python 3.7+ !
 import numpy as np
+from dataclasses import dataclass  # Python 3.7+ !
 
 
 @dataclass
@@ -548,7 +548,6 @@ class distanceranges:
     """
     Limits or ranges of different surveys
     """
-
     # 2MASS.max: https://old.ipac.caltech.edu/2mass/releases/sampler/index.html
     # 2MASS.min: Brightest star in 2mass All-Sky Release PSC is Betelgeuse,
     # https://old.ipac.caltech.edu/2mass/releases/allsky/doc/sec1_6b.html#satr1

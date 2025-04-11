@@ -33,11 +33,11 @@ def BASTA(
     starid: str,
     gridfile: str,
     inputparams: dict,
+    seed: int,
     gridid: bool | tuple = False,
     usebayw: bool = True,
     usepriors: tuple = (None,),
     optionaloutputs: bool = False,
-    seed: int | None = None,
     debug: bool = False,
     verbose: bool = False,
     developermode: bool = False,
@@ -90,7 +90,7 @@ def BASTA(
     # Set output directory and filenames
     t0 = time.localtime()
     outputdir = inputparams.get("output")
-    outfilename = os.path.join(outputdir, starid)
+    outfilename = os.path.join(str(outputdir), str(starid))
 
     # Start the log
     stdout = sys.stdout
