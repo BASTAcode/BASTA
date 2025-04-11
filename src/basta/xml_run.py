@@ -24,7 +24,12 @@ from basta.interpolation_driver import perform_interpolation
 from typing import Optional, Union
 
 
-def _find_get(root:Element, path: str, value: str, *default: Optional[Union[str, int, bool, None]] = None):
+def _find_get(
+    root,
+    path: str,
+    value: str,
+    default: Optional[Union[str, int, bool, None]] = "no-default",
+) -> Optional[Union[str, int, bool, None]]:
     """
     Error catching of things required to be set in xml. Gives useful
     errormessage instead of stuff like "AttributeError: 'NoneType' object
@@ -50,13 +55,13 @@ def _find_get(root:Element, path: str, value: str, *default: Optional[Union[str,
     element = root.find(path)
 
     if element is None:
-        if default is not None:
+        if default != "no-default":
             return default
         raise KeyError(f"Missing tag '{tag}' in input!")
 
     val = element.get(value)
     if val is None:
-        if default is not None:
+        if default != "no-default":
             return default
         raise ValueError(f"Missing attribute '{value}' in tag '{tag}'!")
 
@@ -594,32 +599,51 @@ def run_xml(
         }
 
         # Detect glitch fitting activation
-        fitfreqs["glitchfit"] = any(x in freqtypes.glitches for x in fitfreqs["fittypes"])
+        fitfreqs["glitchfit"] = any(
+            x in freqtypes.glitches for x in fitfreqs["fittypes"]
+        )
         if fitfreqs["glitchfit"]:
-            fitfreqs["readglitchfile"] = strtobool(_find_get(root, "default/freqparams/readglitchfile", "value", "False"))
+            fitfreqs["readglitchfile"] = strtobool(
+                _find_get(root, "default/freqparams/readglitchfile", "value", "False")
+            )
             if not fitfreqs["readglitchfile"]:
-                fitfreqs.update({
-                    "glitchmethod": _find_get(root, "default/grparams/method", "value", "Freq"),
-                    "npoly_params": int(_find_get(root, "default/grparams/npoly_params", "value", 5)),
-                    "nderiv": int(_find_get(root, "default/grparams/nderiv", "value", 3)),
-                    "tol_grad": float(_find_get(root, "default/grparams/tol_grad", "value", 1e-3)),
-                    "regu_param": float(_find_get(root, "default/grparams/regu_param", "value", 7)),
-                    "nguesses": int(_find_get(root, "default/grparams/nguesses", "value", 200)),
-                })
+                fitfreqs.update(
+                    {
+                        "glitchmethod": _find_get(
+                            root, "default/grparams/method", "value", "Freq"
+                        ),
+                        "npoly_params": int(
+                            _find_get(root, "default/grparams/npoly_params", "value", 5)
+                        ),
+                        "nderiv": int(
+                            _find_get(root, "default/grparams/nderiv", "value", 3)
+                        ),
+                        "tol_grad": float(
+                            _find_get(root, "default/grparams/tol_grad", "value", 1e-3)
+                        ),
+                        "regu_param": float(
+                            _find_get(root, "default/grparams/regu_param", "value", 7)
+                        ),
+                        "nguesses": int(
+                            _find_get(root, "default/grparams/nguesses", "value", 200)
+                        ),
+                    }
+                )
 
     # Get bayesian weights (default: True)
     usebayw = strtobool(_find_get(root, "default/bayesianweights", "value", "True"))
 
     # Extract optional output files
-    optoutput = [param.tag for param in root.findall("default/optionaloutputfiles/") if param.tag]
+    optoutput = [
+        param.tag for param in root.findall("default/optionaloutputfiles/") if param.tag
+    ]
     useoptoutput = optoutput if optoutput else False
 
     # Get priors
     limits = {}
     usepriors = []
     for param in root.findall("default/priors/"):
-        if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]
-        ):
+        if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
             limits[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
@@ -645,6 +669,7 @@ def run_xml(
     basepath = os.path.join(inputparams["output"], asciifile.rsplit(".", 1)[0])
     output_paths = {
         "ascii": basepath + ".ascii",
+        "xml": basepath + ".xml",
         "ascii_distance": basepath + "_distance.ascii",
         "error": basepath + ".err",
         "warning": basepath + ".warn",
@@ -655,9 +680,19 @@ def run_xml(
 
     # First, delete any existing file, then open file for appending
     # --> This is essential when running on multiple stars
-    with open(output_paths["ascii"], "wb"), open(output_paths["error"], "w"), open(output_paths["warning"], "w"):
-        with open(output_paths["ascii"], "ab+") as fout, open(output_paths["error"], "a+") as ferr, open(output_paths["warning"], "a+") as fwarn:
-            inputparams.update({"asciioutput": fout, "erroutput": ferr, "warnoutput": fwarn})
+    with (
+        open(output_paths["ascii"], "wb"),
+        open(output_paths["error"], "w"),
+        open(output_paths["warning"], "w"),
+    ):
+        with (
+            open(output_paths["ascii"], "ab+") as fout,
+            open(output_paths["error"], "a+") as ferr,
+            open(output_paths["warning"], "a+") as fwarn,
+        ):
+            inputparams.update(
+                {"asciioutput": fout, "erroutput": ferr, "warnoutput": fwarn}
+            )
 
             # Ensure distance file is cleared
             if os.path.exists(output_paths["ascii_distance"]):
@@ -673,9 +708,9 @@ def run_xml(
                 # Get fitparameters for the given star
                 for param in fitparams:
                     kid = star.find("dnu") if "dnu" in param else star.find(param)
-                    
+
                     if param in [*overwriteparams, *freqtypes.alltypes]:
-                        continue # Skip special fitting keys, handled later
+                        continue  # Skip special fitting keys, handled later
 
                     val = kid.get("value") if kid is not None else None
                     err = kid.get("error") if kid is not None else None
@@ -707,21 +742,38 @@ def run_xml(
                             if "," in val:
                                 inputparams[param] = tuple(gparams.split(","))
                             else:
-                                inputparams[param] = (float(gparams[0]), float(gparams[1]))
+                                inputparams[param] = (
+                                    float(gparams[0]),
+                                    float(gparams[1]),
+                                )
                         else:
                             inputparams[param] = (float(gparams[0]), float(gparams[1]))
 
                 # Collect by-star frequency fit information
                 if fitfreqs["active"]:
-                    fitfreqs.update({
-                        "freqfile": os.path.join(fitfreqs["freqpath"], f"{starid}.xml"),
-                        "glitchfile": os.path.join(fitfreqs["freqpath"], f"{starid}.hdf5") if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"] else None,
-                        "dnufit": float(_find_get(star, "dnu", "value")),
-                        "numax": float(_find_get(star, "numax", "value")),
-                        "dnufit_err": float(_find_get(star, "dnu", "error", default="nan")),
-                    })
+                    fitfreqs.update(
+                        {
+                            "freqfile": os.path.join(
+                                fitfreqs["freqpath"], f"{starid}.xml"
+                            ),
+                            "glitchfile": (
+                                os.path.join(fitfreqs["freqpath"], f"{starid}.hdf5")
+                                if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"]
+                                else None
+                            ),
+                            "dnufit": float(_find_get(star, "dnu", "value")),
+                            "numax": float(_find_get(star, "numax", "value")),
+                            "dnufit_err": float(
+                                _find_get(star, "dnu", "error", default="nan")
+                            ),
+                        }
+                    )
                     for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
-                        fitfreqs[fp] = star.find(fp).get("value") if star.find(fp) is not None else None
+                        fitfreqs[fp] = (
+                            star.find(fp).get("value")
+                            if star.find(fp) is not None
+                            else None
+                        )
                     inputparams["fitfreqs"] = fitfreqs
 
                 # Add fitparams and limits
@@ -732,17 +784,32 @@ def run_xml(
                     if param in starfitparams:
                         val, err = starfitparams[param]
                         abstol = max(abstol, 2 * err * nsigma)
-                        minval, maxval = max(minval, val - abstol / 2), min(maxval, val + abstol / 2)
+                        minval, maxval = max(minval, val - abstol / 2), min(
+                            maxval, val + abstol / 2
+                        )
                     if minval != -np.inf or maxval != np.inf:
                         inputparams["limits"][param] = [minval, maxval]
 
                 # Add parallax and other distance parameters to dictionary
                 if fitdist:
                     distanceparams = {
-                        "parallax": [float(_find_get(star, "parallax", "value")), float(_find_get(star, "parallax", "error"))] if "parallax" in fitparams else None,
-                        "dustframe": _find_get(root, "default/distanceInput/dustframe", "value"),
-                        "filters": [f.tag for f in root.findall("default/distanceInput/filters/")],
-                        "m": {}, "m_err": {}
+                        "parallax": (
+                            [
+                                float(_find_get(star, "parallax", "value")),
+                                float(_find_get(star, "parallax", "error")),
+                            ]
+                            if "parallax" in fitparams
+                            else None
+                        ),
+                        "dustframe": _find_get(
+                            root, "default/distanceInput/dustframe", "value"
+                        ),
+                        "filters": [
+                            f.tag
+                            for f in root.findall("default/distanceInput/filters/")
+                        ],
+                        "m": {},
+                        "m_err": {},
                     }
 
                     for coord in ["lon", "lat", "RA", "DEC"]:
@@ -759,7 +826,9 @@ def run_xml(
                     for f in distanceparams["filters"]:
                         try:
                             distanceparams["m"][f] = float(star.find(f).get("value"))
-                            distanceparams["m_err"][f] = float(star.find(f).get("error"))
+                            distanceparams["m_err"][f] = float(
+                                star.find(f).get("error")
+                            )
                         except Exception:
                             print("WARNING: Could not find values for " + f)
 
@@ -791,7 +860,9 @@ def run_xml(
                 except ValueError as e:
                     print("\nBASTA interpolation stopped due to a value error!\n")
                     traceback.print_exc()
-                    write_star_to_errfile(starid, inputparams, f"Interpolation Error: {e}")
+                    write_star_to_errfile(
+                        starid, inputparams, f"Interpolation Error: {e}"
+                    )
                     continue
                 except Exception as e:
                     error_msg = f"BASTA interpolation failed for star {starid}: {e}"
@@ -838,9 +909,7 @@ def run_xml(
 
                 gc.collect()
 
-    # Create XML output from results.ascii
-    xmlfilepath = asciifilepath.rsplit(".", 1)[0] + ".xml"
-    ascii_to_xml(asciifilepath, xmlfilepath, uncert=inputparams["uncert"])
+    ascii_to_xml(output_paths['ascii'], output_paths['xml'], uncert=inputparams["uncert"])
 
     # Reset path and return
     if os.getcwd() != oldpath:

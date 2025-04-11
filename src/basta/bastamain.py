@@ -48,7 +48,6 @@ def BASTA(
     (c) 2024, The BASTA Team
 
     For a description of how to use BASTA, please explore the documentation (https://github.com/BASTAcode/BASTA).
-    This function is typically called by :func:'xmltools.run_xml()'
 
     Parameters
     ----------

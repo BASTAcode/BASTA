@@ -681,6 +681,8 @@ def strtobool(val):
     val: str
         String value to be converted into a boolean.
     """
+    if not isinstance(val, str):
+        return val
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
         return 1
