@@ -39,6 +39,7 @@ class InferenceSettings:
 
     Parameters
     ----------
+
     gridfile : str
         Path and name of the hdf5 file containing the isochrones or tracks
         used in the fitting
@@ -53,6 +54,7 @@ class InferenceSettings:
     """
 
     gridfile: str
+    gridid: bool | tuple = False
     seed: int = 11
     usebayw: bool = True
     priors: tuple = (None,)

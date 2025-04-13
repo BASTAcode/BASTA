@@ -7,16 +7,17 @@ import gc
 import sys
 import time
 from copy import deepcopy
+from dataclasses import dataclass
 
 import h5py
 import numpy as np
 from tqdm import tqdm
 
-from basta import freq_fit, stats, process_output, priors, distances, plot_driver
+from basta.__about__ import __version__
+from basta import freq_fit, stats, process_output, priors, distances, plot_driver, core
+from basta import fileio as fio
 from basta import utils_seismic as su
 from basta import utils_general as util
-from basta.__about__ import __version__
-from basta import fileio as fio
 from basta.constants import freqtypes
 
 # Import matplotlib after other plotting modules for proper setup
@@ -24,24 +25,10 @@ from basta.constants import freqtypes
 import matplotlib.pyplot as plt
 
 
-# Custom exception
-class LibraryError(Exception):
-    pass
-
-
 def BASTA(
-    starid: str,
-    gridfile: str,
-    inputparams: dict,
-    seed: int,
-    gridid: bool | tuple = False,
-    usebayw: bool = True,
-    usepriors: tuple = (None,),
-    optionaloutputs: bool = False,
-    debug: bool = False,
-    verbose: bool = False,
-    developermode: bool = False,
-    validationmode: bool = False,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
@@ -89,53 +76,59 @@ def BASTA(
 
     # Set output directory and filenames
     t0 = time.localtime()
-    outputdir = inputparams.get("output")
-    outfilename = os.path.join(str(outputdir), str(starid))
+    outputdir = star.inputparams.get("output")
+    outfilename = os.path.join(str(outputdir), str(star.starid))
 
     # Start the log
     stdout = sys.stdout
     sys.stdout = util.Logger(outfilename)
 
     # Pretty printing a header
-    util.print_bastaheader(t0=t0, seed=seed, developermode=developermode)
+    util.print_bastaheader(
+        t0=t0, seed=inferencesettings.seed, developermode=outputoptions.developermode
+    )
 
     # Load the desired grid and obtain information from the header
-    Grid = h5py.File(gridfile, "r")
+    Grid = h5py.File(inferencesettings.gridfile, "r")
     gridtype, gridver, gridtime, grid_is_intpol = util.read_grid_header(Grid)
 
     # Verbose information on the grid file
-    print(f"\nFitting star id: {starid} .")
+    print(f"\nFitting star id: {star.starid} .")
 
-    print(f"* Using the grid '{gridfile}' of type '{gridtype}'.")
+    print(f"* Using the grid '{inferencesettings.gridfile}' of type '{gridtype}'.")
     print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
 
-    entryname, defaultpath, difsolarmodel = util.check_gridtype(gridtype, gridid=gridid)
+    entryname, defaultpath, difsolarmodel = util.check_gridtype(
+        gridtype, gridid=inferencesettings.gridid
+    )
 
     # Read available weights if not provided by the user
     bayweights, dweight = (
-        util.read_grid_bayweights(Grid, gridtype) if usebayw else (None, None)
+        util.read_grid_bayweights(Grid, gridtype)
+        if inferencesettings.usebayw
+        else (None, None)
     )
 
     # Get list of parameters
-    cornerplots = inputparams["cornerplots"]
-    outparams = inputparams["asciiparams"]
+    cornerplots = star.inputparams["cornerplots"]
+    outparams = star.inputparams["asciiparams"]
     allparams = list(np.unique(cornerplots + outparams))
 
-    inputparams, allparams = util.prepare_distancefitting(
-        inputparams=inputparams,
-        debug=debug,
+    star.inputparams, allparams = util.prepare_distancefitting(
+        inputparams=star.inputparams,
+        debug=outputoptions.debug,
         debug_dirpath=outfilename,
         allparams=allparams,
     )
 
     # Create list of all available input parameters
-    fitparams = inputparams.get("fitparams")
-    fitfreqs = inputparams["fitfreqs"]
-    distparams = inputparams.get("distanceparams", False)
-    limits = inputparams.get("limits")
+    fitparams = star.inputparams.get("fitparams")
+    fitfreqs = star.inputparams["fitfreqs"]
+    distparams = star.inputparams.get("distanceparams", False)
+    limits = star.inputparams.get("limits")
 
     # Scale dnu and numax using a solar model or default solar values
-    inputparams = su.solar_scaling(Grid, inputparams, diffusion=difsolarmodel)
+    inputparams = su.solar_scaling(Grid, star.inputparams, diffusion=difsolarmodel)
 
     # Prepare asteroseismic quantities if required
     if fitfreqs["active"]:
@@ -150,7 +143,9 @@ def BASTA(
             obsfreqdata,
             obsfreqmeta,
             obsintervals,
-        ) = su.prepare_obs(inputparams, verbose=verbose, debug=debug)
+        ) = su.prepare_obs(
+            inputparams, verbose=outputoptions.verbose, debug=outputoptions.debug
+        )
         # Apply prior on dnufit to mimick the range defined by dnufrac
         if fitfreqs["dnuprior"] and ("dnufit" not in limits):
             dnufit_frac = fitfreqs["dnufrac"] * fitfreqs["dnufit"]
@@ -208,7 +203,7 @@ def BASTA(
     util.print_distances(distparams, inputparams["asciiparams"])
     util.print_additional(inputparams)
     util.print_weights(bayweights, gridtype)
-    util.print_priors(limits, usepriors)
+    util.print_priors(limits, inferencesettings.priors)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Start likelihood computation
@@ -402,8 +397,8 @@ def BASTA(
                             fitfreqs,
                             warnings=warn,
                             shapewarn=shapewarn,
-                            debug=debug,
-                            verbose=verbose,
+                            debug=outputoptions.debug,
+                            verbose=outputoptions.verbose,
                         )
                         chi2[indd] += chi2_freq
 
@@ -414,20 +409,20 @@ def BASTA(
 
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
-                if debug:
+                if outputoptions.debug:
                     bayw = 0.0
                     magw = 0.0
                     IMFw = 0.0
                 if bayweights is not None:
                     for weight in bayweights:
                         logPDF += util.inflog(libitem[weight][()])
-                        if debug:
+                        if outputoptions.debug:
                             bayw += util.inflog(libitem[weight][()])
 
                     # Within a given track/isochrone; these are called dweights
                     assert dweight is not None
                     logPDF += util.inflog(libitem[dweight][index])
-                    if debug:
+                    if outputoptions.debug:
                         bayw += util.inflog(libitem[dweight][index])
 
                 # Multiply by absolute magnitudes, if present
@@ -437,19 +432,19 @@ def BASTA(
                     interp_mags = mags(absmags)
 
                     logPDF += util.inflog(interp_mags)
-                    if debug:
+                    if outputoptions.debug:
                         magw += util.inflog(interp_mags)
 
                 # Multiply priors into the weight
-                for prior in usepriors:
+                for prior in inferencesettings.priors:
                     logPDF += util.inflog(getattr(priors, prior)(libitem, index))
-                    if debug:
+                    if outputoptions.debug:
                         IMFw += util.inflog(getattr(priors, prior)(libitem, index))
 
                 # Calculate likelihood from weights, priors and chi2
                 # PDF = weights * np.exp(-0.5 * chi2)
                 logPDF -= 0.5 * chi2
-                if debug and verbose:
+                if outputoptions.debug and outputoptions.verbose:
                     print(
                         "DEBUG: Mass with nonzero likelihood:",
                         libitem["massini"][index][~np.isinf(logPDF)],
@@ -458,13 +453,13 @@ def BASTA(
                 # Sum the number indexes and nonzero indexes
                 noofind += len(logPDF)
                 noofposind += np.count_nonzero(~np.isinf(logPDF))
-                if debug and verbose:
+                if outputoptions.debug and outputoptions.verbose:
                     print(
                         f"DEBUG: Index found: {group_name + name}, {~np.isinf(logPDF)}"
                     )
 
                 # Store statistical info
-                if debug:
+                if outputoptions.debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
                         index, logPDF, chi2, bayw, magw, IMFw
                     )
@@ -481,7 +476,7 @@ def BASTA(
                         glitchpar[:, 2],
                     )
             else:
-                if debug and verbose:
+                if outputoptions.debug and outputoptions.verbose:
                     print(
                         f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDF)}"
                     )
@@ -505,7 +500,7 @@ def BASTA(
             "Warning: Found models with fewer frequencies than observed!",
             "These were set to zero likelihood!",
         )
-        if "intpol" in gridfile:
+        if "intpol" in inferencesettings.gridfile:
             print(
                 "This is probably due to the interpolation scheme. Lookup",
                 "`interpolate_frequencies` for more details.",
@@ -521,7 +516,7 @@ def BASTA(
             "unapplicable to models with mixed modes.",
         )
     if noofposind == 0:
-        fio.no_models(starid, inputparams, "No models found")
+        fio.no_models(star.starid, inputparams, "No models found")
         return
 
     # Print a header to signal the start of the output section in the log
@@ -544,15 +539,15 @@ def BASTA(
     print("\n\nComputing posterior distributions for the requested output parameters!")
     print("==> Summary statistics printed below ...\n")
     process_output.compute_posterior(
-        starid=starid,
+        starid=star.starid,
         selectedmodels=selectedmodels,
         Grid=Grid,
         inputparams=inputparams,
         outfilename=outfilename,
         gridtype=gridtype,
-        debug=debug,
-        developermode=developermode,
-        validationmode=validationmode,
+        debug=outputoptions.debug,
+        developermode=outputoptions.developermode,
+        validationmode=outputoptions.validationmode,
     )
 
     # Collect additional output for plotting and saving
@@ -580,7 +575,7 @@ def BASTA(
             plotfname=outfilename + "_{0}." + inputparams["plotfmt"],
             nameinplot=inputparams["nameinplot"],
             **addstats,
-            debug=debug,
+            debug=outputoptions.debug,
         )
     else:
         print(
@@ -588,7 +583,7 @@ def BASTA(
         )
 
     # Save dictionary with full statistics
-    if optionaloutputs:
+    if outputoptions.optionaloutputs:
         pfname = outfilename + ".json"
         fio.save_selectedmodels(pfname, selectedmodels)
         print(f"Saved dictionary to {pfname}")

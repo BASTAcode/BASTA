@@ -14,7 +14,9 @@ import numpy as np
 
 from typing import Optional, Union, Dict, List, Any, Tuple
 
-from basta.bastamain import BASTA, LibraryError
+from basta.bastamain import BASTA
+from basta import core
+from basta.errors import LibraryError
 from basta.constants import sydsun as sydc
 from basta.constants import parameters
 from basta.constants import freqtypes
@@ -28,7 +30,9 @@ def _find_get(
     root: ElementTree.Element,
     path: str,
     value: str,
-    default: Optional[Union[str, float, int]] = 'no-default',  # Default can be str, int, or float
+    default: Optional[
+        Union[str, float, int]
+    ] = "no-default",  # Default can be str, int, or float
 ) -> str:
     """
     Error catching of things required to be set in xml. Gives useful
@@ -54,13 +58,13 @@ def _find_get(
     element = root.find(path)
 
     if element is None:
-        if default != 'no-default':
+        if default != "no-default":
             return default
         raise KeyError(f"Missing tag '{tag}' in input!")
 
     val = element.get(value)
     if val is None:
-        if default != 'no-default':
+        if default != "no-default":
             return default
         raise ValueError(f"Missing attribute '{value}' in tag '{tag}'!")
 
@@ -191,7 +195,7 @@ def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> Tuple[float, f
     fmax : float
         Maximum frequency value
     """
-    starid = star.get("starid", "unknowntarget") 
+    starid = star.get("starid", "unknowntarget")
     freqfile = os.path.join(freqpath, f"{starid}.xml")
 
     if not os.path.exists(freqfile):
@@ -531,8 +535,12 @@ def run_xml(
         "nameinplot": strtobool(
             _find_get(root, "default/nameinplot", "value", "False")
         ),
-        "dnusun": float(_find_get(root, "default/solardnu", "value", default=sydc.SUNdnu)),
-        "numsun": float(_find_get(root, "default/solarnumax", "value", default=sydc.SUNnumax)),
+        "dnusun": float(
+            _find_get(root, "default/solardnu", "value", default=sydc.SUNdnu)
+        ),
+        "numsun": float(
+            _find_get(root, "default/solarnumax", "value", default=sydc.SUNnumax)
+        ),
         "solarmodel": _find_get(root, "default/solarmodel", "value", ""),
     }
 
@@ -837,7 +845,7 @@ def run_xml(
                     )
                     for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
                         if star.find(fp) is not None:
-                            fitfreqs[fp] = (star.find(fp).get("value"))
+                            fitfreqs[fp] = star.find(fp).get("value")
                         else:
                             fitfreqs[fp] = None
                     inputparams["fitfreqs"] = fitfreqs
@@ -937,21 +945,41 @@ def run_xml(
                     no_models(starid, inputparams, f"Unhandled Error: {e}")
 
                 # Call BASTA itself!
+                star = core.Star(starid=starid, inputparams=inputparams)
+                inferencesettings = core.InferenceSettings(
+                    gridfile=gridfile,
+                    gridid=gridid,
+                    seed=seed,
+                    usebayw=usebayw,
+                    priors=usepriors,
+                )
+                outputoptions = core.OutputOptions(
+                    optionaloutputs=useoptoutput,
+                    debug=flag_debug,
+                    verbose=verbose,
+                    developermode=flag_developermode,
+                    validationmode=flag_validationmode,
+                )
                 try:
                     BASTA(
-                        starid=starid,
-                        gridfile=gridfile,
-                        inputparams=inputparams,
-                        gridid=gridid,
-                        usebayw=usebayw,
-                        usepriors=usepriors,
-                        optionaloutputs=useoptoutput,
-                        seed=seed,
-                        debug=flag_debug,
-                        verbose=verbose,
-                        developermode=flag_developermode,
-                        validationmode=flag_validationmode,
+                        star=star,
+                        inferencesettings=inferencesettings,
+                        outputoptions=outputoptions,
                     )
+                #                     BASTA(
+                #                         starid=starid,
+                #                         gridfile=gridfile,
+                #                         inputparams=inputparams,
+                #                         gridid=gridid,
+                #                         usebayw=usebayw,
+                #                         usepriors=usepriors,
+                #                         optionaloutputs=useoptoutput,
+                #                         seed=seed,
+                #                         debug=flag_debug,
+                #                         verbose=verbose,
+                #                         developermode=flag_developermode,
+                #                         validationmode=flag_validationmode,
+                #                     )
                 except KeyboardInterrupt:
                     print("BASTA stopped manually. Goodbye!")
                     traceback.print_exc()

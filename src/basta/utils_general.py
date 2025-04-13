@@ -8,7 +8,7 @@ from io import IOBase
 
 import numpy as np
 from basta.__about__ import __version__
-from basta import distances
+from basta import distances, errors
 from basta.constants import freqtypes
 
 from typing import Union, IO
@@ -101,7 +101,7 @@ def check_gridtype(
                 "Unable to construct path for science case."
                 + " Probably missing (ove, dif, eta, alphaFe) in input!"
             )
-            raise LibraryError
+            raise errors.LibraryError
 
     else:
         raise OSError(
