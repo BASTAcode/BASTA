@@ -70,19 +70,42 @@ class FilePaths:
         return self.base.with_suffix(".log")
 
     @property
-    def plotfile_template(self) -> str:
-        return str(self.base) + "_{0}." + self.plotfmt
-
-    def plotfile(self, kind: str) -> Path:
-        return Path(self.plotfile_template.format(kind))
-
-    @property
     def jsonfile(self) -> Path:
         return self.base.with_suffix(".json")
 
     @property
     def resultfile(self) -> Path:
         return self.base.with_suffix(".txt")
+
+    @property
+    def plotfile_template(self) -> str:
+        return str(self.base) + "_{0}." + self.plotfmt
+
+    def plotfile(self, kind: str) -> Path:
+        return Path(self.plotfile_template.format(kind))
+
+    def save_plot(self, fig, kind: str, **kwargs) -> Path:
+        """
+        Saves a matplotlib figure to the appropriate plot path.
+
+        Parameters
+        ----------
+        fig : matplotlib.figure.Figure
+            The figure to save.
+        kind : str
+            Identifier to insert into the filename (e.g., 'corner', 'pdf').
+        **kwargs : dict
+            Additional arguments passed to `fig.savefig()`.
+
+        Returns
+        -------
+        Path
+            The full path the figure was saved to.
+        """
+        path = self.plotfile(kind)
+        fig.savefig(path, **kwargs)
+        print(f"Saved plot to {path}")
+        return path
 
 
 @dataclass

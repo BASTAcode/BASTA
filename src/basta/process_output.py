@@ -290,11 +290,8 @@ def compute_posterior(
                     plot_corner.corner(
                         d_samples, labels=clabels, plotout=plotout, **ckwargs
                     )
-                    plotkind = "_distance_corner"
-                    cornerfile = filepaths.plotfile(kind="_distance_corner")
-                    plt.savefig(cornerfile)
+                    filepaths.save_plot(fig, kind="_distance_corner")
                     plt.close()
-                    print("\nSaved distance corner plot to {0}.\n".format(cornerfile))
                 except Exception as error:
                     print(
                         "\nDistance corner plot failed with the error:{0}\n".format(
@@ -505,19 +502,15 @@ def compute_posterior(
                         developermode=developermode,
                         validationmode=validationmode,
                     )
-                    plotkind = "_warn_kiel"
-                    plotfile = filepaths.plotfile(kind=plotkind)
-                    fig.savefig(plotfile)
+                    filepaths.save_plot(fig, kind="_warn_kiel")
                     plt.close()
-                    print(
-                        f"Saved warning Kiel plot to {filepaths.plotfile_template(plotkind)}."
-                    )
                 except Exception as error:
                     print("Warning Kiel diagram failed with the error:", error)
 
     # Create corner plot
     if len(cornerplots):
         try:
+            fig = plt.figure()
             plot_corner.corner(
                 samples,
                 labels=parameters.get_keys(cornerplots)[1],
@@ -527,15 +520,13 @@ def compute_posterior(
                 nameinplot=starid if inputparams["nameinplot"] else False,
                 **ckwargs,
             )
-            plotkind = "_corner"
-            plotfile = filepaths.plotfile(kind=plotkind)
-            fig.savefig(plotfile)
+            filepaths.save_plot(fig, kind="_corner")
             plt.close()
-            print(f"Saved corner plot to {filepaths.plotfile_template(plotkind)}.")
         except Exception as error:
             print("Corner plot failed with the error:", error)
         if debug:
             try:
+                fig = plt.figure()
                 plot_corner.corner(
                     lsamples,
                     labels=parameters.get_keys(cornerplots)[1],
@@ -545,13 +536,8 @@ def compute_posterior(
                     nameinplot=starid if inputparams["nameinplot"] else False,
                     **ckwargs,
                 )
-                plotkind = "_likelihood_corner"
-                plotfile = filepaths.plotfile(kind=plotkind)
-                fig.savefig(plotfile)
+                filepaths.save_plot(fig, kind="_likelihood_corner")
                 plt.close()
-                print(
-                    f"Saved likelihood corner plot to {filepaths.plotfile_template(plotkind)}."
-                )
             except Exception as error:
                 print("Likelihood corner plot failed with the error:", error)
             try:
@@ -564,13 +550,8 @@ def compute_posterior(
                     nameinplot=starid if inputparams["nameinplot"] else False,
                     **ckwargs,
                 )
-                plotkind = "_prior_corner"
-                plotfile = filepaths.plotfile(kind=plotkind)
-                fig.savefig(plotfile)
+                filepaths.save_plot(fig, kind="_prior_corner")
                 plt.close()
-                print(
-                    f"Saved prior corner plot to {filepaths.plotfile_template(plotkind)}."
-                )
             except Exception as error:
                 print("Prior corner plot failed with the error:", error)
 
@@ -613,11 +594,8 @@ def compute_posterior(
                 validationmode=validationmode,
                 color_by_likelihood=False,
             )
-            plotkind = "_kiel"
-            plotfile = filepaths.plotfile(kind=plotkind)
-            fig.savefig(plotfile)
+            filepaths.save_plot(fig, kind="_kiel")
             plt.close()
-            print(f"Saved Kiel diagram to {filepaths.plotfile_template(plotkind)}.")
         except Exception as error:
             print("Kiel diagram failed with the error:", error)
             raise
@@ -701,10 +679,5 @@ def compute_posterior(
             ]
             fig.legend(handles, labels, loc="upper center", ncol=5)
 
-            plotkind = "_dist"
-            plotfile = filepaths.plotfile(kind=plotkind)
-            fig.savefig(plotfile)
+            filepaths.save_plot(fig, kind="_dist")
             plt.close()
-            print(
-                f"Saved distribution plot to {filepaths.plotfile_template(plotkind)}."
-            )
