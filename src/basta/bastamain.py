@@ -1,5 +1,5 @@
 """
-Main module for running BASTA analysis
+The main module of BASTA which functions as the main pipeline. It handles the flow of input and output from the various modules internal in BASTA.
 """
 
 import os
@@ -32,42 +32,20 @@ def BASTA(
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
-    (c) 2024, The BASTA Team
+    (c) 2025, The BASTA Team
 
     For a description of how to use BASTA, please explore the documentation (https://github.com/BASTAcode/BASTA).
 
     Parameters
     ----------
-    starid : str
-        Unique identifier for this target.
-    gridfile : str
-        Path and name of the hdf5 file containing the isochrones or tracks
-        used in the fitting
-    inputparams : dict
-        Dictionary containing most information needed, e.g. controls, fitparameters,
-        output options.
-    gridid : bool or tuple
-        For isochrones, a tuple containing (overshooting [f],
-        diffusion [0 or 1], mass loss [eta], alpha enhancement [0.0 ... 0.4])
-        used for selecting a science case / path in the library.
-    usebayw : bool or tuple
-        If True, bayesian weights are applied in the computation of the
-        likelihood. See :func:`interpolation_helpers.bay_weights()` for details.
-    usepriors : tuple
-        Tuple of strings containing name of priors (e.g., an IMF).
-        See :func:`priors` for details.
-    optionaloutputs : bool, optional
-        If True, saves a 'json' file for each star with the global results and the PDF.
-    seed : int, optional
-        The seed of randomness
-    debug : bool, optional
-        Activate additional output for debugging (for developers)
-    verbose : bool, optional
-        Activate a lot (!) of additional output (for developers)
-    developermode : bool, optional
-        Activate experimental features (for developers)
-    validationmode : bool, optional
-        Activate validation mode features (for validation purposes only)
+    star : core.Star
+        A data class containing all star-specific inputs, see `core.py`.
+    inferencesettings : core.InferenceSettings
+        A data class containing all settings related to how the inference
+        is done, see `core.py`.
+    outputoptions : core.OutputOptions
+        A data class containing all options related to optional output
+        from BASTA, e.g. additional plots or files, see `core.py`.
     """
     # Enable legacy printing of NumPy data types
     # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
