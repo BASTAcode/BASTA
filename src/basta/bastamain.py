@@ -522,7 +522,7 @@ def BASTA(
         selectedmodels=selectedmodels,
         Grid=Grid,
         inputparams=inputparams,
-        outfilename=outfilename,
+        filepaths=filepaths,
         gridtype=gridtype,
         debug=outputoptions.debug,
         developermode=outputoptions.developermode,

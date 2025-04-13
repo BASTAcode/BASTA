@@ -62,7 +62,7 @@ class FilePaths:
         return path
 
     @property
-    def debugplotfile(self) -> Path:
+    def debugplotfile(self, kind: str) -> Path:
         return Path(f"{self.extradirectory}_{kind}.{self.plotfmt}")
 
     @property
@@ -70,8 +70,11 @@ class FilePaths:
         return self.base.with_suffix(".log")
 
     @property
+    def plotfile_template(self) -> str:
+        return str(self.base) + "_{0}." + self.plotfmt
+
     def plotfile(self, kind: str) -> Path:
-        return Path(f"{self.base}_{kind}.{self.plotfmt}")
+        return Path(self.plotfile_template.format(kind))
 
     @property
     def jsonfile(self) -> Path:
