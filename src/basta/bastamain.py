@@ -551,7 +551,7 @@ def BASTA(
             selectedmodels=selectedmodels,
             path=maxPDF_path,
             ind=maxPDF_ind,
-            plotfname=filepaths.plotfile("{0}"),
+            plotfname=filepaths.plotfile_template,
             nameinplot=inputparams["nameinplot"],
             **addstats,
             debug=outputoptions.debug,
