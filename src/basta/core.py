@@ -11,6 +11,7 @@ components for the application's logic, inference processes, and internal commun
 """
 
 from dataclasses import dataclass
+from typing import Any
 
 
 @dataclass
@@ -28,11 +29,11 @@ class Star:
     """
 
     starid: str
-    inputparams: dict
+    inputparams: dict[str, Any]
 
 
 @dataclass
-class InferenceOptions:
+class InferenceSettings:
     """
     Main class containing settings used for the inference in a given BASTA run.
 
@@ -43,22 +44,22 @@ class InferenceOptions:
         used in the fitting
     seed : int, optional
         The seed of randomness
-    usebayw : bool or tuple
-        If True, bayesian weights are applied in the computation of the
-        likelihood. See :func:`interpolation_helpers.bay_weights()` for details.
-    priors : tuple
+    usebayw : bool or tuple, optional
+        If True, Bayesian weights are applied. If tuple, custom weight behavior is applied.
+        Default is True.
+    priors : tuple, optional
         Tuple of strings containing name of priors (e.g., an IMF).
         See :func:`priors` for details.
     """
 
     gridfile: str
-    seed: int
+    seed: int = 11
     usebayw: bool = True
-    usepriors: tuple = (None,)
+    priors: tuple = (None,)
 
 
 @dataclass
-class OptionalFlags:
+class OutputOptions:
     """
     Main class containing settings that affect the output files from BASTA but not the inference in itself.
 
@@ -67,7 +68,7 @@ class OptionalFlags:
     optionaloutputs : bool, optional
         If True, saves a 'json' file for each star with the global results and the PDF.
     debug : bool, optional
-        Activate additional output for debugging
+        If True, enables debugging. Default is False.
     verbose : bool, optional
         Activate a lot (!) of additional output
     developermode : bool, optional
