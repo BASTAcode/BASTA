@@ -953,6 +953,12 @@ def run_xml(
                     usebayw=usebayw,
                     priors=usepriors,
                 )
+                print(inputparams)
+                filepaths = core.FilePaths(
+                    star=star,
+                    outputdir=inputparams["output"],
+                    plotfmt=inputparams["plotfmt"],
+                )
                 outputoptions = core.OutputOptions(
                     optionaloutputs=useoptoutput,
                     debug=flag_debug,
@@ -964,6 +970,7 @@ def run_xml(
                     BASTA(
                         star=star,
                         inferencesettings=inferencesettings,
+                        filepaths=filepaths,
                         outputoptions=outputoptions,
                     )
                 #                     BASTA(

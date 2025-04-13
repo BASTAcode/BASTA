@@ -1,5 +1,7 @@
 """
-The main module of BASTA which functions as the main pipeline. It handles the flow of input and output from the various modules internal in BASTA.
+The main module of BASTA which functions as the main pipeline.
+
+It handles the flow of input and output from the various modules internal in BASTA.
 """
 
 import os
@@ -28,6 +30,7 @@ import matplotlib.pyplot as plt
 def BASTA(
     star: core.Star,
     inferencesettings: core.InferenceSettings,
+    filepaths: core.FilePaths,
     outputoptions: core.OutputOptions,
 ):
     """
@@ -43,6 +46,8 @@ def BASTA(
     inferencesettings : core.InferenceSettings
         A data class containing all settings related to how the inference
         is done, see `core.py`.
+    filepaths : core.FilePaths
+        A data class containing all given file paths and methods for resolving and creating directories.
     outputoptions : core.OutputOptions
         A data class containing all options related to optional output
         from BASTA, e.g. additional plots or files, see `core.py`.
@@ -50,16 +55,12 @@ def BASTA(
     # Enable legacy printing of NumPy data types
     # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
     #     and 'Teff' instead of np.str_('Teff') to the .log file
-    np.set_printoptions(legacy="1.25")
-
-    # Set output directory and filenames
-    t0 = time.localtime()
-    outputdir = star.inputparams.get("output")
-    outfilename = os.path.join(str(outputdir), str(star.starid))
+    # np.set_printoptions(legacy="1.25")
 
     # Start the log
+    t0 = time.localtime()
     stdout = sys.stdout
-    sys.stdout = util.Logger(outfilename)
+    sys.stdout = util.Logger(filepaths.logfile)
 
     # Pretty printing a header
     util.print_bastaheader(
@@ -95,7 +96,7 @@ def BASTA(
     star.inputparams, allparams = util.prepare_distancefitting(
         inputparams=star.inputparams,
         debug=outputoptions.debug,
-        debug_dirpath=outfilename,
+        debug_dirpath=filepaths.extradirectory,
         allparams=allparams,
     )
 
@@ -550,7 +551,7 @@ def BASTA(
             selectedmodels=selectedmodels,
             path=maxPDF_path,
             ind=maxPDF_ind,
-            plotfname=outfilename + "_{0}." + inputparams["plotfmt"],
+            plotfname=filepaths.plotfile("{0}"),
             nameinplot=inputparams["nameinplot"],
             **addstats,
             debug=outputoptions.debug,
@@ -562,9 +563,8 @@ def BASTA(
 
     # Save dictionary with full statistics
     if outputoptions.optionaloutputs:
-        pfname = outfilename + ".json"
-        fio.save_selectedmodels(pfname, selectedmodels)
-        print(f"Saved dictionary to {pfname}")
+        fio.save_selectedmodels(filepaths.jsonfile, selectedmodels)
+        print(f"Saved dictionary to {filepaths.jsonfile}")
 
     # Print time of completion
     t1 = time.localtime()
@@ -575,7 +575,7 @@ def BASTA(
 
     # Save log and recover standard output
     sys.stdout = stdout
-    print(f"Saved log to {outfilename}.log")
+    print(f"Saved log to {filepaths.logfile}")
 
     # Close grid, close open plots, and try to free memory between multiple runs
     Grid.close()

@@ -1,5 +1,5 @@
 """
-General mix of utility functions
+This module contains general purpose functions that are utilized throughout BASTA.
 """
 
 import sys
@@ -359,9 +359,9 @@ class Logger(object):
     """
 
     # Credit: http://stackoverflow.com/a/14906787
-    def __init__(self, outfilename):
+    def __init__(self, logfilename):
         self.terminal = sys.stdout
-        self.log = open(outfilename + ".log", "a")
+        self.log = open(logfilename, "a")
 
     def write(self, message):
         self.terminal.write(message)

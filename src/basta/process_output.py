@@ -11,6 +11,7 @@ import numpy as np
 import matplotlib
 
 import basta.fileio as fio
+from basta import core
 from basta.constants import sydsun as sydc
 from basta.constants import parameters, statdata
 from basta.utils_distances import compute_distance_from_mag
@@ -35,7 +36,7 @@ def compute_posterior(
     selectedmodels,
     Grid,
     inputparams,
-    outfilename,
+    filepaths: core.FilePaths,
     gridtype,
     debug=False,
     developermode=False,
@@ -55,8 +56,6 @@ def compute_posterior(
         The already loaded grid, containing the tracks/isochrones.
     inputparams : dict
         Dict containing input from xml-file.
-    outfilename : str
-        Name of directory of where to put plots outputted if debug is True.
     gridtype : str
         Type of the grid (as read from the grid in bastamain) containing either 'tracks'
         or 'isochrones'.
@@ -291,7 +290,7 @@ def compute_posterior(
                     plot_corner.corner(
                         d_samples, labels=clabels, plotout=plotout, **ckwargs
                     )
-                    cornerfile = outfilename + "_distance_corner." + plottype
+                    cornerfile = filepaths.plotfile("_distance_corner")
                     plt.savefig(cornerfile)
                     plt.close()
                     print("\nSaved distance corner plot to {0}.\n".format(cornerfile))
@@ -505,7 +504,7 @@ def compute_posterior(
                         developermode=developermode,
                         validationmode=validationmode,
                     )
-                    kielfile = outfilename + "_warn_kiel." + plottype
+                    kielfile = filepaths.plotfile("_warn_kiel")
                     fig.savefig(kielfile)
                     plt.close()
                     print("Saved warning Kiel diagram to " + kielfile + ".")
@@ -524,7 +523,7 @@ def compute_posterior(
                 nameinplot=starid if inputparams["nameinplot"] else False,
                 **ckwargs,
             )
-            cornerfile = outfilename + "_corner." + plottype
+            cornerfile = filepaths.plotfile("_corner")
             plt.savefig(cornerfile)
             plt.close()
             print("Saved corner plot to " + cornerfile + ".")
@@ -541,7 +540,7 @@ def compute_posterior(
                     nameinplot=starid if inputparams["nameinplot"] else False,
                     **ckwargs,
                 )
-                cornerfile = outfilename + "_DEBUG_likelihood_corner." + plottype
+                cornerfile = filepaths.debugplotfile("likelihood_corner.")
                 plt.savefig(cornerfile)
                 plt.close()
                 print("Saved likelihood corner plot to " + cornerfile + ".")
@@ -557,7 +556,7 @@ def compute_posterior(
                     nameinplot=starid if inputparams["nameinplot"] else False,
                     **ckwargs,
                 )
-                cornerfile = outfilename + "_DEBUG_prior_corner." + plottype
+                cornerfile = filepaths.debugplotfile("prior_corner.")
                 plt.savefig(cornerfile)
                 plt.close()
                 print("Saved prior corner plot to " + cornerfile + ".")
@@ -603,7 +602,7 @@ def compute_posterior(
                 validationmode=validationmode,
                 color_by_likelihood=False,
             )
-            kielfile = outfilename + "_kiel." + plottype
+            kielfile = filepaths.plotfile("_kiel")
             fig.savefig(kielfile)
             plt.close()
             print("Saved Kiel diagram to " + kielfile + ".")
@@ -690,7 +689,7 @@ def compute_posterior(
             ]
             fig.legend(handles, labels, loc="upper center", ncol=5)
 
-            distfile = outfilename + "_DEBUG_dist" + param + "." + plottype
+            distfile = filepaths.plotfile("_dist")
             fig.savefig(distfile)
             plt.close()
             print("Saved distribution plot to " + distfile + ".")

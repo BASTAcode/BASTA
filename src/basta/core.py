@@ -12,6 +12,7 @@ components for the application's logic, inference processes, and internal commun
 
 from dataclasses import dataclass
 from typing import Any
+from pathlib import Path
 
 
 @dataclass
@@ -33,16 +34,61 @@ class Star:
 
 
 @dataclass
+class FilePaths:
+    """
+    Main class containing, handling, and managing all relevant file paths for a single BASTA run.
+
+    Parameters
+    ----------
+
+    """
+
+    star: Star
+    outputdir: Path
+    plotfmt: str
+
+    def __post_init__(self):
+        self.outputdir = Path(self.outputdir)
+        self.outputdir.mkdir(parents=True, exist_ok=True)
+
+    @property
+    def base(self) -> Path:
+        return self.outputdir / self.star.starid
+
+    @property
+    def extradirectory(self) -> Path:
+        path = self.outputdir / "debug"
+        path.mkdir(parents=True, exist_ok=True)
+        return path
+
+    @property
+    def debugplotfile(self) -> Path:
+        return Path(f"{self.extradirectory}_{kind}.{self.plotfmt}")
+
+    @property
+    def logfile(self) -> Path:
+        return self.base.with_suffix(".log")
+
+    @property
+    def plotfile(self, kind: str) -> Path:
+        return Path(f"{self.base}_{kind}.{self.plotfmt}")
+
+    @property
+    def jsonfile(self) -> Path:
+        return self.base.with_suffix(".json")
+
+    @property
+    def resultfile(self) -> Path:
+        return self.base.with_suffix(".txt")
+
+
+@dataclass
 class InferenceSettings:
     """
     Main class containing settings used for the inference in a given BASTA run.
 
     Parameters
     ----------
-
-    gridfile : str
-        Path and name of the hdf5 file containing the isochrones or tracks
-        used in the fitting
     seed : int, optional
         The seed of randomness
     usebayw : bool or tuple, optional
@@ -53,9 +99,9 @@ class InferenceSettings:
         See :func:`priors` for details.
     """
 
+    seed: int
     gridfile: str
     gridid: bool | tuple = False
-    seed: int = 11
     usebayw: bool = True
     priors: tuple = (None,)
 
