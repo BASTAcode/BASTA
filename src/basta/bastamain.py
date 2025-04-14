@@ -79,12 +79,15 @@ def BASTA(
         Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
     )
     #### END INITIALISATION ####
+    #### PREPARE DISTANCE FITTING AND FREQUENCY FITTING, IF REQUIRED ####
 
     # Get list of parameters
     cornerplots = plotconfig.cornerplots
     outparams = outputoptions.asciiparams
     allparams = list(np.unique(cornerplots + outparams))
 
+    # Here we modify inputparams
+    # Instead we should add to Star I think...
     inputparams, allparams = util.prepare_distancefitting(
         inputparams=star.inputparams,
         debug=outputoptions.debug,
@@ -117,6 +120,10 @@ def BASTA(
         ) = su.prepare_obs(
             inputparams, verbose=outputoptions.verbose, debug=outputoptions.debug
         )
+
+    #### END PREPARATION ####
+    #### APPLY PRIORS ####
+    if fitfreqs["active"]:
         # Apply prior on dnufit to mimick the range defined by dnufrac
         if fitfreqs["dnuprior"] and ("dnufit" not in limits):
             dnufit_frac = fitfreqs["dnufrac"] * fitfreqs["dnufit"]
