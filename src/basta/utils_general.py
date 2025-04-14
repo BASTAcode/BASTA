@@ -4,33 +4,15 @@ This module contains general purpose functions that are utilized throughout BAST
 
 import sys
 import time
+import h5py
 from io import IOBase
+from typing import NamedTuple, Union, IO, TypedDict
+from collections import namedtuple
 
 import numpy as np
 from basta.__about__ import __version__
 from basta import distances, errors
 from basta.constants import freqtypes
-
-from typing import Union, IO
-
-
-def h5py_to_array(xs) -> np.array:
-    """
-    Copy vector/dataset from an HDF5 file to a NumPy array
-
-    Parameters
-    ----------
-    xs : h5py_dataset
-       The input dataset read by h5py from an HDF5 object
-
-    Returns
-    -------
-    res : array_like
-        Copy of the dataset as NumPy array
-    """
-    res = np.empty(shape=xs.shape, dtype=xs.dtype)
-    res[:] = xs[:]
-    return res
 
 
 def prt_center(text: str, llen: int) -> None:
@@ -80,89 +62,174 @@ def print_bastaheader(
     print(f"Random numbers initialised with seed: {seed} .")
 
 
-def check_gridtype(
-    gridtype: str,
-    allowed_gridtype: list[str] = ["tracks", "isochrones"],
-    gridid: str | bool = False,
-) -> tuple[str, str, None | int]:
-    # Check type of grid (isochrones/tracks) and set default grid path
-    gridtype = gridtype.lower()
-    if "tracks" in gridtype:
-        entryname = "tracks"
-        defaultpath = "grid/"
-        difsolarmodel = None
-    elif "isochrones" in gridtype:
-        entryname = "isochrones"
-        if gridid:
-            difsolarmodel = int(gridid[1])
-            defaultpath = f"ove={gridid[0]:.4f}/dif={gridid[1]:.4f}/eta={gridid[2]:.4f}/alphaFe={gridid[3]:.4f}/"
-        else:
-            print(
-                "Unable to construct path for science case."
-                + " Probably missing (ove, dif, eta, alphaFe) in input!"
-            )
-            raise errors.LibraryError
+class GridHeader(TypedDict):
+    gridtype: str
+    version: str
+    time: str
+    is_interpolated: bool
 
-    else:
-        raise OSError(
-            f"Gridtype {gridtype} not supported, only 'tracks' and 'isochrones'!"
-        )
-    return entryname, defaultpath, difsolarmodel
+class GridInfo(TypedDict):
+    entryname: str
+    defaultpath: str
+    difsolarmodel: Union[int, None]
+
+class BayesianWeights(NamedTuple):
+    weight_keys: tuple[str, ...]
+    along_weight: str
 
 
-def read_grid_header(Grid) -> tuple[str, str, str, bool]:
+def read_grid_header(Grid) -> GridHeader:
+    """
+    Reads the essential metadata from a stellar grid HDF5 file header.
+    """
     try:
         gridtype = Grid["header/library_type"][()]
         gridver = Grid["header/version"][()]
         gridtime = Grid["header/buildtime"][()]
 
-        # Allow for usage of both h5py 2.10.x and 3.x.x
-        # --> If things are encoded as bytes, they must be made into standard strings
         if isinstance(gridtype, bytes):
             gridtype = gridtype.decode("utf-8")
             gridver = gridver.decode("utf-8")
             gridtime = gridtime.decode("utf-8")
+
     except KeyError:
         raise SystemExit(
             "Error: Some information is missing in the header of the grid!\n"
-            "Please check the entries in the header! It must include all "
-            "of the following:\n * header/library_type\n * header/version "
-            "\n * header/buildtime"
+            "Required: header/library_type, header/version, header/buildtime."
         )
 
-    # Check if grid is interpolated
     try:
         Grid["header/interpolation_time"][()]
+        is_interpolated = True
     except KeyError:
-        grid_is_intpol = False
-    else:
-        grid_is_intpol = True
+        is_interpolated = False
 
-    assert isinstance(gridtype, str), gridtype
-    assert isinstance(gridver, str), gridver
-    assert isinstance(gridtime, str), gridtime
-    return gridtype, gridver, gridtime, grid_is_intpol
+    return {
+        "gridtype": gridtype,
+        "version": gridver,
+        "time": gridtime,
+        "is_interpolated": is_interpolated,
+    }
 
 
-def read_grid_bayweights(Grid, gridtype) -> tuple[tuple[str, ...], str]:
+def print_gridinfo(starid : str, gridfile : str, header : GridHeader) -> None:
+    print(f"\nFitting star id: {starid}.")
+
+    print(f"* Using the grid '{gridfile}' of type '{header['gridtype']}'.")
+    print(f"  - Grid built with BASTA version {header['version']}, timestamp: {header['time']}.")
+
+
+def extract_gridid(Grid) -> Union[tuple[float, float, float, float], bool]:
+    """
+    Extracts model parameters needed to build isochrone paths.
+    Returns False if missing.
+    """
     try:
-        grid_weights = [x.decode("utf-8") for x in list(Grid["header/active_weights"])]
-
+        ove = Grid["header/ove"][()]
+        dif = Grid["header/dif"][()]
+        eta = Grid["header/eta"][()]
+        alphaFe = Grid["header/alphaFe"][()]
+        return (ove, dif, eta, alphaFe)
     except KeyError:
-        print("WARNING: Bayesian weights requested, but none specified in grid file!\n")
-        raise
-    bayweights = tuple([x + "_weight" for x in grid_weights])
+        return False
 
-    # Specify the along weight variable, varies due to conceptual difference
-    # - Isochrones --> dmass
-    # - Tracks     --> dage
-    if "isochrones" in gridtype.lower():
+
+def check_gridtype(
+    gridtype: str,
+    gridid: Union[tuple[float, float, float, float], bool] = False,
+) -> GridInfo:
+    """
+    Constructs the appropriate file path based on the grid type.
+    """
+    gridtype = gridtype.lower()
+
+    if "tracks" in gridtype:
+        return {
+            "entryname": "tracks",
+            "defaultpath": "grid/",
+            "difsolarmodel": None
+        }
+
+    elif "isochrones" in gridtype:
+        if not gridid or not isinstance(gridid, Sequence) or len(gridid) != 4:
+            raise GridTypeError(
+                "Missing or invalid `gridid`. Expected tuple of (ove, dif, eta, alphaFe)."
+            )
+
+        ove, dif, eta, alphaFe = gridid
+        path = f"ove={ove:.4f}/dif={dif:.4f}/eta={eta:.4f}/alphaFe={alphaFe:.4f}/"
+        return {
+            "entryname": "isochrones",
+            "defaultpath": path,
+            "difsolarmodel": int(dif)
+        }
+
+    else:
+        raise error.GridTypeError(
+            f"Gridtype '{gridtype}' not supported. Must be 'tracks' or 'isochrones'."
+        )
+
+def get_gridinfo(Grid, starid : str, gridfile : str) -> GridInfo:
+    """
+    Convenience wrapper to extract all required metadata from a grid.
+    """
+    header = read_grid_header(Grid)
+    gridid = extract_gridid(Grid)
+    print_gridinfo(starid=starid, gridfile=gridfile, header=header)
+    return check_gridtype(header["gridtype"], gridid)
+
+
+def get_grid(inferencesettings : core.InferenceSettings) -> (h5py., GridInfo):
+    Grid = h5py.File(inferencesettings.gridfile, "r")
+    gridinfo = get_gridinfo(Grid)
+    return Grid, gridinfo
+
+
+def print_targetinformation(star : core.Star) -> None:
+    print(f"\nFitting star id: {star.starid}.")
+
+
+def read_bayesianweights(
+    Grid,
+    gridtype: str,
+    optional: bool = False
+) -> Union[BayesianWeights, tuple[None, None]]:
+    """
+    Reads Bayesian weights and determines relevant dimensions.
+
+    Parameters
+    ----------
+    Grid: HDF5 file handle.
+        The grid of stellar models
+    gridtype: str
+        Grid type, e.g. 'isochrones' or 'tracks'.
+    optional: bool
+        If True, returns (None, None) when weights are missing.
+
+    Returns:
+        A `BayesianWeights` namedtuple or `(None, None)` if optional and not found.
+    """
+    try:
+        raw_weights = Grid["header/active_weights"]
+        grid_weights = [x.decode("utf-8") for x in list(raw_weights)]
+    except KeyError:
+        if optional:
+            return (None, None)
+        raise errors.MissingBayesianWeightsError(
+            "Bayesian weights requested, but none specified in grid file."
+        )
+
+    bayweights = tuple(f"{x}_weight" for x in grid_weights)
+
+    gridtype = gridtype.lower()
+    if "isochrones" in gridtype:
         dweight = "dmass"
-    elif "tracks" in gridtype.lower():
+    elif "tracks" in gridtype:
         dweight = "dage"
     else:
-        raise Exception(f"Unknown gridtype {gridtype}")
-    return bayweights, dweight
+        raise errors.GridTypeError(f"Unknown gridtype '{gridtype}'.")
+
+    return BayesianWeights(weight_keys=bayweights, along_weight=dweight)
 
 
 def prepare_distancefitting(
@@ -697,3 +764,24 @@ def flush_all(*files: Union[IO, None]) -> None:
     for f in files:
         if f:
             f.flush()
+
+
+def h5py_to_array(xs) -> np.array:
+    """
+    Copy vector/dataset from an HDF5 file to a NumPy array
+
+    Parameters
+    ----------
+    xs : h5py_dataset
+       The input dataset read by h5py from an HDF5 object
+
+    Returns
+    -------
+    res : array_like
+        Copy of the dataset as NumPy array
+    """
+    res = np.empty(shape=xs.shape, dtype=xs.dtype)
+    res[:] = xs[:]
+    return res
+
+

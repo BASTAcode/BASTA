@@ -32,6 +32,7 @@ def BASTA(
     inferencesettings: core.InferenceSettings,
     filepaths: core.FilePaths,
     outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
@@ -51,7 +52,11 @@ def BASTA(
     outputoptions : core.OutputOptions
         A data class containing all options related to optional output
         from BASTA, e.g. additional plots or files, see `core.py`.
+    plotconfig : core.PlotConfig
+        A data class containing all options related to plots outputted
+        from BASTA, , see `core.py`.
     """
+    #### INITIALISATION ####
     # Enable legacy printing of NumPy data types
     # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
     #     and 'Teff' instead of np.str_('Teff') to the .log file
@@ -66,34 +71,26 @@ def BASTA(
     util.print_bastaheader(
         t0=t0, seed=inferencesettings.seed, developermode=outputoptions.developermode
     )
+    util.print_targetinformation(star)
 
     # Load the desired grid and obtain information from the header
     Grid = h5py.File(inferencesettings.gridfile, "r")
-    gridtype, gridver, gridtime, grid_is_intpol = util.read_grid_header(Grid)
-
-    # Verbose information on the grid file
-    print(f"\nFitting star id: {star.starid} .")
-
-    print(f"* Using the grid '{inferencesettings.gridfile}' of type '{gridtype}'.")
-    print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
-
-    entryname, defaultpath, difsolarmodel = util.check_gridtype(
-        gridtype, gridid=inferencesettings.gridid
+    print(type(Grid))
+    Grid, gridinfo = util.get_grid(inferencesettings)
+    bayweights, dweight = util.read_bayesianweights(
+        Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
     )
+    # this is now in gridinfo
+    # gridtype, gridver, gridtime, grid_is_intpol = util.read_grid_header(Grid)
 
-    # Read available weights if not provided by the user
-    bayweights, dweight = (
-        util.read_grid_bayweights(Grid, gridtype)
-        if inferencesettings.usebayw
-        else (None, None)
-    )
+    #### END INITIALISATION ####
 
     # Get list of parameters
-    cornerplots = star.inputparams["cornerplots"]
-    outparams = star.inputparams["asciiparams"]
+    cornerplots = plotconfig.cornerplots
+    outparams = outputoptions.asciiparams
     allparams = list(np.unique(cornerplots + outparams))
 
-    star.inputparams, allparams = util.prepare_distancefitting(
+    inputparams, allparams = util.prepare_distancefitting(
         inputparams=star.inputparams,
         debug=outputoptions.debug,
         debug_dirpath=filepaths.extradirectory,
@@ -101,10 +98,10 @@ def BASTA(
     )
 
     # Create list of all available input parameters
-    fitparams = star.inputparams.get("fitparams")
-    fitfreqs = star.inputparams["fitfreqs"]
-    distparams = star.inputparams.get("distanceparams", False)
-    limits = star.inputparams.get("limits")
+    fitparams = star.fitparams
+    fitfreqs = star.fitfreqs
+    distparams = star.distanceparams
+    limits = inferencesettings.limits
 
     # Scale dnu and numax using a solar model or default solar values
     inputparams = su.solar_scaling(Grid, star.inputparams, diffusion=difsolarmodel)

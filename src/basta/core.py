@@ -30,7 +30,12 @@ class Star:
     """
 
     starid: str
-    inputparams: dict[str, Any]
+    # inputparams: dict[str, Any]
+    fitparams: dict[str, Any]
+    fitfreqs: dict[str, Any]
+
+    magnitudes: dict[str, Any]
+    distanceparams: dict[str, Any]
 
 
 @dataclass
@@ -45,6 +50,9 @@ class FilePaths:
 
     star: Star
     outputdir: Path
+    inputfile: str
+    warnoutput: str
+    erroroutput: str
     plotfmt: str
 
     def __post_init__(self):
@@ -125,8 +133,12 @@ class InferenceSettings:
         See :func:`priors` for details.
     """
 
-    seed: int
     gridfile: str
+    seed: int
+    solarmodel: str
+    numsun: float
+    dnusun: float
+    limits: dict[str, Any]
     gridid: bool | tuple = False
     usebayw: bool = True
     priors: tuple = (None,)
@@ -151,8 +163,27 @@ class OutputOptions:
         Activate validation mode features
     """
 
+    asciiparams: dict[str, Any]
+    uncert: str
+    centroid: str
+
     optionaloutputs: bool = False
     debug: bool = False
     verbose: bool = False
     developermode: bool = False
     validationmode: bool = False
+
+
+@dataclass
+class PlotConfig:
+    """
+    Main class containing settings that affect the output files from BASTA but not the inference in itself.
+
+    Parameters
+    ----------
+
+    """
+
+    nameinplot: str
+    kielplots: list
+    cornerplots: list

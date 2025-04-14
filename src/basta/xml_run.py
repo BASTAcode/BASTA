@@ -907,6 +907,8 @@ def run_xml(
                             print("WARNING: Could not find values for " + f)
 
                     inputparams["distanceparams"] = distanceparams
+                else:
+                    inputparams["distanceparams"] = {}
 
                 # Seperate treatment of distance output file
                 if "distance" in inputparams["asciiparams"]:
@@ -945,26 +947,46 @@ def run_xml(
                     no_models(starid, inputparams, f"Unhandled Error: {e}")
 
                 # Call BASTA itself!
-                star = core.Star(starid=starid, inputparams=inputparams)
+                star = core.Star(
+                    starid=starid,
+                    fitparams=inputparams["fitparams"],
+                    fitfreqs=inputparams["fitfreqs"],
+                    magnitudes=inputparams["magnitudes"],
+                    distanceparams=inputparams["distanceparams"],
+                )
+                filepaths = core.FilePaths(
+                    star=star,
+                    outputdir=inputparams["output"],
+                    inputfile=inputparams["inputfile"],
+                    warnoutput=inputparams["warnoutput"],
+                    erroroutput=inputparams["erroutput"],
+                    plotfmt=inputparams["plotfmt"],
+                )
                 inferencesettings = core.InferenceSettings(
                     gridfile=gridfile,
                     gridid=gridid,
                     seed=seed,
+                    limits=inputparams['limits'],
                     usebayw=usebayw,
                     priors=usepriors,
-                )
-                print(inputparams)
-                filepaths = core.FilePaths(
-                    star=star,
-                    outputdir=inputparams["output"],
-                    plotfmt=inputparams["plotfmt"],
+                    solarmodel=inputparams["solarmodel"],
+                    numsun=inputparams["numsun"],
+                    dnusun=inputparams["dnusun"],
                 )
                 outputoptions = core.OutputOptions(
+                    asciiparams=inputparams["asciiparams"],
+                    uncert=inputparams["uncert"],
+                    centroid=inputparams["centroid"],
                     optionaloutputs=useoptoutput,
                     debug=flag_debug,
                     verbose=verbose,
                     developermode=flag_developermode,
                     validationmode=flag_validationmode,
+                )
+                plotconfig = core.PlotConfig(
+                    nameinplot=inputparams["nameinplot"],
+                    kielplots=inputparams["kielplots"],
+                    cornerplots=inputparams["cornerplots"],
                 )
                 try:
                     BASTA(
@@ -972,6 +994,7 @@ def run_xml(
                         inferencesettings=inferencesettings,
                         filepaths=filepaths,
                         outputoptions=outputoptions,
+                        plotconfig=plotconfig,
                     )
                 #                     BASTA(
                 #                         starid=starid,
