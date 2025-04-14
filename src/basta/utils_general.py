@@ -11,7 +11,7 @@ from collections import namedtuple
 
 import numpy as np
 from basta.__about__ import __version__
-from basta import distances, errors
+from basta import core, distances, errors
 from basta.constants import freqtypes
 
 
@@ -68,10 +68,12 @@ class GridHeader(TypedDict):
     time: str
     is_interpolated: bool
 
+
 class GridInfo(TypedDict):
     entryname: str
     defaultpath: str
     difsolarmodel: Union[int, None]
+
 
 class BayesianWeights(NamedTuple):
     weight_keys: tuple[str, ...]
@@ -112,11 +114,11 @@ def read_grid_header(Grid) -> GridHeader:
     }
 
 
-def print_gridinfo(starid : str, gridfile : str, header : GridHeader) -> None:
-    print(f"\nFitting star id: {starid}.")
-
+def print_gridinfo(gridfile: str, header: GridHeader) -> None:
     print(f"* Using the grid '{gridfile}' of type '{header['gridtype']}'.")
-    print(f"  - Grid built with BASTA version {header['version']}, timestamp: {header['time']}.")
+    print(
+        f"  - Grid built with BASTA version {header['version']}, timestamp: {header['time']}."
+    )
 
 
 def extract_gridid(Grid) -> Union[tuple[float, float, float, float], bool]:
@@ -144,11 +146,7 @@ def check_gridtype(
     gridtype = gridtype.lower()
 
     if "tracks" in gridtype:
-        return {
-            "entryname": "tracks",
-            "defaultpath": "grid/",
-            "difsolarmodel": None
-        }
+        return {"entryname": "tracks", "defaultpath": "grid/", "difsolarmodel": None}
 
     elif "isochrones" in gridtype:
         if not gridid or not isinstance(gridid, Sequence) or len(gridid) != 4:
@@ -161,7 +159,7 @@ def check_gridtype(
         return {
             "entryname": "isochrones",
             "defaultpath": path,
-            "difsolarmodel": int(dif)
+            "difsolarmodel": int(dif),
         }
 
     else:
@@ -169,30 +167,26 @@ def check_gridtype(
             f"Gridtype '{gridtype}' not supported. Must be 'tracks' or 'isochrones'."
         )
 
-def get_gridinfo(Grid, starid : str, gridfile : str) -> GridInfo:
+
+def get_grid(
+    inferencesettings: core.InferenceSettings,
+) -> (h5py.File, GridHeader, GridInfo):
     """
     Convenience wrapper to extract all required metadata from a grid.
     """
+    Grid = h5py.File(inferencesettings.gridfile, "r")
     header = read_grid_header(Grid)
     gridid = extract_gridid(Grid)
-    print_gridinfo(starid=starid, gridfile=gridfile, header=header)
-    return check_gridtype(header["gridtype"], gridid)
+    print_gridinfo(gridfile=inferencesettings.gridfile, header=header)
+    return Grid, header, check_gridtype(header["gridtype"], gridid)
 
 
-def get_grid(inferencesettings : core.InferenceSettings) -> (h5py., GridInfo):
-    Grid = h5py.File(inferencesettings.gridfile, "r")
-    gridinfo = get_gridinfo(Grid)
-    return Grid, gridinfo
-
-
-def print_targetinformation(star : core.Star) -> None:
+def print_targetinformation(star: core.Star) -> None:
     print(f"\nFitting star id: {star.starid}.")
 
 
 def read_bayesianweights(
-    Grid,
-    gridtype: str,
-    optional: bool = False
+    Grid, gridtype: str, optional: bool = False
 ) -> Union[BayesianWeights, tuple[None, None]]:
     """
     Reads Bayesian weights and determines relevant dimensions.
@@ -783,5 +777,3 @@ def h5py_to_array(xs) -> np.array:
     res = np.empty(shape=xs.shape, dtype=xs.dtype)
     res[:] = xs[:]
     return res
-
-

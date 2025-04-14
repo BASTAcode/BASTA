@@ -74,15 +74,10 @@ def BASTA(
     util.print_targetinformation(star)
 
     # Load the desired grid and obtain information from the header
-    Grid = h5py.File(inferencesettings.gridfile, "r")
-    print(type(Grid))
-    Grid, gridinfo = util.get_grid(inferencesettings)
+    Grid, gridheader, gridinfo = util.get_grid(inferencesettings)
     bayweights, dweight = util.read_bayesianweights(
         Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
     )
-    # this is now in gridinfo
-    # gridtype, gridver, gridtime, grid_is_intpol = util.read_grid_header(Grid)
-
     #### END INITIALISATION ####
 
     # Get list of parameters
@@ -134,9 +129,9 @@ def BASTA(
     # Check if any specified limit in prior is in header, and can be used to
     # skip computation of models, in order to speed up computation
     tracks_headerpath = "header/"
-    if "tracks" in gridtype.lower():
+    if "tracks" in gridheader["gridtype"].lower():
         headerpath: str | bool = tracks_headerpath
-    elif "isochrones" in gridtype.lower():
+    elif "isochrones" in gridheader["gridtype"].lower():
         headerpath = tracks_headerpath + defaultpath
         if "FeHini" in limits:
             del limits["FeHini"]
@@ -178,7 +173,7 @@ def BASTA(
         util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
     util.print_distances(distparams, inputparams["asciiparams"])
     util.print_additional(inputparams)
-    util.print_weights(bayweights, gridtype)
+    util.print_weights(bayweights, gridheader["gridtype"])
     util.print_priors(limits, inferencesettings.priors)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -234,7 +229,7 @@ def BASTA(
             pbar.update(1)
 
             # For grid with interpolated tracks, skip tracks flagged as empty
-            if grid_is_intpol:
+            if gridheader["grid_is_intpol"]:
                 if libitem["IntStatus"][()] < 0:
                     continue
 
@@ -260,9 +255,9 @@ def BASTA(
                 noofskips[1] += 1
                 docut = False
                 for param in gridcut:
-                    if "tracks" in gridtype.lower():
+                    if "tracks" in gridheader["gridtype"].lower():
                         value = Grid[tracks_headerpath][param][noingrid]
-                    elif "isochrones" in gridtype.lower():
+                    elif "isochrones" in gridheader["gridtype"].lower():
                         # For isochrones, metallicity is already cut from the
                         # metal list and lookup of age is simplest and fastest
                         if param == "age":
@@ -467,7 +462,7 @@ def BASTA(
     )
     if gridcut:
         print(
-            f"(Note: The use of 'gridcut' skipped {noofskips[0]} out of {noofskips[1]} {gridtype})\n"
+            f"(Note: The use of 'gridcut' skipped {noofskips[0]} out of {noofskips[1]} {gridheader['gridtype']})\n"
         )
 
     # Raise possible warnings
@@ -520,7 +515,7 @@ def BASTA(
         Grid=Grid,
         inputparams=inputparams,
         filepaths=filepaths,
-        gridtype=gridtype,
+        gridtype=gridheader["gridtype"],
         debug=outputoptions.debug,
         developermode=outputoptions.developermode,
         validationmode=outputoptions.validationmode,
