@@ -50,7 +50,11 @@ def get_grid(case: str, gridpath=None):
     }
 
     # Mapping to download location
-    baseurl = "https://www.erda.au.dk/vgrid/BASTA/public-grids/"
+    # --> Switched to anon share link due to (temporary?) issues with ERDA
+    #     NB! Direct link to files differs in URL from true share link...
+    #     (https://anon.erda.au.dk/sharelink/GxpLJyuB4m)
+    # baseurl = "https://www.erda.au.dk/vgrid/BASTA/public-grids/"
+    baseurl = "https://anon.erda.au.dk/share_redirect/GxpLJyuB4m/"
 
     # Resolve grid name and location
     # --> Overwrite settings for 'secret' experimental/development grids
@@ -60,7 +64,7 @@ def get_grid(case: str, gridpath=None):
         gridname = f"Garstec_{case}.hdf5"
     elif case in ["barbieMS", "kenMS"]:
         print("Important information: Development grid selected!\n")
-        baseurl = "https://www.erda.au.dk/vgrid/BASTA/internal-grids/"
+        baseurl = "https://anon.erda.au.dk/share_redirect/aRWqftqng4"
         gridname = f"Garstec_{case}.hdf5"
     else:
         raise ValueError("Unknown grid!")
