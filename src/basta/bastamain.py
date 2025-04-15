@@ -177,10 +177,10 @@ def BASTA(
     util.print_fitparams(fitparams=fitparams)
     if fitfreqs["active"]:
         util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
-    util.print_distances(distparams, inputparams["asciiparams"])
-    util.print_additional(inputparams)
+    util.print_distances(star, outputoptions)
+    util.print_additional(star)
     util.print_weights(bayweights, gridheader["gridtype"])
-    util.print_priors(limits, inferencesettings.priors)
+    util.print_priors(inferencesettings)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Start likelihood computation

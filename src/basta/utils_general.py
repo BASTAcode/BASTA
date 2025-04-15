@@ -326,39 +326,40 @@ def print_seismic(fitfreqs: dict, obskey: np.array, obs: np.array) -> None:
     )
 
 
-def print_distances(distparams, asciiparams) -> None:
+def print_distances(star : core.Star, outputoptions : core.OutputOptions) -> None:
     # Fitting info: Distance
-    if not distparams:
+    if len(star.distanceparams.magnitudes) < 1:
         return
-    if ("parallax" in distparams) and "distance" in asciiparams:
+    if (len(star.distanceparams.parallax) > 0) and "distance" in outputoptions.asciiparams:
         print("* Parallax fitting and distance inference activated!")
-    elif "parallax" in distparams:
+    elif (len(star.distanceparams.parallax) > 0):
         print("* Parallax fitting activated!")
-    elif "distance" in asciiparams:
+    elif "distance" in outputoptions.asciiparams:
         print("* Distance inference activated!")
 
-    if distparams["dustframe"] == "icrs":
+    if star.distanceparams.coordinates["frame"].lower() == "icrs":
         print(
-            f"  - Coordinates (icrs): RA = {distparams['RA']}, DEC = {distparams['DEC']}"
+            f"  - Coordinates (icrs): RA = {star.distanceparams.coordinates['RA']}, DEC = {star.distanceparams.coordinates['DEC']}"
         )
-    elif distparams["dustframe"] == "galactic":
+    elif star.distanceparams.coordinates["frame"].lower() == "galactic":
         print(
-            f"  - Coordinates (galactic): lat = {distparams['lat']}, lon = {distparams['lon']}"
+            f"  - Coordinates (galactic): lat = {star.distanceparams.coordinates['lat']}, lon = {star.distanceparams.coordinates['lon']}"
         )
 
     print("  - Filters (magnitude value and uncertainty): ")
-    for filt in distparams["filters"]:
-        print(f"    + {filt}: [{distparams['m'][filt]}, {distparams['m_err'][filt]}]")
+    for filt, (m, m_err) in star.distanceparams.magnitudes.items():
+        print(f"    + {filt}: [{m}, {m_err}]")
 
-    if "parallax" in distparams:
-        print(f"  - Parallax: {distparams['parallax']}")
+    if (len(star.distanceparams.parallax) > 0):
+        print(f"  - Parallax: {star.distanceparams.parallax}")
 
-    if "EBV" in distparams:
-        print(f"  - EBV: {distparams['EBV'][1]} (uniform across all distance samples)")
+    if len(star.distanceparams.EBV) > 0:
+        #TODO is EBV a list of [0, value, 0] or a flat value? should probably be the latter
+        print(f"  - EBV: {star.distanceparams.EBV[1]} (uniform across all distance samples)")
 
 
-def print_additional(inputparams) -> None:
-    if "phase" in inputparams:
+def print_additional(star: core.Star) -> None:
+    if "phase" in star.fitparams.keys():
         print("* Fitting evolutionary phase!")
     print("\nAdditional input parameters and settings in alphabetical order:")
     noprint = [
@@ -377,9 +378,9 @@ def print_additional(inputparams) -> None:
         "numax",
         "warnoutput",
     ]
-    for ip in sorted(inputparams.keys()):
+    for ip in sorted(star.fitparams.keys()):
         if ip not in noprint:
-            print(f"* {ip}: {inputparams[ip]}")
+            print(f"* {ip}: {star.fitparams[ip]}")
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
@@ -402,11 +403,12 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
         print("No Bayesian weights applied")
 
 
-def print_priors(limits: dict, usepriors: list[str]) -> None:
+def print_priors(inferencesettings : core.InferenceSettings) -> None:
     print("* Flat, constrained priors and ranges:")
-    for lim in limits.keys():
-        print(f"  - {lim}: {limits[lim]}")
-    print(f"* Additional priors (IMF): {', '.join(usepriors)}")
+    for lim in inferencesettings.limits.keys():
+        print(f"  - {lim}: {inferencesettings.limits[lim]}")
+    # TODO Fix priors so it is not just IMF
+    print(f"* Additional priors (IMF): {', '.join(inferencesettings.priors)}")
 
 
 class Logger(object):
