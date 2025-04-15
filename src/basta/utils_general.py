@@ -437,7 +437,7 @@ class Logger(object):
         pass
 
 
-def list_metallicities(Grid, defaultpath, inputparams, limits):
+def list_metallicities(Grid : h5py.File, gridinfo : GridInfo, inferencesettings : core.InferenceSettings) -> range:
     """
     Get a list of metallicities in the grid that we loop over
 
@@ -458,14 +458,15 @@ def list_metallicities(Grid, defaultpath, inputparams, limits):
         List of possible metalliticies that should be looped over in
         `bastamain`.
     """
-    if "grid" in defaultpath:
+    if "grid" in gridinfo['defaultpath']:
         metal = range(1)
     else:
-        metal = [x for x in Grid[defaultpath].items() if "=" in x[0]]
+        metal = [x for x in Grid[gridinfo['defaultpath']].items() if "=" in x[0]]
         for i in range(len(metal)):
             metal[i] = float(metal[i][0][4:])
         metal = np.asarray(metal)
 
+        limits = inferencesettings.limits
         metal_name = "MeH" if "MeH" in limits else "FeH"
         if metal_name in limits:
             metal = metal[

@@ -191,18 +191,17 @@ def BASTA(
     #   Here the outer loop will run only once.
     # - For BaSTI, the top level is a list of metallicities and the outer loop will run
     #   multiple times.
-    metal = util.list_metallicities(Grid, defaultpath, inputparams, limits)
+    metal = util.list_metallicities(Grid, gridinfo=gridinfo, inferencesettings=inferencesettings)
 
     # We assume Garstec grid structure. The path will be updated in the loop for BaSTI
-    group_name = defaultpath + "tracks/"
+    group_name = gridinfo['defaultpath'] + "tracks/"
 
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
     trackcounter = 0
     for FeH in metal:
-        if "grid" not in defaultpath:
-            group_name = f"{defaultpath}FeH={FeH:.4f}/"
-            assert group_name == defaultpath + "FeH=" + format(FeH, ".4f") + "/"
+        if "grid" not in gridinfo['defaultpath']:
+            group_name = f"{gridinfo['defaultpath']}FeH={FeH:.4f}/"
 
         group = Grid[group_name]
         trackcounter += len(group.items())
@@ -220,14 +219,15 @@ def BASTA(
         glitchmodels = {}
 
     print(
-        f"\n\nComputing likelihood of models in the grid ({trackcounter} {entryname}) ..."
+        f"\n\nComputing likelihood of models in the grid ({trackcounter} {gridinfo['entryname']}) ..."
     )
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
     for FeH in metal:
-        if "grid" not in defaultpath:
-            group_name = f"{defaultpath}FeH={FeH:.4f}/"
+        #TODO this can be dry'er, make list of group_names outside loop?
+        if "grid" not in gridinfo['defaultpath']:
+            group_name = f"{gridinfo['defaultpath']}FeH={FeH:.4f}/"
 
         group = Grid[group_name]
         for noingrid, (name, libitem) in enumerate(group.items()):
@@ -235,19 +235,21 @@ def BASTA(
             pbar.update(1)
 
             # For grid with interpolated tracks, skip tracks flagged as empty
-            if gridheader["grid_is_intpol"]:
+            if gridheader["is_interpolated"]:
                 if libitem["IntStatus"][()] < 0:
                     continue
 
             # Check for diffusion
+            #TODO what
             if "dif" in inputparams:
                 if int(round(libitem["dif"][0])) != int(
                     round(float(inputparams["dif"]))
                 ):
                     continue
 
+            #TODO we must be able to optimise this
             # Check if mass or age is in limits to efficiently skip
-            if "grid" not in defaultpath:
+            if "grid" not in gridinfo['defaultpath']:
                 param, val = name.split("=")
                 if param == "mass":
                     param += "ini"
@@ -344,12 +346,13 @@ def BASTA(
                 chi2 = np.zeros(index.sum())
                 paramvalues = {}
                 for param in fitparams:
-                    paramvals = libitem[param][index]
-                    chi2 += (
-                        (paramvals - fitparams[param][0]) / fitparams[param][1]
-                    ) ** 2.0
-                    if param in allparams:
-                        paramvalues[param] = paramvals
+                    if param not in ['parallax', 'distance']:
+                        paramvals = libitem[param][index]
+                        chi2 += (
+                            (paramvals - fitparams[param][0]) / fitparams[param][1]
+                        ) ** 2.0
+                        if param in allparams:
+                            paramvalues[param] = paramvals
 
                 # Add parameters not in fitparams
                 for param in allparams:
