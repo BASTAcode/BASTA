@@ -18,17 +18,14 @@ from pathlib import Path
 @dataclass
 class DistanceParameters:
     # could just be keys in obs that are not 'parallax' or 'EBV
-    filters: List[str]
-    # Can be combined in dict
-    magnitudes = Dict[str, List[float, float]]
-    #m: Dict[str, float]
-    #m_err: Dict[str, float]
+    # filters: List[str]
+    # m: Dict[str, float]
+    # m_err: Dict[str, float]
+    # Can be combined in dict called magnitudes
+    magnitudes : Dict[str, List[float]]
+    coordinates : Dict[str, Any]
     parallax : List[float]
-    RA : float
-    DEC : float
-    EBV : float = 0.0
-
-    dustframe : str = 'icrs'
+    EBV : List[Any]
 
     As: Dict[str, List[float]] = field(default_factory=dict)
     priorEBV: List[float] = field(default_factory=list)
@@ -92,8 +89,11 @@ class Star:
     fitparams: dict[str, Any]  # observed_properties
     fitfreqs: dict[str, Any]  # specifically individual frequencies
 
-    magnitudes: Dict[str, Magnitude] = field(default_factory=dict)
     distanceparams: DistanceParameters = field(default_factory=DistanceParameters)
+
+    # TODO Currently, this is empty on initialisation but if distance will be inferred, then it gets replaced
+    # This is probably not the most optimal
+    absmagnitudes: Dict[str, Magnitude] = field(default_factory=dict)
 
 
 @dataclass

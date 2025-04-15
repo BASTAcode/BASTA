@@ -850,7 +850,33 @@ def run_xml(
                             fitfreqs[fp] = None
                     inputparams["fitfreqs"] = fitfreqs
                 else:
-                    inputparams["fitfreqs"] = {}
+                    inputparams["fitfreqs"] = {
+                        "active": False,
+                        "fittypes": [],
+                        "freqpath": "",
+                        "freqfile": "",
+                        "dnufit": -9999,
+                        "dnufit_err": -9999,
+                        "numax": -9999,
+                        "fcor": "",
+                        "seismicweights": {},
+                        "bexp": None,
+                        "correlations": False,
+                        "nrealizations": 10000,
+                        "threepoint": False,
+                        "readratios": False,
+                        "dnufrac": 0.15,
+                        "dnufit_in_ratios": False,
+                        "interp_ratios": True,
+                        "nsorting": True,
+                        "dnuprior": True,
+                        "dnubias": 0.0,
+                        "glitchfit": False,
+                        "glitchfile": None,
+                        "nottrustedfile": None,
+                        "excludemodes": None,
+                        "onlyradial": None,
+                    }
 
                 # Add fitparams and limits
                 inputparams["fitparams"] = starfitparams
@@ -898,7 +924,7 @@ def run_xml(
                     if EBV is not None:
                         distanceparams["EBV"] = [0, float(EBV.get("value")), 0]
                     else:
-                        distanceparams["EBV"] = [0, 0, 0]
+                        distanceparams["EBV"] = []
 
                     # Find available filters and load corresponding magnitudes
                     for f in distanceparams["filters"]:
@@ -920,7 +946,7 @@ def run_xml(
                         "m_err": {},
                         "RA": -9999,
                         "DEC": -9999,
-                        "EBV": [0, 0, 0],
+                        "EBV": [],
                     }
 
                 # Seperate treatment of distance output file
@@ -960,29 +986,27 @@ def run_xml(
                     no_models(starid, inputparams, f"Unhandled Error: {e}")
 
                 # Call BASTA itself!
-                print(fitparams)
-                print(inputparams["distanceparams"])
-                print(inputparams["fitfreqs"])
                 distparams = core.DistanceParameters(
-                    magnitudes={f: [m, m_err] for f, m, m_err in zip(inputparams['distanceparams']['filters'], inputparams['distanceparams']['m'], inputparams['distanceparams']['m_err'])}
+                    magnitudes={
+                        f: [m, m_err]
+                        for f, m, m_err in zip(
+                            inputparams["distanceparams"]["filters"],
+                            inputparams["distanceparams"]["m"].values(),
+                            inputparams["distanceparams"]["m_err"].values(),
+                        )
+                    },
+                    coordinates={
+                        "frame": inputparams["distanceparams"]["dustframe"],
+                        "RA": inputparams["distanceparams"]["RA"],
+                        "DEC": inputparams["distanceparams"]["DEC"],
+                    },
                     parallax=inputparams["distanceparams"]["parallax"],
-                    RA=inputparams["distanceparams"]["RA"],
-                    DEC=inputparams["distanceparams"]["DEC"],
                     EBV=inputparams["distanceparams"]["EBV"],
-                    dustframe=inputparams["distanceparams"]["dustframe"],
                     As={},
                     priorEBV={},
                     priordistance={},
                 )
-                print(
-                    " ".join(
-                        [
-                            f"{key}=inputparams['fitfreqs']['{key}'],"
-                            for key in inputparams["fitfreqs"]
-                        ]
-                    )
-                )
-                fitfreqs = core.Frequencies(
+                freqs = core.Frequencies(
                     active=inputparams["fitfreqs"]["active"],
                     fittypes=inputparams["fitfreqs"]["fittypes"],
                     freqpath=inputparams["fitfreqs"]["freqpath"],
@@ -1013,7 +1037,7 @@ def run_xml(
                     starid=starid,
                     fitparams=inputparams["fitparams"],
                     fitfreqs=inputparams["fitfreqs"],
-                    magnitudes=inputparams["magnitudes"],
+                    apparantmagnitudes=inputparams["magnitudes"],
                     distanceparams=distparams,
                 )
                 filepaths = core.FilePaths(
