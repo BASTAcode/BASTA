@@ -72,7 +72,7 @@ class GridHeader(TypedDict):
 class GridInfo(TypedDict):
     entryname: str
     defaultpath: str
-    #TODO this could have a better name
+    # TODO this could have a better name
     difsolarmodel: Union[int, None]
 
 
@@ -228,18 +228,18 @@ def read_bayesianweights(
 
 
 def prepare_distancefitting(
-        star : core.Star,
-        inferencesettings : core.InferenceSettings,
-        filepaths : core.FilePaths,
-        outputoptions : core.OutputOptions, 
-        allparams: list[str]
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    filepaths: core.FilePaths,
+    outputoptions: core.OutputOptions,
+    allparams: list[str],
 ) -> tuple[dict, list[str]]:
     # Add magnitudes and colors to fitparams if fitting distance
-    inputparams = distances.add_absolute_magnitudes(
-            star=star,
-            filepaths=filepaths,
-            inferencesettings=inferencesettings,
-            outputoptions=outputoptions,
+    absolutmagnitudes = distances.add_absolute_magnitudes(
+        star=star,
+        filepaths=filepaths,
+        inferencesettings=inferencesettings,
+        outputoptions=outputoptions,
     )
 
     # TODO: Why? I think we need a better overview of what is being fitted than this
@@ -249,7 +249,7 @@ def prepare_distancefitting(
             np.unique(allparams + inputparams["distanceparams"]["filters"])
         )
         allparams.remove("distance")
-    return inputparams, allparams
+    return absolutmagnitudes, allparams
 
 
 def print_fitparams(fitparams: dict) -> None:
@@ -326,13 +326,15 @@ def print_seismic(fitfreqs: dict, obskey: np.array, obs: np.array) -> None:
     )
 
 
-def print_distances(star : core.Star, outputoptions : core.OutputOptions) -> None:
+def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
     # Fitting info: Distance
     if len(star.distanceparams.magnitudes) < 1:
         return
-    if (len(star.distanceparams.parallax) > 0) and "distance" in outputoptions.asciiparams:
+    if (
+        len(star.distanceparams.parallax) > 0
+    ) and "distance" in outputoptions.asciiparams:
         print("* Parallax fitting and distance inference activated!")
-    elif (len(star.distanceparams.parallax) > 0):
+    elif len(star.distanceparams.parallax) > 0:
         print("* Parallax fitting activated!")
     elif "distance" in outputoptions.asciiparams:
         print("* Distance inference activated!")
@@ -350,12 +352,14 @@ def print_distances(star : core.Star, outputoptions : core.OutputOptions) -> Non
     for filt, (m, m_err) in star.distanceparams.magnitudes.items():
         print(f"    + {filt}: [{m}, {m_err}]")
 
-    if (len(star.distanceparams.parallax) > 0):
+    if len(star.distanceparams.parallax) > 0:
         print(f"  - Parallax: {star.distanceparams.parallax}")
 
     if len(star.distanceparams.EBV) > 0:
-        #TODO is EBV a list of [0, value, 0] or a flat value? should probably be the latter
-        print(f"  - EBV: {star.distanceparams.EBV[1]} (uniform across all distance samples)")
+        # TODO is EBV a list of [0, value, 0] or a flat value? should probably be the latter
+        print(
+            f"  - EBV: {star.distanceparams.EBV[1]} (uniform across all distance samples)"
+        )
 
 
 def print_additional(star: core.Star) -> None:
@@ -403,7 +407,7 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
         print("No Bayesian weights applied")
 
 
-def print_priors(inferencesettings : core.InferenceSettings) -> None:
+def print_priors(inferencesettings: core.InferenceSettings) -> None:
     print("* Flat, constrained priors and ranges:")
     for lim in inferencesettings.limits.keys():
         print(f"  - {lim}: {inferencesettings.limits[lim]}")
@@ -437,7 +441,9 @@ class Logger(object):
         pass
 
 
-def list_metallicities(Grid : h5py.File, gridinfo : GridInfo, inferencesettings : core.InferenceSettings) -> range:
+def list_metallicities(
+    Grid: h5py.File, gridinfo: GridInfo, inferencesettings: core.InferenceSettings
+) -> range:
     """
     Get a list of metallicities in the grid that we loop over
 
@@ -458,10 +464,10 @@ def list_metallicities(Grid : h5py.File, gridinfo : GridInfo, inferencesettings 
         List of possible metalliticies that should be looped over in
         `bastamain`.
     """
-    if "grid" in gridinfo['defaultpath']:
+    if "grid" in gridinfo["defaultpath"]:
         metal = range(1)
     else:
-        metal = [x for x in Grid[gridinfo['defaultpath']].items() if "=" in x[0]]
+        metal = [x for x in Grid[gridinfo["defaultpath"]].items() if "=" in x[0]]
         for i in range(len(metal)):
             metal[i] = float(metal[i][0][4:])
         metal = np.asarray(metal)

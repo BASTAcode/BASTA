@@ -43,8 +43,8 @@ except ModuleNotFoundError:
     raise
 
 
-class AbsolutMagnitudes(TypedDict):
-    absolutmagnitudes: Dict[str, Dict[str, Any]]
+class AbsoluteMagnitudes(TypedDict):
+    magnitudes: Dict[str, Dict[str, Any]]
     absorption: dict[str, list[Any]]
     prior_EBV: List[float]
     prior_distance: List[float]
@@ -263,7 +263,7 @@ def add_absolute_magnitudes(
     outputoptions: core.OutputOptions,
     n: int = 1000,
     k: int = 1000,
-) -> AbsolutMagnitudes:
+) -> AbsoluteMagnitudes:
     """
     Convert apparent magnitudes to absolute magnitudes using the distance and add it to `inputparams`.
     Extinction E(B-V) is estimated based on Green et al. (2015) dust map.
@@ -293,7 +293,7 @@ def add_absolute_magnitudes(
     """
     if "parallax" not in star.fitparams:
         return {
-            "absolutmagnitudes": {},
+            "absolutemagnitudes": {},
             "absorption": {},
             "prior_EBV": [],
             "prior_distance": [],
@@ -449,7 +449,7 @@ def add_absolute_magnitudes(
 
     print("Done!")
     return {
-        "absolutmagnitudes": new_magnitudes,
+        "absolutemagnitudes": new_magnitudes,
         "absorption": new_As,
         "prior_EBV": prior_EBV,
         "prior_distance": prior_distance,

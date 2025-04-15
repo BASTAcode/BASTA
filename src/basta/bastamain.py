@@ -86,13 +86,14 @@ def BASTA(
     outparams = outputoptions.asciiparams
     allparams = list(np.unique(cornerplots + outparams))
 
-    inputparams, allparams = util.prepare_distancefitting(
-            star=star,
-            inferencesettings=inferencesettings,
-            filepaths=filepaths,
-            outputoptions=outputoptions,
-            allparams=allparams,
+    absolutemagnitudes, allparams = util.prepare_distancefitting(
+        star=star,
+        inferencesettings=inferencesettings,
+        filepaths=filepaths,
+        outputoptions=outputoptions,
+        allparams=allparams,
     )
+    print(absolutemagnitudes)
 
     # Create list of all available input parameters
     fitparams = star.fitparams
@@ -101,7 +102,9 @@ def BASTA(
     limits = inferencesettings.limits
 
     # Scale dnu and numax using a solar model or default solar values
-    dnu_scales = su.solar_scaling(Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo)
+    dnu_scales = su.solar_scaling(
+        Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo
+    )
 
     # Prepare asteroseismic quantities if required
     if fitfreqs["active"]:
@@ -191,16 +194,18 @@ def BASTA(
     #   Here the outer loop will run only once.
     # - For BaSTI, the top level is a list of metallicities and the outer loop will run
     #   multiple times.
-    metal = util.list_metallicities(Grid, gridinfo=gridinfo, inferencesettings=inferencesettings)
+    metal = util.list_metallicities(
+        Grid, gridinfo=gridinfo, inferencesettings=inferencesettings
+    )
 
     # We assume Garstec grid structure. The path will be updated in the loop for BaSTI
-    group_name = gridinfo['defaultpath'] + "tracks/"
+    group_name = gridinfo["defaultpath"] + "tracks/"
 
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
     trackcounter = 0
     for FeH in metal:
-        if "grid" not in gridinfo['defaultpath']:
+        if "grid" not in gridinfo["defaultpath"]:
             group_name = f"{gridinfo['defaultpath']}FeH={FeH:.4f}/"
 
         group = Grid[group_name]
@@ -225,8 +230,8 @@ def BASTA(
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
     for FeH in metal:
-        #TODO this can be dry'er, make list of group_names outside loop?
-        if "grid" not in gridinfo['defaultpath']:
+        # TODO this can be dry'er, make list of group_names outside loop?
+        if "grid" not in gridinfo["defaultpath"]:
             group_name = f"{gridinfo['defaultpath']}FeH={FeH:.4f}/"
 
         group = Grid[group_name]
@@ -240,16 +245,16 @@ def BASTA(
                     continue
 
             # Check for diffusion
-            #TODO what
-            if "dif" in inputparams:
-                if int(round(libitem["dif"][0])) != int(
-                    round(float(inputparams["dif"]))
-                ):
-                    continue
+            # TODO what
+            # if "dif" in inputparams:
+            #    if int(round(libitem["dif"][0])) != int(
+            #        round(float(inputparams["dif"]))
+            #    ):
+            #        continue
 
-            #TODO we must be able to optimise this
+            # TODO we must be able to optimise this
             # Check if mass or age is in limits to efficiently skip
-            if "grid" not in gridinfo['defaultpath']:
+            if "grid" not in gridinfo["defaultpath"]:
                 param, val = name.split("=")
                 if param == "mass":
                     param += "ini"
@@ -286,7 +291,7 @@ def BASTA(
                 index &= libitem[param][:] <= limits[param][1]
 
             # Check which models have phases as specified
-            if "phase" in inputparams:
+            if "phase" in star.fitparams:
                 # Mapping of verbose input phases to internal numbers
                 pmap = {
                     "pre-ms": 1,
@@ -346,7 +351,7 @@ def BASTA(
                 chi2 = np.zeros(index.sum())
                 paramvalues = {}
                 for param in fitparams:
-                    if param not in ['parallax', 'distance']:
+                    if param not in ["parallax", "distance"]:
                         paramvals = libitem[param][index]
                         chi2 += (
                             (paramvals - fitparams[param][0]) / fitparams[param][1]
@@ -405,9 +410,9 @@ def BASTA(
                     if outputoptions.debug:
                         bayw += util.inflog(libitem[dweight][index])
 
-                # Multiply by absolute magnitudes, if present
-                for f in inputparams["magnitudes"]:
-                    mags = inputparams["magnitudes"][f]["prior"]
+                # Fold with absolute magnitudes, if present
+                for f in absolutemagnitudes["absolutemagnitudes"].keys():
+                    mags = absolutemagnitudes["absolutemagnitudes"][f]["prior"]
                     absmags = libitem[f][index]
                     interp_mags = mags(absmags)
 
@@ -508,9 +513,19 @@ def BASTA(
 
     # Find and print highest likelihood model info
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(
-        Grid, selectedmodels, inputparams
+        Grid,
+        selectedmodels,
+        dnu_scales=dnu_scales,
+        inferencesettings=inferencesettings,
+        outputoptions=outputoptions,
     )
-    stats.get_lowest_chi2(Grid, selectedmodels, inputparams)
+    stats.get_lowest_chi2(
+        Grid,
+        selectedmodels,
+        dnu_scales=dnu_scales,
+        inferencesettings=inferencesettings,
+        outputoptions=outputoptions,
+    )
 
     # Generate posteriors of ascii- and plotparams
     # --> Print posteriors to console and log

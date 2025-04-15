@@ -11,9 +11,8 @@ import numpy as np
 from scipy.interpolate import interp1d, CubicSpline
 from scipy.ndimage.filters import gaussian_filter1d
 
-from basta import freq_fit, glitch_fit
+from basta import freq_fit, glitch_fit, core
 from basta import utils_seismic as su
-from basta.constants import sydsun as sydc
 from basta.constants import freqtypes, statdata
 
 # Define named tuple used in selectedmodels
@@ -497,7 +496,13 @@ def chi_for_plot(selectedmodels):
     return maxPDFchi2, minchi2
 
 
-def get_highest_likelihood(Grid, selectedmodels, inputparams):
+def get_highest_likelihood(
+    Grid,
+    selectedmodels,
+    dnu_scales,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
     """
     Find highest likelihood model and print info.
 
@@ -531,8 +536,7 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
         print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
 
     # Print parameters
-    outparams = inputparams["asciiparams"]
-    dnu_scales = inputparams.get("dnu_scales", {})
+    outparams = outputoptions.asciiparams
     for param in outparams:
         if param == "distance":
             continue
@@ -541,9 +545,9 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
             dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+            scaleval = paramval * inferencesettings.solarvalues["dnu"] / dnu_rescal
         elif param.startswith("numax"):
-            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+            scaleval = paramval * inferencesettings.solarvalues["numax"]
         elif param in ["dnufit", "dnufitMos12"]:
             scaleval = paramval / dnu_scales.get(param, 1.00)
         else:
@@ -557,7 +561,13 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
     return maxPDF_path, maxPDF_ind
 
 
-def get_lowest_chi2(Grid, selectedmodels, inputparams):
+def get_lowest_chi2(
+    Grid,
+    selectedmodels,
+    dnu_scales,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
     """
     Find model with lowest chi2 value and print info.
 
@@ -587,19 +597,19 @@ def get_lowest_chi2(Grid, selectedmodels, inputparams):
         print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
 
     # Print parameters
-    outparams = inputparams["asciiparams"]
-    dnu_scales = inputparams.get("dnu_scales", {})
+    outparams = outputoptions.asciiparams
     for param in outparams:
         if param == "distance":
             continue
         paramval = Grid[os.path.join(minchi2_path, param)][minchi2_ind]
 
+        # TODO make DRY
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
             dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+            scaleval = paramval * inferencesettings.solarvalues["dnu"] / dnu_rescal
         elif param.startswith("numax"):
-            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+            scaleval = paramval * inferencesettings.solarvalues["numax"]
         elif param in ["dnufit", "dnufitMos12"]:
             scaleval = paramval / dnu_scales.get(param, 1.00)
         else:
