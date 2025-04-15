@@ -849,6 +849,8 @@ def run_xml(
                         else:
                             fitfreqs[fp] = None
                     inputparams["fitfreqs"] = fitfreqs
+                else:
+                    inputparams["fitfreqs"] = {}
 
                 # Add fitparams and limits
                 inputparams["fitparams"] = starfitparams
@@ -895,6 +897,8 @@ def run_xml(
                     EBV = star.find("EBV")
                     if EBV is not None:
                         distanceparams["EBV"] = [0, float(EBV.get("value")), 0]
+                    else:
+                        distanceparams["EBV"] = [0, 0, 0]
 
                     # Find available filters and load corresponding magnitudes
                     for f in distanceparams["filters"]:
@@ -908,7 +912,16 @@ def run_xml(
 
                     inputparams["distanceparams"] = distanceparams
                 else:
-                    inputparams["distanceparams"] = {}
+                    inputparams["distanceparams"] = {
+                        "parallax": [],
+                        "dustframe": "",
+                        "filters": [],
+                        "m": {},
+                        "m_err": {},
+                        "RA": -9999,
+                        "DEC": -9999,
+                        "EBV": [0, 0, 0],
+                    }
 
                 # Seperate treatment of distance output file
                 if "distance" in inputparams["asciiparams"]:
@@ -947,12 +960,63 @@ def run_xml(
                     no_models(starid, inputparams, f"Unhandled Error: {e}")
 
                 # Call BASTA itself!
+                print(fitparams)
+                print(inputparams["distanceparams"])
+                print(inputparams["fitfreqs"])
+                distparams = core.DistanceParameters(
+                    filters=inputparams["distanceparams"]["filters"],
+                    m=inputparams["distanceparams"]["m"],
+                    m_err=inputparams["distanceparams"]["m_err"],
+                    parallax=inputparams["distanceparams"]["parallax"],
+                    RA=inputparams["distanceparams"]["RA"],
+                    DEC=inputparams["distanceparams"]["DEC"],
+                    EBV=inputparams["distanceparams"]["EBV"],
+                    dustframe=inputparams["distanceparams"]["dustframe"],
+                    As={},
+                    priorEBV={},
+                    priordistance={},
+                )
+                print(
+                    " ".join(
+                        [
+                            f"{key}=inputparams['fitfreqs']['{key}'],"
+                            for key in inputparams["fitfreqs"]
+                        ]
+                    )
+                )
+                fitfreqs = core.Frequencies(
+                    active=inputparams["fitfreqs"]["active"],
+                    fittypes=inputparams["fitfreqs"]["fittypes"],
+                    freqpath=inputparams["fitfreqs"]["freqpath"],
+                    fcor=inputparams["fitfreqs"]["fcor"],
+                    bexp=inputparams["fitfreqs"]["bexp"],
+                    correlations=inputparams["fitfreqs"]["correlations"],
+                    nrealizations=inputparams["fitfreqs"]["nrealizations"],
+                    threepoint=inputparams["fitfreqs"]["threepoint"],
+                    readratios=inputparams["fitfreqs"]["readratios"],
+                    dnufrac=inputparams["fitfreqs"]["dnufrac"],
+                    dnufit_in_ratios=inputparams["fitfreqs"]["dnufit_in_ratios"],
+                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
+                    nsorting=inputparams["fitfreqs"]["nsorting"],
+                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
+                    dnubias=inputparams["fitfreqs"]["dnubias"],
+                    seismicweights=inputparams["fitfreqs"]["seismicweights"],
+                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
+                    freqfile=inputparams["fitfreqs"]["freqfile"],
+                    glitchfile=inputparams["fitfreqs"]["glitchfile"],
+                    dnufit=inputparams["fitfreqs"]["dnufit"],
+                    numax=inputparams["fitfreqs"]["numax"],
+                    dnufit_err=inputparams["fitfreqs"]["dnufit_err"],
+                    nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
+                    excludemodes=inputparams["fitfreqs"]["excludemodes"],
+                    onlyradial=inputparams["fitfreqs"]["onlyradial"],
+                )
                 star = core.Star(
                     starid=starid,
                     fitparams=inputparams["fitparams"],
                     fitfreqs=inputparams["fitfreqs"],
                     magnitudes=inputparams["magnitudes"],
-                    distanceparams=inputparams["distanceparams"],
+                    distanceparams=distparams,
                 )
                 filepaths = core.FilePaths(
                     star=star,
@@ -966,7 +1030,7 @@ def run_xml(
                     gridfile=gridfile,
                     gridid=gridid,
                     seed=seed,
-                    limits=inputparams['limits'],
+                    limits=inputparams["limits"],
                     usebayw=usebayw,
                     priors=usepriors,
                     solarmodel=inputparams["solarmodel"],

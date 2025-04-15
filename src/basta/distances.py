@@ -21,6 +21,9 @@ from astropy.utils.exceptions import AstropyWarning
 import basta.utils_distances as udist
 import basta.constants as cnsts
 import basta.stats as stats
+from basta import core
+
+from dataclasses import replace
 
 import matplotlib
 
@@ -240,13 +243,13 @@ def get_absorption(EBV: np.array, fitparams: dict, filt: str) -> np.array:
 
 
 def add_absolute_magnitudes(
-    inputparams: dict,
-    n: int = 1000,
-    k: int = 1000,
-    use_gaussian_priors: bool = False,
-    debug=False,
-    debug_dirpath="",
-) -> dict:
+        star : core.Star,
+        filepaths : core.FilePaths,
+        inferencesettings : core.InferenceSettings,
+        outputoptions : core.OutputOptions,
+        n: int = 1000,
+        k: int = 1000,
+) -> core.Star:
     """
     Convert apparent magnitudes to absolute magnitudes using the distance and add it to `inputparams`.
     Extinction E(B-V) is estimated based on Green et al. (2015) dust map.
@@ -274,30 +277,30 @@ def add_absolute_magnitudes(
     inputparams : dict
         Modified version of inputparams including absolute magnitudes.
     """
-    if "parallax" not in inputparams["fitparams"]:
+    if "parallax" not in star.fitparams:
         return inputparams
 
     print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
-    fitparams = inputparams["fitparams"]
-    distanceparams = inputparams["distanceparams"]
+    fitparams = star.fitparams
+    distanceparams = star.distanceparams
+    print(distanceparams)
 
-    if use_gaussian_priors:
+    if inferencesettings.usegaussianmagnitudes:
         inputparams["fitparams"][filt] = [val, std]
         return inputparams
 
     # Get apparent magnitudes from input data
-    mobs = distanceparams["m"]
-    mobs_err = distanceparams["m_err"]
+    mobs = distanceparams.m
+    mobs_err = distanceparams.m_err
 
     if len(mobs.keys()) == 0:
         raise ValueError("No filters were given")
 
     # Convert the inputted parallax in mas to as
-    plxobs = fitparams["parallax"][0] * 1e-3
-    plxobs_err = fitparams["parallax"][1] * 1e-3
+    plxobs = fitparams['parallax'][0] * 1e-3
+    plxobs_err = fitparams['parallax'][1] * 1e-3
     L = udist.EDSD(None, None) * 1e3
-    fitparams.pop("parallax")
 
     # Sample distances more densely around the mode of the distance distribution
     # See Bailer-Jones 2015, Eq 19
@@ -317,20 +320,17 @@ def add_absolute_magnitudes(
     dist = scipy.stats.norm.ppf(
         np.linspace(bla, 0.96, n - n // 2), loc=mode, scale=1000
     )
-    # We also want to sample across the entire range.
     lindist = 10 ** np.linspace(-0.4, 4.4, n // 2)
-    assert np.all(np.isfinite(dist))
-    assert np.all(dist > 0)
-
     dist = np.concatenate([dist, lindist])
     dist = np.sort(dist)
+
     lldist = udist.compute_distlikelihoods(
         dist,
         plxobs,
         plxobs_err,
         L,
-        debug=debug,
-        debug_dirpath=debug_dirpath,
+        debug=outputoptions.debug,
+        debug_dirpath=filepaths.extradirectory
     )
     dists = np.repeat(dist, k)
     lldists = np.repeat(lldist, k)
@@ -338,11 +338,12 @@ def add_absolute_magnitudes(
     # Get EBV values
     EBV_along_LOS = get_EBV_along_LOS(distanceparams=distanceparams)
     EBV = get_EBV(
-        dist=dist, EBV_along_LOS=EBV_along_LOS, debug=debug, debug_dirpath=debug_dirpath
+        dist=dist, EBV_along_LOS=EBV_along_LOS, debug=optionaloptions.debug, debug_dirpath=filepaths.extradirectory
     )
     EBVs = np.repeat(EBV, k)
 
-    distanceparams["As"] = {}
+    new_As = {}
+    new_magnitudes = {}
     llabsms_joined = np.zeros(n * k)
     for filt in mobs.keys():
         # Sample apparent magnitudes over the entire parameter range
@@ -390,53 +391,47 @@ def add_absolute_magnitudes(
             bins[:-1] + np.diff(bins) / 2.0, like, fill_value=0, bounds_error=False
         )
 
-        if debug:
-            plt.figure()
-            plt.hist(absms, bins=150, weights=labsms)
-            plt.xlabel("Abs %s" % filt)
-            plt.savefig(debug_dirpath + "_DEBUG_absms_%s.png" % filt)
-            plt.close()
-
         absms_qs = stats.quantile_1D(absms, labsms, cnsts.statdata.quantiles)
-        distanceparams["As"][filt] = list(
+        new_As[filt] = list(
             stats.quantile_1D(As, labsms, cnsts.statdata.quantiles)
         )
 
         # Extended dictionary for use in Kiel diagram, and clarifying it as a prior
-        inputparams["magnitudes"][filt] = {
+        new_magnitudes[filt] = {
             "prior": M_prior,
             "median": absms_qs[0],
             "errp": np.abs(absms_qs[2] - absms_qs[0]),
             "errm": np.abs(absms_qs[0] - absms_qs[1]),
         }
 
-    # Get an estimate from all filters
-    labsms_joined = np.exp(llabsms_joined - np.log(np.sum(np.exp(llabsms_joined))))
+    # # Get an estimate from all filters
+    # labsms_joined = np.exp(llabsms_joined - np.log(np.sum(np.exp(llabsms_joined))))
 
-    distanceparams["priorEBV"] = list(
-        stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles)
-    )
-    distanceparams["priordistance"] = list(
-        stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
-    )
+    # distanceparams["priorEBV"] = list(
+    #     stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles)
+    # )
+    # distanceparams["priordistance"] = list(
+    #     stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
+    # )
 
     # Constrain metallicity within the limits of the color transformations
-    metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"
-    metal_limit = inputparams["limits"].get(metal)
-    if not metal_limit:
-        inputparams["limits"][metal] = [
-            cnsts.metallicityranges.values["metallicity"]["min"],
-            cnsts.metallicityranges.values["metallicity"]["max"],
-        ]
-    else:
-        if metal_limit[0] < cnsts.metallicityranges.values["metallicity"]["min"]:
-            inputparams["limits"][metal][0] = cnsts.metallicityranges.values[
-                "metallicity"
-            ]["min"]
-        if metal_limit[1] > cnsts.metallicityranges.values["metallicity"]["max"]:
-            inputparams["limits"][metal][1] = cnsts.metallicityranges.values[
-                "metallicity"
-            ]["max"]
+    # metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"
+    # metal_limit = inputparams["limits"].get(metal)
+    # if not metal_limit:
+    #     inputparams["limits"][metal] = [
+    #         cnsts.metallicityranges.values["metallicity"]["min"],
+    #         cnsts.metallicityranges.values["metallicity"]["max"],
+    #     ]
+    # else:
+    #     if metal_limit[0] < cnsts.metallicityranges.values["metallicity"]["min"]:
+    #         inputparams["limits"][metal][0] = cnsts.metallicityranges.values[
+    #             "metallicity"
+    #         ]["min"]
+    #     if metal_limit[1] > cnsts.metallicityranges.values["metallicity"]["max"]:
+    #         inputparams["limits"][metal][1] = cnsts.metallicityranges.values[
+    #             "metallicity"
+    #         ]["max"]
 
     print("Done!")
-    return inputparams
+    new_star = replace(star, magnitudes=new_magnitudes, distanceparams=new_distanceparams)
+    return new_star

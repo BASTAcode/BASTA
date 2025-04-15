@@ -227,22 +227,21 @@ def read_bayesianweights(
 
 
 def prepare_distancefitting(
-    inputparams: dict, debug: bool, debug_dirpath: str, allparams: list[str]
+        star : core.Star,
+        inferencesettings : core.InferenceSettings,
+        filepaths : core.FilePaths,
+        outputoptions : core.OutputOptions, 
+        allparams: list[str]
 ) -> tuple[dict, list[str]]:
-    # Special case if assuming gaussian magnitudes
-    if "gaussian_magnitudes" in inputparams:
-        use_gaussian_priors = inputparams["gaussian_magnitudes"]
-    else:
-        use_gaussian_priors = False
-
     # Add magnitudes and colors to fitparams if fitting distance
     inputparams = distances.add_absolute_magnitudes(
-        inputparams,
-        debug=debug,
-        debug_dirpath=debug_dirpath,
-        use_gaussian_priors=use_gaussian_priors,
+            star=star,
+            filepaths=filepaths,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
     )
 
+    # TODO: Why? I think we need a better overview of what is being fitted than this
     # If keyword present, add individual filters
     if "distance" in allparams:
         allparams = list(

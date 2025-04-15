@@ -89,10 +89,11 @@ def BASTA(
     # Here we modify inputparams
     # Instead we should add to Star I think...
     inputparams, allparams = util.prepare_distancefitting(
-        inputparams=star.inputparams,
-        debug=outputoptions.debug,
-        debug_dirpath=filepaths.extradirectory,
-        allparams=allparams,
+            star=star,
+            inferencesettings=inferencesettings,
+            filepaths=filepaths,
+            outputoptions=outputoptions,
+            allparams=allparams,
     )
 
     # Create list of all available input parameters

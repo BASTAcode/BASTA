@@ -10,10 +10,67 @@ components for the application's logic, inference processes, and internal commun
 
 """
 
-from dataclasses import dataclass
-from typing import Any
+from dataclasses import dataclass, field
+from typing import Any, Dict, List, Callable
 from pathlib import Path
 
+
+@dataclass
+class DistanceParameters:
+    # could just be keys in obs that are not 'parallax' or 'EBV
+    filters: List[str]
+    # Can be combined in dict
+    m: Dict[str, float]
+    m_err: Dict[str, float]
+    parallax : List[float]
+    RA : float
+    DEC : float
+    EBV : float = 0.0
+
+    dustframe : str = 'icrs'
+
+    As: Dict[str, List[float]] = field(default_factory=dict)
+    priorEBV: List[float] = field(default_factory=list)
+    priordistance: List[float] = field(default_factory=list)
+
+
+@dataclass
+class Magnitude:
+    prior: Callable[[float], float]
+    median: float
+    errp: float
+    errm: float
+
+
+@dataclass
+class Frequencies:
+    # TODO Currently this is the content of fitfreqs.
+    # I think a lot of clean up can be done here.
+    active : bool
+    fittypes : List[str]
+    freqpath : str
+    freqfile : str 
+    dnufit : float
+    dnufit_err : float
+    numax : float
+    fcor : str
+    seismicweights : Dict[str, Any]
+    bexp : None | float = None
+    correlations : bool | int = False
+    nrealizations : int = 10000
+    threepoint : bool | int = False
+    readratios : bool | int = False
+    dnufrac : float = 0.15
+    dnufit_in_ratios : bool | int = False
+    interp_ratios : bool | int = True
+    nsorting : bool | int = True
+    dnuprior : bool | int = True
+    dnubias : float = 0.0
+    glitchfit : bool = False
+    glitchfile : str | None = None
+    nottrustedfile : str | None = None
+    excludemodes: bool | None = None
+    onlyradial: bool | None = None
 
 @dataclass
 class Star:
@@ -31,11 +88,11 @@ class Star:
 
     starid: str
     # inputparams: dict[str, Any]
-    fitparams: dict[str, Any]
-    fitfreqs: dict[str, Any]
+    fitparams: dict[str, Any]  # observed_properties
+    fitfreqs: dict[str, Any]  # specifically individual frequencies
 
-    magnitudes: dict[str, Any]
-    distanceparams: dict[str, Any]
+    magnitudes: Dict[str, Magnitude] = field(default_factory=dict)
+    distanceparams: DistanceParameters = field(default_factory=DistanceParameters)
 
 
 @dataclass
@@ -139,9 +196,15 @@ class InferenceSettings:
     numsun: float
     dnusun: float
     limits: dict[str, Any]
+
     gridid: bool | tuple = False
+
     usebayw: bool = True
+
     priors: tuple = (None,)
+    
+    # Distances
+    usegaussianmagnitudes: bool = False
 
 
 @dataclass
