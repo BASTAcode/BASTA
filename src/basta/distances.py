@@ -6,7 +6,7 @@ import os
 import warnings
 import collections
 from bisect import bisect_left
-from typing import Callable
+from typing import Callable, TypedDict, List, Dict
 
 import h5py
 import numpy as np
@@ -23,7 +23,7 @@ import basta.constants as cnsts
 import basta.stats as stats
 from basta import core
 
-from dataclasses import replace
+from dataclasses import field
 
 import matplotlib
 
@@ -42,6 +42,11 @@ except ModuleNotFoundError:
     print("\nCannot find path to dustmaps. Did you run 'setup.py'?\n")
     raise
 
+class AbsolutMagnitudes(TypedDict):
+    absolutmagnitudes: Dict[str, List[float]] = field(default_factory=dict)
+    absorption: Dict[str, List[float]] = field(default_factory=dict)
+    prior_EBV: List[float] = field(default_factory=list)
+    prior_distance: List[float] = field(default_factory=list)
 
 def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
     """
@@ -255,7 +260,7 @@ def add_absolute_magnitudes(
     outputoptions: core.OutputOptions,
     n: int = 1000,
     k: int = 1000,
-) -> core.Star:
+    ) -> AbsolutMagnitudes:
     """
     Convert apparent magnitudes to absolute magnitudes using the distance and add it to `inputparams`.
     Extinction E(B-V) is estimated based on Green et al. (2015) dust map.
@@ -284,7 +289,7 @@ def add_absolute_magnitudes(
         Modified version of inputparams including absolute magnitudes.
     """
     if "parallax" not in star.fitparams:
-        return star
+        return AbsolutMagnitudes
 
     print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
@@ -410,14 +415,10 @@ def add_absolute_magnitudes(
     # # Get an estimate from all filters
     labsms_joined = np.exp(llabsms_joined - np.log(np.sum(np.exp(llabsms_joined))))
 
-    # TODO I think I should return this as a typeddict similar to the gridheader.
-    # Do I need As/new_As too? Yes
-    # So all three in a TypedDict called AbsolutMagnitudes?
-    # Returned instead of 'star'
-    distanceparams["priorEBV"] = list(
+    prior_EBV = list(
             stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles)
             )
-    distanceparams["priordistance"] = list(
+    prior_distance = list(
             stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
             )
 
@@ -441,7 +442,10 @@ def add_absolute_magnitudes(
     #                    ]["max"]
 
     print("Done!")
-    new_star = replace(
-        star, magnitudes=new_magnitudes, distanceparams=new_distanceparams
-    )
-    return new_star
+    return {
+            "absolutmagnitudes": new_magnitudes,
+            "absorption": new_As,
+            "prior_EBV": prior_EBV,
+            "prior_distance": prior_distance,
+            }
+

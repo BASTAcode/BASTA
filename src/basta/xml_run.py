@@ -1002,9 +1002,6 @@ def run_xml(
                     },
                     parallax=inputparams["distanceparams"]["parallax"],
                     EBV=inputparams["distanceparams"]["EBV"],
-                    As={},
-                    priorEBV={},
-                    priordistance={},
                 )
                 freqs = core.Frequencies(
                     active=inputparams["fitfreqs"]["active"],
@@ -1037,7 +1034,7 @@ def run_xml(
                     starid=starid,
                     fitparams=inputparams["fitparams"],
                     fitfreqs=inputparams["fitfreqs"],
-                    apparantmagnitudes=inputparams["magnitudes"],
+                    apparentmagnitudes=inputparams["magnitudes"],
                     distanceparams=distparams,
                 )
                 filepaths = core.FilePaths(

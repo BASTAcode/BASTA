@@ -27,18 +27,12 @@ class DistanceParameters:
     parallax : List[float]
     EBV : List[Any]
 
-    As: Dict[str, List[float]] = field(default_factory=dict)
-    priorEBV: List[float] = field(default_factory=list)
-    priordistance: List[float] = field(default_factory=list)
-
-
 @dataclass
 class Magnitude:
     prior: Callable[[float], float]
     median: float
     errp: float
     errm: float
-
 
 @dataclass
 class Frequencies:
@@ -90,11 +84,7 @@ class Star:
     fitfreqs: dict[str, Any]  # specifically individual frequencies
 
     distanceparams: DistanceParameters = field(default_factory=DistanceParameters)
-
-    # TODO Currently, this is empty on initialisation but if distance will be inferred, then it gets replaced
-    # This is probably not the most optimal
-    absmagnitudes: Dict[str, Magnitude] = field(default_factory=dict)
-
+    apparentmagnitudes: Dict[str, Magnitude] = field(default_factory=dict)
 
 @dataclass
 class FilePaths:
