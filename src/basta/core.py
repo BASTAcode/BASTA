@@ -20,8 +20,9 @@ class DistanceParameters:
     # could just be keys in obs that are not 'parallax' or 'EBV
     filters: List[str]
     # Can be combined in dict
-    m: Dict[str, float]
-    m_err: Dict[str, float]
+    magnitudes = Dict[str, List[float, float]]
+    #m: Dict[str, float]
+    #m_err: Dict[str, float]
     parallax : List[float]
     RA : float
     DEC : float

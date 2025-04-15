@@ -964,9 +964,7 @@ def run_xml(
                 print(inputparams["distanceparams"])
                 print(inputparams["fitfreqs"])
                 distparams = core.DistanceParameters(
-                    filters=inputparams["distanceparams"]["filters"],
-                    m=inputparams["distanceparams"]["m"],
-                    m_err=inputparams["distanceparams"]["m_err"],
+                    magnitudes={f: [m, m_err] for f, m, m_err in zip(inputparams['distanceparams']['filters'], inputparams['distanceparams']['m'], inputparams['distanceparams']['m_err'])}
                     parallax=inputparams["distanceparams"]["parallax"],
                     RA=inputparams["distanceparams"]["RA"],
                     DEC=inputparams["distanceparams"]["DEC"],

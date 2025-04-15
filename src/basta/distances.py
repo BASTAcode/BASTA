@@ -284,17 +284,13 @@ def add_absolute_magnitudes(
 
     fitparams = star.fitparams
     distanceparams = star.distanceparams
-    print(distanceparams)
-
-    if inferencesettings.usegaussianmagnitudes:
-        inputparams["fitparams"][filt] = [val, std]
-        return inputparams
 
     # Get apparent magnitudes from input data
-    mobs = distanceparams.m
-    mobs_err = distanceparams.m_err
+    # mobs = distanceparams.m
+    # mobs_err = distanceparams.m_err
+    magnitudes = distanceparams.magnitudes
 
-    if len(mobs.keys()) == 0:
+    if len(magnitudes.keys()) < 1:
         raise ValueError("No filters were given")
 
     # Convert the inputted parallax in mas to as
@@ -345,7 +341,7 @@ def add_absolute_magnitudes(
     new_As = {}
     new_magnitudes = {}
     llabsms_joined = np.zeros(n * k)
-    for filt in mobs.keys():
+    for filt in magnitudes.keys():
         # Sample apparent magnitudes over the entire parameter range
         if filt in cnsts.distanceranges.filters:
             m = np.linspace(
@@ -360,14 +356,14 @@ def add_absolute_magnitudes(
                 m,
                 scipy.stats.norm.ppf(
                     np.linspace(0.04, 0.96, k // 2),
-                    loc=mobs[filt],
-                    scale=mobs_err[filt],
+                    loc=magnitudes[filt][0],
+                    scale=magnitudes[filt][1],
                 ),
             ]
         )
         m = np.sort(m)
 
-        llm = udist.compute_mslikelihoods(m, mobs[filt], mobs_err[filt])
+        llm = udist.compute_mslikelihoods(m, magnitudes[filt][0], magnitudes[filt][1])
         ms = np.tile(m, n)
         llms = np.tile(llm, n)
         assert len(dists) == len(ms) == n * k
