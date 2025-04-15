@@ -53,7 +53,7 @@ def print_bastaheader(
     print()
     prt_center("Version {0}".format(__version__), llen)
     print()
-    prt_center("(c) 2024, The BASTA Team", llen)
+    prt_center("(c) 2025, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
     print(llen * "=")
     print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
