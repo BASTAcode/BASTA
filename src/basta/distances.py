@@ -42,13 +42,17 @@ except ModuleNotFoundError:
     print("\nCannot find path to dustmaps. Did you run 'setup.py'?\n")
     raise
 
+
 class AbsolutMagnitudes(TypedDict):
     absolutmagnitudes: Dict[str, Dict[str, Any]]
     absorption: dict[str, list[Any]]
     prior_EBV: List[float]
     prior_distance: List[float]
 
-def get_EBV_along_LOS(distanceparams: core.DistanceParameters) -> Callable[[np.ndarray], np.ndarray]:
+
+def get_EBV_along_LOS(
+    distanceparams: core.DistanceParameters,
+) -> Callable[[np.ndarray], np.ndarray]:
     """
     Returns color excess E(B-V) for a line of sight, mainly using a
     pre-downloaded 3D extinction map provided by Green et al. 2015/2018 - see
@@ -259,7 +263,7 @@ def add_absolute_magnitudes(
     outputoptions: core.OutputOptions,
     n: int = 1000,
     k: int = 1000,
-    ) -> AbsolutMagnitudes:
+) -> AbsolutMagnitudes:
     """
     Convert apparent magnitudes to absolute magnitudes using the distance and add it to `inputparams`.
     Extinction E(B-V) is estimated based on Green et al. (2015) dust map.
@@ -289,11 +293,11 @@ def add_absolute_magnitudes(
     """
     if "parallax" not in star.fitparams:
         return {
-                "absolutmagnitudes": {},
-                "absorption": {},
-                "prior_EBV": [],
-                "prior_distance": [],
-                }
+            "absolutmagnitudes": {},
+            "absorption": {},
+            "prior_EBV": [],
+            "prior_distance": [],
+        }
 
     print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
@@ -419,23 +423,21 @@ def add_absolute_magnitudes(
     # # Get an estimate from all filters
     labsms_joined = np.exp(llabsms_joined - np.log(np.sum(np.exp(llabsms_joined))))
 
-    prior_EBV = list(
-            stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles)
-            )
+    prior_EBV = list(stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles))
     prior_distance = list(
-            stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
-            )
+        stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
+    )
 
     # TODO fix this when limits are fixed
     ## Constrain metallicity within the limits of the color transformations
-    #metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"
-    #metal_limit = inputparams["limits"].get(metal)
-    #if not metal_limit:
+    # metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"
+    # metal_limit = inputparams["limits"].get(metal)
+    # if not metal_limit:
     #    inputparams["limits"][metal] = [
     #            cnsts.metallicityranges.values["metallicity"]["min"],
     #            cnsts.metallicityranges.values["metallicity"]["max"],
     #            ]
-    #else:
+    # else:
     #    if metal_limit[0] < cnsts.metallicityranges.values["metallicity"]["min"]:
     #        inputparams["limits"][metal][0] = cnsts.metallicityranges.values[
     #                "metallicity"
@@ -447,9 +449,8 @@ def add_absolute_magnitudes(
 
     print("Done!")
     return {
-            "absolutmagnitudes": new_magnitudes,
-            "absorption": new_As,
-            "prior_EBV": prior_EBV,
-            "prior_distance": prior_distance,
-            }
-
+        "absolutmagnitudes": new_magnitudes,
+        "absorption": new_As,
+        "prior_EBV": prior_EBV,
+        "prior_distance": prior_distance,
+    }
