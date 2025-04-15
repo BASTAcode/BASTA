@@ -6,7 +6,7 @@ import os
 import warnings
 import collections
 from bisect import bisect_left
-from typing import Callable, TypedDict, List, Dict
+from typing import Callable, TypedDict, List, Dict, Any
 
 import h5py
 import numpy as np
@@ -43,12 +43,12 @@ except ModuleNotFoundError:
     raise
 
 class AbsolutMagnitudes(TypedDict):
-    absolutmagnitudes: Dict[str, List[float]] = field(default_factory=dict)
-    absorption: Dict[str, List[float]] = field(default_factory=dict)
-    prior_EBV: List[float] = field(default_factory=list)
-    prior_distance: List[float] = field(default_factory=list)
+    absolutmagnitudes: Dict[str, Dict[str, Any]]
+    absorption: dict[str, list[Any]]
+    prior_EBV: List[float]
+    prior_distance: List[float]
 
-def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
+def get_EBV_along_LOS(distanceparams: core.DistanceParameters) -> Callable[[np.ndarray], np.ndarray]:
     """
     Returns color excess E(B-V) for a line of sight, mainly using a
     pre-downloaded 3D extinction map provided by Green et al. 2015/2018 - see
@@ -134,8 +134,7 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
         print("WARNING: Coordinates outside dust map boundaries!")
         print("Default to Schegel 1998 dust map")
         sfd = SFDQuery()
-        EBV_along_LOS = lambda x: np.full_like(x, sfd(c))
-        return EBV_along_LOS
+        return lambda x: np.full_like(x, sfd(c))
 
     Egr_med, Egr_err = [], []
     for i in range(len(dmbin)):
@@ -160,11 +159,11 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
 
 
 def get_EBV(
-    dist: np.array,
-    EBV_along_LOS: Callable[[np.array], np.array],
+    dist: np.ndarray,
+    EBV_along_LOS: Callable[[np.ndarray], np.ndarray],
     debug: bool = False,
     debug_dirpath: str = "",
-) -> np.array:
+) -> np.ndarray:
     """
     Estimate E(B-V) by drawing distances from a normal parallax
     distribution with EDSD prior.
@@ -201,7 +200,7 @@ def get_EBV(
     return EBVs
 
 
-def get_absorption(EBV: np.array, fitparams: dict, filt: str) -> np.array:
+def get_absorption(EBV: np.ndarray, fitparams: dict, filt: str) -> np.ndarray:
     """
     Compute extinction coefficient Rzeta for band zeta.
     Using parameterized law from Casagrande & VandenBerg 2014.
@@ -289,7 +288,12 @@ def add_absolute_magnitudes(
         Modified version of inputparams including absolute magnitudes.
     """
     if "parallax" not in star.fitparams:
-        return AbsolutMagnitudes
+        return {
+                "absolutmagnitudes": {},
+                "absorption": {},
+                "prior_EBV": [],
+                "prior_distance": [],
+                }
 
     print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 

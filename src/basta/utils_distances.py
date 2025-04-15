@@ -9,18 +9,19 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def compute_absmag(m: float, dist: float, A: float) -> float:
+
+def compute_absmag(m: np.ndarray, dist: np.ndarray, A: np.ndarray) -> np.ndarray:
     """
     Use distance moduli to compute the absolute magnitudes
     from distances, apparent magnitudes m, and absorption A.
 
     Parameters
     ----------
-    m : float
+    m : np.ndarray
         Apparent magnitude
-    dist : float
+    dist : np.ndarray
         Distances in parsec
-    A : float
+    A : np.ndarray
         Absorption
 
     Returns
