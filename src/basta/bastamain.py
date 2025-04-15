@@ -86,8 +86,6 @@ def BASTA(
     outparams = outputoptions.asciiparams
     allparams = list(np.unique(cornerplots + outparams))
 
-    # Here we modify inputparams
-    # Instead we should add to Star I think...
     inputparams, allparams = util.prepare_distancefitting(
             star=star,
             inferencesettings=inferencesettings,
@@ -103,7 +101,7 @@ def BASTA(
     limits = inferencesettings.limits
 
     # Scale dnu and numax using a solar model or default solar values
-    inputparams = su.solar_scaling(Grid, star.inputparams, diffusion=difsolarmodel)
+    dnu_scales = su.solar_scaling(Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo)
 
     # Prepare asteroseismic quantities if required
     if fitfreqs["active"]:

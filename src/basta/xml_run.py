@@ -1053,8 +1053,7 @@ def run_xml(
                     usebayw=usebayw,
                     priors=usepriors,
                     solarmodel=inputparams["solarmodel"],
-                    numsun=inputparams["numsun"],
-                    dnusun=inputparams["dnusun"],
+                    solarvalues={"numax":inputparams["numsun"] , "dnu": inputparams["dnusun"]},
                 )
                 outputoptions = core.OutputOptions(
                     asciiparams=inputparams["asciiparams"],

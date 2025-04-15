@@ -2,25 +2,27 @@
 Auxiliary functions for frequency analysis
 """
 
-from math import frexp
 import os
+from math import frexp
 from copy import deepcopy
 from tqdm import tqdm
+import h5py
 
 import numpy as np
 from scipy.interpolate import CubicSpline
 
-from basta import freq_fit
-from basta import glitch_fit
+from basta import freq_fit, glitch_fit, core
 from basta import fileio as fio
+from basta import utils_general as util
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
-from basta.utils_general import strtobool
 
 from sklearn import covariance as skcov
 
+from typing import Dict
 
-def solar_scaling(Grid, inputparams, diffusion=None):
+
+def solar_scaling(Grid : h5py.File, star : core.Star, inferencesettings: core.InferenceSettings, gridinfo: util.GridInfo) -> Dict:
     """
     Transform quantities to solar units based on the assumed solar values. Grids use
     solar units for numax and for dnu's based on scaling relations. The input values
@@ -51,13 +53,13 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     print("\nTransforming solar-based asteroseismic quantities:", flush=True)
 
     # Check for solar values, if not set then use default
-    dnusun = inputparams.get("dnusun", sydc.SUNdnu)
-    numsun = inputparams.get("numsun", sydc.SUNnumax)
+    dnusun = inferencesettings.solarvalues['dnu']
+    numsun = inferencesettings.solarvalues['numax']
 
     # Obtain parameter lists
-    fitparams = inputparams.get("fitparams")
-    fitfreqs = inputparams.get("fitfreqs", {})
-    limits = inputparams.get("limits")
+    fitparams = star.fitparams
+    fitfreqs = star.fitfreqs
+    limits = inferencesettings.limits
 
     # If fitting frequencies, make sure to keep a copy of the original deltaNu
     if fitfreqs["active"]:
@@ -125,7 +127,7 @@ def solar_scaling(Grid, inputparams, diffusion=None):
 
     # Read the user-set flag: Should the scaling be activated?
     try:
-        solarmodel = strtobool(inputparams.get("solarmodel", ""))
+        solarmodel = util.strtobool(inferencesettings.solarmodel)
     except ValueError:
         print(
             "Warning: Invalid value given for activation of solar scaling!",
@@ -135,8 +137,9 @@ def solar_scaling(Grid, inputparams, diffusion=None):
 
     if solarmodel and len(avail_models) > 0:
         # For isochrones, the diffusion is specified and names hardwired!
-        if diffusion is not None:
-            if diffusion == 0:
+        #TODO difsolarmodel could be named better
+        if gridinfo['difsolarmodel'] is not None:
+            if gridinfo['difsolarmodel'] == 0:
                 sunmodname = "bastisun_new"
             else:
                 sunmodname = "bastisun_new_diff"
@@ -222,10 +225,10 @@ def solar_scaling(Grid, inputparams, diffusion=None):
             print("    (Note: Will be scaled back before outputting results!)")
             dnu_scales[dnu] = dnu_rescal
 
-    inputparams["dnu_scales"] = dnu_scales
-
     print("Done!")
-    return inputparams
+    #TODO What would a better, more elegant output be?
+    #TODO Can this function be simplified a bit?
+    return dnu_scales
 
 
 def prepare_obs(inputparams, verbose=False, debug=False):

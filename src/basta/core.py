@@ -14,6 +14,8 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, List, Callable
 from pathlib import Path
 
+from basta import constants
+
 
 @dataclass
 class DistanceParameters:
@@ -24,6 +26,7 @@ class DistanceParameters:
     # Can be combined in dict called magnitudes
     magnitudes : Dict[str, List[float]]
     coordinates : Dict[str, Any]
+    # TODO why is parallax here? should it be in star.fitparams?
     parallax : List[float]
     EBV : List[Any]
 
@@ -183,19 +186,17 @@ class InferenceSettings:
 
     gridfile: str
     seed: int
-    solarmodel: str
-    numsun: float
-    dnusun: float
     limits: dict[str, Any]
 
+    solarvalues : Dict[str, float]#  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
+    # TODO This is being used as a bool in utils_seismic
+    solarmodel: str = ""
     gridid: bool | tuple = False
 
     usebayw: bool = True
 
     priors: tuple = (None,)
     
-    # Distances
-    usegaussianmagnitudes: bool = False
 
 
 @dataclass

@@ -72,6 +72,7 @@ class GridHeader(TypedDict):
 class GridInfo(TypedDict):
     entryname: str
     defaultpath: str
+    #TODO this could have a better name
     difsolarmodel: Union[int, None]
 
 
