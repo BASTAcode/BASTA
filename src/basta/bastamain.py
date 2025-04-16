@@ -537,12 +537,12 @@ def BASTA(
         starid=star.starid,
         selectedmodels=selectedmodels,
         Grid=Grid,
-        inputparams=inputparams,
+        gridinfo=gridinfo,
+        dnu_scales=dnu_scales,
+        star=star,
         filepaths=filepaths,
-        gridtype=gridheader["gridtype"],
-        debug=outputoptions.debug,
-        developermode=outputoptions.developermode,
-        validationmode=outputoptions.validationmode,
+        outputoptions=outputoptions,
+        plotconfig=plotconfig,
     )
 
     # Collect additional output for plotting and saving

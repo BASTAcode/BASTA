@@ -35,12 +35,12 @@ def compute_posterior(
     starid,
     selectedmodels,
     Grid,
-    inputparams,
+    gridheader: utils.GridHeader,
+    dnu_scales: dict,
+    star: core.Star,
     filepaths: core.FilePaths,
-    gridtype,
-    debug=False,
-    developermode=False,
-    validationmode=False,
+    outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
     compareinputoutput=False,
 ):
     """
@@ -67,31 +67,34 @@ def compute_posterior(
         If True, assume a validation run with changed behaviour
     """
     # Load setings
-    asciifile = inputparams.get("asciioutput")
-    asciifile_dist = inputparams.get("asciioutput_dist")
-    centroid = inputparams["centroid"]
-    uncert = inputparams["uncert"]
-    plottype = inputparams["plotfmt"]
+    asciifile = filepaths.resultfile
+    asciifile_dist = filepaths.distance_resultfile
+    centroid = outputoptions.centroid
+    uncert = outputoptions.uncert
+    plottype = filepaths.plotfmt
 
+    # TODO Do we need this?
     # Lists of params (copy to avoid problems when running multiple stars)
-    outparams = deepcopy(inputparams["asciiparams"])
-    cornerplots = deepcopy(inputparams["cornerplots"])
+    outparams = deepcopy(outputoptions.asciiparams)
+    cornerplots = deepcopy(plotconfig.cornerplots)
     params = util.unique_unsort(outparams + cornerplots)
 
     # List of params for plotting
-    kielplots = inputparams["kielplots"]
-    fitparams = inputparams["fitparams"]
+    kielplots = plotconfig.kielplots
+    fitparams = star.fitparams
+    # TODO Do we need this?
     fitpar_kiel = copy.deepcopy(fitparams)
 
+    # TODO can this be simplified?
     # Initialise strings for printing
     hout = []
     out = []
     hout.append("starid")
-    out.append(starid)
+    out.append(star.starid)
     hout_dist = []
     out_dist = []
     hout_dist.append("starid")
-    out_dist.append(starid)
+    out_dist.append(star.starid)
 
     # Generate PDF values
     logy = np.concatenate([ts.logPDF for ts in selectedmodels.values()])
@@ -108,7 +111,7 @@ def compute_posterior(
     p = np.exp(lk - np.log(np.sum(np.exp(lk))))
     sampled_indices = np.random.choice(np.arange(len(p)), p=p, size=nsamples)
 
-    if debug:
+    if outputoptions.debug:
         cs = np.concatenate([ts.chi2 for ts in selectedmodels.values()])
         ws = np.exp(logy + 0.5 * cs[nonzeroprop])
         ws /= np.sum(ws)
@@ -118,6 +121,7 @@ def compute_posterior(
         wsampled_indices = np.random.choice(np.arange(len(ws)), p=ws, size=nsamples)
 
     # Corner plot kwargs
+    # TODO This should be part of plotconfig or something similar
     ckwargs = {
         "show_titles": True,
         "quantiles": statdata.quantiles,
@@ -125,13 +129,14 @@ def compute_posterior(
         "smooth1d": "kde",
         "title_kwargs": {"fontsize": 10},
         "plot_datapoints": False,
-        "uncert": uncert,
+        "uncert": outputoptions.uncert,
     }
 
+    # TODO This can be simplified
     # Compute distance posterior
     if "distance" in params:
-        distanceparams = inputparams["distanceparams"]
-        ms = list(distanceparams["filters"])
+        distanceparams = star.distanceparams
+        ms = distanceparams.magnitudes.keys()
         d_samples = np.zeros((nsamples, 2 * (len(ms) + 1)))
         LOS_EBV = get_EBV_along_LOS(distanceparams)
         if "distance" in cornerplots:
@@ -183,7 +188,7 @@ def compute_posterior(
             util.printparam(
                 "A(" + m + ")", Acen, Astdm, Astdp, uncert=uncert, centroid=centroid
             )
-            if "distance" in cornerplots and uncert == "quantiles":
+            if "distance" in cornerplots and outputoptions.uncert == "quantiles":
                 plotout[6 * idm : 6 * idm + 3] = [xcen, xstdp - xcen, xcen - xstdm]
                 plotout[6 * idm + 3 : 6 * idm + 6] = [Acen, Astdp - Acen, Acen - Astdm]
             elif "distance" in cornerplots:
@@ -330,12 +335,11 @@ def compute_posterior(
 
     # Allocate arrays
     samples = np.zeros((nsamples, len(cornerplots)))
-    if debug:
+    if outputoptions.debug:
         lsamples = np.zeros((nsamples, len(cornerplots)))
         wsamples = np.zeros((nsamples, len(cornerplots)))
     plotin = np.ones(2 * len(cornerplots)) * -9999
     plotout = np.zeros(3 * len(cornerplots))
-    dnu_scales = inputparams.get("dnu_scales", {})
     for numpar, param in enumerate(params):
         # Generate list of x values
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
@@ -343,19 +347,20 @@ def compute_posterior(
         # Scale back to muHz before output/plot
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
             dnu_rescal = dnu_scales.get(param, 1.00)
-            x *= inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+            x *= inferencesettings.solarvalues["dnu"] / dnu_rescal
             if param in fitparams:
                 fitparams[param] = (
                     np.asarray(fitparams[param])
-                    * inputparams.get("dnusun", sydc.SUNdnu)
+                    * inferencesettings.solarvalues["dnu"]
                     / dnu_rescal
                 )
 
         elif param.startswith("numax"):
-            x *= inputparams.get("numsun", sydc.SUNnumax)
+            x *= inferencesettings.solarvalues["numax"]
             if param in fitparams:
-                fitparams[param] = np.asarray(fitparams[param]) * inputparams.get(
-                    "numsun", sydc.SUNnumax
+                fitparams[param] = (
+                    np.asarray(fitparams[param])
+                    * inferencesettings.solarvalues["numax"]
                 )
         elif param in ["dnufit", "dnufitMos12"]:
             dnu_rescal = dnu_scales.get(param, 1.00)
@@ -379,7 +384,7 @@ def compute_posterior(
                 xin, stdin = fitparams[param]
                 plotin[2 * idx : 2 * idx + 2] = [xin, stdin]
             samples[:, idx] = x[nonzeroprop][sampled_indices]
-            if debug:
+            if outputoptions.debug:
                 lsamples[:, idx] = x[nonzeroprop][lsampled_indices]
                 wsamples[:, idx] = x[nonzeroprop][wsampled_indices]
             if uncert == "quantiles":
@@ -452,7 +457,7 @@ def compute_posterior(
                     )
 
     # Compare input to output and produce a comparison plot
-    if compareinputoutput | developermode:
+    if compareinputoutput | outputoptions.developermode:
         comparewarn = util.compare_output_to_input(
             starid, inputparams, hout, out, hout_dist, out_dist, uncert=uncert
         )
@@ -463,7 +468,9 @@ def compute_posterior(
             )
             if not len(kielplots):
                 print("DEBUG: make Kiel diagram due to warning")
-                library_param = "massini" if "tracks" in gridtype.lower() else "age"
+                library_param = (
+                    "massini" if "tracks" in gridheader["gridtype"].lower() else "age"
+                )
                 x = util.get_parameter_values(
                     library_param, Grid, selectedmodels, noofind
                 )
@@ -496,11 +503,11 @@ def compute_posterior(
                         feh_interval=feh_interval,
                         Teffout=Teffout,
                         loggout=loggout,
-                        gridtype=gridtype,
-                        nameinplot=starid if inputparams["nameinplot"] else False,
-                        debug=debug,
-                        developermode=developermode,
-                        validationmode=validationmode,
+                        gridtype=gridheader["gridtype"],
+                        nameinplot=starid if plotconfig.nameinplot else False,
+                        debug=outputoptions.debug,
+                        developermode=outputoptions.developermode,
+                        validationmode=outputoptions.validationmode,
                     )
                     filepaths.save_plot(fig, kind="_warn_kiel")
                     plt.close()
@@ -517,14 +524,14 @@ def compute_posterior(
                 truth_color=parameters.get_keys(cornerplots)[3],
                 plotin=plotin,
                 plotout=plotout,
-                nameinplot=starid if inputparams["nameinplot"] else False,
+                nameinplot=starid if plotconfig.nameinplot else False,
                 **ckwargs,
             )
             filepaths.save_plot(fig, kind="_corner")
             plt.close()
         except Exception as error:
             print("Corner plot failed with the error:", error)
-        if debug:
+        if outputoptions.debug:
             try:
                 fig = plt.figure()
                 plot_corner.corner(
@@ -533,7 +540,7 @@ def compute_posterior(
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
-                    nameinplot=starid if inputparams["nameinplot"] else False,
+                    nameinplot=starid if plotconfig.nameinplot else False,
                     **ckwargs,
                 )
                 filepaths.save_plot(fig, kind="_likelihood_corner")
@@ -547,7 +554,7 @@ def compute_posterior(
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
-                    nameinplot=starid if inputparams["nameinplot"] else False,
+                    nameinplot=starid if plotconfig.nameinplot else False,
                     **ckwargs,
                 )
                 filepaths.save_plot(fig, kind="_prior_corner")
@@ -558,7 +565,9 @@ def compute_posterior(
     # Create Kiel diagram
     if len(kielplots):
         # Find quantiles of massini/age and FeH to determine what tracks to plot
-        library_param = "massini" if "tracks" in gridtype.lower() else "age"
+        library_param = (
+            "massini" if "tracks" in gridheader["gridtype"].lower() else "age"
+        )
         x = util.get_parameter_values(library_param, Grid, selectedmodels, noofind)
         lp_interval = np.quantile(
             x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
@@ -587,11 +596,11 @@ def compute_posterior(
                 feh_interval=feh_interval,
                 Teffout=Teffout,
                 loggout=loggout,
-                gridtype=gridtype,
-                nameinplot=starid if inputparams["nameinplot"] else False,
-                debug=debug,
-                developermode=developermode,
-                validationmode=validationmode,
+                gridtype=gridheader["gridtype"],
+                nameinplot=starid if plotconfig.nameinplot else False,
+                debug=outputoptions.debug,
+                developermode=outputoptions.developermode,
+                validationmode=outputoptions.validationmode,
                 color_by_likelihood=False,
             )
             filepaths.save_plot(fig, kind="_kiel")
@@ -600,7 +609,7 @@ def compute_posterior(
             print("Kiel diagram failed with the error:", error)
             raise
 
-    if debug and len(inputparams["magnitudes"]) > 0:
+    if outputoptions.debug and len(inputparams["magnitudes"]) > 0:
         print("Make normalised distribution plot of terms in PDF computation")
         mins = []
         bayw = np.concatenate([ts.bayw for ts in selectedmodels.values()])

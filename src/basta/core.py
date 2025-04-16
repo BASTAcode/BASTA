@@ -24,11 +24,12 @@ class DistanceParameters:
     # m: Dict[str, float]
     # m_err: Dict[str, float]
     # Can be combined in dict called magnitudes
-    magnitudes : Dict[str, List[float]]
-    coordinates : Dict[str, Any]
+    magnitudes: Dict[str, List[float]]
+    coordinates: Dict[str, Any]
     # TODO why is parallax here? should it be in star.fitparams?
-    parallax : List[float]
-    EBV : List[Any]
+    parallax: List[float]
+    EBV: List[Any]
+
 
 @dataclass
 class Magnitude:
@@ -37,35 +38,37 @@ class Magnitude:
     errp: float
     errm: float
 
+
 @dataclass
 class Frequencies:
     # TODO Currently this is the content of fitfreqs.
     # I think a lot of clean up can be done here.
-    active : bool
-    fittypes : List[str]
-    freqpath : str
-    freqfile : str 
-    dnufit : float
-    dnufit_err : float
-    numax : float
-    fcor : str
-    seismicweights : Dict[str, Any]
-    bexp : None | float = None
-    correlations : bool | int = False
-    nrealizations : int = 10000
-    threepoint : bool | int = False
-    readratios : bool | int = False
-    dnufrac : float = 0.15
-    dnufit_in_ratios : bool | int = False
-    interp_ratios : bool | int = True
-    nsorting : bool | int = True
-    dnuprior : bool | int = True
-    dnubias : float = 0.0
-    glitchfit : bool = False
-    glitchfile : str | None = None
-    nottrustedfile : str | None = None
+    active: bool
+    fittypes: List[str]
+    freqpath: str
+    freqfile: str
+    dnufit: float
+    dnufit_err: float
+    numax: float
+    fcor: str
+    seismicweights: Dict[str, Any]
+    bexp: None | float = None
+    correlations: bool | int = False
+    nrealizations: int = 10000
+    threepoint: bool | int = False
+    readratios: bool | int = False
+    dnufrac: float = 0.15
+    dnufit_in_ratios: bool | int = False
+    interp_ratios: bool | int = True
+    nsorting: bool | int = True
+    dnuprior: bool | int = True
+    dnubias: float = 0.0
+    glitchfit: bool = False
+    glitchfile: str | None = None
+    nottrustedfile: str | None = None
     excludemodes: bool | None = None
     onlyradial: bool | None = None
+
 
 @dataclass
 class Star:
@@ -88,6 +91,7 @@ class Star:
 
     distanceparams: DistanceParameters = field(default_factory=DistanceParameters)
     apparentmagnitudes: Dict[str, Magnitude] = field(default_factory=dict)
+
 
 @dataclass
 class FilePaths:
@@ -134,7 +138,11 @@ class FilePaths:
 
     @property
     def resultfile(self) -> Path:
-        return self.base.with_suffix(".txt")
+        return self.base.with_suffix(".ascii")
+
+    @property
+    def distance_resultfile(self) -> Path:
+        return self.base.with_suffix("_dist.ascii")
 
     @property
     def plotfile_template(self) -> str:
@@ -188,7 +196,9 @@ class InferenceSettings:
     seed: int
     limits: dict[str, Any]
 
-    solarvalues : Dict[str, float]#  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
+    solarvalues: Dict[
+        str, float
+    ]  #  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
     # TODO This is being used as a bool in utils_seismic
     solarmodel: str = ""
     gridid: bool | tuple = False
@@ -196,7 +206,6 @@ class InferenceSettings:
     usebayw: bool = True
 
     priors: tuple = (None,)
-    
 
 
 @dataclass
