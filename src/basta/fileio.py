@@ -310,6 +310,7 @@ def read_freq(
     filename: str,
     excludemodes: str | None = None,
     onlyradial: bool = False,
+    flag_onlyls: list[int] = [],
     covarfre: bool = False,
 ) -> tuple[np.array, np.array, np.array]:
     """
@@ -376,15 +377,16 @@ def read_freq(
                 )
                 obskey = obskey[:, ~nottrustedmask]
                 obs = obs[:, ~nottrustedmask]
-    if onlyradial:
-        for l in [1, 2, 3]:
-            nottrustedmask = obskey[0] == l
-            print(
-                *(f"Removed mode at {x} µHz" for x in obs[:, nottrustedmask][0]),
-                sep="\n",
-            )
-            obskey = obskey[:, ~nottrustedmask]
-            obs = obs[:, ~nottrustedmask]
+    if flag_onlyls or onlyradial:
+        if onlyradial:
+            flag_onlyls = [
+                0,
+            ]
+        assert all(isinstance(x, int) for x in flag_onlyls)
+        onlylsmask = np.isin(obskey[0], flag_onlyls)
+        print("\n".join(f"Removed mode at {x} µHz" for x in obs[:, ~onlylsmask][0]))
+        obskey = obskey[:, onlylsmask]
+        obs = obs[:, onlylsmask]
 
     if covarfre:
         corrfre, covarfreq = _read_freq_cov_xml(filename, obskey)
@@ -801,6 +803,7 @@ def read_allseismic(
             fitfreqs["freqfile"],
             excludemodes=fitfreqs["excludemodes"],
             onlyradial=fitfreqs["onlyradial"],
+            flag_onlyls=fitfreqs["onlyls"],
             covarfre=True,
         )
     else:
@@ -808,6 +811,7 @@ def read_allseismic(
             fitfreqs["freqfile"],
             excludemodes=fitfreqs["excludemodes"],
             onlyradial=fitfreqs["onlyradial"],
+            flag_onlyls=fitfreqs["onlyls"],
             covarfre=False,
         )
 

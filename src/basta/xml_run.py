@@ -777,11 +777,26 @@ def run_xml(
                     )
                 else:
                     fitfreqs["glhfile"] = None
-                for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
-                    try:
-                        fitfreqs[fp] = star.find(fp).get("value")
-                    except AttributeError:
-                        fitfreqs[fp] = None
+                try:
+                    fitfreqs["nottrustedfile"] = star.find("nottrustedfile").get(
+                        "value"
+                    )
+                except AttributeError:
+                    fitfreqs["nottrustedfile"] = None
+                try:
+                    fitfreqs["excludemodes"] = star.find("excludemodes").get("value")
+                except AttributeError:
+                    fitfreqs["excludemodes"] = None
+                try:
+                    fitfreqs["onlyradial"] = star.find("onlyradial").get("value")
+                except AttributeError:
+                    fitfreqs["onlyradial"] = None
+                try:
+                    onlyls = star.find("onlyls").get("value")
+                    assert isinstance(onlyls, str)
+                    fitfreqs["onlyls"] = list(map(int, onlyls.split(",")))
+                except AttributeError:
+                    fitfreqs["onlyls"] = None
 
                 # dnufit for prior, numax for scaling
                 fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
