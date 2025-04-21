@@ -4,9 +4,9 @@ This module contains general purpose functions that are utilized throughout BAST
 
 import sys
 import time
-import h5py
+import h5py  # type: ignore[import]
 from io import IOBase
-from typing import NamedTuple, Union, IO, TypedDict
+from typing import NamedTuple, Union, IO, TypedDict, Sequence
 from collections import namedtuple
 
 import numpy as np
@@ -151,7 +151,7 @@ def check_gridtype(
 
     elif "isochrones" in gridtype:
         if not gridid or not isinstance(gridid, Sequence) or len(gridid) != 4:
-            raise GridTypeError(
+            raise errors.GridTypeError(
                 "Missing or invalid `gridid`. Expected tuple of (ove, dif, eta, alphaFe)."
             )
 
@@ -164,14 +164,14 @@ def check_gridtype(
         }
 
     else:
-        raise error.GridTypeError(
+        raise errors.GridTypeError(
             f"Gridtype '{gridtype}' not supported. Must be 'tracks' or 'isochrones'."
         )
 
 
 def get_grid(
     inferencesettings: core.InferenceSettings,
-) -> (h5py.File, GridHeader, GridInfo):
+) -> tuple[h5py.File, GridHeader, GridInfo]:
     """
     Convenience wrapper to extract all required metadata from a grid.
     """
@@ -233,7 +233,7 @@ def prepare_distancefitting(
     filepaths: core.FilePaths,
     outputoptions: core.OutputOptions,
     allparams: list[str],
-) -> tuple[dict, list[str]]:
+) -> tuple[distances.AbsoluteMagnitudes, list[str]]:
     # Add magnitudes and colors to fitparams if fitting distance
     absolutmagnitudes = distances.add_absolute_magnitudes(
         star=star,
@@ -245,9 +245,7 @@ def prepare_distancefitting(
     # TODO: Why? I think we need a better overview of what is being fitted than this
     # If keyword present, add individual filters
     if "distance" in allparams:
-        allparams = list(
-            np.unique(allparams + inputparams["distanceparams"]["filters"])
-        )
+        allparams = list(np.unique(allparams + list(star.apparentmagnitudes.keys())))
         allparams.remove("distance")
     return absolutmagnitudes, allparams
 
@@ -264,7 +262,7 @@ def print_fitparams(fitparams: dict) -> None:
         print(f"  - {fpstr}: {fitparams[fp]}")
 
 
-def print_seismic(fitfreqs: dict, obskey: np.array, obs: np.array) -> None:
+def print_seismic(fitfreqs: dict, obskey: np.ndarray, obs: np.ndarray) -> None:
     # Fitting info: Frequencies
     if not fitfreqs["active"]:
         return
@@ -443,7 +441,7 @@ class Logger(object):
 
 def list_metallicities(
     Grid: h5py.File, gridinfo: GridInfo, inferencesettings: core.InferenceSettings
-) -> range:
+) -> np.ndarray:
     """
     Get a list of metallicities in the grid that we loop over
 
@@ -465,12 +463,13 @@ def list_metallicities(
         `bastamain`.
     """
     if "grid" in gridinfo["defaultpath"]:
-        metal = range(1)
+        return np.asarray((range(1)))
     else:
-        metal = [x for x in Grid[gridinfo["defaultpath"]].items() if "=" in x[0]]
-        for i in range(len(metal)):
-            metal[i] = float(metal[i][0][4:])
-        metal = np.asarray(metal)
+        metallist = []
+        metalstr = [x for x in Grid[gridinfo["defaultpath"]].items() if "=" in x[0]]
+        for i in range(len(metalstr)):
+            metallist.append(float(metalstr[i][0][4:]))
+        metal = np.asarray(metallist)
 
         limits = inferencesettings.limits
         metal_name = "MeH" if "MeH" in limits else "FeH"
@@ -590,10 +589,10 @@ def compare_output_to_input(
         print("with sigma differences of")
         print(sigmas)
         if isinstance(warnfile, IOBase):
-            warnfile.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+            warnfile.write("{}\t{}\t{}\n".format(star.starid, ps, sigmas))
         else:
             with open(warnfile, "a") as wf:
-                wf.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+                wf.write("{}\t{}\t{}\n".format(star.starid, ps, sigmas))
 
     return comparewarn
 
@@ -759,7 +758,7 @@ def flush_all(*files: Union[IO, None]) -> None:
             f.flush()
 
 
-def h5py_to_array(xs) -> np.array:
+def h5py_to_array(xs) -> np.ndarray:
     """
     Copy vector/dataset from an HDF5 file to a NumPy array
 
