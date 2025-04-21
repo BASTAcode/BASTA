@@ -11,27 +11,26 @@ components for the application's logic, inference processes, and internal commun
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Dict, List, Callable
+from typing import Any
+from collections.abc import Callable
 from pathlib import Path
 
-from basta import constants
 
-
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class DistanceParameters:
     # could just be keys in obs that are not 'parallax' or 'EBV
     # filters: List[str]
     # m: Dict[str, float]
     # m_err: Dict[str, float]
     # Can be combined in dict called magnitudes
-    magnitudes: Dict[str, List[float]]
-    coordinates: Dict[str, Any]
+    magnitudes: dict[str, list[float]]
+    coordinates: dict[str, Any]
     # TODO why is parallax here? should it be in star.fitparams?
-    parallax: List[float]
-    EBV: List[Any]
+    parallax: list[float]
+    EBV: list[Any]
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class Magnitude:
     prior: Callable[[float], float]
     median: float
@@ -39,19 +38,19 @@ class Magnitude:
     errm: float
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class Frequencies:
     # TODO Currently this is the content of fitfreqs.
     # I think a lot of clean up can be done here.
     active: bool
-    fittypes: List[str]
+    fittypes: list[str]
     freqpath: str
     freqfile: str
     dnufit: float
     dnufit_err: float
     numax: float
     fcor: str
-    seismicweights: Dict[str, Any]
+    seismicweights: dict[str, Any]
     bexp: None | float = None
     correlations: bool | int = False
     nrealizations: int = 10000
@@ -70,7 +69,7 @@ class Frequencies:
     onlyradial: bool | None = None
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class Star:
     """
     Main class containing star-specific information.
@@ -90,10 +89,10 @@ class Star:
     fitfreqs: dict[str, Any]  # specifically individual frequencies
 
     distanceparams: DistanceParameters = field(default_factory=DistanceParameters)
-    apparentmagnitudes: Dict[str, Magnitude] = field(default_factory=dict)
+    apparentmagnitudes: dict[str, Magnitude] = field(default_factory=dict)
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class FilePaths:
     """
     Main class containing, handling, and managing all relevant file paths for a single BASTA run.
@@ -104,23 +103,22 @@ class FilePaths:
     """
 
     star: Star
-    outputdir: Path
+    outputdir: str
     inputfile: str
     warnoutput: str
     erroroutput: str
     plotfmt: str
 
     def __post_init__(self):
-        self.outputdir = Path(self.outputdir)
-        self.outputdir.mkdir(parents=True, exist_ok=True)
+        Path(self.outputdir).mkdir(parents=True, exist_ok=True)
 
     @property
     def base(self) -> Path:
-        return self.outputdir / self.star.starid
+        return Path(self.outputdir) / self.star.starid
 
     @property
     def extradirectory(self) -> Path:
-        path = self.outputdir / "debug"
+        path = Path(self.outputdir) / "debug"
         path.mkdir(parents=True, exist_ok=True)
         return path
 
@@ -142,7 +140,7 @@ class FilePaths:
 
     @property
     def distance_resultfile(self) -> Path:
-        return self.base.with_suffix("_dist.ascii")
+        return Path(self.outputdir) / f"{self.star.starid}_dist.ascii"
 
     @property
     def plotfile_template(self) -> str:
@@ -175,7 +173,7 @@ class FilePaths:
         return path
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class InferenceSettings:
     """
     Main class containing settings used for the inference in a given BASTA run.
@@ -196,7 +194,7 @@ class InferenceSettings:
     seed: int
     limits: dict[str, Any]
 
-    solarvalues: Dict[
+    solarvalues: dict[
         str, float
     ]  #  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
     # TODO This is being used as a bool in utils_seismic
@@ -208,7 +206,7 @@ class InferenceSettings:
     priors: tuple = (None,)
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class OutputOptions:
     """
     Main class containing settings that affect the output files from BASTA but not the inference in itself.
@@ -238,7 +236,7 @@ class OutputOptions:
     validationmode: bool = False
 
 
-@dataclass
+@dataclass(kw_only=True, frozen=True)
 class PlotConfig:
     """
     Main class containing settings that affect the output files from BASTA but not the inference in itself.

@@ -19,13 +19,13 @@ except:
 
 
 def compute_observed_glitches(
-    osckey: np.array,
-    osc: np.array,
+    osckey: np.ndarray,
+    osc: np.ndarray,
     sequence: str,
     dnu: float,
     fitfreqs: dict,
     debug=False,
-) -> tuple[np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Routine to compute glitch parameters (and ratios) with full covariance
     matrix using MC sampling.
@@ -77,14 +77,14 @@ def compute_observed_glitches(
 
 
 def compute_glitchseqs(
-    osckey: np.array,
-    osc: np.array,
+    osckey: np.ndarray,
+    osc: np.ndarray,
     sequence: str,
     dnu: float,
     fitfreqs: dict,
     ac_depths: bool = False,
     debug: bool = False,
-) -> np.array:
+) -> np.ndarray:
     """
     Routine to compute glitch parameters of given frequencies, based
     on the given method options.

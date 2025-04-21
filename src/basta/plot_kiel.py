@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib
 import matplotlib.collections
 
-from basta import stats
+from basta import stats, core
 from basta import fileio as fio
 from basta import utils_seismic as su
 from basta import utils_general as gu

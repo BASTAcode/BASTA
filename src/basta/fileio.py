@@ -4,7 +4,7 @@ Auxiliary functions for file operations
 
 import os
 import json
-import h5py
+import h5py  # type: ignore[import]
 import warnings
 import numpy as np
 from io import IOBase
@@ -13,7 +13,7 @@ from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement, tostring
 from xml.dom import minidom
 
-from basta import stats, freq_fit, glitch_fit
+from basta import stats, freq_fit, glitch_fit, core
 from basta import utils_seismic as su
 from basta import utils_general as util
 from basta.constants import freqtypes
@@ -66,21 +66,19 @@ def write_star_to_errfile(starid: str, filepaths: core.FilePaths, errormessage: 
     ----------
     starid : str
         Unique identifier for this target.
-    inputparams : dict
-        Dictionary of all controls and input.
     errormessage : str
         String explaining error which will be written to the .err-file
     """
-    errfile = filepaths.erroutput
-
-    if isinstance(errfile, IOBase):
-        errfile.write("{}\t{}\n".format(starid, errormessage))
-    else:
-        with open(errfile, "a") as ef:
-            ef.write("{}\t{}\n".format(starid, errormessage))
+    with open(filepaths.erroroutput, "a") as ef:
+        ef.write("{}\t{}\n".format(starid, errormessage))
 
 
-def no_models(starid: str, inputparams: dict, errormessage: str):
+def no_models(
+    star: core.Star,
+    filepaths: core.FilePaths,
+    outputoptions: core.OutputOptions,
+    errormessage: str,
+) -> None:
     """
     If no models are found in the grid, create an outputfile with nans (for consistency reasons).
 
@@ -90,16 +88,14 @@ def no_models(starid: str, inputparams: dict, errormessage: str):
     ----------
     starid : str
         Unique identifier for this target.
-    inputparams : dict
-        Dictionary of all controls and input.
     errormessage : str
         String explaining error which will be written to the .err-file
     """
 
     # Extract the output parameters
-    asciifile = inputparams.get("asciioutput")
-    asciifile_dist = inputparams.get("asciioutput_dist")
-    params = deepcopy(inputparams["asciiparams"])
+    asciifile = filepaths.resultfile
+    asciifile_dist = filepaths.distance_resultfile
+    params = deepcopy(outputoptions.asciiparams)
 
     # Init vectors and add the Star ID
     hout = []
@@ -107,17 +103,14 @@ def no_models(starid: str, inputparams: dict, errormessage: str):
     hout_dist = []
     out_dist = []
     hout.append("starid")
-    out.append(starid)
+    out.append(star.starid)
     hout_dist.append("starid")
-    out_dist.append(starid)
-    uncert = inputparams.get("uncert")
+    out_dist.append(star.starid)
+    uncert = outputoptions.uncert
 
     # The distance parameters
     if "distance" in params:
-        distanceparams = inputparams["distanceparams"]
-        ms = list(distanceparams["filters"])
-
-        for m in ms:
+        for m in star.distanceparams.magnitudes.keys():
             hout_dist, out_dist = util.add_out(
                 hout_dist, out_dist, "distance_" + m, np.nan, np.nan, np.nan, uncert
             )
@@ -142,70 +135,31 @@ def no_models(starid: str, inputparams: dict, errormessage: str):
         hout, out = util.add_out(hout, out, param, np.nan, np.nan, np.nan, uncert)
 
     # Write to file
-    if asciifile is not False:
-        hline = b"# "
-        for i in range(len(hout)):
-            hline += hout[i].encode() + " ".encode()
-
-        if isinstance(asciifile, IOBase):
-            asciifile.seek(0)
-            if b"#" not in asciifile.readline():
-                asciifile.write(hline + b"\n")
-            np.savetxt(
-                asciifile, np.asarray(out).reshape(1, len(out)), fmt="%s", delimiter=" "
-            )
-            print("Saved results to " + asciifile.name + ".")
-        elif asciifile is False:
-            pass
-        else:
-            np.savetxt(
-                asciifile,
-                np.asarray(out).reshape(1, len(out)),
-                fmt="%s",
-                header=hline,
-                delimiter=" ",
-            )
-            print("Saved results to " + asciifile + ".")
+    np.savetxt(
+        asciifile,
+        np.asarray(out).reshape(1, len(out)),
+        fmt="%s",
+        header=f"# {' '.join(hout)} ",
+        delimiter=" ",
+    )
+    print(f"Saved results to {asciifile}.")
 
     # Write to file
-    if asciifile_dist:
-        hline = b"# "
-        for i in range(len(hout_dist)):
-            hline += hout_dist[i].encode() + " ".encode()
+    np.savetxt(
+        asciifile_dist,
+        np.asarray(out_dist).reshape(1, len(out_dist)),
+        fmt="%s",
+        header=f"# {' '.join(hout_dist)} ",
+        delimiter=" ",
+    )
+    print(f"Saved distance results for different filters to {asciifile_dist}.")
 
-        if isinstance(asciifile_dist, IOBase):
-            asciifile_dist.seek(0)
-            if b"#" not in asciifile_dist.readline():
-                asciifile_dist.write(hline + b"\n")
-            np.savetxt(
-                asciifile_dist,
-                np.asarray(out_dist).reshape(1, len(out_dist)),
-                fmt="%s",
-                delimiter=" ",
-            )
-            print(
-                "Saved distance results for different filters to "
-                + asciifile_dist.name
-                + "."
-            )
-        else:
-            np.savetxt(
-                asciifile_dist,
-                np.asarray(out_dist).reshape(1, len(out_dist)),
-                fmt="%s",
-                header=hline,
-                delimiter=" ",
-            )
-            print(
-                "Saved  distance results for different filters to "
-                + asciifile_dist
-                + "."
-            )
-
-    write_star_to_errfile(starid, inputparams, errormessage)
+    write_star_to_errfile(star.starid, filepaths, errormessage)
 
 
-def read_freq_xml(filename: str) -> tuple[np.array, np.array, np.array, np.array]:
+def read_freq_xml(
+    filename: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Read frequencies from an xml file
 
@@ -226,30 +180,39 @@ def read_freq_xml(filename: str) -> tuple[np.array, np.array, np.array, np.array
         Angular degree
     """
 
-    # Parse the XML file:
-    tree = ElementTree.parse(filename)
-    root = tree.getroot()
+    frequencies = []
+    errors = []
+    orders = []
+    degrees = []
 
-    # Find a list of all the frequency ratios:
-    freq_modes = root.findall("mode")
+    for mode in ElementTree.parse(filename).getroot().findall("mode"):
 
-    # Simply get the orders and frequency ratios as numpy arrays:
-    orders = np.array(
-        [mode.find("order").get("value") for mode in freq_modes], dtype=int
+        def _get_element_attrib(element: str, attrib: str) -> str:
+            e = mode.find(element)
+            if e is None:
+                error = f"mode has no XML element <{element}/>"
+                raise Exception(error)
+            v = e.get(attrib)
+            if v is None:
+                error = f"mode has no XML attribute <{element} {attrib}=.../>"
+                raise Exception(error)
+            return v
+
+        frequencies.append(float(_get_element_attrib("frequency", "value")))
+        errors.append(float(_get_element_attrib("frequency", "error")))
+        orders.append(int(_get_element_attrib("order", "value")))
+        degrees.append(int(_get_element_attrib("degree", "value")))
+    return (
+        np.asarray(frequencies),
+        np.asarray(errors),
+        np.asarray(orders),
+        np.asarray(degrees),
     )
-    degrees = np.array(
-        [mode.find("degree").get("value") for mode in freq_modes], dtype=int
-    )
-    errors = np.array(
-        [mode.find("frequency").get("error") for mode in freq_modes], dtype="float64"
-    )
-    frequencies = np.array(
-        [mode.find("frequency").get("value") for mode in freq_modes], dtype="float64"
-    )
-    return frequencies, errors, orders, degrees
 
 
-def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.array]:
+def _read_freq_cov_xml(
+    filename: str, obskey: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Read frequency covariances from xml-file
 
@@ -283,9 +246,9 @@ def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.ar
         id1 = mode1.get("id")
         column = root.findall("frequency_corr[@id1='%s']" % id1)
         if not len(column):
-            errmsg = "Correlations in frequency fit requested, but not pr"
-            errmsg += "ovided! If not available, set 'correlations=False'."
-            raise KeyError(errmsg)
+            raise KeyError(
+                "Frequency fit correlations not provided - set correlations=False"
+            )
         # Loop over possible all modes again
         for j, mode2 in enumerate(freqs):
             id2 = mode2.get("id")
@@ -297,11 +260,19 @@ def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.ar
                     n2 = int(mode2.find("order").get("value"))
                     l2 = int(mode2.find("degree").get("value"))
 
-                    i = np.where(np.logical_and(obskey[0, :] == l1, obskey[1, :] == n1))
-                    j = np.where(np.logical_and(obskey[0, :] == l2, obskey[1, :] == n2))
+                    ii = np.where(
+                        np.logical_and(obskey[0, :] == l1, obskey[1, :] == n1)
+                    )
+                    jj = np.where(
+                        np.logical_and(obskey[0, :] == l2, obskey[1, :] == n2)
+                    )
 
-                    corr[i, j] = corr[j, i] = row.find("correlation").get("value")
-                    cov[i, j] = cov[j, i] = row.find("covariance").get("value")
+                    correlation = row.find("correlation")
+                    assert correlation is not None
+                    covariance = row.find("covariance")
+                    assert covariance is not None
+                    corr[ii, jj] = corr[jj, ii] = correlation.get("value")
+                    cov[ii, jj] = cov[jj, ii] = covariance.get("value")
                     break
     return corr, cov
 
@@ -311,7 +282,7 @@ def read_freq(
     excludemodes: str | None = None,
     onlyradial: bool = False,
     covarfre: bool = False,
-) -> tuple[np.array, np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Routine to extract the frequencies in the desired n-range, and the
     corresponding covariance matrix
@@ -345,29 +316,30 @@ def read_freq(
     f = np.asarray([])
     n = np.asarray([])
     e = np.asarray([])
-    l = np.asarray([])
+    ell = np.asarray([])
     for li in [0, 1, 2]:
         given_l = ldegree == li
         incrn = np.argsort(norder[given_l], kind="mergesort")
-        l = np.concatenate([l, ldegree[given_l][incrn]])
+        ell = np.concatenate([ell, ldegree[given_l][incrn]])
         n = np.concatenate([n, norder[given_l][incrn]])
         f = np.concatenate([f, frecu[given_l][incrn]])
         e = np.concatenate([e, errors[given_l][incrn]])
-    assert len(f) == len(n) == len(e) == len(l)
-    obskey = np.asarray([l, n], dtype=int)
+    assert len(f) == len(n) == len(e) == len(ell)
+    obskey = np.asarray([ell, n], dtype=int)
     obs = np.array([f, e])
 
     # Remove untrusted frequencies
     if excludemodes not in [None, "", "None", "none", "False", "false"]:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            nottrustedobskey = np.genfromtxt(excludemodes, comments="#", encoding=None)
+            assert excludemodes is not None
+            nottrustedobskey = np.genfromtxt(excludemodes, comments="#")
         # If there is only one not-trusted mode, it misses a dimension
         if nottrustedobskey.size == 0:
             print("File for not-trusted frequencies was empty")
         else:
             if nottrustedobskey.shape == (2,):
-                nottrustedobskey = [nottrustedobskey]
+                nottrustedobskey = nottrustedobskey.reshape(1, 2)
             for l, n in nottrustedobskey:
                 nottrustedmask = (obskey[0] == l) & (obskey[1] == n)
                 print(
@@ -396,7 +368,7 @@ def read_freq(
 
 def _read_precomputed_glitches(
     filename: str, type: str = "glitches"
-) -> tuple[np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Read glitch parameters. If fitted together with ratios, these must be
     provided in this file as well, for covariance between them.
@@ -417,11 +389,12 @@ def _read_precomputed_glitches(
         Covariance matrix, for glitch parameters or glitch parameters
         and ratios
     """
+
     # Read datafile
     try:
         datfile = h5py.File(filename, "r")
-    except:
-        return NameError("Could not find f{filename}")
+    except Exception:
+        raise Exception(f"Could not find {filename}")
 
     # Read ratio type in file, and check that it matches requested fittype
     if type != "glitches":
@@ -439,11 +412,11 @@ def _read_precomputed_glitches(
 def _read_precomputed_ratios_xml(
     filename: str,
     ratiotype: str,
-    obskey: np.array,
-    obs: np.array,
+    obskey: np.ndarray,
+    obs: np.ndarray,
     excludemodes: str | None = None,
     correlations: bool = True,
-) -> tuple[np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Read the precomputed ratios and covariance matrix from xml-file.
 
@@ -505,7 +478,7 @@ def _read_precomputed_ratios_xml(
         mask = np.where(types == ratiotype)[0]
 
     # Pack into data structure
-    ratios = np.zeros((4, len(mask)))
+    ratios: np.ndarray = np.zeros((4, len(mask)))
     ratios[0, :] = ratval[mask]
     ratios[3, :] = orders[mask]
     ratios[2, :] = [int(r[1:]) for r in types[mask]]
@@ -531,7 +504,7 @@ def _read_precomputed_ratios_xml(
     return ratios, cov
 
 
-def _read_ratios_cov_xml(xmlroot, types: np.array, order: np.array) -> np.array:
+def _read_ratios_cov_xml(xmlroot, types: np.ndarray, order: np.ndarray) -> np.ndarray:
     """
     Read the precomputed covariance matrix of the read precomputed ratios.
 
@@ -571,11 +544,11 @@ def _read_ratios_cov_xml(xmlroot, types: np.array, order: np.array) -> np.array:
 
 
 def _make_obsfreqs(
-    obskey: np.array,
-    obs: np.array,
-    obscov: np.array,
-    allfits: list[str, ...],
-    freqplots: list[str, ...],
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    obscov: np.ndarray,
+    allfits: list[str] | tuple[str, ...],
+    freqplots: list[str] | tuple[str, ...],
     numax: float,
     debug: bool = False,
 ) -> tuple[dict, dict]:
@@ -613,11 +586,9 @@ def _make_obsfreqs(
         The requested information about which frequency products to fit or
         plot, unpacked for easier access later.
     """
-    obsfreqdata = {}
-    obsfreqmeta = {}
+    obsfreqdata: dict = {}
+    obsfreqmeta: dict = {}
 
-    allfits = np.asarray(list(allfits))
-    allplots = np.asarray(list(freqplots))
     fitratiotypes = []
     plotratiotypes = []
     fitglitchtypes = []
@@ -679,7 +650,7 @@ def _make_obsfreqs(
             plotglitchtypes = list(set(fitglitchtypes))
 
     elif len(freqplots):
-        for plot in allplots:
+        for plot in freqplots:
             # Look for ratios
             if plot in ["ratios", *freqtypes.rtypes]:
                 getratios = True
@@ -759,9 +730,10 @@ def _make_obsfreqs(
 def read_allseismic(
     fitfreqs: dict,
     freqplots: list,
+    # TODO: take outputoptions instead of verbose,debug
     verbose: bool = False,
     debug: bool = False,
-) -> tuple[np.array, np.array, dict, dict]:
+) -> tuple[np.ndarray, np.ndarray, dict, dict]:
     """
     Routine to all necesary data from individual frequencies for the
     desired fit
@@ -847,8 +819,6 @@ def read_allseismic(
                     obs,
                     ratiotype,
                     fitfreqs["excludemodes"],
-                    threepoint=fitfreqs["threepoint"],
-                    verbose=verbose,
                 )
                 obsfreqdata[ratiotype] = {}
                 obsfreqdata[ratiotype]["data"] = datos[0]
@@ -1277,7 +1247,7 @@ def freqs_ascii_to_xml(
 def _read_freq_ascii(
     filename: str,
     symmetric_errors: bool = True,
-) -> np.array:
+) -> np.ndarray:
     """
     Read individual frequencies from an ascii file
 
@@ -1297,7 +1267,7 @@ def _read_freq_ascii(
         and flag
     """
     cols = []
-    data = np.genfromtxt(filename, dtype=None, encoding=None, names=True)
+    data = np.genfromtxt(filename, dtype=None, names=True)
 
     rdict = {
         "frequency": {
@@ -1372,6 +1342,7 @@ def _read_freq_ascii(
         },
     }
 
+    assert data.dtype.names is not None
     for colname in data.dtype.names:
         param = [p for p in rdict if colname.lower() in rdict[p]["recognisednames"]]
         if not param:
@@ -1399,15 +1370,12 @@ def _read_freq_ascii(
             "BASTA is looking for asymmetric frequency uncertainties, but did not find them"
         )
 
-    freqs = np.genfromtxt(
-        filename,
-        dtype=cols,
-        encoding=None,
-    )
+    freqs = np.genfromtxt(filename, dtype=cols)
 
     if not np.any(["order" in col[0] for col in cols]):
         print("BASTA did not find column with radial orders, they will be generated")
 
+        assert data.dtype.names is not None
         freqcol = [
             col
             for col in data.dtype.names
@@ -1430,7 +1398,7 @@ def _read_freq_ascii(
     return freqs
 
 
-def _read_freq_cov_ascii(filename: str) -> np.array:
+def _read_freq_cov_ascii(filename: str) -> np.ndarray:
     """
     Read covariance and correlations for individual frequencies from an
     ascii file
@@ -1456,12 +1424,11 @@ def _read_freq_cov_ascii(filename: str) -> np.array:
             ("covariance", "float"),
             ("correlation", "float"),
         ],
-        encoding=None,
     )
     return cov
 
 
-def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.array:
+def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.ndarray:
     """
     Read frequency ratios from an ascii file
 
@@ -1490,7 +1457,6 @@ def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.array
                 ("value", "float"),
                 ("error", "float"),
             ],
-            encoding=None,
         )
     else:
         ratios = np.genfromtxt(
@@ -1503,12 +1469,11 @@ def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.array
                 ("error_plus", "float"),
                 ("error_minus", "float"),
             ],
-            encoding=None,
         )
     return ratios
 
 
-def _read_ratios_cov_ascii(filename: str) -> np.array:
+def _read_ratios_cov_ascii(filename: str) -> np.ndarray:
     """
     Read covariance and correlations for frequency ratios from an
     ascii file
@@ -1534,6 +1499,5 @@ def _read_ratios_cov_ascii(filename: str) -> np.array:
             ("covariance", "float"),
             ("correlation", "float"),
         ],
-        encoding=None,
     )
     return cov

@@ -3,7 +3,6 @@ Calculation and generation of output, and driver for producing plots
 """
 
 import os
-import copy
 from io import IOBase
 from copy import deepcopy
 
@@ -12,7 +11,6 @@ import matplotlib
 
 import basta.fileio as fio
 from basta import core
-from basta.constants import sydsun as sydc
 from basta.constants import parameters, statdata
 from basta.utils_distances import compute_distance_from_mag
 from basta.distances import get_absorption, get_EBV_along_LOS
@@ -72,7 +70,6 @@ def compute_posterior(
     asciifile_dist = filepaths.distance_resultfile
     centroid = outputoptions.centroid
     uncert = outputoptions.uncert
-    plottype = filepaths.plotfmt
 
     # TODO Do we need this?
     # Lists of params (copy to avoid problems when running multiple stars)
@@ -83,8 +80,6 @@ def compute_posterior(
     # List of params for plotting
     kielplots = plotconfig.kielplots
     fitparams = star.fitparams
-    # TODO Do we need this?
-    fitpar_kiel = copy.deepcopy(fitparams)
 
     # TODO can this be simplified?
     # Initialise strings for printing
