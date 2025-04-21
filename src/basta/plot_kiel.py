@@ -96,8 +96,8 @@ def plot_param(Grid, ax, track, all_segments, label, color):
 def kiel(
     Grid,
     selectedmodels,
-    fitparams,
-    inputparams,
+    star: core.Star,
+    plotconfig: core.PlotConfig,
     lp_interval,
     feh_interval,
     Teffout,
@@ -178,10 +178,10 @@ def kiel(
             )
 
     # Assign params
-    kielplots = inputparams.get("kielplots")
-    fitfreqs = inputparams.get("fitfreqs", False)
+    kielplots = plotconfig.kielplots
+    fitfreqs = star.fitfreqs
     toggle_freqs = True
-    filters = [f for f in inputparams["magnitudes"]]
+    filters = [f for f in star.distanceparams.magnitudes.keys()]
 
     # This is by design a "==" comparison to True, because it will otherwise
     # fail, as the type is numpy.bool_ !
@@ -443,10 +443,11 @@ def kiel(
                     parmax = fitparams[param][0] + err
                 # If not regular fitparam, check if it is in filters
                 elif param in filters:
-                    errm = inputparams["magnitudes"][param]["errm"]
-                    errp = inputparams["magnitudes"][param]["errp"]
-                    parmin = inputparams["magnitudes"][param]["median"] - errm
-                    parmax = inputparams["magnitudes"][param]["median"] + errp
+                    errm = star.apparentmagnitudes[param]["errm"]
+                    errp = star.apparentmagnitudes[param]["errp"]
+                    med = star.apparentmagnitudes[param]["median"]
+                    parmin = med - errm
+                    parmax = med + errp
                 for track in tracks:
                     # For each track, check what indices is within
                     # the paramlimits
@@ -464,16 +465,18 @@ def kiel(
 
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
-        if fitfreqs["active"] and toggle_freqs:
+        # TODO This can be simplified
+        if fitfreqs.active and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
-            dnufrac = fitfreqs.get("dnufrac", 0.15)
-            obskey, obs, _ = fio.read_freq(fitfreqs["freqfile"])
+            dnufrac = fitfreqs.dnufrac
+            obskey, obs, _ = fio.read_freq(fitfreqs.freqfile)
 
             for track in tracks:
                 libitem = Grid[track]
                 index = np.ones(len(libitem["age"][:]), dtype=bool)
 
+                # TODO Why is this code repeated in here?
                 # Locate where the lowest l=0 is within set limit
                 for ind in np.where(index)[0]:
                     rawmod = libitem["osc"][ind]
@@ -491,12 +494,12 @@ def kiel(
                             >= (
                                 obs[0, 0]
                                 - max(
-                                    (dnufrac / 2 * fitfreqs["dnufit"]),
+                                    (dnufrac / 2 * fitfreqs.dnufit),
                                     (3 * obs[1, 0]),
                                 )
                             )
                         )
-                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs["dnufit"]))
+                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs.dnufit))
                     ):
                         index[ind] = False
 

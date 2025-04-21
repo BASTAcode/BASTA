@@ -674,6 +674,7 @@ def hist2d(
         ax.set_xlim(prange[0])
     if not np.all(y == y[0]):
         ax.set_ylim(prange[1])
+    return ax
 
 
 def lighten_color(color, amount=0.5):

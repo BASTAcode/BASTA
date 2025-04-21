@@ -35,10 +35,11 @@ def compute_posterior(
     starid,
     selectedmodels,
     Grid,
-    gridheader: utils.GridHeader,
+    gridheader: util.GridHeader,
     dnu_scales: dict,
     star: core.Star,
     filepaths: core.FilePaths,
+    inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
     plotconfig: core.PlotConfig,
     compareinputoutput=False,
@@ -143,18 +144,20 @@ def compute_posterior(
             plotout = np.zeros(3 * (2 * (len(ms) + 1)))
         j = 0
         dinterp, EBVinterp = [], []
-        for idm, m in enumerate(ms):
+        for idm, filt in enumerate(distanceparams.magnitudes.keys()):
             m_all = np.random.normal(
-                distanceparams["m"][m], distanceparams["m_err"][m], noofind
+                distanceparams.magnitudes[filt][0],
+                distanceparams.magnitudes[filt][1],
+                noofind,
             )
-            M_all = util.get_parameter_values(m, Grid, selectedmodels, noofind)
+            M_all = util.get_parameter_values(filt, Grid, selectedmodels, noofind)
             A_all = np.zeros(noofind)
 
             # Compute distances and extinction iteratively
             d_all = compute_distance_from_mag(m_all, M_all, A_all)
             for i in range(3):
                 EBV_all = LOS_EBV(d_all)
-                A_all = get_absorption(EBV_all, fitparams, m)
+                A_all = get_absorption(EBV_all, fitparams, filt)
                 d_all = compute_distance_from_mag(m_all, M_all, A_all)
 
             # Create posteriors from weighted histograms
@@ -183,10 +186,10 @@ def compute_posterior(
             if idm == 0:
                 print("-----------------------------------------------------")
             util.printparam(
-                "d(" + m + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
+                "d(" + filt + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
             )
             util.printparam(
-                "A(" + m + ")", Acen, Astdm, Astdp, uncert=uncert, centroid=centroid
+                "A(" + filt + ")", Acen, Astdm, Astdp, uncert=uncert, centroid=centroid
             )
             if "distance" in cornerplots and outputoptions.uncert == "quantiles":
                 plotout[6 * idm : 6 * idm + 3] = [xcen, xstdp - xcen, xcen - xstdm]
@@ -196,13 +199,13 @@ def compute_posterior(
                 plotout[6 * idm + 3 : 6 * idm + 6] = [Acen, Astdm, Astdm]
 
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "distance_" + m, xcen, xstdm, xstdp, uncert
+                hout_dist, out_dist, "distance_" + filt, xcen, xstdm, xstdp, uncert
             )
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "A_" + m, Acen, Astdm, Astdp, uncert
+                hout_dist, out_dist, "A_" + filt, Acen, Astdm, Astdp, uncert
             )
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "M_" + m, Mcen, Mstdm, Mstdp, uncert
+                hout_dist, out_dist, "M_" + filt, Mcen, Mstdm, Mstdp, uncert
             )
 
             d_samples[:, j] = d_all[nonzeroprop][sampled_indices]
@@ -224,7 +227,7 @@ def compute_posterior(
                 + "distances derived for each magnitude are too different."
             )
             print(derrmessage)
-            fio.write_star_to_errfile(starid, inputparams, derrmessage)
+            fio.write_star_to_errfile(starid, filepaths, derrmessage)
             if "distance" in outparams:
                 hout_dist, out_dist = util.add_out(
                     hout_dist,
@@ -287,15 +290,15 @@ def compute_posterior(
             # Create plots
             if "distance" in cornerplots:
                 clabels = []
-                for m in ms:
-                    clabels.append("d(" + m + ")")
-                    clabels.append("A(" + m + ")")
+                for filt in distanceparams.magnitudes.keys():
+                    clabels.append("d(" + filt + ")")
+                    clabels.append("A(" + filt + ")")
                 clabels = clabels + ["d(joint)", "E(B-V)(joint)"]
                 try:
-                    plot_corner.corner(
+                    cornerfig = plot_corner.corner(
                         d_samples, labels=clabels, plotout=plotout, **ckwargs
                     )
-                    filepaths.save_plot(fig, kind="_distance_corner")
+                    filepaths.save_plot(cornerfig, kind="_distance_corner")
                     plt.close()
                 except Exception as error:
                     print(
@@ -397,17 +400,17 @@ def compute_posterior(
 
     # Create header for ascii file and save it
     if asciifile is not False:
-        hline = b"# "
+        hline = "# "
         for i in range(len(hout)):
-            hline += hout[i].encode() + " ".encode()
+            hline += f"{hout[i]} "
         if isinstance(asciifile, IOBase):
             asciifile.seek(0)
-            if b"#" not in asciifile.readline():
-                asciifile.write(hline + b"\n")
+            if "#" not in asciifile.readline():
+                asciifile.write(hline + "\n")
             np.savetxt(
                 asciifile, np.asarray(out).reshape(1, len(out)), fmt="%s", delimiter=" "
             )
-            print("\nSaved results to " + asciifile.name + ".")
+            print(f"\nSaved results to {asciifile.name}.")
         elif asciifile is False:
             pass
         else:
@@ -418,16 +421,16 @@ def compute_posterior(
                 header=hline,
                 delimiter=" ",
             )
-            print("Saved results to " + asciifile + ".")
+            print(f"Saved results to {asciifile}.")
 
     if asciifile_dist:
         if len(hout_dist) > 0:
-            hline = b"# "
+            hline = "# "
             for i in range(len(hout_dist)):
-                hline += hout_dist[i].encode() + " ".encode()
+                hline += f"{hout_dist[i]} "
             if isinstance(asciifile_dist, IOBase):
                 asciifile_dist.seek(0)
-                if b"#" not in asciifile_dist.readline():
+                if "#" not in asciifile_dist.readline():
                     asciifile_dist.write(hline + b"\n")
                 np.savetxt(
                     asciifile_dist,
@@ -437,8 +440,7 @@ def compute_posterior(
                 )
                 if "distance" in outparams:
                     print(
-                        "Saved distance results for different filters to %s."
-                        % asciifile_dist.name
+                        f"Saved distance results for different filters to {asciifile_dist.name}."
                     )
             elif asciifile_dist is False:
                 pass
@@ -459,7 +461,13 @@ def compute_posterior(
     # Compare input to output and produce a comparison plot
     if compareinputoutput | outputoptions.developermode:
         comparewarn = util.compare_output_to_input(
-            starid, inputparams, hout, out, hout_dist, out_dist, uncert=uncert
+            star=star,
+            filepaths=filepaths,
+            hout=hout,
+            out=out,
+            hout_dist=hout_dist,
+            out_dist=out_dist,
+            uncert=uncert,
         )
         if comparewarn:
             print(
@@ -497,8 +505,8 @@ def compute_posterior(
                     fig = plot_kiel.kiel(
                         Grid=Grid,
                         selectedmodels=selectedmodels,
-                        fitparams=fitpar_kiel,
-                        inputparams=inputparams,
+                        star=star,
+                        plotconfig=plotconfig,
                         lp_interval=lp_interval,
                         feh_interval=feh_interval,
                         Teffout=Teffout,
@@ -590,8 +598,8 @@ def compute_posterior(
             fig = plot_kiel.kiel(
                 Grid=Grid,
                 selectedmodels=selectedmodels,
-                fitparams=fitpar_kiel,
-                inputparams=inputparams,
+                star=star,
+                plotconfig=plotconfig,
                 lp_interval=lp_interval,
                 feh_interval=feh_interval,
                 Teffout=Teffout,
@@ -609,7 +617,7 @@ def compute_posterior(
             print("Kiel diagram failed with the error:", error)
             raise
 
-    if outputoptions.debug and len(inputparams["magnitudes"]) > 0:
+    if outputoptions.debug and len(star.apparentmagnitudes.keys()) > 0:
         print("Make normalised distribution plot of terms in PDF computation")
         mins = []
         bayw = np.concatenate([ts.bayw for ts in selectedmodels.values()])

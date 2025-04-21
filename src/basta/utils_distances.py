@@ -9,7 +9,6 @@ matplotlib.use("Agg")
 import matplotlib.pyplot as plt
 
 
-
 def compute_absmag(m: np.ndarray, dist: np.ndarray, A: np.ndarray) -> np.ndarray:
     """
     Use distance moduli to compute the absolute magnitudes
@@ -32,7 +31,9 @@ def compute_absmag(m: np.ndarray, dist: np.ndarray, A: np.ndarray) -> np.ndarray
     return m - 5 * np.log10(dist / 10) - A
 
 
-def compute_distance_from_mag(m: float, M: float, A: float) -> float:
+def compute_distance_from_mag(
+    m: np.ndarray, M: np.ndarray, A: np.ndarray
+) -> np.ndarray:
     """
     Compute distance from magnitudes.
 

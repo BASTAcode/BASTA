@@ -227,7 +227,7 @@ class OutputOptions:
         Activate validation mode features
     """
 
-    asciiparams: dict[str, Any]
+    asciiparams: list[str]  # dict[str, Any]
     uncert: str
     centroid: str
 

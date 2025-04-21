@@ -537,10 +537,11 @@ def BASTA(
         starid=star.starid,
         selectedmodels=selectedmodels,
         Grid=Grid,
-        gridinfo=gridinfo,
+        gridheader=gridheader,
         dnu_scales=dnu_scales,
         star=star,
         filepaths=filepaths,
+        inferencesettings=inferencesettings,
         outputoptions=outputoptions,
         plotconfig=plotconfig,
     )

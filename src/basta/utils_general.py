@@ -502,7 +502,14 @@ def unique_unsort(params):
 
 
 def compare_output_to_input(
-    starid, inputparams, hout, out, hout_dist, out_dist, uncert="qunatiles", sigmacut=1
+    star: core.Star,
+    filepaths: core.FilePaths,
+    hout,
+    out,
+    hout_dist,
+    out_dist,
+    uncert="qunatiles",
+    sigmacut=1,
 ):
     """
     This function compares the outputted value of all fitting parameters
@@ -533,10 +540,10 @@ def compare_output_to_input(
     comparewarn : bool
         Flag to determine whether or not a warning was raised.
     """
-    if inputparams["warnoutput"] is False:
+    if filepaths.warnoutput is False:
         return False
-    fitparams = inputparams["fitparams"]
-    warnfile = inputparams["warnoutput"]
+    fitparams = star.fitparams
+    warnfile = filepaths.warnoutput
     comparewarn = False
     ps = []
     sigmas = []
@@ -557,14 +564,14 @@ def compare_output_to_input(
                 ps.append(p)
                 sigmas.append(sigma)
 
-    if len(inputparams["magnitudes"]) > 0:
-        for m in list(inputparams["distanceparams"]["filters"]):
+    if len(star.apparentmagnitudes.keys()) > 0:
+        for m in list(star.distanceparams.magnitudes.keys()):
             mdist = "M_" + m
             if mdist in hout_dist:
                 idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
-                priorM = inputparams["magnitudes"][m]["median"]
-                priorerrp = inputparams["magnitudes"][m]["errp"]
-                priorerrm = inputparams["magnitudes"][m]["errm"]
+                priorM = star.apparentmagnitudes[m]["median"]
+                priorerrp = star.apparentmagnitudes[m]["errp"]
+                priorerrm = star.apparentmagnitudes[m]["errm"]
                 if uncert == "quantiles":
                     outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
                 else:
@@ -576,23 +583,6 @@ def compare_output_to_input(
                     comparewarn = True
                     ps.append(mdist)
                     sigmas.append(sigma)
-
-        if "distance" in hout_dist:
-            idx = np.nonzero([x == "distance_joint" for x in hout_dist])[0][0]
-            priordistqs = inputparams["distanceparams"]["priordistance"]
-            priorerrm = priordistqs[0] - priordistqs[1]
-            priorerrp = priordistqs[2] - priordistqs[0]
-            if uncert == "quantiles":
-                outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
-            else:
-                outerr = out_dist[idx + 1]
-            serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
-            sigma = np.abs(out_dist[idx] - priordistqs[1]) / serr
-            bigdiff = sigma >= sigmacut
-            if bigdiff:
-                comparewarn = True
-                ps.append("distance")
-                sigmas.append(sigma)
 
     if comparewarn:
         print("A >%s sigma difference was found between input and output of" % sigmacut)

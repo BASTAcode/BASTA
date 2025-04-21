@@ -58,7 +58,7 @@ def load_selectedmodels(fname: str):
     return _import_selectedmodels(data)
 
 
-def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str):
+def write_star_to_errfile(starid: str, filepaths: core.FilePaths, errormessage: str):
     """
     Write starid and error message to .err-file
 
@@ -71,7 +71,7 @@ def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str):
     errormessage : str
         String explaining error which will be written to the .err-file
     """
-    errfile = inputparams.get("erroutput")
+    errfile = filepaths.erroutput
 
     if isinstance(errfile, IOBase):
         errfile.write("{}\t{}\n".format(starid, errormessage))

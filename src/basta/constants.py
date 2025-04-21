@@ -268,16 +268,15 @@ class parameters:
         for par in excludeparams:
             if type(par) is not str:
                 print("Parameters should be strings!")
-                exit()
 
             if par in parnames:
                 parnames.remove(par)
             else:
                 print(f"Parameter {par} is not in params!")
-                exit()
 
         return parnames
 
+    @staticmethod
     def get_keys(inputparams):
         """
         Takes a list of input parameters (or a
@@ -548,6 +547,7 @@ class distanceranges:
     """
     Limits or ranges of different surveys
     """
+
     # 2MASS.max: https://old.ipac.caltech.edu/2mass/releases/sampler/index.html
     # 2MASS.min: Brightest star in 2mass All-Sky Release PSC is Betelgeuse,
     # https://old.ipac.caltech.edu/2mass/releases/allsky/doc/sec1_6b.html#satr1
