@@ -6,7 +6,7 @@ from basta.constants import freqtypes
 
 
 def plot_all_seismic(
-    freqplots,
+    plotconfig,
     Grid,
     fitfreqs,
     obsfreqmeta,
@@ -68,6 +68,7 @@ def plot_all_seismic(
     """
 
     # Check which plots to create
+    freqplots = plotconfig.freqplots
     allfplots = freqplots[0] == True
     if any(x == "allechelle" for x in freqplots):
         freqplots += ["dupechelle", "echelle", "pairechelle"]

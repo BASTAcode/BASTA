@@ -10,7 +10,7 @@ import numpy as np
 import matplotlib
 
 import basta.fileio as fio
-from basta import core
+from basta import core, distances
 from basta.constants import parameters, statdata
 from basta.utils_distances import compute_distance_from_mag
 from basta.distances import get_absorption, get_EBV_along_LOS
@@ -35,6 +35,7 @@ def compute_posterior(
     Grid,
     gridheader: util.GridHeader,
     dnu_scales: dict,
+    absolutemagnitudes: distances.AbsoluteMagnitudes,
     star: core.Star,
     filepaths: core.FilePaths,
     inferencesettings: core.InferenceSettings,
@@ -502,6 +503,7 @@ def compute_posterior(
                         selectedmodels=selectedmodels,
                         star=star,
                         plotconfig=plotconfig,
+                        absolutemagnitudes=absolutemagnitudes,
                         lp_interval=lp_interval,
                         feh_interval=feh_interval,
                         Teffout=Teffout,
@@ -595,6 +597,7 @@ def compute_posterior(
                 selectedmodels=selectedmodels,
                 star=star,
                 plotconfig=plotconfig,
+                absolutemagnitudes=absolutemagnitudes,
                 lp_interval=lp_interval,
                 feh_interval=feh_interval,
                 Teffout=Teffout,
@@ -612,7 +615,7 @@ def compute_posterior(
             print("Kiel diagram failed with the error:", error)
             raise
 
-    if outputoptions.debug and len(star.apparentmagnitudes.keys()) > 0:
+    if outputoptions.debug and len(star.distanceparams.magnitudes.keys()) > 0:
         print("Make normalised distribution plot of terms in PDF computation")
         mins = []
         bayw = np.concatenate([ts.bayw for ts in selectedmodels.values()])

@@ -93,7 +93,6 @@ def BASTA(
         outputoptions=outputoptions,
         allparams=allparams,
     )
-    print(absolutemagnitudes)
 
     # Create list of all available input parameters
     fitparams = star.fitparams
@@ -411,8 +410,8 @@ def BASTA(
                         bayw += util.inflog(libitem[dweight][index])
 
                 # Fold with absolute magnitudes, if present
-                for f in absolutemagnitudes["absolutemagnitudes"].keys():
-                    mags = absolutemagnitudes["absolutemagnitudes"][f]["prior"]
+                for f in absolutemagnitudes["magnitudes"].keys():
+                    mags = absolutemagnitudes["magnitudes"][f]["prior"]
                     absmags = libitem[f][index]
                     interp_mags = mags(absmags)
 
@@ -539,6 +538,7 @@ def BASTA(
         Grid=Grid,
         gridheader=gridheader,
         dnu_scales=dnu_scales,
+        absolutemagnitudes=absolutemagnitudes,
         star=star,
         filepaths=filepaths,
         inferencesettings=inferencesettings,
@@ -554,10 +554,9 @@ def BASTA(
         addstats["glitchparams"] = glitchmodels
 
     # Make frequency-related plots
-    freqplots = inputparams.get("freqplots")
-    if fitfreqs["active"] and len(freqplots):
+    if fitfreqs["active"] and len(plotconfig.freqplots):
         plot_driver.plot_all_seismic(
-            freqplots,
+            plotconfig,
             Grid=Grid,
             fitfreqs=fitfreqs,
             obsfreqmeta=obsfreqmeta,

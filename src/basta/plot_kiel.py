@@ -7,7 +7,7 @@ import numpy as np
 import matplotlib
 import matplotlib.collections
 
-from basta import stats, core
+from basta import stats, core, distances
 from basta import fileio as fio
 from basta import utils_seismic as su
 from basta import utils_general as gu
@@ -98,6 +98,7 @@ def kiel(
     selectedmodels,
     star: core.Star,
     plotconfig: core.PlotConfig,
+    absolutemagnitudes: distances.AbsoluteMagnitudes,
     lp_interval,
     feh_interval,
     Teffout,
@@ -180,11 +181,13 @@ def kiel(
     # Assign params
     kielplots = plotconfig.kielplots
     fitfreqs = star.fitfreqs
+    fitparams = star.fitparams
     toggle_freqs = True
-    filters = [f for f in star.distanceparams.magnitudes.keys()]
+    filters = [f for f in absolutemagnitudes["magnitudes"].keys()]
 
     # This is by design a "==" comparison to True, because it will otherwise
     # fail, as the type is numpy.bool_ !
+    # TODO I think this can be done more smart
     if not kielplots[0] == True:
         toggle_freqs = False
         new_filters = []
@@ -296,8 +299,12 @@ def kiel(
 
     # Get labels and colors for sorted params
     keys = list(fitparams.keys()) + filters
+    if "parallax" in keys:
+        keys.remove("parallax")
     sorted_parameters = np.array(keys)[np.argsort(keys)]
     _, labels, _, colors = parameters.get_keys(sorted_parameters)
+    print(labels)
+    assert len(labels) == len(colors) == len(sorted_parameters), sorted_parameters
 
     ################
     # Figure starts
@@ -443,9 +450,9 @@ def kiel(
                     parmax = fitparams[param][0] + err
                 # If not regular fitparam, check if it is in filters
                 elif param in filters:
-                    errm = star.apparentmagnitudes[param]["errm"]
-                    errp = star.apparentmagnitudes[param]["errp"]
-                    med = star.apparentmagnitudes[param]["median"]
+                    errm = absolutemagnitudes["magnitudes"][param]["errm"]
+                    errp = absolutemagnitudes["magnitudes"][param]["errp"]
+                    med = absolutemagnitudes["magnitudes"][param]["median"]
                     parmin = med - errm
                     parmax = med + errp
                 for track in tracks:
@@ -466,11 +473,11 @@ def kiel(
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
         # TODO This can be simplified
-        if fitfreqs.active and toggle_freqs:
+        if fitfreqs["active"] and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
-            dnufrac = fitfreqs.dnufrac
-            obskey, obs, _ = fio.read_freq(fitfreqs.freqfile)
+            dnufrac = fitfreqs["dnufrac"]
+            obskey, obs, _ = fio.read_freq(fitfreqs["freqfile"])
 
             for track in tracks:
                 libitem = Grid[track]
@@ -494,12 +501,12 @@ def kiel(
                             >= (
                                 obs[0, 0]
                                 - max(
-                                    (dnufrac / 2 * fitfreqs.dnufit),
+                                    (dnufrac / 2 * fitfreqs["dnufit"]),
                                     (3 * obs[1, 0]),
                                 )
                             )
                         )
-                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs.dnufit))
+                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs["dnufit"]))
                     ):
                         index[ind] = False
 

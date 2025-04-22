@@ -4,6 +4,7 @@ Utility functions for the distance calculation and parallax fitting
 
 import numpy as np
 import matplotlib
+from pathlib import Path
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -101,7 +102,7 @@ def compute_distlikelihoods(
     plxobs: float,
     plxobs_err: float,
     L: float | None = None,
-    debug_dirpath: str = "",
+    debug_dirpath: Path | str = "",
     debug: bool = False,
 ) -> np.array:
     """

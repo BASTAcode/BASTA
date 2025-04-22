@@ -87,9 +87,7 @@ class Star:
     # inputparams: dict[str, Any]
     fitparams: dict[str, Any]  # observed_properties
     fitfreqs: dict[str, Any]  # specifically individual frequencies
-
     distanceparams: DistanceParameters = field(default_factory=DistanceParameters)
-    apparentmagnitudes: dict[str, Magnitude] = field(default_factory=dict)
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -249,3 +247,4 @@ class PlotConfig:
     nameinplot: str
     kielplots: list
     cornerplots: list
+    freqplots: list

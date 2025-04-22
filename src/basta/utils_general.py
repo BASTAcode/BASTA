@@ -245,7 +245,9 @@ def prepare_distancefitting(
     # TODO: Why? I think we need a better overview of what is being fitted than this
     # If keyword present, add individual filters
     if "distance" in allparams:
-        allparams = list(np.unique(allparams + list(star.apparentmagnitudes.keys())))
+        allparams = list(
+            np.unique(allparams + list(star.distanceparams.magnitudes.keys()))
+        )
         allparams.remove("distance")
     return absolutmagnitudes, allparams
 
@@ -563,14 +565,14 @@ def compare_output_to_input(
                 ps.append(p)
                 sigmas.append(sigma)
 
-    if len(star.apparentmagnitudes.keys()) > 0:
+    if len(star.distanceparams.magnitudes.keys()) > 0:
         for m in list(star.distanceparams.magnitudes.keys()):
             mdist = "M_" + m
             if mdist in hout_dist:
                 idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
-                priorM = star.apparentmagnitudes[m]["median"]
-                priorerrp = star.apparentmagnitudes[m]["errp"]
-                priorerrm = star.apparentmagnitudes[m]["errm"]
+                priorM = star.distanceparams.magnitudes[m]["median"]
+                priorerrp = star.distanceparams.magnitudes[m]["errp"]
+                priorerrm = star.distanceparams.magnitudes[m]["errm"]
                 if uncert == "quantiles":
                     outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
                 else:

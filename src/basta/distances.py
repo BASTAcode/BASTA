@@ -4,9 +4,7 @@ Parallax fitting and computation of distances
 
 import os
 import warnings
-import collections
-from bisect import bisect_left
-from typing import Callable, TypedDict, List, Dict, Any
+from typing import Callable, TypedDict, Any
 
 import h5py
 import numpy as np
@@ -14,16 +12,15 @@ import scipy.stats
 from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
 from healpy import ang2pix
-from dustmaps.sfd import SFDQuery
-from dustmaps.bayestar import BayestarWebQuery
+import dustmaps
 from astropy.utils.exceptions import AstropyWarning
+from pathlib import Path
 
 import basta.utils_distances as udist
 import basta.constants as cnsts
 import basta.stats as stats
 from basta import core
 
-from dataclasses import field
 
 import matplotlib
 
@@ -44,10 +41,10 @@ except ModuleNotFoundError:
 
 
 class AbsoluteMagnitudes(TypedDict):
-    magnitudes: Dict[str, Dict[str, Any]]
+    magnitudes: dict[str, dict[str, Any]]
     absorption: dict[str, list[Any]]
-    prior_EBV: List[float]
-    prior_distance: List[float]
+    prior_EBV: list[float]
+    prior_distance: list[float]
 
 
 def get_EBV_along_LOS(
@@ -103,7 +100,7 @@ def get_EBV_along_LOS(
 
     # If webquery fails use local copy of dustmap
     try:
-        bayestar = BayestarWebQuery(version="bayestar2019")
+        bayestar = dustmaps.BayestarQuery(version="bayestar2019")
         Egr_samples = bayestar(c, mode="samples")
     except Exception:
         # contains positional info
@@ -137,7 +134,7 @@ def get_EBV_along_LOS(
     if np.isnan(Egr_samples).any():
         print("WARNING: Coordinates outside dust map boundaries!")
         print("Default to Schegel 1998 dust map")
-        sfd = SFDQuery()
+        sfd = dustmaps.sfd.SFDQuery()
         return lambda x: np.full_like(x, sfd(c))
 
     Egr_med, Egr_err = [], []
@@ -166,7 +163,7 @@ def get_EBV(
     dist: np.ndarray,
     EBV_along_LOS: Callable[[np.ndarray], np.ndarray],
     debug: bool = False,
-    debug_dirpath: str = "",
+    debug_dirpath: Path | str = "",
 ) -> np.ndarray:
     """
     Estimate E(B-V) by drawing distances from a normal parallax
@@ -293,7 +290,7 @@ def add_absolute_magnitudes(
     """
     if "parallax" not in star.fitparams:
         return {
-            "absolutemagnitudes": {},
+            "magnitudes": {},
             "absorption": {},
             "prior_EBV": [],
             "prior_distance": [],
@@ -348,7 +345,7 @@ def add_absolute_magnitudes(
         debug_dirpath=filepaths.extradirectory,
     )
     dists = np.repeat(dist, k)
-    lldists = np.repeat(lldist, k)
+    lldists: np.ndarray = np.repeat(lldist, k)
 
     # Get EBV values
     EBV_along_LOS = get_EBV_along_LOS(distanceparams=distanceparams)
@@ -387,7 +384,7 @@ def add_absolute_magnitudes(
 
         llm = udist.compute_mslikelihoods(m, magnitudes[filt][0], magnitudes[filt][1])
         ms = np.tile(m, n)
-        llms = np.tile(llm, n)
+        llms: np.ndarray = np.tile(llm, n)
         assert len(dists) == len(ms) == n * k
 
         A = get_absorption(EBV, fitparams, filt)
@@ -449,7 +446,7 @@ def add_absolute_magnitudes(
 
     print("Done!")
     return {
-        "absolutemagnitudes": new_magnitudes,
+        "magnitudes": new_magnitudes,
         "absorption": new_As,
         "prior_EBV": prior_EBV,
         "prior_distance": prior_distance,

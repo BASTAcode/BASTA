@@ -806,7 +806,7 @@ def run_xml(
                     else:
                         skipstar = True
                         msg = f"Fitparameter '{param}' not provided for star {starid} and will be skipped"
-                        no_models(starid, inputparams, msg)
+                        no_models(star, filepaths, outputoptions, msg)
                         print(msg)
                         break
 
@@ -983,7 +983,7 @@ def run_xml(
                     error_msg = f"BASTA interpolation failed for star {starid}: {e}"
                     print(error_msg)
                     print(traceback.format_exc())
-                    no_models(starid, inputparams, f"Unhandled Error: {e}")
+                    no_models(star, filepaths, outputoptions, f"Unhandled Error: {e}")
 
                 # Call BASTA itself!
                 distparams = core.DistanceParameters(
@@ -1034,7 +1034,6 @@ def run_xml(
                     starid=starid,
                     fitparams=inputparams["fitparams"],
                     fitfreqs=inputparams["fitfreqs"],
-                    apparentmagnitudes=inputparams["magnitudes"],
                     distanceparams=distparams,
                 )
                 filepaths = core.FilePaths(
@@ -1053,7 +1052,10 @@ def run_xml(
                     usebayw=usebayw,
                     priors=usepriors,
                     solarmodel=inputparams["solarmodel"],
-                    solarvalues={"numax":inputparams["numsun"] , "dnu": inputparams["dnusun"]},
+                    solarvalues={
+                        "numax": inputparams["numsun"],
+                        "dnu": inputparams["dnusun"],
+                    },
                 )
                 outputoptions = core.OutputOptions(
                     asciiparams=inputparams["asciiparams"],
@@ -1069,6 +1071,7 @@ def run_xml(
                     nameinplot=inputparams["nameinplot"],
                     kielplots=inputparams["kielplots"],
                     cornerplots=inputparams["cornerplots"],
+                    freqplots=inputparams["freqplots"],
                 )
                 try:
                     BASTA(
@@ -1103,7 +1106,7 @@ def run_xml(
                     error_msg = f"BASTA failed for star {starid} due to: {e}"
                     print(error_msg)
                     print(traceback.format_exc())
-                    no_models(starid, inputparams, f"Unhandled Error: {e}")
+                    no_models(star, filepaths, outputoptions, f"Unhandled Error: {e}")
 
                 # Ensure output files are written and clean up memory
                 flush_all(fout, ferr, fwarn)
