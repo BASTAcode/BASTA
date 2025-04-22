@@ -5,7 +5,7 @@ Interpolation for BASTA: Along a track
 import os
 import time
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 from tqdm import tqdm
 import matplotlib.pyplot as plt

@@ -6,23 +6,51 @@ import os
 import copy
 import math
 import collections
+from dataclasses import dataclass
 
 import numpy as np
-from scipy.interpolate import interp1d, CubicSpline
-from scipy.ndimage.filters import gaussian_filter1d
+from scipy.interpolate import interp1d, CubicSpline  # type: ignore[import]
+from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
 from basta import freq_fit, glitch_fit, core
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
 
 # Define named tuple used in selectedmodels
-Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
-priorlogPDF = collections.namedtuple("Trackstats", "index logPDF chi2 bayw magw IMFw")
 Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
 Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
 
 
-def _hist_bin_fd(x: np.array) -> float:
+@dataclass(frozen=True)
+class Trackstats:
+    index: np.ndarray
+    logPDF: np.ndarray
+    chi2: np.ndarray
+
+    @property
+    def bayw(self) -> float:
+        raise Exception("attempt to use bayw when not debugging")
+
+    @property
+    def magw(self) -> float:
+        raise Exception("attempt to use magw when not debugging")
+
+    @property
+    def IMFw(self) -> float:
+        raise Exception("attempt to use IMFw when not debugging")
+
+
+@dataclass(frozen=True)
+class priorlogPDF:
+    index: np.ndarray
+    logPDF: np.ndarray
+    chi2: np.ndarray
+    bayw: float
+    magw: float
+    IMFw: float
+
+
+def _hist_bin_fd(x: np.ndarray) -> float:
     """
     The Freedman-Diaconis histogram bin estimator.
 

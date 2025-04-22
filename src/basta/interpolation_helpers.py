@@ -6,10 +6,10 @@ import os
 import warnings
 
 import numpy as np
-import bottleneck as bn
+import bottleneck as bn  # type: ignore[import]
 from tqdm import tqdm
-from scipy import interpolate
-from scipy.stats import qmc
+from scipy import interpolate  # type: ignore[import]
+from scipy.stats import qmc  # type: ignore[import]
 import matplotlib.pyplot as plt
 from matplotlib.backends.backend_pdf import PdfPages
 

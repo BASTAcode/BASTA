@@ -8,6 +8,7 @@ import h5py  # type: ignore[import]
 import warnings
 import numpy as np
 from io import IOBase
+from pathlib import Path
 from copy import deepcopy
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement, tostring
@@ -45,7 +46,7 @@ def _import_selectedmodels(data: dict) -> dict:
     return res
 
 
-def save_selectedmodels(fname: str, selectedmodels):
+def save_selectedmodels(fname: str | Path, selectedmodels):
     s = json.dumps(_export_selectedmodels(selectedmodels))
     with open(fname, "w") as fp:
         fp.write(s)
@@ -58,7 +59,7 @@ def load_selectedmodels(fname: str):
     return _import_selectedmodels(data)
 
 
-def write_star_to_errfile(starid: str, filepaths: core.FilePaths, errormessage: str):
+def write_star_to_errfile(starid: str, runfiles: core.RunFiles, errormessage: str):
     """
     Write starid and error message to .err-file
 
@@ -69,14 +70,17 @@ def write_star_to_errfile(starid: str, filepaths: core.FilePaths, errormessage: 
     errormessage : str
         String explaining error which will be written to the .err-file
     """
-    with open(filepaths.erroroutput, "a") as ef:
-        ef.write("{}\t{}\n".format(starid, errormessage))
+    if runfiles.erroroutput is None:
+        return
+    runfiles.erroroutput.write("{}\t{}\n".format(starid, errormessage))
 
 
 def no_models(
-    star: core.Star,
+    starid: str,
     filepaths: core.FilePaths,
+    runfiles: core.RunFiles,
     outputoptions: core.OutputOptions,
+    distancefilters: list[str] | None,
     errormessage: str,
 ) -> None:
     """
@@ -93,8 +97,8 @@ def no_models(
     """
 
     # Extract the output parameters
-    asciifile = filepaths.resultfile
-    asciifile_dist = filepaths.distance_resultfile
+    asciifile = runfiles.summarytable
+    asciifile_dist = runfiles.distancesummarytable
     params = deepcopy(outputoptions.asciiparams)
 
     # Init vectors and add the Star ID
@@ -103,14 +107,14 @@ def no_models(
     hout_dist = []
     out_dist = []
     hout.append("starid")
-    out.append(star.starid)
+    out.append(starid)
     hout_dist.append("starid")
-    out_dist.append(star.starid)
+    out_dist.append(starid)
     uncert = outputoptions.uncert
 
     # The distance parameters
-    if "distance" in params:
-        for m in star.distanceparams.magnitudes.keys():
+    if distancefilters is not None:
+        for m in distancefilters:
             hout_dist, out_dist = util.add_out(
                 hout_dist, out_dist, "distance_" + m, np.nan, np.nan, np.nan, uncert
             )
@@ -128,7 +132,7 @@ def no_models(
             hout_dist, out_dist, "EBV_", np.nan, np.nan, np.nan, uncert
         )
         hout, out = util.add_out(hout, out, "distance", np.nan, np.nan, np.nan, uncert)
-        params.remove("distance")
+        # params.remove("distance")
 
     # The normal parameters
     for param in params:
@@ -139,22 +143,25 @@ def no_models(
         asciifile,
         np.asarray(out).reshape(1, len(out)),
         fmt="%s",
-        header=f"# {' '.join(hout)} ",
+        header=f"{' '.join(hout)} ",
         delimiter=" ",
     )
-    print(f"Saved results to {asciifile}.")
+    print(f"Saved results to {runfiles.summarytablepath}.")
 
     # Write to file
-    np.savetxt(
-        asciifile_dist,
-        np.asarray(out_dist).reshape(1, len(out_dist)),
-        fmt="%s",
-        header=f"# {' '.join(hout_dist)} ",
-        delimiter=" ",
-    )
-    print(f"Saved distance results for different filters to {asciifile_dist}.")
+    if asciifile_dist is not None:
+        np.savetxt(
+            asciifile_dist,
+            np.asarray(out_dist).reshape(1, len(out_dist)),
+            fmt="%s",
+            header=f"{' '.join(hout_dist)} ",
+            delimiter=" ",
+        )
+        print(
+            f"Saved distance results for different filters to {runfiles.distancesummarytablepath}."
+        )
 
-    write_star_to_errfile(star.starid, filepaths, errormessage)
+    write_star_to_errfile(starid, runfiles, errormessage)
 
 
 def read_freq_xml(

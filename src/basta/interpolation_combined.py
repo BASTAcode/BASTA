@@ -6,12 +6,12 @@ import os
 import sys
 import time
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 import matplotlib.pyplot as plt
 
 from tqdm import tqdm
-from scipy import spatial
+from scipy import spatial  # type: ignore[import]
 
 from basta.utils_seismic import transform_obj_array
 

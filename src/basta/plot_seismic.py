@@ -3,12 +3,13 @@ Production of asteroseismic plots
 """
 
 import os
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 import matplotlib
 import typing
+from typing import Any
 
-from scipy.interpolate import interp1d, CubicSpline
+from scipy.interpolate import interp1d, CubicSpline  # type: ignore[import]
 
 from basta import utils_seismic as su
 from basta import stats, freq_fit
@@ -51,12 +52,12 @@ def echelle(
     Grid: h5py.File,
     obs: np.ndarray,
     obskey: np.ndarray,
-    mod: typing.Optional[np.ndarray] = None,
-    modkey: typing.Optional[np.ndarray] = None,
-    dnu: float = None,
-    join: typing.Optional[np.ndarray] = None,
-    joinkeys: typing.Optional[np.ndarray] | bool = False,
-    coeffs: typing.Optional[np.ndarray] | None = None,
+    mod: np.ndarray | None = None,
+    modkey: np.ndarray | None = None,
+    dnu: float | None = None,
+    join: np.ndarray | None = None,
+    joinkeys: np.ndarray | None = None,
+    coeffs: np.ndarray | None = None,
     scalnu: float | None = None,
     freqcor: str = "BG14",
     pairmode: bool = False,
@@ -123,7 +124,7 @@ def echelle(
         dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
 
     if duplicatemode:
-        modx = 1
+        modx = 1.0
         scalex = dnu
     else:
         modx = dnu
@@ -140,7 +141,9 @@ def echelle(
         mod = mod[:, modkey[0, :] <= np.amax(obsls.astype(int))]
         modkey = modkey[:, modkey[0, :] <= np.amax(obsls)]
 
-    cormod = np.copy(mod)
+    assert mod is not None
+    assert modkey is not None
+    cormod = np.array(mod, copy=True)
 
     if coeffs is not None:
         if freqcor == "HK08":
@@ -159,6 +162,7 @@ def echelle(
 
     s = su.scale_by_inertia(modkey, cormod)
     if join is not None:
+        assert joinkeys is not None
         sjoin = su.scale_by_inertia(joinkeys[0:2], join[0:2])
 
     fmod = {}
@@ -174,6 +178,7 @@ def echelle(
         fobs_all[str(l)] = lobs[0, :] / scalex
         eobs_all[str(l)] = lobs[1, :] / scalex
         if join is not None:
+            assert joinkeys is not None
             _, ljoin = su.get_givenl(l=l, osc=join, osckey=joinkeys)
             fmod[str(l)] = ljoin[0, :] / scalex
             fobs[str(l)] = ljoin[2, :] / scalex
@@ -413,10 +418,10 @@ def echelle(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     if duplicatemode:
-        ax.set_xlim([-1, 1])
+        ax.set_xlim((-1, 1))
         aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
         aax.set_xlabel(
             r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
@@ -425,7 +430,7 @@ def echelle(
         aax.set_ylabel(r"Frequency ($\mu$Hz)")
         ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
     else:
-        ax.set_xlim([0, modx])
+        ax.set_xlim((0, modx))
         aax.set_ylim(ax.set_ylim()[0] / dnu, ax.set_ylim()[1] / dnu)
         ax.set_xlabel(
             r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"

@@ -6,10 +6,10 @@ import os
 import sys
 import copy
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 from tqdm import tqdm
-from scipy import spatial
+from scipy import spatial  # type: ignore[import]
 
 from basta import interpolation_helpers as ih
 from basta import plot_interp as ip

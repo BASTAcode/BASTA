@@ -10,8 +10,9 @@ import sys
 import time
 from copy import deepcopy
 from dataclasses import dataclass
+from typing import Any
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 from tqdm import tqdm
 
@@ -31,6 +32,7 @@ def BASTA(
     star: core.Star,
     inferencesettings: core.InferenceSettings,
     filepaths: core.FilePaths,
+    runfiles: core.RunFiles,
     outputoptions: core.OutputOptions,
     plotconfig: core.PlotConfig,
 ):
@@ -213,7 +215,7 @@ def BASTA(
     # Prepare the main loop
     shapewarn = 0
     warn = True
-    selectedmodels = {}
+    selectedmodels: dict[str, stats.priorlogPDF | stats.Trackstats] = {}
     noofind = 0
     noofposind = 0
     # In some cases we need to store quantities computed at runtime
@@ -420,36 +422,36 @@ def BASTA(
                         magw += util.inflog(interp_mags)
 
                 # Multiply priors into the weight
-                for prior in inferencesettings.priors:
+                for prior in inferencesettings.priors or ():
                     logPDF += util.inflog(getattr(priors, prior)(libitem, index))
                     if outputoptions.debug:
                         IMFw += util.inflog(getattr(priors, prior)(libitem, index))
 
                 # Calculate likelihood from weights, priors and chi2
                 # PDF = weights * np.exp(-0.5 * chi2)
-                logPDF -= 0.5 * chi2
+                logPDFarr = logPDF - 0.5 * chi2
                 if outputoptions.debug and outputoptions.verbose:
                     print(
                         "DEBUG: Mass with nonzero likelihood:",
-                        libitem["massini"][index][~np.isinf(logPDF)],
+                        libitem["massini"][index][~np.isinf(logPDFarr)],
                     )
 
                 # Sum the number indexes and nonzero indexes
-                noofind += len(logPDF)
-                noofposind += np.count_nonzero(~np.isinf(logPDF))
+                noofind += len(logPDFarr)
+                noofposind += np.count_nonzero(~np.isinf(logPDFarr))
                 if outputoptions.debug and outputoptions.verbose:
                     print(
-                        f"DEBUG: Index found: {group_name + name}, {~np.isinf(logPDF)}"
+                        f"DEBUG: Index found: {group_name + name}, {~np.isinf(logPDFarr)}"
                     )
 
                 # Store statistical info
                 if outputoptions.debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
-                        index, logPDF, chi2, bayw, magw, IMFw
+                        index, logPDFarr, chi2, bayw, magw, IMFw
                     )
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
-                        index, logPDF, chi2
+                        index, logPDFarr, chi2
                     )
                 if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
                     dnusurfmodels[group_name + name] = stats.Trackdnusurf(dnusurf)
@@ -459,11 +461,11 @@ def BASTA(
                         glitchpar[:, 1],
                         glitchpar[:, 2],
                     )
-            else:
-                if outputoptions.debug and outputoptions.verbose:
-                    print(
-                        f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDF)}"
-                    )
+                else:
+                    if outputoptions.debug and outputoptions.verbose:
+                        print(
+                            f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDFarr)}"
+                        )
         # End loop over isochrones/tracks
         #######################################################################
     # End loop over metals
@@ -500,7 +502,14 @@ def BASTA(
             "unapplicable to models with mixed modes.",
         )
     if noofposind == 0:
-        fio.no_models(star.starid, inputparams, "No models found")
+        fio.no_models(
+            star.starid,
+            filepaths,
+            runfiles,
+            outputoptions,
+            list(star.distanceparams.magnitudes.keys()),
+            "No models found",
+        )
         return
 
     # Print a header to signal the start of the output section in the log
@@ -541,13 +550,14 @@ def BASTA(
         absolutemagnitudes=absolutemagnitudes,
         star=star,
         filepaths=filepaths,
+        runfiles=runfiles,
         inferencesettings=inferencesettings,
         outputoptions=outputoptions,
         plotconfig=plotconfig,
     )
 
     # Collect additional output for plotting and saving
-    addstats = {}
+    addstats: dict[str, Any] = {}
     if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
         addstats["dnusurf"] = dnusurfmodels
     if fitfreqs["active"] and fitfreqs["glitchfit"]:

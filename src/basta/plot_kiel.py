@@ -98,7 +98,7 @@ def kiel(
     selectedmodels,
     star: core.Star,
     plotconfig: core.PlotConfig,
-    absolutemagnitudes: distances.AbsoluteMagnitudes,
+    absolutemagnitudes: core.AbsoluteMagnitudes,
     lp_interval,
     feh_interval,
     Teffout,
@@ -303,7 +303,6 @@ def kiel(
         keys.remove("parallax")
     sorted_parameters = np.array(keys)[np.argsort(keys)]
     _, labels, _, colors = parameters.get_keys(sorted_parameters)
-    print(labels)
     assert len(labels) == len(colors) == len(sorted_parameters), sorted_parameters
 
     ################

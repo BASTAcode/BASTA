@@ -6,10 +6,10 @@ import os
 from math import frexp
 from copy import deepcopy
 from tqdm import tqdm
-import h5py
+import h5py  # type: ignore[import]
 
 import numpy as np
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline  # type: ignore[import]
 
 from basta import freq_fit, glitch_fit, core
 from basta import fileio as fio
@@ -17,12 +17,17 @@ from basta import utils_general as util
 from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
 
-from sklearn import covariance as skcov
+from sklearn import covariance as skcov  # type: ignore[import]
 
-from typing import Dict
+from typing import Literal
 
 
-def solar_scaling(Grid : h5py.File, star : core.Star, inferencesettings: core.InferenceSettings, gridinfo: util.GridInfo) -> Dict:
+def solar_scaling(
+    Grid: h5py.File,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    gridinfo: util.GridInfo,
+) -> dict:
     """
     Transform quantities to solar units based on the assumed solar values. Grids use
     solar units for numax and for dnu's based on scaling relations. The input values
@@ -53,8 +58,8 @@ def solar_scaling(Grid : h5py.File, star : core.Star, inferencesettings: core.In
     print("\nTransforming solar-based asteroseismic quantities:", flush=True)
 
     # Check for solar values, if not set then use default
-    dnusun = inferencesettings.solarvalues['dnu']
-    numsun = inferencesettings.solarvalues['numax']
+    dnusun = inferencesettings.solarvalues["dnu"]
+    numsun = inferencesettings.solarvalues["numax"]
 
     # Obtain parameter lists
     fitparams = star.fitparams
@@ -127,7 +132,7 @@ def solar_scaling(Grid : h5py.File, star : core.Star, inferencesettings: core.In
 
     # Read the user-set flag: Should the scaling be activated?
     try:
-        solarmodel = util.strtobool(inferencesettings.solarmodel)
+        solarmodel: Literal[0, 1, False] = util.strtobool(inferencesettings.solarmodel)
     except ValueError:
         print(
             "Warning: Invalid value given for activation of solar scaling!",
@@ -137,9 +142,9 @@ def solar_scaling(Grid : h5py.File, star : core.Star, inferencesettings: core.In
 
     if solarmodel and len(avail_models) > 0:
         # For isochrones, the diffusion is specified and names hardwired!
-        #TODO difsolarmodel could be named better
-        if gridinfo['difsolarmodel'] is not None:
-            if gridinfo['difsolarmodel'] == 0:
+        # TODO difsolarmodel could be named better
+        if gridinfo["difsolarmodel"] is not None:
+            if gridinfo["difsolarmodel"] == 0:
                 sunmodname = "bastisun_new"
             else:
                 sunmodname = "bastisun_new_diff"
@@ -226,8 +231,8 @@ def solar_scaling(Grid : h5py.File, star : core.Star, inferencesettings: core.In
             dnu_scales[dnu] = dnu_rescal
 
     print("Done!")
-    #TODO What would a better, more elegant output be?
-    #TODO Can this function be simplified a bit?
+    # TODO What would a better, more elegant output be?
+    # TODO Can this function be simplified a bit?
     return dnu_scales
 
 
@@ -327,7 +332,9 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     )
 
 
-def get_givenl(l, osc, osckey):
+def get_givenl(
+    l: int, osc: np.ndarray, osckey: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Returns frequencies, radial orders, and inertias or uncertainties of a
     given angular degree l.

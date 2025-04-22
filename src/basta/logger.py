@@ -19,9 +19,9 @@ def setup_logger(logfile: str, level: int = logging.INFO) -> logging.Logger:
     logging.Logger
         A configured logger instance.
     """
-    logfile = Path(logfile)
-    if not logfile.suffix:
-        logfile = logfile.with_suffix(".log")
+    logpath = Path(logfile)
+    if not logpath.suffix:
+        logpath = logpath.with_suffix(".log")
 
     logger = logging.getLogger("basta_logger")
     logger.setLevel(level)
@@ -35,7 +35,7 @@ def setup_logger(logfile: str, level: int = logging.INFO) -> logging.Logger:
         fmt="%(asctime)s | %(levelname)-8s | %(message)s", datefmt="%Y-%m-%d %H:%M:%S"
     )
 
-    fh = logging.FileHandler(logfile, encoding="utf-8")
+    fh = logging.FileHandler(logpath, encoding="utf-8")
     fh.setFormatter(formatter)
     logger.addHandler(fh)
 

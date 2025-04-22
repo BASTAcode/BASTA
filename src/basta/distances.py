@@ -6,14 +6,14 @@ import os
 import warnings
 from typing import Callable, TypedDict, Any
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
-import scipy.stats
-from scipy.interpolate import interp1d
-from astropy.coordinates import SkyCoord
-from healpy import ang2pix
-import dustmaps
-from astropy.utils.exceptions import AstropyWarning
+import scipy.stats  # type: ignore[import]
+from scipy.interpolate import interp1d  # type: ignore[import]
+from astropy.coordinates import SkyCoord  # type: ignore[import]
+from healpy import ang2pix  # type: ignore[import]
+import dustmaps  # type: ignore[import]
+from astropy.utils.exceptions import AstropyWarning  # type: ignore[import]
 from pathlib import Path
 
 import basta.utils_distances as udist
@@ -38,13 +38,6 @@ try:
 except ModuleNotFoundError:
     print("\nCannot find path to dustmaps. Did you run 'setup.py'?\n")
     raise
-
-
-class AbsoluteMagnitudes(TypedDict):
-    magnitudes: dict[str, dict[str, Any]]
-    absorption: dict[str, list[Any]]
-    prior_EBV: list[float]
-    prior_distance: list[float]
 
 
 def get_EBV_along_LOS(
@@ -195,7 +188,7 @@ def get_EBV(
         plt.plot(dmod, EBVs, ".")
         plt.xlabel("dmod")
         plt.ylabel("E(B-V)")
-        plt.savefig(debug_dirpath + "_DEBUG_dmod_EBVs.png")
+        plt.savefig(f"{debug_dirpath}_DEBUG_dmod_EBVs.png")
         plt.close()
 
     return EBVs
@@ -260,7 +253,7 @@ def add_absolute_magnitudes(
     outputoptions: core.OutputOptions,
     n: int = 1000,
     k: int = 1000,
-) -> AbsoluteMagnitudes:
+) -> core.AbsoluteMagnitudes:
     """
     Convert apparent magnitudes to absolute magnitudes using the distance and add it to `inputparams`.
     Extinction E(B-V) is estimated based on Green et al. (2015) dust map.
@@ -358,7 +351,7 @@ def add_absolute_magnitudes(
     EBVs = np.repeat(EBV, k)
 
     new_As = {}
-    new_magnitudes = {}
+    new_magnitudes: dict[str, core.AbsoluteMagnitude] = {}
     llabsms_joined = np.zeros(n * k)
     for filt in magnitudes.keys():
         # Sample apparent magnitudes over the entire parameter range

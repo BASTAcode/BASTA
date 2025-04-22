@@ -6,7 +6,7 @@ import sys
 import time
 import h5py  # type: ignore[import]
 from io import IOBase
-from typing import NamedTuple, Union, IO, TypedDict, Sequence
+from typing import NamedTuple, Union, IO, TypedDict, Sequence, Literal
 from collections import namedtuple
 
 import numpy as np
@@ -233,7 +233,7 @@ def prepare_distancefitting(
     filepaths: core.FilePaths,
     outputoptions: core.OutputOptions,
     allparams: list[str],
-) -> tuple[distances.AbsoluteMagnitudes, list[str]]:
+) -> tuple[core.AbsoluteMagnitudes, list[str]]:
     # Add magnitudes and colors to fitparams if fitting distance
     absolutmagnitudes = distances.add_absolute_magnitudes(
         star=star,
@@ -380,9 +380,11 @@ def print_additional(star: core.Star) -> None:
         "magnitudes",
         "excludemodes",
         "numax",
-        "warnoutput",
     ]
     for ip in sorted(star.fitparams.keys()):
+        assert ip not in [
+            "warnoutput",
+        ]
         if ip not in noprint:
             print(f"* {ip}: {star.fitparams[ip]}")
 
@@ -412,7 +414,8 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
     for lim in inferencesettings.limits.keys():
         print(f"  - {lim}: {inferencesettings.limits[lim]}")
     # TODO Fix priors so it is not just IMF
-    print(f"* Additional priors (IMF): {', '.join(inferencesettings.priors)}")
+    if inferencesettings.priors is not None:
+        print(f"* Additional priors (IMF): {', '.join(inferencesettings.priors)}")
 
 
 class Logger(object):
@@ -504,7 +507,8 @@ def unique_unsort(params):
 
 def compare_output_to_input(
     star: core.Star,
-    filepaths: core.FilePaths,
+    absolutemagnitudes: core.AbsoluteMagnitudes,
+    runfiles: core.RunFiles,
     hout,
     out,
     hout_dist,
@@ -541,10 +545,10 @@ def compare_output_to_input(
     comparewarn : bool
         Flag to determine whether or not a warning was raised.
     """
-    if filepaths.warnoutput is False:
+    if runfiles.warnoutput is None:
         return False
     fitparams = star.fitparams
-    warnfile = filepaths.warnoutput
+    warnfile = runfiles.warnoutput
     comparewarn = False
     ps = []
     sigmas = []
@@ -565,14 +569,14 @@ def compare_output_to_input(
                 ps.append(p)
                 sigmas.append(sigma)
 
-    if len(star.distanceparams.magnitudes.keys()) > 0:
-        for m in list(star.distanceparams.magnitudes.keys()):
+    if len(absolutemagnitudes["magnitudes"].keys()) > 0:
+        for m in list(absolutemagnitudes["magnitudes"].keys()):
             mdist = "M_" + m
             if mdist in hout_dist:
                 idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
-                priorM = star.distanceparams.magnitudes[m]["median"]
-                priorerrp = star.distanceparams.magnitudes[m]["errp"]
-                priorerrm = star.distanceparams.magnitudes[m]["errm"]
+                priorM = absolutemagnitudes["magnitudes"][m]["median"]
+                priorerrp = absolutemagnitudes["magnitudes"][m]["errp"]
+                priorerrm = absolutemagnitudes["magnitudes"][m]["errm"]
                 if uncert == "quantiles":
                     outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
                 else:
@@ -729,7 +733,7 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     print("-----------------------------------------------------")
 
 
-def strtobool(val):
+def strtobool(val: str | Literal[0, 1]) -> Literal[0, 1]:
     """
     Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'.

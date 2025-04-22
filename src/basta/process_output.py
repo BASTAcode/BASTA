@@ -35,9 +35,10 @@ def compute_posterior(
     Grid,
     gridheader: util.GridHeader,
     dnu_scales: dict,
-    absolutemagnitudes: distances.AbsoluteMagnitudes,
+    absolutemagnitudes: core.AbsoluteMagnitudes,
     star: core.Star,
     filepaths: core.FilePaths,
+    runfiles: core.RunFiles,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
     plotconfig: core.PlotConfig,
@@ -67,8 +68,8 @@ def compute_posterior(
         If True, assume a validation run with changed behaviour
     """
     # Load setings
-    asciifile = filepaths.resultfile
-    asciifile_dist = filepaths.distance_resultfile
+    asciifile = runfiles.summarytable
+    asciifile_dist = runfiles.distancesummarytable
     centroid = outputoptions.centroid
     uncert = outputoptions.uncert
 
@@ -223,7 +224,7 @@ def compute_posterior(
                 + "distances derived for each magnitude are too different."
             )
             print(derrmessage)
-            fio.write_star_to_errfile(starid, filepaths, derrmessage)
+            fio.write_star_to_errfile(starid, runfiles, derrmessage)
             if "distance" in outparams:
                 hout_dist, out_dist = util.add_out(
                     hout_dist,
@@ -294,7 +295,7 @@ def compute_posterior(
                     cornerfig = plot_corner.corner(
                         d_samples, labels=clabels, plotout=plotout, **ckwargs
                     )
-                    filepaths.save_plot(cornerfig, kind="_distance_corner")
+                    filepaths.save_plot(cornerfig, kind="distance_corner")
                     plt.close()
                 except Exception as error:
                     print(
@@ -395,70 +396,35 @@ def compute_posterior(
             hout, out = util.add_out(hout, out, param, xcen, xstdm, xstdp, uncert)
 
     # Create header for ascii file and save it
-    if asciifile is not False:
-        hline = "# "
-        for i in range(len(hout)):
-            hline += f"{hout[i]} "
-        if isinstance(asciifile, IOBase):
-            asciifile.seek(0)
-            if "#" not in asciifile.readline():
-                asciifile.write(hline + "\n")
-            np.savetxt(
-                asciifile, np.asarray(out).reshape(1, len(out)), fmt="%s", delimiter=" "
-            )
-            print(f"\nSaved results to {asciifile.name}.")
-        elif asciifile is False:
-            pass
-        else:
-            np.savetxt(
-                asciifile,
-                np.asarray(out).reshape(1, len(out)),
-                fmt="%s",
-                header=hline,
-                delimiter=" ",
-            )
-            print(f"Saved results to {asciifile}.")
+    if asciifile:
+        asciifile.seek(0)
+        if b"#" not in asciifile.readline():
+            asciifile.write(f"# {' '.join(hout)} \n".encode())
+        np.savetxt(
+            asciifile, np.asarray(out).reshape(1, len(out)), fmt="%s", delimiter=" "
+        )
+        print(f"\nSaved results to {runfiles.summarytablepath}.")
 
-    if asciifile_dist:
-        if len(hout_dist) > 0:
-            hline = "# "
-            for i in range(len(hout_dist)):
-                hline += f"{hout_dist[i]} "
-            if isinstance(asciifile_dist, IOBase):
-                asciifile_dist.seek(0)
-                if "#" not in asciifile_dist.readline():
-                    asciifile_dist.write(hline + b"\n")
-                np.savetxt(
-                    asciifile_dist,
-                    np.asarray(out_dist).reshape(1, len(out_dist)),
-                    fmt="%s",
-                    delimiter=" ",
-                )
-                if "distance" in outparams:
-                    print(
-                        f"Saved distance results for different filters to {asciifile_dist.name}."
-                    )
-            elif asciifile_dist is False:
-                pass
-            else:
-                np.savetxt(
-                    asciifile_dist,
-                    np.asarray(out_dist).reshape(1, len(out_dist)),
-                    fmt="%s",
-                    header=hline,
-                    delimiter=" ",
-                )
-                if "distance" in outparams:
-                    print(
-                        "Saved distance results for different filters to %s."
-                        % asciifile_dist
-                    )
+    if asciifile_dist and "distance" in outparams:
+        asciifile_dist.seek(0)
+        if b"#" not in asciifile_dist.readline():
+            asciifile_dist.write(f"# {' '.join(hout_dist)} \n".encode())
+        np.savetxt(
+            asciifile_dist,
+            np.asarray(out_dist).reshape(1, len(out_dist)),
+            fmt="%s",
+            delimiter=" ",
+        )
+        print(
+            f"Saved distance results for different filters to {runfiles.distancesummarytablepath}."
+        )
 
     # Compare input to output and produce a comparison plot
     if compareinputoutput | outputoptions.developermode:
         comparewarn = util.compare_output_to_input(
             star=star,
-            filepaths=filepaths,
+            absolutemagnitudes=absolutemagnitudes,
+            runfiles=runfiles,
             hout=hout,
             out=out,
             hout_dist=hout_dist,
@@ -514,7 +480,7 @@ def compute_posterior(
                         developermode=outputoptions.developermode,
                         validationmode=outputoptions.validationmode,
                     )
-                    filepaths.save_plot(fig, kind="_warn_kiel")
+                    filepaths.save_plot(fig, kind="warn_kiel")
                     plt.close()
                 except Exception as error:
                     print("Warning Kiel diagram failed with the error:", error)
@@ -522,8 +488,7 @@ def compute_posterior(
     # Create corner plot
     if len(cornerplots):
         try:
-            fig = plt.figure()
-            plot_corner.corner(
+            cornerfig = plot_corner.corner(
                 samples,
                 labels=parameters.get_keys(cornerplots)[1],
                 truth_color=parameters.get_keys(cornerplots)[3],
@@ -532,14 +497,13 @@ def compute_posterior(
                 nameinplot=starid if plotconfig.nameinplot else False,
                 **ckwargs,
             )
-            filepaths.save_plot(fig, kind="_corner")
+            filepaths.save_plot(cornerfig, kind="corner")
             plt.close()
         except Exception as error:
             print("Corner plot failed with the error:", error)
         if outputoptions.debug:
             try:
-                fig = plt.figure()
-                plot_corner.corner(
+                cornerfig = plot_corner.corner(
                     lsamples,
                     labels=parameters.get_keys(cornerplots)[1],
                     truth_color=parameters.get_keys(cornerplots)[3],
@@ -548,12 +512,12 @@ def compute_posterior(
                     nameinplot=starid if plotconfig.nameinplot else False,
                     **ckwargs,
                 )
-                filepaths.save_plot(fig, kind="_likelihood_corner")
+                filepaths.save_plot(cornerfig, kind="likelihood_corner")
                 plt.close()
             except Exception as error:
                 print("Likelihood corner plot failed with the error:", error)
             try:
-                plot_corner.corner(
+                cornerfig = plot_corner.corner(
                     wsamples,
                     labels=parameters.get_keys(cornerplots)[1],
                     truth_color=parameters.get_keys(cornerplots)[3],
@@ -562,7 +526,7 @@ def compute_posterior(
                     nameinplot=starid if plotconfig.nameinplot else False,
                     **ckwargs,
                 )
-                filepaths.save_plot(fig, kind="_prior_corner")
+                filepaths.save_plot(fig, kind="prior_corner")
                 plt.close()
             except Exception as error:
                 print("Prior corner plot failed with the error:", error)
@@ -609,7 +573,7 @@ def compute_posterior(
                 validationmode=outputoptions.validationmode,
                 color_by_likelihood=False,
             )
-            filepaths.save_plot(fig, kind="_kiel")
+            filepaths.save_plot(fig, kind="kiel")
             plt.close()
         except Exception as error:
             print("Kiel diagram failed with the error:", error)
@@ -694,5 +658,5 @@ def compute_posterior(
             ]
             fig.legend(handles, labels, loc="upper center", ncol=5)
 
-            filepaths.save_plot(fig, kind="_dist")
+            filepaths.save_plot(fig, kind="dist")
             plt.close()

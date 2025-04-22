@@ -3,16 +3,16 @@ Running BASTA from XML files. Main wrapper!
 """
 
 import os
-import gc
 import sys
 import copy
-import h5py
+import h5py  # type: ignore[import]
 import traceback
+from io import BufferedIOBase
 from xml.etree import ElementTree
 
 import numpy as np
 
-from typing import Optional, Union, Dict, List, Any, Tuple
+from typing import Any, Literal, TypedDict, overload
 
 from basta.bastamain import BASTA
 from basta import core
@@ -26,14 +26,28 @@ from basta.utils_general import strtobool, unique_unsort, flush_all
 from basta.interpolation_driver import perform_interpolation
 
 
+@overload
+def _find_get(root: ElementTree.Element, path: str, value: str) -> str: ...
+@overload
+def _find_get(
+    root: ElementTree.Element, path: str, value: str, default: str
+) -> str: ...
+@overload
+def _find_get(
+    root: ElementTree.Element, path: str, value: str, default: None
+) -> str | None: ...
+@overload
+def _find_get(
+    root: ElementTree.Element, path: str, value: str, default: float | int
+) -> str | float | int: ...
+
+
 def _find_get(
     root: ElementTree.Element,
     path: str,
     value: str,
-    default: Optional[
-        Union[str, float, int]
-    ] = "no-default",  # Default can be str, int, or float
-) -> str:
+    default: str | float | int | None = "no-default",
+) -> str | float | int | None:
     """
     Error catching of things required to be set in xml. Gives useful
     error messages instead of AttributeError.
@@ -46,7 +60,7 @@ def _find_get(
         Path in the XML tree where the wanted value should be.
     value : str
         Name of the value to be extracted, e.g., "value", "path", "error".
-    default : Optional[Union[str, int, float]]
+    default : str | int | float
         Default value to return if not set.
 
     Returns
@@ -72,8 +86,8 @@ def _find_get(
 
 
 def _define_centroid_and_uncertainties(
-    root: ElementTree.Element, inputparams: Dict[str, str]
-) -> Dict[str, str]:
+    root: ElementTree.Element, inputparams: dict[str, Any]
+) -> dict[str, Any]:
     """
     Extract the centroid and uncertainty definitions for the fit. These need to
     apply default values if not set, therefore this check exists.
@@ -122,10 +136,10 @@ def _define_centroid_and_uncertainties(
 
 
 def _get_true_or_list(
-    params: List[ElementTree.Element],
-    deflist: Optional[List[str]] = None,
+    params: list[ElementTree.Element],
+    deflist: list[str] | None = None,
     check: bool = True,
-) -> Union[List[str], List[bool]]:
+) -> list[str] | list[bool]:
     """
     Handles input lists that may be set to True to follow a default behavior or
     specified parameters for custom behavior.
@@ -176,7 +190,7 @@ def _get_true_or_list(
     return extract
 
 
-def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> Tuple[float, float]:
+def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> tuple[float, float]:
     """
     Extract the frequency interval of the star, using dnu as an
     estimation of the extension of the boundaries.
@@ -223,6 +237,57 @@ def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> Tuple[float, f
     return fmin, fmax
 
 
+class _IntpolTrackresolution(TypedDict):
+    param: str
+    value: float
+    baseparam: str
+
+
+class IntpolTrackresolution(_IntpolTrackresolution, total=False):
+    retrace: bool
+
+
+class _IntpolGridresolution(TypedDict):
+    age: int
+    massini: int
+    FeHini: int
+    MeHini: int
+    yini: int
+    alphaMLT: int
+    ove: int
+    alphaFe: int
+    gcut: int
+    eta: int
+    scale: float
+    baseparam: str
+    extend: Literal[0, 1]
+
+
+class IntpolGridresolution(_IntpolGridresolution, total=False):
+    retrace: bool
+
+
+class IntpolName(TypedDict):
+    # TODO: maybe need assert not None?
+    value: str | None
+
+
+class IntpolMethod(TypedDict):
+    # TODO: maybe need assert not None?
+    case: str | None
+    # TODO: maybe need assert not None?
+    construction: str | None
+    retrace: Literal[0, 1]
+
+
+class Intpol(TypedDict, total=False):
+    limits: dict[str, list[float]]
+    trackresolution: IntpolTrackresolution
+    gridresolution: IntpolGridresolution
+    name: IntpolName
+    method: IntpolMethod
+
+
 def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
     """
     Extract interpolation settings.
@@ -244,10 +309,10 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
         stars if interpolation construction is 'encompass'.
     """
     # Read input
-    intpol = {}
+    intpol: Intpol = {}
     for param in root.findall("default/interpolation/"):
         if param.tag.lower() == "limits":
-            limits = {}
+            limits: dict[str, list[float]] = {}
             for par in param:
                 limits[par.tag] = [
                     float(par.attrib.get("min", -np.inf)),
@@ -257,13 +322,13 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
                 ]
             intpol["limits"] = limits
         elif param.tag.lower() == "trackresolution":
-            intpol[param.tag.lower()] = {
+            intpol["trackresolution"] = {
                 "param": param.attrib.get("param", "freq"),
-                "value": float(param.attrib.get("value")),
+                "value": float(param.attrib["value"]),
                 "baseparam": param.attrib.get("baseparam", "default"),
             }
         elif param.tag.lower() == "gridresolution":
-            intpol[param.tag.lower()] = {
+            intpol["gridresolution"] = {
                 "age": int(param.attrib.get("age", 0.0)),
                 "massini": int(param.attrib.get("massini", 0.0)),
                 "FeHini": int(param.attrib.get("FeHini", 0.0)),
@@ -279,12 +344,15 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
                 "extend": strtobool(param.attrib.get("extend", "False")),
             }
         elif param.tag.lower() == "name":
-            intpol[param.tag.lower()] = {
+            intpol["name"] = {
+                # TODO: assert value is not None?
                 "value": param.attrib.get("value"),
             }
         elif param.tag.lower() == "method":
-            intpol[param.tag.lower()] = {
+            intpol["method"] = {
+                # TODO: assert value is not None?
                 "case": param.attrib.get("case"),
+                # TODO: assert value is not None?
                 "construction": param.attrib.get("construction"),
                 "retrace": strtobool(param.attrib.get("retrace", "False")),
             }
@@ -331,26 +399,27 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
     limerrmsg += "but missing for given star(s)."
     if construct == "encompass":
         limits = {}
-        for param in intpol["limits"]:
-            gparam = "dnu" if "dnu" in param else param
-            minval, maxval, abstol, nsigma = intpol["limits"][param]
+        for limit in intpol["limits"]:
+            gparam = "dnu" if "dnu" in limit else limit
+            minval, maxval, abstol, nsigma = intpol["limits"][limit]
             if abstol != np.inf or nsigma != np.inf:
                 try:
-                    vals = [
-                        float(star.find(gparam).get("value"))
-                        for star in root.findall("star")
-                    ]
+                    vals: list[float] = []
+                    for star in root.findall("star"):
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        vals.append(float(star_gparam.attrib["value"]))
 
-                except:
+                except Exception:
                     raise ValueError(limerrmsg.format(gparam))
                 try:
-                    err = max(
-                        [
-                            float(star.find(gparam).get("error"))
-                            for star in root.findall("star")
-                        ]
-                    )
-                except:
+                    errs: list[float] = []
+                    for star in root.findall("star"):
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        errs.append(float(star_gparam.attrib["error"]))
+                    err = max(errs)
+                except Exception:
                     err = 0
 
                 if err and err * nsigma < abstol / 2.0:
@@ -360,7 +429,7 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
                 if max(vals) + abstol / 2.0 < maxval:
                     maxval = max(vals) + abstol / 2.0
             if minval != -np.inf or maxval != np.inf:
-                limits[param] = [minval, maxval]
+                limits[limit] = [minval, maxval]
         if freqpath:
             mins = [f[0] for _, f in freqminmax.items()]
             maxs = [f[1] for _, f in freqminmax.items()]
@@ -392,17 +461,21 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
         if construct == "encompass":
             intpolstar["limits"] = limits
         else:
-            for param in intpolstar["limits"]:
-                gparam = "dnu" if "dnu" in param else param
-                minval, maxval, abstol, nsigma = intpolstar["limits"][param]
+            for limit in intpolstar["limits"]:
+                gparam = "dnu" if "dnu" in limit else limit
+                minval, maxval, abstol, nsigma = intpolstar["limits"][limit]
                 # If abstol or nsigma defined, find the min and max from all of the stars
                 if abstol != np.inf or nsigma != np.inf:
                     try:
-                        val = float(star.find(gparam).get("value"))
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        val = float(star_gparam.attrib["value"])
                     except:
                         raise ValueError(limerrmsg.format(gparam))
                     try:
-                        err = float(star.find(gparam).get("error"))
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        err = float(star_gparam.attrib["error"])
                     except:
                         err = 0
 
@@ -413,7 +486,7 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
                     if val + abstol / 2.0 < maxval:
                         maxval = val + abstol / 2.0
                 if minval != -np.inf or maxval != np.inf:
-                    intpolstar["limits"][param] = [minval, maxval]
+                    intpolstar["limits"][limit] = [minval, maxval]
             if freqpath:
                 intpolstar["limits"]["freqs"] = freqminmax[starid]
 
@@ -422,7 +495,7 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
     return allintpol
 
 
-def _read_glitch_controls(fitfreqs: Dict[str, Any]) -> Dict[str, Any]:
+def _read_glitch_controls(fitfreqs: dict[str, Any]) -> dict[str, Any]:
     """
     Reads precomputed glitch options to be used for model computation.
 
@@ -528,7 +601,8 @@ def run_xml(
     root = tree.getroot()
 
     # Initialize parameters
-    inputparams = {
+    # TODO: remove inputparams or use a more precise type
+    inputparams: dict[str, Any] = {
         "inputfile": xmlname,
         "output": _find_get(root, "default/output", "path"),
         "plotfmt": _find_get(root, "default/plotfmt", "value", "png"),
@@ -561,6 +635,8 @@ def run_xml(
 
     # Handle centroid and uncertainty settings
     inputparams = _define_centroid_and_uncertainties(root, inputparams)
+    centroid = inputparams["centroid"]
+    uncert = inputparams["uncert"]
 
     # Restore original working directory
     os.chdir(oldpath)
@@ -568,7 +644,8 @@ def run_xml(
     # Check for frequency fitting and activate
     fitparams = [param.tag for param in root.findall("default/fitparams/")]
 
-    fitfreqs = {}
+    # TODO: remove fitfreqs or use a more precise type
+    fitfreqs: dict[str, Any] = {}
     fitfreqs["active"] = any(param in freqtypes.alltypes for param in fitparams)
     fitfreqs["fittypes"] = [param for param in fitparams if param in freqtypes.alltypes]
     fitdist = "parallax" in fitparams  # If parallax is included, fit for distance
@@ -576,22 +653,24 @@ def run_xml(
     stdout = sys.stdout
 
     # Get global parameters
-    overwriteparams = {}
+    overwriteparams: dict[str, tuple[float, float]] = {}
+    overwritephasedif: dict[str, str] = {}
     for param in root.findall("default/overwriteparams/"):
         if param.tag == "phase" or param.tag == "dif":
-            overwriteparams[param.tag] = param.get("value")
+            overwritephasedif[param.tag] = param.attrib["value"]
         else:
             overwriteparams[param.tag] = (
-                float(param.get("value")),
-                float(param.get("error")),
+                float(param.attrib["value"]),
+                float(param.attrib["error"]),
             )
 
     # Extract plotting parameters, defaulting to fitparams if "True"
+    asciiparams = unique_unsort(
+        _get_true_or_list(root.findall("default/outparams/"), fitparams)
+    )
     inputparams.update(
         {
-            "asciiparams": unique_unsort(
-                _get_true_or_list(root.findall("default/outparams/"), fitparams)
-            ),
+            "asciiparams": asciiparams,
             "cornerplots": unique_unsort(
                 _get_true_or_list(root.findall("default/cornerplots/"), fitparams)
             ),
@@ -605,10 +684,7 @@ def run_xml(
     )
 
     # Check if distance output is required
-    if (
-        "distance" in inputparams["cornerplots"]
-        or "distance" in inputparams["asciiparams"]
-    ):
+    if "distance" in inputparams["cornerplots"] or "distance" in asciiparams:
         fitdist = True
 
     # Extract parameters for frequency fitting
@@ -712,7 +788,7 @@ def run_xml(
     optoutput = [
         param.tag for param in root.findall("default/optionaloutputfiles/") if param.tag
     ]
-    useoptoutput = optoutput if optoutput else False
+    useoptoutput = bool(optoutput)
 
     # Get priors
     limits = {}
@@ -749,6 +825,21 @@ def run_xml(
         "error": basepath + ".err",
         "warning": basepath + ".warn",
     }
+    distancefilters = (
+        [f.tag for f in root.findall("default/distanceInput/filters/")]
+        if fitdist
+        else None
+    )
+    outputoptions = core.OutputOptions(
+        asciiparams=asciiparams,
+        uncert=uncert,
+        centroid=centroid,
+        optionaloutputs=useoptoutput,
+        debug=flag_debug,
+        verbose=verbose,
+        developermode=flag_developermode,
+        validationmode=flag_validationmode,
+    )
 
     # Make sure the output path exists
     os.makedirs(inputparams["output"], exist_ok=True)
@@ -773,18 +864,47 @@ def run_xml(
             if os.path.exists(output_paths["ascii_distance"]):
                 open(output_paths["ascii_distance"], "wb").close()
 
+            if fitdist:
+                fout_dist: BufferedIOBase | None = open(
+                    output_paths["ascii_distance"], "ab+"
+                )
+            else:
+                fout_dist = None
+            runfiles = core.RunFiles(
+                runbasepath=basepath,
+                summarytable=fout,
+                summarytablepath=output_paths["ascii"],
+                distancesummarytable=fout_dist,
+                distancesummarytablepath=output_paths["ascii_distance"],
+                warnoutput=fwarn,
+                erroroutput=ferr,
+            )
+
             # Loop over stars
             for star in root.findall("star"):
                 starid = star.get("starid")
+                assert starid is not None
+                assert isinstance(starid, str)
                 starfitparams = {}
                 skipstar = False
                 gridfile = grid
+
+                filepaths = core.FilePaths(
+                    starid=starid,
+                    outputdir=inputparams["output"],
+                    inputfile=inputparams["inputfile"],
+                    plotfmt=inputparams["plotfmt"],
+                )
 
                 # Get fitparameters for the given star
                 for param in fitparams:
                     kid = star.find("dnu") if "dnu" in param else star.find(param)
 
-                    if param in [*overwriteparams, *freqtypes.alltypes]:
+                    if param in [
+                        *overwriteparams,
+                        *overwritephasedif,
+                        *freqtypes.alltypes,
+                    ]:
                         continue  # Skip special fitting keys, handled later
 
                     val = kid.get("value") if kid is not None else None
@@ -799,6 +919,7 @@ def run_xml(
                         else:
                             inputparams[param] = val
                     elif val is not None:
+                        assert err is not None
                         starfitparams[param] = [
                             float(val),
                             float(err),
@@ -806,23 +927,32 @@ def run_xml(
                     else:
                         skipstar = True
                         msg = f"Fitparameter '{param}' not provided for star {starid} and will be skipped"
-                        no_models(star, filepaths, outputoptions, msg)
+                        no_models(
+                            starid,
+                            filepaths,
+                            runfiles,
+                            outputoptions,
+                            distancefilters,
+                            msg,
+                        )
                         print(msg)
                         break
 
                 # Check if any overwriting of fitparameter is requested
                 for param, gparams in overwriteparams.items():
                     if param in fitparams:
-                        if param in ["phase", "dif"]:
-                            if "," in val:
-                                inputparams[param] = tuple(gparams.split(","))
-                            else:
-                                inputparams[param] = (
-                                    float(gparams[0]),
-                                    float(gparams[1]),
-                                )
+                        inputparams[param] = (float(gparams[0]), float(gparams[1]))
+
+                for param, phasedifparam in overwritephasedif.items():
+                    if param in fitparams:
+                        if "," in phasedifparam:
+                            inputparams[param] = tuple(
+                                map(float, phasedifparam.split(","))
+                            )
                         else:
-                            inputparams[param] = (float(gparams[0]), float(gparams[1]))
+                            inputparams[param] = float(phasedifparam), float(
+                                phasedifparam
+                            )
 
                 # Collect by-star frequency fit information
                 if fitfreqs["active"]:
@@ -844,8 +974,9 @@ def run_xml(
                         }
                     )
                     for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
-                        if star.find(fp) is not None:
-                            fitfreqs[fp] = star.find(fp).get("value")
+                        fp_element = star.find(fp)
+                        if fp_element is not None:
+                            fitfreqs[fp] = fp_element.get("value")
                         else:
                             fitfreqs[fp] = None
                     inputparams["fitfreqs"] = fitfreqs
@@ -894,7 +1025,9 @@ def run_xml(
 
                 # Add parallax and other distance parameters to dictionary
                 if fitdist:
-                    distanceparams = {
+                    assert distancefilters is not None
+                    # TODO: add precise type for this in core
+                    distanceparams: dict[str, Any] = {
                         "parallax": (
                             [
                                 float(_find_get(star, "parallax", "value")),
@@ -906,10 +1039,7 @@ def run_xml(
                         "dustframe": _find_get(
                             root, "default/distanceInput/dustframe", "value"
                         ),
-                        "filters": [
-                            f.tag
-                            for f in root.findall("default/distanceInput/filters/")
-                        ],
+                        "filters": distancefilters,
                         "m": {},
                         "m_err": {},
                     }
@@ -917,22 +1047,22 @@ def run_xml(
                     for coord in ["lon", "lat", "RA", "DEC"]:
                         fc = star.find(coord)
                         if fc is not None:
-                            distanceparams[coord] = float(fc.get("value"))
+                            distanceparams[coord] = float(fc.attrib["value"])
 
                     # Load extinction or use dustmap
                     EBV = star.find("EBV")
                     if EBV is not None:
-                        distanceparams["EBV"] = [0, float(EBV.get("value")), 0]
+                        distanceparams["EBV"] = [0, float(EBV.attrib["value"]), 0]
                     else:
                         distanceparams["EBV"] = []
 
                     # Find available filters and load corresponding magnitudes
                     for f in distanceparams["filters"]:
                         try:
-                            distanceparams["m"][f] = float(star.find(f).get("value"))
-                            distanceparams["m_err"][f] = float(
-                                star.find(f).get("error")
-                            )
+                            star_f = star.find(f)
+                            assert star_f is not None
+                            distanceparams["m"][f] = float(star_f.attrib["value"])
+                            distanceparams["m_err"][f] = float(star_f.attrib["error"])
                         except Exception:
                             print("WARNING: Could not find values for " + f)
 
@@ -975,20 +1105,25 @@ def run_xml(
                 except ValueError as e:
                     print("\nBASTA interpolation stopped due to a value error!\n")
                     traceback.print_exc()
-                    write_star_to_errfile(
-                        starid, inputparams, f"Interpolation Error: {e}"
-                    )
+                    write_star_to_errfile(starid, runfiles, f"Interpolation Error: {e}")
                     continue
                 except Exception as e:
                     error_msg = f"BASTA interpolation failed for star {starid}: {e}"
                     print(error_msg)
                     print(traceback.format_exc())
-                    no_models(star, filepaths, outputoptions, f"Unhandled Error: {e}")
+                    no_models(
+                        starid,
+                        filepaths,
+                        runfiles,
+                        outputoptions,
+                        distancefilters,
+                        f"Unhandled Error: {e}",
+                    )
 
                 # Call BASTA itself!
                 distparams = core.DistanceParameters(
                     magnitudes={
-                        f: [m, m_err]
+                        f: (m, m_err)
                         for f, m, m_err in zip(
                             inputparams["distanceparams"]["filters"],
                             inputparams["distanceparams"]["m"].values(),
@@ -1036,36 +1171,18 @@ def run_xml(
                     fitfreqs=inputparams["fitfreqs"],
                     distanceparams=distparams,
                 )
-                filepaths = core.FilePaths(
-                    star=star,
-                    outputdir=inputparams["output"],
-                    inputfile=inputparams["inputfile"],
-                    warnoutput=inputparams["warnoutput"],
-                    erroroutput=inputparams["erroutput"],
-                    plotfmt=inputparams["plotfmt"],
-                )
                 inferencesettings = core.InferenceSettings(
                     gridfile=gridfile,
                     gridid=gridid,
                     seed=seed,
                     limits=inputparams["limits"],
-                    usebayw=usebayw,
+                    usebayw=bool(usebayw),
                     priors=usepriors,
                     solarmodel=inputparams["solarmodel"],
                     solarvalues={
                         "numax": inputparams["numsun"],
                         "dnu": inputparams["dnusun"],
                     },
-                )
-                outputoptions = core.OutputOptions(
-                    asciiparams=inputparams["asciiparams"],
-                    uncert=inputparams["uncert"],
-                    centroid=inputparams["centroid"],
-                    optionaloutputs=useoptoutput,
-                    debug=flag_debug,
-                    verbose=verbose,
-                    developermode=flag_developermode,
-                    validationmode=flag_validationmode,
                 )
                 plotconfig = core.PlotConfig(
                     nameinplot=inputparams["nameinplot"],
@@ -1078,6 +1195,7 @@ def run_xml(
                         star=star,
                         inferencesettings=inferencesettings,
                         filepaths=filepaths,
+                        runfiles=runfiles,
                         outputoptions=outputoptions,
                         plotconfig=plotconfig,
                     )
@@ -1106,20 +1224,23 @@ def run_xml(
                     error_msg = f"BASTA failed for star {starid} due to: {e}"
                     print(error_msg)
                     print(traceback.format_exc())
-                    no_models(star, filepaths, outputoptions, f"Unhandled Error: {e}")
+                    no_models(
+                        starid,
+                        filepaths,
+                        runfiles,
+                        outputoptions,
+                        distancefilters,
+                        f"Unhandled Error: {e}",
+                    )
 
-                # Ensure output files are written and clean up memory
-                flush_all(fout, ferr, fwarn)
-
-                # Flush distance output only if it's open
-                if "distance" in outputoptions.asciiparams:
-                    with open(filepaths.distance_resultfile, "ab+") as fout_dist:
-                        fout_dist.flush()
-
-                gc.collect()
+                fout.flush()
+                ferr.flush()
+                fwarn.flush()
+                if fout_dist is not None:
+                    fout_dist.flush()
 
     ascii_to_xml(
-        filepaths.resultfile, filepaths.xmlresultfile, uncert=outputoptions.uncert
+        output_paths["ascii"], output_paths["xml"], uncert=outputoptions.uncert
     )
 
     # Reset path and return

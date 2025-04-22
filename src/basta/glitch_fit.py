@@ -2,16 +2,17 @@
 Auxiliary functions for glitch fitting
 """
 
+from typing import TypedDict
 import numpy as np
 
 from basta import freq_fit
 from basta import utils_seismic as su
 
 try:
-    from basta.sd import sd
-    from basta.icov_sd import icov_sd
-    from basta.glitch_fq import fit_fq
-    from basta.glitch_sd import fit_sd
+    from basta.sd import sd  # type: ignore[import]
+    from basta.icov_sd import icov_sd  # type: ignore[import]
+    from basta.glitch_fq import fit_fq  # type: ignore[import]
+    from basta.glitch_sd import fit_sd  # type: ignore[import]
 
     GLITCH_AVAIL = True
 except:
@@ -76,13 +77,20 @@ def compute_observed_glitches(
     return glitchseq, glitchseq_cov
 
 
+class AcDepths(TypedDict):
+    tauHe: float
+    dtauHe: float
+    tauCZ: float
+    dtauCZ: float
+
+
 def compute_glitchseqs(
     osckey: np.ndarray,
     osc: np.ndarray,
     sequence: str,
     dnu: float,
     fitfreqs: dict,
-    ac_depths: bool = False,
+    ac_depths: AcDepths | None = None,
     debug: bool = False,
 ) -> np.ndarray:
     """
@@ -125,7 +133,7 @@ def compute_glitchseqs(
     # Acoustic radius and acoustic depths of the glitches
     acousticRadius = 5.0e5 / dnu
     # If not inputted, use standard assumptions:
-    if not ac_depths:
+    if ac_depths is None:
         ac_depths = {
             "tauHe": 0.17 * acousticRadius + 18.0,
             "dtauHe": 0.05 * acousticRadius,

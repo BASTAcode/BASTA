@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 
 from basta.constants import parameters

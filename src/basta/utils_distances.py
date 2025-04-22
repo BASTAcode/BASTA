@@ -75,7 +75,7 @@ def EDSD(libitem: str | None = None, index: int | None = None) -> float:
     return k
 
 
-def loggaussian(x: np.array, mu: float, sigma: float) -> np.array:
+def loggaussian(x: np.ndarray, mu: float, sigma: float) -> np.ndarray:
     """
     Compute the log of a gaussian.
 
@@ -98,13 +98,13 @@ def loggaussian(x: np.array, mu: float, sigma: float) -> np.array:
 
 
 def compute_distlikelihoods(
-    r: np.array,
+    r: np.ndarray,
     plxobs: float,
     plxobs_err: float,
     L: float | None = None,
     debug_dirpath: Path | str = "",
     debug: bool = False,
-) -> np.array:
+) -> np.ndarray:
     """
     Compute the likelihood as the product between a gaussian of the parallax
     and the exponentially decreasing volume density prior.
@@ -139,7 +139,7 @@ def compute_distlikelihoods(
         plt.plot(r, np.exp(lls), "-")
         plt.xlabel("Distance (pc)")
         plt.ylabel("log PDF")
-        plt.savefig(debug_dirpath + "_DEBUG_distance_lls.png")
+        plt.savefig(f"{debug_dirpath}_DEBUG_distance_lls.png")
         plt.close()
 
     # Convert from PDF to probability
@@ -151,7 +151,7 @@ def compute_distlikelihoods(
     return lls
 
 
-def compute_mslikelihoods(ms: np.array, mobs: float, mobs_err: float) -> np.array:
+def compute_mslikelihoods(ms: np.ndarray, mobs: float, mobs_err: float) -> np.ndarray:
     """
     Treat the magnitudes as Gausiians given the observed values and return their likelihoods
 

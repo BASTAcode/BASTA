@@ -4,9 +4,9 @@ Fitting of frequencies and frequency-dependent properties.
 
 import numpy as np
 import itertools
-from sklearn import linear_model
-from scipy.optimize import minimize
-from scipy.interpolate import CubicSpline
+from sklearn import linear_model  # type: ignore[import]
+from scipy.optimize import minimize  # type: ignore[import]
+from scipy.interpolate import CubicSpline  # type: ignore[import]
 
 from basta import utils_seismic as su
 

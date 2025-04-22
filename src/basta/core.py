@@ -11,9 +11,24 @@ components for the application's logic, inference processes, and internal commun
 """
 
 from dataclasses import dataclass, field
-from typing import Any
+from typing import Any, TypedDict
 from collections.abc import Callable
 from pathlib import Path
+from io import BufferedIOBase, TextIOBase
+
+
+class AbsoluteMagnitude(TypedDict):
+    prior: Callable[[float], float]
+    median: float
+    errp: float
+    errm: float
+
+
+class AbsoluteMagnitudes(TypedDict):
+    magnitudes: dict[str, AbsoluteMagnitude]
+    absorption: dict[str, list[Any]]
+    prior_EBV: list[float]
+    prior_distance: list[float]
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -23,19 +38,11 @@ class DistanceParameters:
     # m: Dict[str, float]
     # m_err: Dict[str, float]
     # Can be combined in dict called magnitudes
-    magnitudes: dict[str, list[float]]
+    magnitudes: dict[str, tuple[float, float]]
     coordinates: dict[str, Any]
     # TODO why is parallax here? should it be in star.fitparams?
     parallax: list[float]
     EBV: list[Any]
-
-
-@dataclass(kw_only=True, frozen=True)
-class Magnitude:
-    prior: Callable[[float], float]
-    median: float
-    errp: float
-    errm: float
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -87,24 +94,33 @@ class Star:
     # inputparams: dict[str, Any]
     fitparams: dict[str, Any]  # observed_properties
     fitfreqs: dict[str, Any]  # specifically individual frequencies
-    distanceparams: DistanceParameters = field(default_factory=DistanceParameters)
+    distanceparams: DistanceParameters
+
+
+@dataclass(kw_only=True, frozen=True)
+class RunFiles:
+    runbasepath: str
+    summarytable: BufferedIOBase
+    summarytablepath: str
+    distancesummarytable: BufferedIOBase | None = None
+    distancesummarytablepath: str
+    warnoutput: TextIOBase | None = None
+    erroroutput: TextIOBase | None = None
 
 
 @dataclass(kw_only=True, frozen=True)
 class FilePaths:
     """
-    Main class containing, handling, and managing all relevant file paths for a single BASTA run.
+    Main class containing, handling, and managing all relevant file paths for a single target in a BASTA run.
 
     Parameters
     ----------
 
     """
 
-    star: Star
+    starid: str
     outputdir: str
     inputfile: str
-    warnoutput: str
-    erroroutput: str
     plotfmt: str
 
     def __post_init__(self):
@@ -112,7 +128,7 @@ class FilePaths:
 
     @property
     def base(self) -> Path:
-        return Path(self.outputdir) / self.star.starid
+        return Path(self.outputdir) / self.starid
 
     @property
     def extradirectory(self) -> Path:
@@ -121,28 +137,12 @@ class FilePaths:
         return path
 
     @property
-    def debugplotfile(self, kind: str) -> Path:
-        return Path(f"{self.extradirectory}_{kind}.{self.plotfmt}")
-
-    @property
     def logfile(self) -> Path:
         return self.base.with_suffix(".log")
 
     @property
     def jsonfile(self) -> Path:
         return self.base.with_suffix(".json")
-
-    @property
-    def resultfile(self) -> Path:
-        return self.base.with_suffix(".ascii")
-
-    @property
-    def xmlresultfile(self) -> Path:
-        return self.base.with_suffix(".xml")
-
-    @property
-    def distance_resultfile(self) -> Path:
-        return Path(self.outputdir) / f"{self.star.starid}_dist.ascii"
 
     @property
     def plotfile_template(self) -> str:
@@ -201,11 +201,11 @@ class InferenceSettings:
     ]  #  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
     # TODO This is being used as a bool in utils_seismic
     solarmodel: str = ""
-    gridid: bool | tuple = False
+    gridid: tuple[float, float, float, float] | None = None
 
     usebayw: bool = True
 
-    priors: tuple = (None,)
+    priors: tuple[str, ...] | list[str] | None = None
 
 
 @dataclass(kw_only=True, frozen=True)

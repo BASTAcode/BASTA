@@ -17,8 +17,8 @@ import colorsys
 
 import numpy as np
 import matplotlib
-from scipy.stats import gaussian_kde
-from scipy.ndimage import gaussian_filter
+from scipy.stats import gaussian_kde  # type: ignore[import]
+from scipy.ndimage import gaussian_filter  # type: ignore[import]
 from matplotlib.ticker import MaxNLocator, NullLocator
 from matplotlib.colors import LinearSegmentedColormap, colorConverter
 from matplotlib.ticker import ScalarFormatter
