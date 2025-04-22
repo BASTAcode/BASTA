@@ -1050,7 +1050,7 @@ def freqs_ascii_to_xml(
     # Main xml element
     main = Element("frequencies", {"kic": starid})
 
-    flags = SubElement(
+    SubElement(
         main,
         "flags",
         {

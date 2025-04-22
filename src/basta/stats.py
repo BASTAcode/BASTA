@@ -194,7 +194,7 @@ def chi2_astero(
         chi2rut = np.inf
         return chi2rut, warnings, shapewarn, 0
     joinkeys, join = joins
-    nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
+    # nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
     if fitfreqs["fcor"] == "None":

@@ -168,17 +168,6 @@ def interpolate_along(
         grid_is_intpol = True
 
     if debug:
-        # Initialize logging to file (duplicate stdout)
-        logdir = "intpollogs"
-        if not os.path.exists(logdir):
-            os.mkdir(logdir)
-        logfile = open(
-            os.path.join(
-                logdir, "intpol_{0}.txt".format(time.strftime("%Y%m%dT%H%M%S"))
-            ),
-            "w",
-        )
-
         # Initialise diagnostic plot(s) and print info
         plt.close("all")
         fig1, ax1 = plt.subplots()  # Full grid (Kiel)

@@ -447,7 +447,6 @@ def perform_interpolation(
         intime = Grid["header/interpolation_time"][()]
     except KeyError:
         Grid.close()
-        grid_is_intpol = False
     else:
         print(
             "WARNING! The use of interpolation was requested. However,",

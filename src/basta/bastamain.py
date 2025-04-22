@@ -117,7 +117,6 @@ def _bastamain(
     # Create list of all available input parameters
     fitparams = star.fitparams
     fitfreqs = star.fitfreqs
-    distparams = star.distanceparams
     limits = inferencesettings.limits
 
     # Scale dnu and numax using a solar model or default solar values

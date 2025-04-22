@@ -239,13 +239,16 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
         if l == 0:
             # Compute the offset due to the surface effect to use in the case
             # of mixed modes for the l=1 and l=2 matching.
-            same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
+            # same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
             matched_l0s = np.transpose(np.concatenate(join))
             # Compute offset
             # modmask = [mode in same_ns for mode in modkey_givenl[1, :]]
             # obsmask = [mode in same_ns for mode in obskey_givenl[1, :]]
             # offsets = mod_givenl[0, modmask] - obs_givenl[0, obsmask]
-            offsets = matched_l0s[0, :] - matched_l0s[2, :]
+            # Note that code linting might want to remove the following line (F841),
+            # but the line is needed since the 'offsets' variable is used in the
+            # l=1 and 2 cases in this for-loop.
+            offsets = matched_l0s[0, :] - matched_l0s[2, :]  # noqa: F841
     if len(join) != 0:
         joins = [
             np.transpose(np.concatenate(joinkeys)),
@@ -308,7 +311,6 @@ def HK08(joinkeys, join, nuref, bcor):
     f_model = join[0, :]
     e_model = join[1, :]
     f_obs = join[2, :]
-    e_obs = join[3, :]
 
     # Interpolate inertia to l=0 inertia at same frequency
     interp_inertia = np.interp(f_model, f_modell0, e_modell0)

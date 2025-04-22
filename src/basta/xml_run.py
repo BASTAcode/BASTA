@@ -641,8 +641,6 @@ def run_xml(
     fitfreqs["fittypes"] = [param for param in fitparams if param in freqtypes.alltypes]
     fitdist = "parallax" in fitparams  # If parallax is included, fit for distance
 
-    stdout = sys.stdout
-
     # Get global parameters
     overwriteparams: dict[str, tuple[float, float]] = {}
     overwritephasedif: dict[str, str] = {}
