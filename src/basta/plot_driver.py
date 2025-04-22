@@ -69,7 +69,7 @@ def plot_all_seismic(
 
     # Check which plots to create
     freqplots = plotconfig.freqplots
-    allfplots = freqplots[0] == True
+    allfplots = freqplots[0] == True  # noqa: E712
     if any(x == "allechelle" for x in freqplots):
         freqplots += ["dupechelle", "echelle", "pairechelle"]
     if any(x in freqtypes.rtypes for x in freqplots):

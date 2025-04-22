@@ -645,7 +645,7 @@ def _make_obsfreqs(
     }
 
     # If all frequency plots enabled, turn on defaults
-    if len(freqplots) and freqplots[0] == True:
+    if len(freqplots) and freqplots[0] == True:  # noqa: E712
         getratios = True
         getepsdiff = True
 

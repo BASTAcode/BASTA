@@ -187,7 +187,7 @@ def kiel(
     # This is by design a "==" comparison to True, because it will otherwise
     # fail, as the type is numpy.bool_ !
     # TODO I think this can be done more smart
-    if not kielplots[0] == True:
+    if not kielplots[0] == True:  # noqa: E712
         toggle_freqs = False
         new_filters = []
         new_fitpars = {}
