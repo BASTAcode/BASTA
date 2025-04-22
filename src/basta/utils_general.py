@@ -6,6 +6,7 @@ import sys
 import time
 from collections.abc import Sequence
 from io import IOBase
+from pathlib import Path
 from typing import IO, Literal, NamedTuple, TypedDict
 
 import h5py  # type: ignore[import]
@@ -429,9 +430,9 @@ class Logger:
     """
 
     # Credit: http://stackoverflow.com/a/14906787
-    def __init__(self, outfilename: str) -> None:
+    def __init__(self, outfilename: Path) -> None:
         self.terminal = sys.stdout
-        self.log = open(outfilename + ".log", "a")
+        self.log = open(outfilename, "a")
 
     def write(self, message: str) -> None:
         self.terminal.write(message)
