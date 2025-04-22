@@ -180,7 +180,8 @@ def ascii_to_xml(asciifile, outputfile, uncert="quantiles"):
     """
 
     # Load ascii file
-    results = np.genfromtxt(asciifile, dtype=None, encoding=None, names=True)
+    print(asciifile)
+    results = np.genfromtxt(asciifile, dtype=None, names=True)
     if uncert == "quantiles":
         params = results.dtype.names[1::3]
     else:

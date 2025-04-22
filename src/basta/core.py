@@ -137,6 +137,10 @@ class FilePaths:
         return self.base.with_suffix(".ascii")
 
     @property
+    def xmlresultfile(self) -> Path:
+        return self.base.with_suffix(".xml")
+
+    @property
     def distance_resultfile(self) -> Path:
         return Path(self.outputdir) / f"{self.star.starid}_dist.ascii"
 

@@ -1112,14 +1112,14 @@ def run_xml(
                 flush_all(fout, ferr, fwarn)
 
                 # Flush distance output only if it's open
-                if "distance" in inputparams["asciiparams"]:
-                    with open(output_paths["ascii_distance"], "ab+") as fout_dist:
+                if "distance" in outputoptions.asciiparams:
+                    with open(filepaths.distance_resultfile, "ab+") as fout_dist:
                         fout_dist.flush()
 
                 gc.collect()
 
     ascii_to_xml(
-        output_paths["ascii"], output_paths["xml"], uncert=inputparams["uncert"]
+        filepaths.resultfile, filepaths.xmlresultfile, uncert=outputoptions.uncert
     )
 
     # Reset path and return
