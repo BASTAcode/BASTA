@@ -28,7 +28,7 @@ def get_basta_dir() -> str:
     return rootdir
 
 
-def get_grid(case: str, gridpath=None):
+def get_grid(case: str, gridpath=None) -> None:
     """
     Download a grid from the BASTAcode grid repository. Will be stored in the default
     location: BASTA/grids/ .
@@ -124,7 +124,7 @@ def get_grid(case: str, gridpath=None):
         print(f"The grid '{gridpath}' already exists! Will not download.")
 
 
-def get_dustmaps(dustpath: str | None = None, skip: bool = False):
+def get_dustmaps(dustpath: str | None = None, skip: bool = False) -> None:
     """
     Configure dustmaps and download if necessary
 
@@ -175,7 +175,7 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
         print("Assuming dustmaps to be available without download!")
 
 
-def main():
+def main() -> None:
     """
     Run the downloader
     """

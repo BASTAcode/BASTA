@@ -947,6 +947,7 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
         mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
         r010 = np.hstack((r01, r10))[:, mask]
         return r010
+    return None
 
 
 """

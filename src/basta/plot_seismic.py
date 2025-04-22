@@ -5,7 +5,7 @@ Production of asteroseismic plots
 import os
 
 import h5py
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d
 
@@ -15,7 +15,7 @@ from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 from matplotlib import patches, transforms
 
@@ -417,8 +417,7 @@ def echelle(
         ax.set_xlim([-1, 1])
         aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
         aax.set_xlabel(
-            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
-            % dnu
+            rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
         )
         aax.set_ylabel(r"Frequency ($\mu$Hz)")
         ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
@@ -426,8 +425,7 @@ def echelle(
         ax.set_xlim([0, modx])
         aax.set_ylim(ax.set_ylim()[0] / dnu, ax.set_ylim()[1] / dnu)
         ax.set_xlabel(
-            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
-            % dnu
+            rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
         )
         ax.set_ylabel(r"Frequency ($\mu$Hz)")
         aax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
@@ -448,7 +446,7 @@ def ratioplot(
     outputfilename=None,
     threepoint=False,
     interp_ratios=True,
-):
+) -> None:
     """
     Plot frequency ratios.
 
@@ -657,7 +655,7 @@ def glitchplot(
     maxPath,
     maxInd,
     outputfilename,
-):
+) -> None:
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
         8: r"$\Delta_{\mathrm{He}}$ (s)",
@@ -674,7 +672,7 @@ def glitchplot(
     fig.delaxes(ax[0, 1])
 
     # Loop over each track to plot
-    for path, trackparams in modelvalues.items():
+    for trackparams in modelvalues.values():
         AHe = trackparams.AHe
         dHe = trackparams.dHe[AHe > 1e-14]
         tauHe = trackparams.tauHe[AHe > 1e-14]
@@ -951,11 +949,11 @@ def epsilon_difference_diagram(
         print("Saved figure to " + outputfilename)
         fig.savefig(outputfilename)
         plt.close(fig)
-    else:
-        return fig
+        return None
+    return fig
 
 
-def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None):
+def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
     """
     Routine for plotting a correlation map of the plotted ratios
 
@@ -1056,7 +1054,7 @@ def epsilon_difference_components_diagram(
     obsfreqdata,
     obsfreqmeta,
     outputfilename,
-):
+) -> None:
     """
     Full comparison figure of observed and best-fit model epsilon
     differences, with individual epsilons and correlation map.

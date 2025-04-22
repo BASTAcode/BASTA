@@ -358,7 +358,7 @@ def chi2_astero(
         # Store the determined glitch parameters for outputting
         addpars["glitchparams"] = modglitches[0, -3:]
 
-    if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
+    if any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
         # Purge model freqs of unused modes
@@ -484,7 +484,7 @@ def chi_for_plot(selectedmodels):
     # Get highest likelihood model (HLM)
     maxPDF = -np.inf
     minchi2 = np.inf
-    for _, trackstats in selectedmodels.items():
+    for trackstats in selectedmodels.values():
         i = np.argmax(trackstats.logPDF)
         j = np.argmin(trackstats.chi2)
         if trackstats.logPDF[i] > maxPDF:

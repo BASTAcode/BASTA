@@ -11,7 +11,7 @@ import basta.constants as bc
 import basta.utils_general as gu
 
 
-def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
+def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename="") -> bool:
     """
     Plots the new vs. old base of across interpolation, as long as dim(base) > 1,
     and produces a corner plot for dim(base) > 2.
@@ -46,7 +46,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
     if outbasename == "":
         return False
 
-    _, parlab, _, _ = bc.parameters.get_keys([par for par in baseparams])
+    _, parlab, _, _ = bc.parameters.get_keys(list(baseparams))
     if sobol >= 10.0:
         alpha = 0.2
     elif sobol <= 2.0:
@@ -168,7 +168,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
 
 def across_debug(
     grid, outfile, basepath, basevar, inttrack, envtracks, selmods, outname
-):
+) -> None:
     """
     If run with the --debug option, this produces a plot for each interpolated
     track, comparing the interpolated track to the enveloping tracks.

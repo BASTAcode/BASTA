@@ -282,7 +282,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     )
 
     # Compute the intervals used in frequency fitting
-    if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]]):
+    if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]):
         obsintervals = freq_fit.make_intervals(obs, obskey, dnu=fitfreqs["dnufit"])
     else:
         obsintervals = None
@@ -412,7 +412,9 @@ def check_epsilon_of_freqs(freqs, starid, dnu, quiet=False):
     f = f[filt]
 
     epsilon = calculate_epsilon(n, l, f, dnu)
-    eps_status = lambda eps: eps >= epsilon_limits[0] and eps <= epsilon_limits[1]
+
+    def eps_status(eps):
+        return eps >= epsilon_limits[0] and eps <= epsilon_limits[1]
 
     ncor = 0
     if not eps_status(epsilon):
@@ -534,7 +536,7 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
     nvalues = nvalues[~np.isnan(nvalues).any(axis=1), :]
 
     # Derive covariance matrix from MC-realisations and test convergence
-    n = int(round((nrealisations - nfailed) / 2))
+    n = round((nrealisations - nfailed) / 2)
     tmpcov = skcov.MinCovDet().fit(nvalues[:n, :]).covariance_
     fullcov = skcov.MinCovDet().fit(nvalues).covariance_
 

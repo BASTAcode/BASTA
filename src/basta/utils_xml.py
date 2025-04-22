@@ -2,7 +2,6 @@
 Utilities for handling of XML files
 """
 
-from builtins import str
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, SubElement, tostring
 
@@ -33,7 +32,7 @@ def _get_param(vals, names, param):
     try:
         val = vals[np.where(names == param)[0][0]]
     except IndexError:
-        raise IndexError("%s not found in input" % param) from None
+        raise IndexError(f"{param} not found in input") from None
     return val
 
 
@@ -200,7 +199,7 @@ def ascii_to_xml(asciifile, outputfile, uncert="quantiles"):
     stars = Element("stars")
     for result in results:
         star = SubElement(stars, "star", {"starid": result[0].astype(str)})
-        for param, unit, shortname, remark in zip(params, units, shortnames, remarks):
+        for param, unit, _shortname, remark in zip(params, units, shortnames, remarks):
             if uncert == "quantiles":
                 resdict = {
                     "value": str(result[param]),

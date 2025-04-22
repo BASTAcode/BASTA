@@ -228,13 +228,13 @@ def generate_xml(
         if "trackresolution" in intpolparams:
             trackres = intpolparams["trackresolution"]
             for tag, val in trackres.items():
-                if isinstance(val, (float, int)):
+                if isinstance(val, float | int):
                     trackres[tag] = str(val)
             SubElement(intpolelement, "trackresolution", trackres)
         if "gridresolution" in intpolparams:
             gridres = intpolparams["gridresolution"]
             for tag, val in gridres.items():
-                if isinstance(val, (float, int)):
+                if isinstance(val, float | int):
                     gridres[tag] = str(val)
             if "resolution" in gridres:
                 for restag, resval in gridres["resolution"].items():
@@ -256,7 +256,7 @@ def generate_xml(
                         intpollim[name] = list(rules[hits])
 
     # Add subelement <bayesianweights> to <default>
-    if isinstance(bayweights, (bool, str)):
+    if isinstance(bayweights, bool | str):
         SubElement(default, "bayesianweights", {"value": str(bayweights)})
 
     # Add subelement <fitparams to <default>
@@ -315,9 +315,9 @@ def generate_xml(
             SubElement(glitchelement, param, {"value": str(glitchparams[param])})
 
     # We need to check these before handling distance input
-    if isinstance(cornerplots, (str, bool)) and len(cornerplots):
+    if isinstance(cornerplots, str | bool) and len(cornerplots):
         cornerplots = [str(cornerplots)]
-    if isinstance(outparams, (str, bool)) and len(outparams):
+    if isinstance(outparams, str | bool) and len(outparams):
         outparams = [str(outparams)]
 
     # Handle distance related input
@@ -377,11 +377,11 @@ def generate_xml(
 
     # Add subelement <freqplots> to <default>
     freqplotselement = SubElement(default, "freqplots")
-    if isinstance(freqplots, (bool, str)) and freqplots:
+    if isinstance(freqplots, bool | str) and freqplots:
         SubElement(freqplotselement, str(freqplots))
     elif freqplots == "True":
         SubElement(freqplotselement, "True")
-    elif isinstance(freqplots, (list, tuple)):
+    elif isinstance(freqplots, list | tuple):
         for plot in freqplots:
             SubElement(freqplotselement, plot)
 
@@ -392,7 +392,7 @@ def generate_xml(
 
     # Add optional output files to <default>
     optoutputelement = SubElement(default, "optionaloutputfiles")
-    if isinstance(optionaloutputs, (bool, str)):
+    if isinstance(optionaloutputs, bool | str):
         SubElement(optoutputelement, str(optionaloutputs))
 
     # Create xml tags for all the targets in the input file

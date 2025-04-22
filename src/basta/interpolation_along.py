@@ -72,7 +72,7 @@ def interpolate_along(
     basepath="grid/",
     intpol_freqs=False,
     debug=False,
-):
+) -> None:
     """
     Select a part of a BASTA grid based on observational limits. Interpolate all
     quantities in the tracks within that part and write to a new grid file.
@@ -174,7 +174,7 @@ def interpolate_along(
             os.mkdir(logdir)
         logfile = open(
             os.path.join(
-                logdir, "intpol_{0}.txt".format(time.strftime("%Y%m%dT%H%M%S"))
+                logdir, "intpol_{}.txt".format(time.strftime("%Y%m%dT%H%M%S"))
             ),
             "w",
         )
@@ -186,7 +186,7 @@ def interpolate_along(
         fig3, ax3 = plt.subplots()  # Age/mass information
         print(f"Interpolating in {modestr}s with basepath '{basepath}'")
         print(
-            "Required resolution in {0}: {1}".format(
+            "Required resolution in {}: {}".format(
                 resolution["param"], resolution["value"]
             )
         )
@@ -212,7 +212,7 @@ def interpolate_along(
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
     intcount = 0
-    for _, tracks in grid[basepath].items():
+    for tracks in grid[basepath].values():
         intcount += len(tracks.items())
 
     # Use a progress bar (with the package tqdm; will write to stderr)
@@ -228,7 +228,7 @@ def interpolate_along(
         if fail:
             break
 
-        for noingrid, (name, libitem) in enumerate(tracks.items()):
+        for _noingrid, (name, libitem) in enumerate(tracks.items()):
             # Update progress bar in the start of the loop to count skipped tracks
             pbar.update(1)
 
@@ -245,7 +245,7 @@ def interpolate_along(
                 except KeyError:
                     print("\nCRITICAL ERROR!")
                     print(
-                        "The resolution parameter '{0}'".format(resolution["param"]),
+                        "The resolution parameter '{}'".format(resolution["param"]),
                         "is not found in the grid!",
                     )
                     paramguess = [
@@ -310,7 +310,7 @@ def interpolate_along(
                 continue
             if debug:
                 print(
-                    "{0}Range in {1} = [{2:4.3f}, {3:4.3f}]".format(
+                    "{}Range in {} = [{:4.3f}, {:4.3f}]".format(
                         4 * " ", baseparam, basevec[0], basevec[-1]
                     )
                 )

@@ -50,7 +50,7 @@ def _rescale_param(param, value, dnu):
     return value
 
 
-def _redundancy_print(case, intpol):
+def _redundancy_print(case, intpol) -> None:
     """
     Prints a warning to the user, that a specified resolution is not used.
 
@@ -106,7 +106,7 @@ def _unpack_intpol(intpol, dnusun, basepath):
         case = intpol["method"]["case"]
         if case not in cases:
             prtstr = f"\nThe selected case {case} is not valid for interpolation!"
-            prtstr += "The allowed cases are: {0}".format(" | ".join(cases))
+            prtstr += "The allowed cases are: {}".format(" | ".join(cases))
             raise ValueError(prtstr)
     except KeyError:
         print("\nNo interpolation case specified!")
@@ -123,13 +123,13 @@ def _unpack_intpol(intpol, dnusun, basepath):
                 trackres["param"], trackres["value"], dnusun
             )
             print(
-                "Required trackresolution in {0}: {1}".format(
+                "Required trackresolution in {}: {}".format(
                     trackres["param"], trackres["value"]
                 )
             )
             if trackres["baseparam"] != "default":
                 print(
-                    "Base parameter changed from default to '{0}'.".format(
+                    "Base parameter changed from default to '{}'.".format(
                         trackres["baseparam"]
                     )
                 )
@@ -169,7 +169,9 @@ def _unpack_intpol(intpol, dnusun, basepath):
     return case, trackres, gridres, limits, alongvar
 
 
-def _copy_tracks(grid, outfile, basepath, intpolparams, selectedmodels, intpol_freqs):
+def _copy_tracks(
+    grid, outfile, basepath, intpolparams, selectedmodels, intpol_freqs
+) -> None:
     """
     If the extend option has been enabled, copy the sub-box of old models
     to the new gridfile.
@@ -217,7 +219,7 @@ def _interpolate_grid(
     basepath="grid/",
     outbasename="",
     debug=False,
-):
+) -> None:
     """
     Select a part of a BASTA grid based on observational limits. Interpolate all
     quantities in that part and write to a new grid file. Create and interpolate
@@ -505,7 +507,7 @@ def perform_interpolation(
         + inputparams["cornerplots"]
         + inputparams["asciiparams"]
     )
-    if any([x in allparams for x in ["distance", "parallax"]]):
+    if any(x in allparams for x in ["distance", "parallax"]):
         allparams += inputparams["distanceparams"]["filters"]
     intpolparams = list(np.unique(allparams))
     if "distance" in intpolparams:

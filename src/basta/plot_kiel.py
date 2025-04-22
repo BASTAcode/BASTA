@@ -4,8 +4,7 @@ Production of Kiel diagrams
 
 import os
 
-import matplotlib
-import matplotlib.collections
+import matplotlib as mpl
 import numpy as np
 
 from basta import fileio as fio
@@ -16,7 +15,7 @@ from basta.constants import parameters
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
@@ -180,11 +179,11 @@ def kiel(
     kielplots = inputparams.get("kielplots")
     fitfreqs = inputparams.get("fitfreqs", False)
     toggle_freqs = True
-    filters = [f for f in inputparams["magnitudes"]]
+    filters = list(inputparams["magnitudes"])
 
     # This is by design a "==" comparison to True, because it will otherwise
     # fail, as the type is numpy.bool_ !
-    if not kielplots[0] == True:
+    if kielplots[0] is not True:
         toggle_freqs = False
         new_filters = []
         new_fitpars = {}
@@ -337,7 +336,7 @@ def kiel(
                 # Make segments to colorcode
                 points = np.transpose([xs, ys]).reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                lc = matplotlib.collections.LineCollection(segments, cmap="gray_r")
+                lc = mpl.collections.LineCollection(segments, cmap="gray_r")
                 lc.set_array(logpdf)
                 lc.set_linewidth(1)
                 ax.add_collection(lc)

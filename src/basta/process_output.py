@@ -7,7 +7,7 @@ import os
 from copy import deepcopy
 from io import IOBase
 
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 
 import basta.fileio as fio
@@ -20,7 +20,7 @@ from basta.downloader import get_basta_dir
 from basta.utils_distances import compute_distance_from_mag
 
 # Change matplotlib backend before loading pyplot
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 # Set the style of all plots
@@ -41,7 +41,7 @@ def compute_posterior(
     developermode=False,
     validationmode=False,
     compareinputoutput=False,
-):
+) -> None:
     """
     This function computes the posterior distributions and produce plots.
 
@@ -286,7 +286,7 @@ def compute_posterior(
                 for m in ms:
                     clabels.append("d(" + m + ")")
                     clabels.append("A(" + m + ")")
-                clabels = clabels + ["d(joint)", "E(B-V)(joint)"]
+                clabels = [*clabels, "d(joint)", "E(B-V)(joint)"]
                 try:
                     plot_corner.corner(
                         d_samples, labels=clabels, plotout=plotout, **ckwargs
@@ -431,8 +431,7 @@ def compute_posterior(
                 )
                 if "distance" in outparams:
                     print(
-                        "Saved distance results for different filters to %s."
-                        % asciifile_dist.name
+                        f"Saved distance results for different filters to {asciifile_dist.name}."
                     )
             elif asciifile_dist is False:
                 pass
@@ -446,8 +445,7 @@ def compute_posterior(
                 )
                 if "distance" in outparams:
                     print(
-                        "Saved distance results for different filters to %s."
-                        % asciifile_dist
+                        f"Saved distance results for different filters to {asciifile_dist}."
                     )
 
     # Compare input to output and produce a comparison plot

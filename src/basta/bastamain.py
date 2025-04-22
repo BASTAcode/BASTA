@@ -40,7 +40,7 @@ def BASTA(
     verbose: bool = False,
     developermode: bool = False,
     validationmode: bool = False,
-):
+) -> None:
     """
     The BAyesian STellar Algorithm (BASTA).
     (c) 2025, The BASTA Team
@@ -268,9 +268,7 @@ def BASTA(
 
             # Check for diffusion
             if "dif" in inputparams:
-                if int(round(libitem["dif"][0])) != int(
-                    round(float(inputparams["dif"]))
-                ):
+                if round(libitem["dif"][0]) != round(float(inputparams["dif"])):
                     continue
 
             # Check if mass or age is in limits to efficiently skip

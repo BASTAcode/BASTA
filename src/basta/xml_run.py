@@ -7,7 +7,7 @@ import gc
 import os
 import sys
 import traceback
-from xml.etree import ElementTree
+from xml.etree import ElementTree as ET
 
 import h5py
 import numpy as np
@@ -48,12 +48,12 @@ def _find_get(root, path, value, *default):
     assert len(default) <= 1
     tag = path.split("/")[-1]
     place = root.find(path)
-    if place == None:
+    if place is None:
         if default:
             return default[0]
         raise KeyError(f"Missing tag '{tag}' in input!")
     val = place.get(value)
-    if val == None:
+    if val is None:
         if default:
             return default[0]
         raise ValueError(f"Missing '{value}' in tag '{tag}'!")
@@ -129,7 +129,7 @@ def _get_true_or_list(
         if params[0].tag.lower() == "true" and (deflist is None):
             extract = [True]
         elif params[0].tag.lower() == "true":
-            extract = [par for par in deflist]
+            extract = list(deflist)
         elif params[0].tag.lower() != "false":
             extract = [params[0].tag]
         else:
@@ -319,14 +319,14 @@ def _get_intpol(root, gridfile, freqpath=None):
 
         # Determine output gridname
         if "name" in intpol and construct == "encompass":
-            intpolstar["name"]["value"] = "intpol_{0}".format(intpol["name"]["value"])
+            intpolstar["name"]["value"] = "intpol_{}".format(intpol["name"]["value"])
 
         elif construct == "encompass":
             gridname = gridfile.split("/")[-1].split(".")[-2]
             intpolstar["name"] = {"value": f"intpol_{gridname}"}
 
         elif "name" in intpol and construct == "bystar":
-            intpolstar["name"]["value"] = "intpol_{0}_{1}".format(
+            intpolstar["name"]["value"] = "intpol_{}_{}".format(
                 intpol["name"]["value"], starid
             )
 
@@ -409,7 +409,7 @@ def run_xml(
     verbose=False,
     developermode=False,
     validationmode=False,
-):
+) -> None:
     """
     Runs BASTA using an xml file as input. This is how you should run BASTA!
 
@@ -439,7 +439,7 @@ def run_xml(
         os.chdir(xmlpath)
 
     # Parse XML file
-    tree = ElementTree.parse(xmlname)
+    tree = ET.parse(xmlname)
     root = tree.getroot()
 
     # Prepare dict and lists for collection
@@ -502,7 +502,7 @@ def run_xml(
 
     # Get global parameters
     for param in root.findall("default/overwriteparams/"):
-        if param.tag == "phase" or param.tag == "dif":
+        if param.tag in {"phase", "dif"}:
             overwriteparams[param.tag] = param.get("value")
         else:
             overwriteparams[param.tag] = (
@@ -629,9 +629,7 @@ def run_xml(
     limits = {}
     usepriors = []
     for param in root.findall("default/priors/"):
-        if any(
-            [limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]]
-        ):
+        if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
             limits[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
@@ -748,7 +746,7 @@ def run_xml(
             for param in overwriteparams:
                 if param in fitparams:
                     # Special phase and diffusion behaviour
-                    if param == "phase" or param == "dif":
+                    if param in {"phase", "dif"}:
                         val = overwriteparams[param]
                         if "," in val:
                             inputparams[param] = tuple(val.split(","))

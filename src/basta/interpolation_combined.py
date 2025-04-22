@@ -117,7 +117,7 @@ def interpolate_combined(
     intpol_freqs=False,
     outbasename="",
     debug=False,
-):
+) -> None:
     """
     Routine for interpolating both across and along tracks, in a combined
     approach. Creates basis for new tracks using along interpolation specifications,

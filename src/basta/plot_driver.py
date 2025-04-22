@@ -22,7 +22,7 @@ def plot_all_seismic(
     dnusurf=None,
     glitchparams=None,
     debug=False,
-):
+) -> None:
     """
     Driver for producing all seismic related plots
 
@@ -68,7 +68,7 @@ def plot_all_seismic(
     """
 
     # Check which plots to create
-    allfplots = freqplots[0] == True
+    allfplots = freqplots[0] is True
     if any(x == "allechelle" for x in freqplots):
         freqplots += ["dupechelle", "echelle", "pairechelle"]
     if any(x in freqtypes.rtypes for x in freqplots):

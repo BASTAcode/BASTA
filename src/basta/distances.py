@@ -7,7 +7,7 @@ import warnings
 from collections.abc import Callable
 
 import h5py
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 import scipy.stats
 from astropy.coordinates import SkyCoord
@@ -21,7 +21,7 @@ import basta.constants as cnsts
 import basta.utils_distances as udist
 from basta import stats
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 # Don't print Astropy warnings (catch error caused by mock'ing astropy in Sphinx)
@@ -117,7 +117,10 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
         print("WARNING: Coordinates outside dust map boundaries!")
         print("Default to Schegel 1998 dust map")
         sfd = SFDQuery()
-        EBV_along_LOS = lambda x: np.full_like(x, sfd(c))
+
+        def EBV_along_LOS(x):
+            return np.full_like(x, sfd(c))
+
         return EBV_along_LOS
 
     Egr_med, Egr_err = [], []
@@ -390,8 +393,8 @@ def add_absolute_magnitudes(
         if debug:
             plt.figure()
             plt.hist(absms, bins=150, weights=labsms)
-            plt.xlabel("Abs %s" % filt)
-            plt.savefig(debug_dirpath + "_DEBUG_absms_%s.png" % filt)
+            plt.xlabel(f"Abs {filt}")
+            plt.savefig(debug_dirpath + f"_DEBUG_absms_{filt}.png")
             plt.close()
 
         absms_qs = stats.quantile_1D(absms, labsms, cnsts.statdata.quantiles)

@@ -15,7 +15,7 @@ This modified version:
 import colorsys
 import logging
 
-import matplotlib
+import matplotlib as mpl
 import matplotlib.colors as mc
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, colorConverter
@@ -23,7 +23,7 @@ from matplotlib.ticker import MaxNLocator, NullLocator, ScalarFormatter
 from scipy.ndimage import gaussian_filter
 from scipy.stats import gaussian_kde
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 fontdic = {"size": 12}
@@ -477,7 +477,7 @@ def hist2d(
     contourf_kwargs=None,
     data_kwargs=None,
     **kwargs,
-):
+) -> None:
     """
     Plot a 2-D histogram of samples.
 
@@ -554,7 +554,7 @@ def hist2d(
     # contours are filled.
     rgba_color = colorConverter.to_rgba(color)
     contour_cmap = [list(rgba_color) for l in levels] + [rgba_color]
-    for i, l in enumerate(levels):
+    for i, _l in enumerate(levels):
         contour_cmap[i][-1] *= float(i) / (len(levels) + 1)
 
     # We'll make the 2D histogram to directly estimate the density.
@@ -625,7 +625,7 @@ def hist2d(
 
     if plot_datapoints:
         if data_kwargs is None:
-            data_kwargs = dict()
+            data_kwargs = {}
         data_kwargs["color"] = data_kwargs.get("color", color)
         data_kwargs["ms"] = data_kwargs.get("ms", 2.0)
         data_kwargs["mec"] = data_kwargs.get("mec", "none")
@@ -660,7 +660,7 @@ def hist2d(
         # Plot the contour edge colors.
         if plot_contours:
             if contour_kwargs is None:
-                contour_kwargs = dict()
+                contour_kwargs = {}
             contour_kwargs["colors"] = contour_kwargs.get("colors", color)
             ax.contour(X2, Y2, H2.T, V, **contour_kwargs)
 
