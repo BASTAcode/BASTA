@@ -253,6 +253,7 @@ class parameters:
 
     names = [i[0] for i in params]
 
+    @staticmethod
     def exclude_params(excludeparams):
         """
         Takes a list of input parameters (or a
