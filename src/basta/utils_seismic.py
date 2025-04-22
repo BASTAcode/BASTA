@@ -3,23 +3,18 @@ Auxiliary functions for frequency analysis
 """
 
 import os
-from math import frexp
 from copy import deepcopy
-from tqdm import tqdm
+from typing import Literal
+
 import h5py  # type: ignore[import]
-
 import numpy as np
-from scipy.interpolate import CubicSpline  # type: ignore[import]
+from sklearn import covariance as skcov  # type: ignore[import]
+from tqdm import tqdm
 
-from basta import freq_fit, glitch_fit, core
+from basta import core, freq_fit, glitch_fit
 from basta import fileio as fio
 from basta import utils_general as util
-from basta.constants import sydsun as sydc
 from basta.constants import freqtypes
-
-from sklearn import covariance as skcov  # type: ignore[import]
-
-from typing import Literal
 
 
 def solar_scaling(
@@ -96,10 +91,8 @@ def solar_scaling(
 
         # Print conversion for reference
         print(
-            "  - {0} converted from {1:.2f} microHz to {2:.6f} solar units".format(
-                param, oldval, fitparams[param][0]
-            ),
-            "(solar value: {0:2f} microHz)".format(convert_factor),
+            f"  - {param} converted from {oldval:.2f} microHz to {fitparams[param][0]:.6f} solar units",
+            f"(solar value: {convert_factor:2f} microHz)",
         )
 
     # ------------------------------
@@ -148,11 +141,10 @@ def solar_scaling(
                 sunmodname = "bastisun_new"
             else:
                 sunmodname = "bastisun_new_diff"
+        elif len(avail_models) == 1:
+            sunmodname = avail_models[0]
         else:
-            if len(avail_models) == 1:
-                sunmodname = avail_models[0]
-            else:
-                raise NotImplementedError("More than one solar model found in grid!")
+            raise NotImplementedError("More than one solar model found in grid!")
 
         # Get all solar model dnu values
         sunmodpath = os.path.join("solar_models", sunmodname)
@@ -161,11 +153,7 @@ def solar_scaling(
             for param in Grid[sunmodpath]
             if param.startswith("dnu")
         }
-        print(
-            "* Scaling dnu to the solar model in the grid (path: {0}) ...".format(
-                sunmodpath
-            )
-        )
+        print(f"* Scaling dnu to the solar model in the grid (path: {sunmodpath}) ...")
     elif len(avail_models) == 0:
         print("* No solar model found!  -->  Dnu will not be scaled.")
         sunmoddnu = {}
@@ -184,15 +172,8 @@ def solar_scaling(
                     # Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
                     dnu_rescal = sunmoddnu[dnu] / dnusun
                     print(
-                        "  - {0} scaled by {1:.4f} from {2:.2f} to {3:.2f} microHz".format(
-                            dnu,
-                            dnu_rescal,
-                            fitparams[dnu][0],
-                            fitparams[dnu][0] * dnu_rescal,
-                        ),
-                        "(grid Sun: {0:.2f} microHz, real Sun: {1:.2f} microHz)".format(
-                            sunmoddnu[dnu], dnusun
-                        ),
+                        f"  - {dnu} scaled by {dnu_rescal:.4f} from {fitparams[dnu][0]:.2f} to {fitparams[dnu][0] * dnu_rescal:.2f} microHz",
+                        f"(grid Sun: {sunmoddnu[dnu]:.2f} microHz, real Sun: {dnusun:.2f} microHz)",
                     )
                 else:
                     # Using the scaling relations on the solar model in the grid generally
@@ -202,9 +183,7 @@ def solar_scaling(
                     # is used as the scaling factor of solar-unit input dnu's
                     dnu_rescal = sunmoddnu[dnu]
                     print(
-                        "  - {0} scaled by a factor {1:.8f} according to the".format(
-                            dnu, dnu_rescal
-                        ),
+                        f"  - {dnu} scaled by a factor {dnu_rescal:.8f} according to the",
                         "grid-solar-model value from scaling relations",
                     )
                 fitparams[dnu] = [(dnu_rescal) * p for p in fitparams[dnu]]
@@ -213,15 +192,8 @@ def solar_scaling(
                 # --> Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
                 dnu_rescal = sunmoddnu[dnu] / dnusun
                 print(
-                    "  - {0} scaled by {1:.4f} from {2:.2f} to {3:.2f} microHz".format(
-                        dnu,
-                        dnu_rescal,
-                        fitfreqs[dnu],
-                        fitfreqs[dnu] * dnu_rescal,
-                    ),
-                    "(grid Sun: {0:.2f} microHz, real Sun: {1:.2f} microHz)".format(
-                        sunmoddnu[dnu], dnusun
-                    ),
+                    f"  - {dnu} scaled by {dnu_rescal:.4f} from {fitfreqs[dnu]:.2f} to {fitfreqs[dnu] * dnu_rescal:.2f} microHz",
+                    f"(grid Sun: {sunmoddnu[dnu]:.2f} microHz, real Sun: {dnusun:.2f} microHz)",
                 )
                 fitfreqs[dnu] = dnu_rescal * fitfreqs[dnu]
                 if fitfreqs[dnu + "_err"]:
@@ -455,8 +427,8 @@ def check_epsilon_of_freqs(freqs, starid, dnu, quiet=False):
     if not eps_status(epsilon):
         if not quiet:
             print(
-                "\nStar {:s} has an odd epsilon".format(starid),
-                "value of {:.1f},".format(epsilon),
+                f"\nStar {starid:s} has an odd epsilon",
+                f"value of {epsilon:.1f},",
             )
         while not eps_status(epsilon):
             if epsilon > epsilon_limits[1]:
@@ -467,16 +439,13 @@ def check_epsilon_of_freqs(freqs, starid, dnu, quiet=False):
 
         if not quiet:
             print(
-                "Correction of n-order by {:d}".format(ncor),
-                "gives epsilon value of {:.1f}.".format(epsilon),
+                f"Correction of n-order by {ncor:d}",
+                f"gives epsilon value of {epsilon:.1f}.",
             )
         return ncor
-    else:
-        if not quiet:
-            print(
-                "Star {:s} has an".format(starid), "epsilon of: {:.1f}.".format(epsilon)
-            )
-        return 0
+    if not quiet:
+        print(f"Star {starid:s} has an", f"epsilon of: {epsilon:.1f}.")
+    return 0
 
 
 def scale_by_inertia(osckey, osc):
@@ -590,15 +559,14 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
 
     if rdif > 0.1:
         print("Warning: Covariance failed to converge!")
-        print("Maximum relative difference = {:.2e} (>0.1)".format(rdif))
+        print(f"Maximum relative difference = {rdif:.2e} (>0.1)")
 
     # Glitch parameters are more robnustly determined as median of realizations
     if fittype in freqtypes.glitches:
         # Simply overwrite values in tmp with median values
         tmp[0, :] = np.median(nvalues, axis=0)
         return tmp, fullcov
-    else:
-        return fullcov
+    return fullcov
 
 
 def extend_modjoin(joinkey, join, modkey, mod):

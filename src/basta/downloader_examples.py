@@ -2,16 +2,16 @@
 Routines to download examples (for non-GitHub installations)
 """
 
-import os
+import argparse
 import gzip
+import os
 import shutil
 import tarfile
+
 import requests
-import argparse
 from tqdm import tqdm
 
 from basta.__about__ import __version__
-from basta.downloader import get_basta_dir
 
 EXAMPLESFILE = "_examplespath.py"
 

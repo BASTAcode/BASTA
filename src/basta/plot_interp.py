@@ -3,11 +3,12 @@ Production of interpolation plots
 """
 
 import os
-import numpy as np
-import matplotlib.pyplot as plt
 
-import basta.utils_general as gu
+import matplotlib.pyplot as plt
+import numpy as np
+
 import basta.constants as bc
+import basta.utils_general as gu
 
 
 def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
@@ -57,7 +58,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
     numstr = "Old tracks: {:d}\nNew tracks: {:d}"
     numstr = numstr.format(base.shape[0], newbase.shape[0])
     if sobol:
-        numstr = "Scale: {:.1f}\n".format(sobol) + numstr
+        numstr = f"Scale: {sobol:.1f}\n" + numstr
     # Size of figure, stolen from basta/corner.py
     K = len(baseparams) - 1
     factor = 2.0 if K > 1 else 3.0
@@ -79,7 +80,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
         for i in range(j, K + 1):
             if j == i:
                 continue
-            elif K == 1:
+            if K == 1:
                 ax = axes
                 ax.triplot(base[:, j], base[:, i], tri.simplices, zorder=1)
             else:

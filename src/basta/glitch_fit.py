@@ -3,16 +3,17 @@ Auxiliary functions for glitch fitting
 """
 
 from typing import TypedDict
+
 import numpy as np
 
 from basta import freq_fit
 from basta import utils_seismic as su
 
 try:
-    from basta.sd import sd  # type: ignore[import]
-    from basta.icov_sd import icov_sd  # type: ignore[import]
     from basta.glitch_fq import fit_fq  # type: ignore[import]
     from basta.glitch_sd import fit_sd  # type: ignore[import]
+    from basta.icov_sd import icov_sd  # type: ignore[import]
+    from basta.sd import sd  # type: ignore[import]
 
     GLITCH_AVAIL = True
 except:
@@ -208,15 +209,14 @@ def compute_glitchseqs(
     # If only glitches, return these
     if sequence == "glitches":
         return glitchseq
-    else:
-        # Compute ratio sequence
-        ratios = freq_fit.compute_ratioseqs(
-            osckey, osc, sequence[1:], fitfreqs["threepoint"]
-        )
+    # Compute ratio sequence
+    ratios = freq_fit.compute_ratioseqs(
+        osckey, osc, sequence[1:], fitfreqs["threepoint"]
+    )
 
-        # Stack arrays and return full sequence
-        glitchseq = np.hstack((ratios, glitchseq))
-        return glitchseq
+    # Stack arrays and return full sequence
+    glitchseq = np.hstack((ratios, glitchseq))
+    return glitchseq
 
 
 def _average_amplitudes(param, fmin, fmax, dnu=None, method="Freq"):

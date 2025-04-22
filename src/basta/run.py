@@ -1,9 +1,10 @@
-import os
 import argparse
-import numpy as np
-from subprocess import run
 import multiprocessing as mp
+import os
 from contextlib import contextmanager
+from subprocess import run
+
+import numpy as np
 
 from basta.xml_run import run_xml
 
@@ -44,11 +45,7 @@ def _process_xmldir(
     None
 
     """
-    print(
-        "~~~~~~ RUNNING BASTA ON {0} WITH {1} THREADS NOW ~~~~~~\n".format(
-            rundir, nproc
-        )
-    )
+    print(f"~~~~~~ RUNNING BASTA ON {rundir} WITH {nproc} THREADS NOW ~~~~~~\n")
     with cd(rundir):
         # Construct list of XML files in the directory and then process them in parallel
         bastatasks = []
@@ -84,7 +81,7 @@ def main():
     parser.add_argument(
         "--verbose",
         action="store_true",
-        help="Print additional text output. A lot!" " Combine with the debug flag.",
+        help="Print additional text output. A lot! Combine with the debug flag.",
     )
 
     # Add optional argument: Experimental features

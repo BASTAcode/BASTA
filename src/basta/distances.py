@@ -4,25 +4,22 @@ Parallax fitting and computation of distances
 
 import os
 import warnings
-from typing import Callable, TypedDict, Any
-
-import h5py  # type: ignore[import]
-import numpy as np
-import scipy.stats  # type: ignore[import]
-from scipy.interpolate import interp1d  # type: ignore[import]
-from astropy.coordinates import SkyCoord  # type: ignore[import]
-from healpy import ang2pix  # type: ignore[import]
-import dustmaps  # type: ignore[import]
-from astropy.utils.exceptions import AstropyWarning  # type: ignore[import]
+from collections.abc import Callable
 from pathlib import Path
 
-import basta.utils_distances as udist
-import basta.constants as cnsts
-import basta.stats as stats
-from basta import core
-
-
+import dustmaps  # type: ignore[import]
+import h5py  # type: ignore[import]
 import matplotlib
+import numpy as np
+import scipy.stats  # type: ignore[import]
+from astropy.coordinates import SkyCoord  # type: ignore[import]
+from astropy.utils.exceptions import AstropyWarning  # type: ignore[import]
+from healpy import ang2pix  # type: ignore[import]
+from scipy.interpolate import interp1d  # type: ignore[import]
+
+import basta.constants as cnsts
+import basta.utils_distances as udist
+from basta import core, stats
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
@@ -311,10 +308,10 @@ def add_absolute_magnitudes(
     # See Bailer-Jones 2015, Eq 19
     coeffs = [1 / L, -2, plxobs / (plxobs_err**2), -1 / (plxobs_err**2)]
     roots = np.roots(coeffs)
-    if np.sum((np.isreal(roots))) == 1:
+    if np.sum(np.isreal(roots)) == 1:
         (mode,) = np.real(roots[np.isreal(roots)])
     else:
-        assert np.sum((np.isreal(roots))) == 3
+        assert np.sum(np.isreal(roots)) == 3
         if plxobs >= 0:
             mode = np.amin(np.real(roots[np.isreal(roots)]))
         else:

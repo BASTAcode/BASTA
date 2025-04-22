@@ -4,14 +4,15 @@ This module contains general purpose functions that are utilized throughout BAST
 
 import sys
 import time
-import h5py  # type: ignore[import]
+from collections.abc import Sequence
 from io import IOBase
-from typing import NamedTuple, Union, IO, TypedDict, Sequence, Literal
-from collections import namedtuple
+from typing import IO, Literal, NamedTuple, TypedDict
 
+import h5py  # type: ignore[import]
 import numpy as np
-from basta.__about__ import __version__
+
 from basta import core, distances, errors
+from basta.__about__ import __version__
 from basta.constants import freqtypes
 
 
@@ -51,7 +52,7 @@ def print_bastaheader(
     prt_center("BASTA", llen)
     prt_center("The BAyesian STellar Algorithm", llen)
     print()
-    prt_center("Version {0}".format(__version__), llen)
+    prt_center(f"Version {__version__}", llen)
     print()
     prt_center("(c) 2025, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
@@ -73,7 +74,7 @@ class GridInfo(TypedDict):
     entryname: str
     defaultpath: str
     # TODO this could have a better name
-    difsolarmodel: Union[int, None]
+    difsolarmodel: int | None
 
 
 class BayesianWeights(NamedTuple):
@@ -122,7 +123,7 @@ def print_gridinfo(gridfile: str, header: GridHeader) -> None:
     )
 
 
-def extract_gridid(Grid) -> Union[tuple[float, float, float, float], bool]:
+def extract_gridid(Grid) -> tuple[float, float, float, float] | bool:
     """
     Extracts model parameters needed to build isochrone paths.
     Returns False if missing.
@@ -139,7 +140,7 @@ def extract_gridid(Grid) -> Union[tuple[float, float, float, float], bool]:
 
 def check_gridtype(
     gridtype: str,
-    gridid: Union[tuple[float, float, float, float], bool] = False,
+    gridid: tuple[float, float, float, float] | bool = False,
 ) -> GridInfo:
     """
     Constructs the appropriate file path based on the grid type.
@@ -149,7 +150,7 @@ def check_gridtype(
     if "tracks" in gridtype:
         return {"entryname": "tracks", "defaultpath": "grid/", "difsolarmodel": None}
 
-    elif "isochrones" in gridtype:
+    if "isochrones" in gridtype:
         if not gridid or not isinstance(gridid, Sequence) or len(gridid) != 4:
             raise errors.GridTypeError(
                 "Missing or invalid `gridid`. Expected tuple of (ove, dif, eta, alphaFe)."
@@ -163,10 +164,9 @@ def check_gridtype(
             "difsolarmodel": int(dif),
         }
 
-    else:
-        raise errors.GridTypeError(
-            f"Gridtype '{gridtype}' not supported. Must be 'tracks' or 'isochrones'."
-        )
+    raise errors.GridTypeError(
+        f"Gridtype '{gridtype}' not supported. Must be 'tracks' or 'isochrones'."
+    )
 
 
 def get_grid(
@@ -188,7 +188,7 @@ def print_targetinformation(star: core.Star) -> None:
 
 def read_bayesianweights(
     Grid, gridtype: str, optional: bool = False
-) -> Union[BayesianWeights, tuple[None, None]]:
+) -> BayesianWeights | tuple[None, None]:
     """
     Reads Bayesian weights and determines relevant dimensions.
 
@@ -466,20 +466,19 @@ def list_metallicities(
         `bastamain`.
     """
     if "grid" in gridinfo["defaultpath"]:
-        return np.asarray((range(1)))
-    else:
-        metallist = []
-        metalstr = [x for x in Grid[gridinfo["defaultpath"]].items() if "=" in x[0]]
-        for i in range(len(metalstr)):
-            metallist.append(float(metalstr[i][0][4:]))
-        metal = np.asarray(metallist)
+        return np.asarray(range(1))
+    metallist = []
+    metalstr = [x for x in Grid[gridinfo["defaultpath"]].items() if "=" in x[0]]
+    for i in range(len(metalstr)):
+        metallist.append(float(metalstr[i][0][4:]))
+    metal = np.asarray(metallist)
 
-        limits = inferencesettings.limits
-        metal_name = "MeH" if "MeH" in limits else "FeH"
-        if metal_name in limits:
-            metal = metal[
-                (metal >= limits[metal_name][0]) & (metal <= limits[metal_name][1])
-            ]
+    limits = inferencesettings.limits
+    metal_name = "MeH" if "MeH" in limits else "FeH"
+    if metal_name in limits:
+        metal = metal[
+            (metal >= limits[metal_name][0]) & (metal <= limits[metal_name][1])
+        ]
     return metal
 
 
@@ -593,10 +592,10 @@ def compare_output_to_input(
         print("with sigma differences of")
         print(sigmas)
         if isinstance(warnfile, IOBase):
-            warnfile.write("{}\t{}\t{}\n".format(star.starid, ps, sigmas))
+            warnfile.write(f"{star.starid}\t{ps}\t{sigmas}\n")
         else:
             with open(warnfile, "a") as wf:
-                wf.write("{}\t{}\t{}\n".format(star.starid, ps, sigmas))
+                wf.write(f"{star.starid}\t{ps}\t{sigmas}\n")
 
     return comparewarn
 
@@ -662,8 +661,7 @@ def normfactor(alphas, ms):
             * (1 / ms[3]) ** alphas[3]
         )
         return ks
-    else:
-        print("Mistake in normfactor")
+    print("Mistake in normfactor")
 
 
 def get_parameter_values(parameter, Grid, selectedmodels, noofind):
@@ -722,7 +720,7 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     None
     """
     # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
-    print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
+    print(f"{centroid:9}  {param:13} :  {xmed:12.6f}")
     if uncert == "quantiles":
         print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
         print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
@@ -749,13 +747,12 @@ def strtobool(val: str | Literal[0, 1]) -> Literal[0, 1]:
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
         return 1
-    elif val in ("n", "no", "f", "false", "off", "0"):
+    if val in ("n", "no", "f", "false", "off", "0"):
         return 0
-    else:
-        raise ValueError("invalid truth value %r" % (val,))
+    raise ValueError("invalid truth value %r" % (val,))
 
 
-def flush_all(*files: Union[IO, None]) -> None:
+def flush_all(*files: IO | None) -> None:
     """Flush multiple file buffers to ensure data is written."""
     for f in files:
         if f:

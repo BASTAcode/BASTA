@@ -3,20 +3,18 @@ Calculation and generation of output, and driver for producing plots
 """
 
 import os
-from io import IOBase
 from copy import deepcopy
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 import basta.fileio as fio
-from basta import core, distances
-from basta.constants import parameters, statdata
-from basta.utils_distances import compute_distance_from_mag
-from basta.distances import get_absorption, get_EBV_along_LOS
+from basta import core, plot_corner, plot_kiel, stats
 from basta import utils_general as util
-from basta import stats, plot_corner, plot_kiel
+from basta.constants import parameters, statdata
+from basta.distances import get_absorption, get_EBV_along_LOS
 from basta.downloader import get_basta_dir
+from basta.utils_distances import compute_distance_from_mag
 
 # Change matplotlib backend before loading pyplot
 matplotlib.use("Agg")
@@ -298,11 +296,7 @@ def compute_posterior(
                     filepaths.save_plot(cornerfig, kind="distance_corner")
                     plt.close()
                 except Exception as error:
-                    print(
-                        "\nDistance corner plot failed with the error:{0}\n".format(
-                            error
-                        )
-                    )
+                    print(f"\nDistance corner plot failed with the error:{error}\n")
 
                 # Plotting done: Remove keyword
                 cornerplots.remove("distance")

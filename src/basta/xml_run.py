@@ -2,28 +2,26 @@
 Running BASTA from XML files. Main wrapper!
 """
 
+import copy
 import os
 import sys
-import copy
-import h5py  # type: ignore[import]
 import traceback
 from io import BufferedIOBase
+from typing import Any, Literal, TypedDict, overload
 from xml.etree import ElementTree
 
+import h5py  # type: ignore[import]
 import numpy as np
 
-from typing import Any, Literal, TypedDict, overload
-
-from basta.bastamain import BASTA
 from basta import core
-from basta.errors import LibraryError
+from basta.bastamain import BASTA
+from basta.constants import freqtypes, parameters
 from basta.constants import sydsun as sydc
-from basta.constants import parameters
-from basta.constants import freqtypes
+from basta.errors import LibraryError
 from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
-from basta.utils_xml import ascii_to_xml
-from basta.utils_general import strtobool, unique_unsort, flush_all
 from basta.interpolation_driver import perform_interpolation
+from basta.utils_general import strtobool, unique_unsort
+from basta.utils_xml import ascii_to_xml
 
 
 @overload
@@ -38,7 +36,7 @@ def _find_get(
 ) -> str | None: ...
 @overload
 def _find_get(
-    root: ElementTree.Element, path: str, value: str, default: float | int
+    root: ElementTree.Element, path: str, value: str, default: float
 ) -> str | float | int: ...
 
 
@@ -46,7 +44,7 @@ def _find_get(
     root: ElementTree.Element,
     path: str,
     value: str,
-    default: str | float | int | None = "no-default",
+    default: str | float | None = "no-default",
 ) -> str | float | int | None:
     """
     Error catching of things required to be set in xml. Gives useful
@@ -175,8 +173,7 @@ def _get_true_or_list(
         if first_tag == "true":
             if deflist is None:
                 return [True]
-            else:
-                deflist[:]
+            deflist[:]
         if first_tag == "false":
             return []
         return [first_tag]
@@ -358,9 +355,7 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
             }
         else:
             raise ValueError(
-                "Unknown parameter encountered in group 'interpolation': {0}".format(
-                    param
-                )
+                f"Unknown parameter encountered in group 'interpolation': {param}"
             )
 
     # Read and check construction method
@@ -424,10 +419,8 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
 
                 if err and err * nsigma < abstol / 2.0:
                     abstol = 2 * err * nsigma
-                if min(vals) - abstol / 2.0 > minval:
-                    minval = min(vals) - abstol / 2.0
-                if max(vals) + abstol / 2.0 < maxval:
-                    maxval = max(vals) + abstol / 2.0
+                minval = max(minval, min(vals) - abstol / 2.0)
+                maxval = min(maxval, max(vals) + abstol / 2.0)
             if minval != -np.inf or maxval != np.inf:
                 limits[limit] = [minval, maxval]
         if freqpath:
@@ -447,7 +440,7 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
 
         elif construct == "encompass":
             gridname = gridfile.split("/")[-1].split(".")[-2]
-            intpolstar["name"] = {"value": "intpol_{0}".format(gridname)}
+            intpolstar["name"] = {"value": f"intpol_{gridname}"}
 
         elif "name" in intpol and construct == "bystar":
             intpolstar["name"]["value"] = "intpol_{0}_{1}".format(
@@ -455,7 +448,7 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
             )
 
         elif construct == "bystar":
-            intpolstar["name"] = {"value": "intpol_{0}".format(starid)}
+            intpolstar["name"] = {"value": f"intpol_{starid}"}
 
         # Decide limits for interpolation
         if construct == "encompass":
@@ -481,10 +474,8 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
 
                     if err and err * nsigma < abstol / 2.0:
                         abstol = 2 * err * nsigma
-                    if val - abstol / 2.0 > minval:
-                        minval = val - abstol / 2.0
-                    if val + abstol / 2.0 < maxval:
-                        maxval = val + abstol / 2.0
+                    minval = max(minval, val - abstol / 2.0)
+                    maxval = min(maxval, val + abstol / 2.0)
                 if minval != -np.inf or maxval != np.inf:
                     intpolstar["limits"][limit] = [minval, maxval]
             if freqpath:

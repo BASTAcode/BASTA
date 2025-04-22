@@ -2,10 +2,12 @@
 Auxiliary functions for running the examples
 """
 
+import argparse
 import os
 import sys
-import argparse
+
 import numpy as np
+
 from basta.constants import freqtypes
 from basta.xml_create import generate_xml
 
@@ -206,10 +208,8 @@ def _print_summary(
         pass
     else:
         print(
-            "Using the isochrone science case (overshooting={0},".format(odea[0]),
-            "diffusion={0}, mass loss eta={1}, enhancement alphaFe={2}).".format(
-                odea[1], odea[2], odea[3]
-            ),
+            f"Using the isochrone science case (overshooting={odea[0]},",
+            f"diffusion={odea[1]}, mass loss eta={odea[2]}, enhancement alphaFe={odea[3]}).",
         )
 
     # Output: Reported stats
@@ -219,9 +219,7 @@ def _print_summary(
     except KeyError:
         exstr = ""
     else:
-        exstr = "USING EXPERIMENTAL OUTPUT with '{0}' and '{1}'.".format(
-            centroid, uncert
-        )
+        exstr = f"USING EXPERIMENTAL OUTPUT with '{centroid}' and '{uncert}'."
 
     # Output: Distance
     outlist = list(define_output["outparams"])
@@ -264,11 +262,7 @@ def _print_summary(
 
     # Plots: Kiel
     if define_plots["kielplots"]:
-        print(
-            "Kiel diagrams will be made with observational bands on {{{0}}}.".format(
-                fitlist
-            )
-        )
+        print(f"Kiel diagrams will be made with observational bands on {{{fitlist}}}.")
     else:
         print("Kiel diagrams will not be produced!")
 
@@ -293,9 +287,7 @@ def _print_summary(
             )
         )
     if imf is not None:
-        print(
-            "Additionally, a {0} IMF will be used as a prior.".format(imf.capitalize())
-        )
+        print(f"Additionally, a {imf.capitalize()} IMF will be used as a prior.")
 
 
 # Main routine for running! Will be imported by specific examples
@@ -362,14 +354,12 @@ def make_basta_input(define_user_input):
     # If no errors, convert info XML tags and write to file
     if errcode != 0:
         print(
-            "Done! \n\n!!! Found {0} warning(s)! Will not create XML... ".format(
-                errcode
-            ),
+            f"Done! \n\n!!! Found {errcode} warning(s)! Will not create XML... ",
             "Please fix!!!",
         )
     else:
         print("Done!")
-        print("\nCreating XML input file '{0}' ...".format(xmlname))
+        print(f"\nCreating XML input file '{xmlname}' ...")
         try:
             xmldat = generate_xml(
                 **infodict_io,
@@ -379,11 +369,7 @@ def make_basta_input(define_user_input):
                 **infodict_intpol,
             )
         except Exception as e:
-            print(
-                "--> Error! XML generation failed with the following error: {0}".format(
-                    e
-                )
-            )
+            print(f"--> Error! XML generation failed with the following error: {e}")
             print("    * Did you forget a param in the ascii file or misspelled it?")
             print("\nCannot create XML file! Aborting...")
             sys.exit(1)
@@ -406,4 +392,4 @@ def make_basta_input(define_user_input):
                 define_intpol=infodict_intpol,
             )
         # Final words...!
-        print("\n!!! To perform the fit, run the command: BASTArun {0}".format(xmlname))
+        print(f"\n!!! To perform the fit, run the command: BASTArun {xmlname}")

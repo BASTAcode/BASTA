@@ -3,24 +3,23 @@ Production of asteroseismic plots
 """
 
 import os
-import h5py  # type: ignore[import]
-import numpy as np
-import matplotlib
 import typing
 from typing import Any
 
-from scipy.interpolate import interp1d, CubicSpline  # type: ignore[import]
+import h5py  # type: ignore[import]
+import matplotlib
+import numpy as np
+from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 
+from basta import freq_fit, stats
 from basta import utils_seismic as su
-from basta import stats, freq_fit
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.transforms as transforms
+from matplotlib import patches, transforms
 
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
@@ -517,7 +516,7 @@ def ratioplot(
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
-        rtname = "r{:02d}".format(int(rtype))
+        rtname = f"r{int(rtype):02d}"
         modp = ax.scatter(
             modratio[1, modmask],
             modratio[0, modmask],
@@ -525,7 +524,7 @@ def ratioplot(
             color=colors[rtname],
             edgecolors="k",
             zorder=3,
-            label=r"Best fit ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Best fit ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             modratio[1, modmask],
@@ -546,7 +545,7 @@ def ratioplot(
             mew=0.5,
             linestyle="None",
             zorder=3,
-            label=r"Measured ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Measured ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             obsratio[1, obsmask],
@@ -575,7 +574,7 @@ def ratioplot(
                 alpha=0.7,
                 lw=0,
                 zorder=5,
-                label=r"$r_{{{:02d}}}(\nu^{{\mathrm{{obs}}}})$".format(int(rtype)),
+                label=rf"$r_{{{int(rtype):02d}}}(\nu^{{\mathrm{{obs}}}})$",
             )
             handles.extend([modp, intp, obsp])
         else:
@@ -1190,7 +1189,7 @@ def epsilon_difference_components_diagram(
                 lw=0,
                 alpha=0.5,
                 color=colors["l" + str(ll)],
-                label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
+                label=rf"$\nu(\ell={ll})\,\notin\,\nu(\ell=0)$",
             )
         ax[0, 0].legend()
 

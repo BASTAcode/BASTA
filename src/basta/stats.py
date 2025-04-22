@@ -2,17 +2,17 @@
 Key statistics functions
 """
 
-import os
+import collections
 import copy
 import math
-import collections
+import os
 from dataclasses import dataclass
 
 import numpy as np
-from scipy.interpolate import interp1d, CubicSpline  # type: ignore[import]
+from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
-from basta import freq_fit, glitch_fit, core
+from basta import core, freq_fit, glitch_fit
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
 
@@ -193,9 +193,8 @@ def chi2_astero(
     if joins is None:
         chi2rut = np.inf
         return chi2rut, warnings, shapewarn, 0
-    else:
-        joinkeys, join = joins
-        nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
+    joinkeys, join = joins
+    nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
     if fitfreqs["fcor"] == "None":
@@ -217,7 +216,7 @@ def chi2_astero(
         )
     else:
         print(f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}')
-        return
+        return None
 
     # Initialize chi2 value
     chi2rut = 0.0
@@ -518,8 +517,7 @@ def chi_for_plot(selectedmodels):
         if trackstats.logPDF[i] > maxPDF:
             maxPDF = trackstats.logPDF[i]
             maxPDFchi2 = trackstats.chi2[i]
-        if trackstats.chi2[j] < minchi2:
-            minchi2 = trackstats.chi2[j]
+        minchi2 = min(minchi2, trackstats.chi2[j])
 
     return maxPDFchi2, minchi2
 
@@ -557,7 +555,7 @@ def get_highest_likelihood(
         "* Weighted, non-normalized log-probability:",
         np.max(selectedmodels[maxPDF_path].logPDF),
     )
-    print("* Grid-index: {0}[{1}], with parameters:".format(maxPDF_path, maxPDF_ind))
+    print(f"* Grid-index: {maxPDF_path}[{maxPDF_ind}], with parameters:")
 
     # Print name if it exists
     if "name" in Grid[maxPDF_path]:
@@ -585,7 +583,7 @@ def get_highest_likelihood(
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
-        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
     return maxPDF_path, maxPDF_ind
 
 
@@ -618,7 +616,7 @@ def get_lowest_chi2(
     print("\nLowest chi2 model:")
     minchi2_path, minchi2_ind = lowest_chi2(selectedmodels)
     print("* chi2:", np.min(selectedmodels[minchi2_path].chi2))
-    print("* Grid-index: {0}[{1}], with parameters:".format(minchi2_path, minchi2_ind))
+    print(f"* Grid-index: {minchi2_path}[{minchi2_ind}], with parameters:")
 
     # Print name if it exists
     if "name" in Grid[minchi2_path]:
@@ -647,7 +645,7 @@ def get_lowest_chi2(
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
-        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
 
     return minchi2_path, minchi2_ind
 
@@ -772,13 +770,13 @@ def calc_key_stats(x, centroid, uncert, weights=None):
     xp = None
 
     # Handling af all different combinations of input
-    if uncert == "quantiles" and not type(weights) == type(None):
+    if uncert == "quantiles" and weights is not None:
         xcen, xm, xp = quantile_1D(x, weights, statdata.quantiles)
     elif uncert == "quantiles":
         xcen, xm, xp = np.quantile(x, statdata.quantiles)
     else:
         xm = np.std(x)
-    if centroid == "mean" and not type(weights) == type(None):
+    if centroid == "mean" and weights is not None:
         xcen = np.average(x, weights=weights)
     elif centroid == "mean":
         xcen = np.mean(x)

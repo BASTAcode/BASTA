@@ -4,27 +4,21 @@ The main module of BASTA which functions as the main pipeline.
 It handles the flow of input and output from the various modules internal in BASTA.
 """
 
-import os
 import sys
 import time
-from copy import deepcopy
-from dataclasses import dataclass
 from typing import Any
-
-import h5py  # type: ignore[import]
-import numpy as np
-from tqdm import tqdm
-
-from basta.__about__ import __version__
-from basta import freq_fit, stats, process_output, priors, distances, plot_driver, core
-from basta import fileio as fio
-from basta import utils_seismic as su
-from basta import utils_general as util
-from basta.constants import freqtypes
 
 # Import matplotlib after other plotting modules for proper setup
 # --> Here in main it is only used for clean-up
 import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
+
+from basta import core, plot_driver, priors, process_output, stats
+from basta import fileio as fio
+from basta import utils_general as util
+from basta import utils_seismic as su
+from basta.constants import freqtypes
 
 
 def BASTA(
@@ -485,19 +479,18 @@ def _bastamain(
                         glitchpar[:, 1],
                         glitchpar[:, 2],
                     )
-                else:
-                    if outputoptions.debug and outputoptions.verbose:
-                        print(
-                            f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDFarr)}"
-                        )
+                elif outputoptions.debug and outputoptions.verbose:
+                    print(
+                        f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDFarr)}"
+                    )
         # End loop over isochrones/tracks
         #######################################################################
     # End loop over metals
     ###########################################################################
     pbar.close()
     print(
-        f"Done! Computed the likelihood of {str(noofind)} models,",
-        f"found {str(noofposind)} models with non-zero likelihood!\n",
+        f"Done! Computed the likelihood of {noofind!s} models,",
+        f"found {noofposind!s} models with non-zero likelihood!\n",
     )
     if gridcut:
         print(
