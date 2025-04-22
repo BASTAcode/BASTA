@@ -16,7 +16,7 @@ try:
     from basta.sd import sd  # type: ignore[import]
 
     GLITCH_AVAIL = True
-except:
+except ImportError:
     GLITCH_AVAIL = False
 
 
@@ -124,8 +124,7 @@ def compute_glitchseqs(
     # Check compilation of external FORTRAN routines
     if not GLITCH_AVAIL:
         raise ModuleNotFoundError(
-            "Unable to import glitch modules, check "
-            + "installation guide for compilation of these!"
+            "Unable to import glitch modules, see installation guide for compiling them"
         )
 
     # Setup array, make similar to ratios

@@ -40,14 +40,14 @@ class DistanceParameters:
     # Can be combined in dict called magnitudes
     magnitudes: dict[str, tuple[float, float]]
     coordinates: dict[str, Any]
-    # TODO why is parallax here? should it be in star.fitparams?
+    # TODO(Amalie) why is parallax here? should it be in star.fitparams?
     parallax: list[float]
     EBV: list[Any]
 
 
 @dataclass(kw_only=True, frozen=True)
 class Frequencies:
-    # TODO Currently this is the content of fitfreqs.
+    # TODO(Amalie) Currently this is the content of fitfreqs.
     # I think a lot of clean up can be done here.
     active: bool
     fittypes: list[str]
@@ -199,7 +199,7 @@ class InferenceSettings:
     solarvalues: dict[
         str, float
     ]  #  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
-    # TODO This is being used as a bool in utils_seismic
+    # TODO(Amalie) This is being used as a bool in utils_seismic
     solarmodel: str = ""
     gridid: tuple[float, float, float, float] | None = None
 

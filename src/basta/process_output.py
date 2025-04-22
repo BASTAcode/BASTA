@@ -71,7 +71,7 @@ def compute_posterior(
     centroid = outputoptions.centroid
     uncert = outputoptions.uncert
 
-    # TODO Do we need this?
+    # TODO(Amalie) Do we need this?
     # Lists of params (copy to avoid problems when running multiple stars)
     outparams = deepcopy(outputoptions.asciiparams)
     cornerplots = deepcopy(plotconfig.cornerplots)
@@ -81,7 +81,7 @@ def compute_posterior(
     kielplots = plotconfig.kielplots
     fitparams = star.fitparams
 
-    # TODO can this be simplified?
+    # TODO(Amalie) can this be simplified?
     # Initialise strings for printing
     hout = []
     out = []
@@ -117,7 +117,7 @@ def compute_posterior(
         wsampled_indices = np.random.choice(np.arange(len(ws)), p=ws, size=nsamples)
 
     # Corner plot kwargs
-    # TODO This should be part of plotconfig or something similar
+    # TODO(Amalie) This should be part of plotconfig or something similar
     ckwargs = {
         "show_titles": True,
         "quantiles": statdata.quantiles,
@@ -128,7 +128,7 @@ def compute_posterior(
         "uncert": outputoptions.uncert,
     }
 
-    # TODO This can be simplified
+    # TODO(Amalie) This can be simplified
     # Compute distance posterior
     if "distance" in params:
         distanceparams = star.distanceparams
@@ -219,7 +219,7 @@ def compute_posterior(
         if np.nansum(dposterior) == 0 or np.nansum(EBVposterior) == 0:
             derrmessage = (
                 "Joint distance posterior could not be computed as the "
-                + "distances derived for each magnitude are too different."
+                "distances derived for each magnitude are too different."
             )
             print(derrmessage)
             fio.write_star_to_errfile(starid, runfiles, derrmessage)
@@ -428,7 +428,7 @@ def compute_posterior(
         if comparewarn:
             print(
                 "DEBUG: The input values of the fitting parameters "
-                + "disagree with the outputted values."
+                "disagree with the outputted values."
             )
             if not len(kielplots):
                 print("DEBUG: make Kiel diagram due to warning")

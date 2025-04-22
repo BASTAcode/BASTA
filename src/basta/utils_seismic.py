@@ -135,7 +135,7 @@ def solar_scaling(
 
     if solarmodel and len(avail_models) > 0:
         # For isochrones, the diffusion is specified and names hardwired!
-        # TODO difsolarmodel could be named better
+        # TODO(Amalie) difsolarmodel could be named better
         if gridinfo["difsolarmodel"] is not None:
             if gridinfo["difsolarmodel"] == 0:
                 sunmodname = "bastisun_new"
@@ -203,8 +203,8 @@ def solar_scaling(
             dnu_scales[dnu] = dnu_rescal
 
     print("Done!")
-    # TODO What would a better, more elegant output be?
-    # TODO Can this function be simplified a bit?
+    # TODO(Amalie) What would a better, more elegant output be?
+    # TODO(Amalie) Can this function be simplified a bit?
     return dnu_scales
 
 
@@ -269,7 +269,7 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     if not numax:
         numaxerr = (
             "ERROR: numax must be specified when fitting individual"
-            + " frequencies or ratios!"
+            " frequencies or ratios!"
         )
         raise ValueError(numaxerr)
 

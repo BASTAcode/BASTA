@@ -74,7 +74,7 @@ class GridHeader(TypedDict):
 class GridInfo(TypedDict):
     entryname: str
     defaultpath: str
-    # TODO this could have a better name
+    # TODO(Amalie) this could have a better name
     difsolarmodel: int | None
 
 
@@ -243,7 +243,7 @@ def prepare_distancefitting(
         outputoptions=outputoptions,
     )
 
-    # TODO: Why? I think we need a better overview of what is being fitted than this
+    # TODO(Amalie): Why? I think we need a better overview of what is being fitted than this
     # If keyword present, add individual filters
     if "distance" in allparams:
         allparams = list(
@@ -257,12 +257,12 @@ def print_fitparams(fitparams: dict) -> None:
     # Print fitparams
     print("\nFitting information:")
     print("* Fitting parameters with values and uncertainties:")
-    for fp in fitparams.keys():
+    for fp, fpval in fitparams.items():
         if fp in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
             fpstr = f"{fp} (solar units)"
         else:
             fpstr = fp
-        print(f"  - {fpstr}: {fitparams[fp]}")
+        print(f"  - {fpstr}: {fpval}")
 
 
 def print_seismic(fitfreqs: dict, obskey: np.ndarray, obs: np.ndarray) -> None:
@@ -357,7 +357,7 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
         print(f"  - Parallax: {star.distanceparams.parallax}")
 
     if len(star.distanceparams.EBV) > 0:
-        # TODO is EBV a list of [0, value, 0] or a flat value? should probably be the latter
+        # TODO(Amalie) is EBV a list of [0, value, 0] or a flat value? should probably be the latter
         print(
             f"  - EBV: {star.distanceparams.EBV[1]} (uniform across all distance samples)"
         )
@@ -414,7 +414,7 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
     print("* Flat, constrained priors and ranges:")
     for lim in inferencesettings.limits.keys():
         print(f"  - {lim}: {inferencesettings.limits[lim]}")
-    # TODO Fix priors so it is not just IMF
+    # TODO(Amalie) Fix priors so it is not just IMF
     if inferencesettings.priors is not None:
         print(f"* Additional priors (IMF): {', '.join(inferencesettings.priors)}")
 

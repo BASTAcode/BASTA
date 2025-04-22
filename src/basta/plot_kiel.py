@@ -185,7 +185,7 @@ def kiel(
 
     # This is by design a "==" comparison to True, because it will otherwise
     # fail, as the type is numpy.bool_ !
-    # TODO I think this can be done more smart
+    # TODO(Amalie) I think this can be done more smart
     if not kielplots[0] == True:  # noqa: E712
         toggle_freqs = False
         new_filters = []
@@ -469,7 +469,7 @@ def kiel(
 
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
-        # TODO This can be simplified
+        # TODO(Amalie) This can be simplified
         if fitfreqs["active"] and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
@@ -480,7 +480,7 @@ def kiel(
                 libitem = Grid[track]
                 index = np.ones(len(libitem["age"][:]), dtype=bool)
 
-                # TODO Why is this code repeated in here?
+                # TODO(Amalie) Why is this code repeated in here?
                 # Locate where the lowest l=0 is within set limit
                 for ind in np.where(index)[0]:
                     rawmod = libitem["osc"][ind]

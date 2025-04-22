@@ -260,14 +260,14 @@ class IntpolGridresolution(_IntpolGridresolution, total=False):
 
 
 class IntpolName(TypedDict):
-    # TODO: maybe need assert not None?
+    # TODO(Amalie): maybe need assert not None?
     value: str | None
 
 
 class IntpolMethod(TypedDict):
-    # TODO: maybe need assert not None?
+    # TODO(Amalie): maybe need assert not None?
     case: str | None
-    # TODO: maybe need assert not None?
+    # TODO(Amalie): maybe need assert not None?
     construction: str | None
     retrace: Literal[0, 1]
 
@@ -337,14 +337,14 @@ def _get_intpol(root: ET.Element, gridfile, freqpath=None):
             }
         elif param.tag.lower() == "name":
             intpol["name"] = {
-                # TODO: assert value is not None?
+                # TODO(Amalie): assert value is not None?
                 "value": param.attrib.get("value"),
             }
         elif param.tag.lower() == "method":
             intpol["method"] = {
-                # TODO: assert value is not None?
+                # TODO(Amalie): assert value is not None?
                 "case": param.attrib.get("case"),
-                # TODO: assert value is not None?
+                # TODO(Amalie): assert value is not None?
                 "construction": param.attrib.get("construction"),
                 "retrace": strtobool(param.attrib.get("retrace", "False")),
             }
@@ -458,13 +458,13 @@ def _get_intpol(root: ET.Element, gridfile, freqpath=None):
                         star_gparam = star.find(gparam)
                         assert star_gparam is not None
                         val = float(star_gparam.attrib["value"])
-                    except:
+                    except Exception:
                         raise ValueError(limerrmsg.format(gparam))
                     try:
                         star_gparam = star.find(gparam)
                         assert star_gparam is not None
                         err = float(star_gparam.attrib["error"])
-                    except:
+                    except Exception:
                         err = 0
 
                     if err and err * nsigma < abstol / 2.0:
@@ -587,7 +587,7 @@ def run_xml(
     root = tree.getroot()
 
     # Initialize parameters
-    # TODO: remove inputparams or use a more precise type
+    # TODO(Amalie): remove inputparams or use a more precise type
     inputparams: dict[str, Any] = {
         "inputfile": xmlname,
         "output": _find_get(root, "default/output", "path"),
@@ -630,7 +630,7 @@ def run_xml(
     # Check for frequency fitting and activate
     fitparams = [param.tag for param in root.findall("default/fitparams/")]
 
-    # TODO: remove fitfreqs or use a more precise type
+    # TODO(Amalie): remove fitfreqs or use a more precise type
     fitfreqs: dict[str, Any] = {}
     fitfreqs["active"] = any(param in freqtypes.alltypes for param in fitparams)
     fitfreqs["fittypes"] = [param for param in fitparams if param in freqtypes.alltypes]
@@ -1010,7 +1010,7 @@ def run_xml(
                 # Add parallax and other distance parameters to dictionary
                 if fitdist:
                     assert distancefilters is not None
-                    # TODO: add precise type for this in core
+                    # TODO(Amalie): add precise type for this in core
                     distanceparams: dict[str, Any] = {
                         "parallax": (
                             [

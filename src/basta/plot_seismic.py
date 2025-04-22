@@ -4,6 +4,7 @@ Production of asteroseismic plots
 
 import os
 import typing
+from collections.abc import Iterable
 from typing import Any
 
 import h5py  # type: ignore[import]
@@ -510,7 +511,7 @@ def ratioplot(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
         )
 
-    handles = []
+    handles: list[Any] = []
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
@@ -589,7 +590,7 @@ def ratioplot(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(f"Frequency ratio ({ratiotype})")
@@ -980,7 +981,7 @@ def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
     # Determine information for constructing labels
     if fittype in freqtypes.freqs:
         fmtstr = r"$\nu({:d}, {:d})$"
-        ln_zip = zip(obskey[0, :], obskey[1, :])
+        ln_zip: Iterable[tuple[Any, Any]] = zip(obskey[0, :], obskey[1, :])
 
     elif fittype in freqtypes.rtypes:
         data = obsfreqdata[fittype]["data"]

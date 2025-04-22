@@ -182,9 +182,9 @@ def _bastamain(
     if headerpath and gridcut:
         print("\nCutting in grid based on sampling parameters ('gridcut'):")
         noofskips = [0, 0]
-        for cpar in gridcut:
+        for cpar, cval in gridcut.items():
             if cpar != "dif":
-                print(f"* {cpar}: {gridcut[cpar]}")
+                print(f"* {cpar}: {cval}")
 
         # Diffusion switch printed in a more readable format
         if "dif" in gridcut:
@@ -249,7 +249,7 @@ def _bastamain(
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
     for FeH in metal:
-        # TODO this can be dry'er, make list of group_names outside loop?
+        # TODO(Amalie) this can be dry'er, make list of group_names outside loop?
         if "grid" not in gridinfo["defaultpath"]:
             group_name = f"{gridinfo['defaultpath']}FeH={FeH:.4f}/"
 
@@ -264,14 +264,14 @@ def _bastamain(
                     continue
 
             # Check for diffusion
-            # TODO what
+            # TODO(Amalie) what
             # if "dif" in inputparams:
             #    if int(round(libitem["dif"][0])) != int(
             #        round(float(inputparams["dif"]))
             #    ):
             #        continue
 
-            # TODO we must be able to optimise this
+            # TODO(Amalie) we must be able to optimise this
             # Check if mass or age is in limits to efficiently skip
             if "grid" not in gridinfo["defaultpath"]:
                 param, val = name.split("=")

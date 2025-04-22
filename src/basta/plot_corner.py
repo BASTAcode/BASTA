@@ -684,7 +684,7 @@ def lighten_color(color, amount=0.5):
     """
     try:
         c = mc.cnames[color]
-    except:
+    except Exception:
         c = color
 
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))

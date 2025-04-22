@@ -415,7 +415,7 @@ def add_absolute_magnitudes(
         stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
     )
 
-    # TODO fix this when limits are fixed
+    # TODO(Amalie) fix this when limits are fixed
     ## Constrain metallicity within the limits of the color transformations
     # metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"
     # metal_limit = inputparams["limits"].get(metal)

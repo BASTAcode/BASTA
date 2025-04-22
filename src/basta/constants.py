@@ -566,7 +566,6 @@ class distanceranges:
     # 2MASS.max: https://old.ipac.caltech.edu/2mass/releases/sampler/index.html
     # 2MASS.min: Brightest star in 2mass All-Sky Release PSC is Betelgeuse,
     # https://old.ipac.caltech.edu/2mass/releases/allsky/doc/sec1_6b.html#satr1
-    # TODO!
     filters = {
         "Mj_2MASS": {"max": 16.5, "min": -2.99},
         "Mh_2MASS": {"max": 16.0, "min": -4.01},

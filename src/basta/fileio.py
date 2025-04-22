@@ -737,7 +737,7 @@ def _make_obsfreqs(
 def read_allseismic(
     fitfreqs: dict,
     freqplots: list,
-    # TODO: take outputoptions instead of verbose,debug
+    # TODO(Amalie): take outputoptions instead of verbose,debug
     verbose: bool = False,
     debug: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, dict, dict]:

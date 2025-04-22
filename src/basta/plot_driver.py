@@ -157,7 +157,7 @@ def plot_all_seismic(
 
     if fitfreqs["fcor"] == "None":
         corjoin = maxjoin
-        coeffs = [1]
+        coeffs = np.array([1])
     elif fitfreqs["fcor"] == "HK08":
         corjoin, coeffs = freq_fit.HK08(
             joinkeys=maxjoinkeys,

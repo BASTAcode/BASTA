@@ -2,11 +2,11 @@
 Key statistics functions
 """
 
-import collections
 import copy
 import math
 import os
 from dataclasses import dataclass
+from typing import Any, NamedTuple
 
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
@@ -16,9 +16,17 @@ from basta import core, freq_fit, glitch_fit
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
 
+
 # Define named tuple used in selectedmodels
-Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
-Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
+# TODO(Amalie): Switch to dataclasses and add more precise types
+class Trackdnusurf(NamedTuple):
+    dnusurf: Any
+
+
+class Trackglitchpar(NamedTuple):
+    AHe: Any
+    dHe: Any
+    tauHe: Any
 
 
 @dataclass(frozen=True)
@@ -629,7 +637,7 @@ def get_lowest_chi2(
             continue
         paramval = Grid[os.path.join(minchi2_path, param)][minchi2_ind]
 
-        # TODO make DRY
+        # TODO(Amalie) make DRY
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
             dnu_rescal = dnu_scales.get(param, 1.00)
