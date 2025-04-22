@@ -8,9 +8,6 @@ import sys
 import time
 from typing import Any
 
-# Import matplotlib after other plotting modules for proper setup
-# --> Here in main it is only used for clean-up
-import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
 
@@ -51,6 +48,10 @@ def BASTA(
         A data class containing all options related to plots outputted
         from BASTA, , see `core.py`.
     """
+    # Import matplotlib after other plotting modules for proper setup
+    # --> Here in main it is only used for clean-up
+    import matplotlib.pyplot as plt
+
     # Use try-finally to ensure that sys.stdout is reverted back
     # even when the run raises an exception.
     stdout = sys.stdout
