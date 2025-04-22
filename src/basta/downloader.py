@@ -2,15 +2,16 @@
 Routines to download assets
 """
 
-import os
-import gzip
-import shutil
-import requests
 import argparse
-from tqdm import tqdm
+import gzip
+import os
+import shutil
+
+import requests
 
 # Import dusmaps configuration (the maps themselves are slow)
 from dustmaps.config import config
+from tqdm import tqdm
 
 DUSTMAPFILE = "_dustpath.py"
 GRIDPATHFILE = "_gridpath.py"

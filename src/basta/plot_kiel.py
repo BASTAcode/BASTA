@@ -3,14 +3,15 @@ Production of Kiel diagrams
 """
 
 import os
-import numpy as np
+
 import matplotlib
 import matplotlib.collections
+import numpy as np
 
-from basta import stats
 from basta import fileio as fio
-from basta import utils_seismic as su
+from basta import stats
 from basta import utils_general as gu
+from basta import utils_seismic as su
 from basta.constants import parameters
 from basta.downloader import get_basta_dir
 
@@ -172,9 +173,7 @@ def kiel(
         lp_interval[1] *= 1 + scalefactor
         if debug:
             print(
-                "DEBUG: Interval after inflation by {0} pct. = {1}\n".format(
-                    scalefactor * 100, lp_interval
-                )
+                f"DEBUG: Interval after inflation by {scalefactor * 100} pct. = {lp_interval}\n"
             )
 
     # Assign params
@@ -367,7 +366,7 @@ def kiel(
 
         # Plot the max likelihood and median model
         if validationmode:
-            bfmmodlab = "Highest likelihood model (chi2 = {0:1.4e})".format(hlm_chi2)
+            bfmmodlab = f"Highest likelihood model (chi2 = {hlm_chi2:1.4e})"
         else:
             bfmmodlab = "Best fit model"
         ax.plot(
@@ -391,7 +390,7 @@ def kiel(
                 "p",
                 color="k",
                 markersize=15,
-                label="Lowest chi^2 model (chi2 = {0:1.4e})".format(lcm_chi2),
+                label=f"Lowest chi^2 model (chi2 = {lcm_chi2:1.4e})",
             )
 
         # Plot parameter intervals of fitparams
@@ -531,7 +530,7 @@ def kiel(
         if len(metal_list) <= 5:
             metal_str = ", ".join([str(x) for x in list(metal_list)])
         else:
-            metal_str = "{:.3f},...,{:.3f}".format(min(metal_list), max(metal_list))
+            metal_str = f"{min(metal_list):.3f},...,{max(metal_list):.3f}"
 
         _, mlabel, _, _ = parameters.get_keys([metal])
         text = mlabel[0] + ": " + metal_str

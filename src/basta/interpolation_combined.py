@@ -4,19 +4,15 @@ Interpolation for BASTA: Combined approach
 
 import os
 import sys
-import time
 
 import h5py
 import numpy as np
-import matplotlib.pyplot as plt
-
-from tqdm import tqdm
 from scipy import spatial
+from tqdm import tqdm
 
-from basta.utils_seismic import transform_obj_array
-
-from basta import plot_interp as ip
 from basta import interpolation_helpers as ih
+from basta import plot_interp as ip
+from basta.utils_seismic import transform_obj_array
 
 
 def _calc_across_points(
@@ -206,10 +202,8 @@ def interpolate_combined(
 
     # Check we have enough source tracks in the sub-box to form a simplex
     if len(selectedmodels) < len(pars_sampled) + 1:
-        warstr = "Sub-box contains only {:d} tracks, while ".format(len(selectedmodels))
-        warstr += "{:d} is needed for interpolation in the ".format(
-            len(pars_sampled) + 1
-        )
+        warstr = f"Sub-box contains only {len(selectedmodels):d} tracks, while "
+        warstr += f"{len(pars_sampled) + 1:d} is needed for interpolation in the "
         warstr += (
             "parameter space of the input grid. Consider expanding sub-box (limits)."
         )
@@ -248,7 +242,7 @@ def interpolate_combined(
     # Parameters not sampled, but still vary across tracks
     varied_vals = {}
     for par in pars_varied:
-        yvec = np.zeros((len(selectedmodels)))
+        yvec = np.zeros(len(selectedmodels))
         for i, name in enumerate(selectedmodels):
             yvec[i] = grid[os.path.join(basepath, name, par)][0]
         newval = ih.interpolation_wrapper(triangulation, yvec, new_points, along=False)
@@ -258,7 +252,7 @@ def interpolate_combined(
     # Main loop #
     #############
     numnew = len(new_points)
-    print("Interpolating {0} tracks/isochrones ... ".format(numnew))
+    print(f"Interpolating {numnew} tracks/isochrones ... ")
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=numnew, desc="--> Progress", ascii=True)
@@ -272,7 +266,7 @@ def interpolate_combined(
         libname = os.path.join(
             basepath,
             "tracks",
-            "track{{:0{0}d}}".format(numfmt).format(int(newnum + tracknum)),
+            f"track{{:0{numfmt}d}}".format(int(newnum + tracknum)),
         )
 
         #############################################################
@@ -284,7 +278,7 @@ def interpolate_combined(
         count = sum([sum(selectedmodels[tracknames[i]]) for i in ind])
         intbase = np.zeros((count, len(pars_sampled) + 1))
         envres = np.zeros((count, len(pars_sampled) + 1))
-        y = np.zeros((count))
+        y = np.zeros(count)
         minmax = np.zeros((len(ind), 2))
         sections = [0]
         ir = 0
@@ -333,8 +327,8 @@ def interpolate_combined(
         # Check of overlap from min and max
         minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
         if minmax[0] > minmax[1]:
-            warstr = "Warning: Track {0} ".format(newnum + tracknum)
-            warstr += "aborted, no overlap in {0}.".format(along_var)
+            warstr = f"Warning: Track {newnum + tracknum} "
+            warstr += f"aborted, no overlap in {along_var}."
             print(warstr)
             success[tracknum] = False
             outfile[os.path.join(libname, "IntStatus")] = -1
@@ -346,7 +340,7 @@ def interpolate_combined(
                 intbase, sections, minmax, point, envres, trackresolution["value"]
             )
         except:
-            warstr = "Choice of base parameter '{:s}' resulted".format(along_var)
+            warstr = f"Choice of base parameter '{along_var:s}' resulted"
             warstr += " in an error when determining it's variance along the track."
             raise ValueError(warstr)
 
@@ -392,7 +386,7 @@ def interpolate_combined(
                         sub_triangle, y, newbase, along=False
                     )
                     if any(np.isnan(newparam)):
-                        nan = "Track {0} had NaN value(s)!".format(newnum + tracknum)
+                        nan = f"Track {newnum + tracknum} had NaN value(s)!"
                         raise ValueError(nan)
 
                     # Write to new gridfile
@@ -491,7 +485,7 @@ def interpolate_combined(
             success[tracknum] = False
             print("Error:", sys.exc_info()[1])
             outfile[os.path.join(libname, "IntStatus")] = -1
-            print("Interpolation failed for track {0}".format(newnum + tracknum))
+            print(f"Interpolation failed for track {newnum + tracknum}")
 
     ####################
     # End of main loop #

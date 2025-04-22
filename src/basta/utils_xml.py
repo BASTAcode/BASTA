@@ -8,8 +8,7 @@ from xml.etree.ElementTree import Element, SubElement, tostring
 
 import numpy as np
 
-from basta.constants import parameters
-from basta.constants import freqtypes
+from basta.constants import freqtypes, parameters
 
 
 def _get_param(vals, names, param):

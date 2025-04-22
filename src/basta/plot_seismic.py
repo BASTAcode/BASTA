@@ -3,23 +3,21 @@ Production of asteroseismic plots
 """
 
 import os
+
 import h5py
-import numpy as np
 import matplotlib
-import typing
+import numpy as np
+from scipy.interpolate import CubicSpline, interp1d
 
-from scipy.interpolate import interp1d, CubicSpline
-
+from basta import freq_fit, stats
 from basta import utils_seismic as su
-from basta import stats, freq_fit
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.transforms as transforms
+from matplotlib import patches, transforms
 
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
@@ -51,12 +49,12 @@ def echelle(
     Grid: h5py.File,
     obs: np.ndarray,
     obskey: np.ndarray,
-    mod: typing.Optional[np.ndarray] = None,
-    modkey: typing.Optional[np.ndarray] = None,
+    mod: np.ndarray | None = None,
+    modkey: np.ndarray | None = None,
     dnu: float = None,
-    join: typing.Optional[np.ndarray] = None,
-    joinkeys: typing.Optional[np.ndarray] | bool = False,
-    coeffs: typing.Optional[np.ndarray] | None = None,
+    join: np.ndarray | None = None,
+    joinkeys: np.ndarray | None | bool = False,
+    coeffs: np.ndarray | None = None,
     scalnu: float | None = None,
     freqcor: str = "BG14",
     pairmode: bool = False,
@@ -512,7 +510,7 @@ def ratioplot(
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
-        rtname = "r{:02d}".format(int(rtype))
+        rtname = f"r{int(rtype):02d}"
         modp = ax.scatter(
             modratio[1, modmask],
             modratio[0, modmask],
@@ -520,7 +518,7 @@ def ratioplot(
             color=colors[rtname],
             edgecolors="k",
             zorder=3,
-            label=r"Best fit ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Best fit ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             modratio[1, modmask],
@@ -541,7 +539,7 @@ def ratioplot(
             mew=0.5,
             linestyle="None",
             zorder=3,
-            label=r"Measured ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Measured ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             obsratio[1, obsmask],
@@ -570,7 +568,7 @@ def ratioplot(
                 alpha=0.7,
                 lw=0,
                 zorder=5,
-                label=r"$r_{{{:02d}}}(\nu^{{\mathrm{{obs}}}})$".format(int(rtype)),
+                label=rf"$r_{{{int(rtype):02d}}}(\nu^{{\mathrm{{obs}}}})$",
             )
             handles.extend([modp, intp, obsp])
         else:
@@ -1185,7 +1183,7 @@ def epsilon_difference_components_diagram(
                 lw=0,
                 alpha=0.5,
                 color=colors["l" + str(ll)],
-                label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
+                label=rf"$\nu(\ell={ll})\,\notin\,\nu(\ell=0)$",
             )
         ax[0, 0].legend()
 

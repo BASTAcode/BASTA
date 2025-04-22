@@ -5,15 +5,11 @@ Interpolation for BASTA: Helper routines
 import os
 import warnings
 
-import numpy as np
 import bottleneck as bn
-from tqdm import tqdm
+import numpy as np
 from scipy import interpolate
 from scipy.stats import qmc
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-
-from basta import utils_seismic as su
+from tqdm import tqdm
 
 
 # ======================================================================================
@@ -329,7 +325,7 @@ def calc_along_points(intbase, sections, minmax, point, envres=None, resvalue=No
     if resvalue and N < Nres:
         N = Nres
     elif resvalue:
-        print("Warning: Reduced resolution from {0} to {1}".format(N, Nres))
+        print(f"Warning: Reduced resolution from {N} to {Nres}")
         N = Nres
 
     # Making new interpolation base
@@ -666,7 +662,7 @@ def write_header(grid, outfile, basepath):
             outfile[os.path.join("header", key)] = grid[os.path.join("header", key)][()]
 
     # Treat isochrones with a path-dependent header
-    if not "grid" in basepath:
+    if "grid" not in basepath:
         isochhead = os.path.join("header", basepath)
         for key in grid[isochhead].keys():
             outfile[os.path.join(isochhead, key)] = grid[os.path.join(isochhead, key)][
@@ -678,7 +674,6 @@ def write_header(grid, outfile, basepath):
         grid["solar_models"]
     except KeyError:
         print("\nNote: No solar model to add!")
-        pass
     else:
         for topkey in grid["solar_models"].keys():
             for key in grid[os.path.join("solar_models", topkey)].keys():
@@ -867,7 +862,7 @@ def lowest_l0(grid, basepath, track, selmod):
         Lowest n of mode present in all models
     """
     keypath = os.path.join(basepath, track, "osckey")
-    min_n_l0 = np.zeros((sum(selmod)))
+    min_n_l0 = np.zeros(sum(selmod))
     for i, osckey in enumerate(grid[keypath][()][selmod]):
         min_n_l0[i] = min(osckey[1][osckey[0] == 0])
     maxofmin = max(min_n_l0)
@@ -895,7 +890,7 @@ def get_l0_freqs(track, selmod, N):
     """
     allkeys = track["osckey"][()][selmod]
     alloscs = track["osc"][()][selmod]
-    freqs = np.zeros((sum(selmod)))
+    freqs = np.zeros(sum(selmod))
     for i, (key, osc) in enumerate(zip(allkeys, alloscs)):
         ind = np.where(key[1][key[0] == 0] == N)[0]
         freqs[i] = osc[0][key[0] == 0][ind]

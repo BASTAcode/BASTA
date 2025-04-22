@@ -2,20 +2,21 @@
 Auxiliary functions for file operations
 """
 
-import os
 import json
-import h5py
+import os
 import warnings
-import numpy as np
-from io import IOBase
 from copy import deepcopy
+from io import IOBase
+from xml.dom import minidom
 from xml.etree import ElementTree
 from xml.etree.ElementTree import Element, SubElement, tostring
-from xml.dom import minidom
 
-from basta import stats, freq_fit, glitch_fit
-from basta import utils_seismic as su
+import h5py
+import numpy as np
+
+from basta import freq_fit, glitch_fit, stats
 from basta import utils_general as util
+from basta import utils_seismic as su
 from basta.constants import freqtypes
 
 
@@ -74,10 +75,10 @@ def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str):
     errfile = inputparams.get("erroutput")
 
     if isinstance(errfile, IOBase):
-        errfile.write("{}\t{}\n".format(starid, errormessage))
+        errfile.write(f"{starid}\t{errormessage}\n")
     else:
         with open(errfile, "a") as ef:
-            ef.write("{}\t{}\n".format(starid, errormessage))
+            ef.write(f"{starid}\t{errormessage}\n")
 
 
 def no_models(starid: str, inputparams: dict, errormessage: str):
@@ -145,7 +146,7 @@ def no_models(starid: str, inputparams: dict, errormessage: str):
     if asciifile is not False:
         hline = b"# "
         for i in range(len(hout)):
-            hline += hout[i].encode() + " ".encode()
+            hline += hout[i].encode() + b" "
 
         if isinstance(asciifile, IOBase):
             asciifile.seek(0)
@@ -171,7 +172,7 @@ def no_models(starid: str, inputparams: dict, errormessage: str):
     if asciifile_dist:
         hline = b"# "
         for i in range(len(hout_dist)):
-            hline += hout_dist[i].encode() + " ".encode()
+            hline += hout_dist[i].encode() + b" "
 
         if isinstance(asciifile_dist, IOBase):
             asciifile_dist.seek(0)
@@ -643,19 +644,19 @@ def _make_obsfreqs(
         if fit in freqtypes.rtypes:
             getratios = True
             fitratiotypes.append(fit)
-            if not "ratios" in obsfreqmeta.keys():
+            if "ratios" not in obsfreqmeta.keys():
                 obsfreqmeta["ratios"] = {}
         # Look for glitches
         elif fit in freqtypes.glitches:
             getglitch = True
             fitglitchtypes.append(fit)
-            if not "glitch" in obsfreqmeta.keys():
+            if "glitch" not in obsfreqmeta.keys():
                 obsfreqmeta["glitch"] = {}
         # Look for epsdiff
         elif fit in freqtypes.epsdiff:
             getepsdiff = True
             fitepsdifftypes.append(fit)
-            if not "epsdiff" in obsfreqmeta.keys():
+            if "epsdiff" not in obsfreqmeta.keys():
                 obsfreqmeta["epsdiff"] = {}
         elif fit not in freqtypes.freqs:
             print(f"Fittype {fit} not recognised")
@@ -691,9 +692,8 @@ def _make_obsfreqs(
                     for rtype in freqtypes.defaultrtypes:
                         if rtype not in plotratiotypes:
                             plotratiotypes.append(rtype)
-                else:
-                    if plot not in plotratiotypes:
-                        plotratiotypes.append(plot)
+                elif plot not in plotratiotypes:
+                    plotratiotypes.append(plot)
             # Look for glitches
             if plot in freqtypes.glitches:
                 getglitch = True
@@ -706,16 +706,15 @@ def _make_obsfreqs(
                     for etype in freqtypes.defaultepstypes:
                         if etype not in plotepsdifftypes:
                             plotepsdifftypes.append(etype)
-                else:
-                    if plot not in plotepsdifftypes:
-                        plotepsdifftypes.append(plot)
+                elif plot not in plotepsdifftypes:
+                    plotepsdifftypes.append(plot)
 
     # Check that there is observational data available for fits and plots
     if getratios or getepsdiff:
         for fittype in set(fitratiotypes) | set(fitepsdifftypes) | set(fitglitchtypes):
             if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
                 for l in fittype[1:]:
-                    if not l in obsls.astype(str):
+                    if l not in obsls.astype(str):
                         print(f"* No l={l} modes were found in the observations")
                         print(f"* It is not possible to fit {fittype}")
                         raise ValueError
@@ -1059,9 +1058,8 @@ def freqs_ascii_to_xml(
         freqs["order"] += ncorrection
         if verbose:
             print("The proposed correction has been implemented.\n")
-    else:
-        if verbose:
-            print("No correction made.\n")
+    elif verbose:
+        print("No correction made.\n")
 
     # Look for ratios and their covariances, read if available
     if os.path.exists(ratiosfile):
@@ -1396,8 +1394,7 @@ def _read_freq_ascii(
             raise ValueError(
                 "BASTA found too many uncertainties, please specify which to use."
             )
-        else:
-            raise ValueError("BASTA is missing frequency uncertainties.")
+        raise ValueError("BASTA is missing frequency uncertainties.")
     if not symmetric_errors and not asym:
         raise ValueError(
             "BASTA is looking for asymmetric frequency uncertainties, but did not find them"

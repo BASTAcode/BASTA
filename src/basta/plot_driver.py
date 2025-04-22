@@ -91,7 +91,7 @@ def plot_all_seismic(
         maxmoddnu = Grid[path + "/dnufit"][ind]
     except Exception as e:
         print("\nFrequency plots initialisation failed with the error:", e)
-        return None
+        return
 
     # Extract the original observed dnu for use on the echelle diagrams
     # --> (equivalent to re-scaling if solar scaling activated)
@@ -258,7 +258,7 @@ def plot_all_seismic(
     if obsfreqmeta["getratios"]:
         for ratseq in obsfreqmeta["ratios"]["plot"]:
             try:
-                ratnamestr = "ratios_{0}".format(ratseq)
+                ratnamestr = f"ratios_{ratseq}"
                 plot_seismic.ratioplot(
                     obsfreqdata,
                     maxjoinkeys,
@@ -272,9 +272,7 @@ def plot_all_seismic(
                 )
             except Exception as e:
                 print(
-                    "\nRatio plot for {} sequence failed with the error:".format(
-                        ratseq
-                    ),
+                    f"\nRatio plot for {ratseq} sequence failed with the error:",
                     e,
                 )
 
@@ -287,15 +285,13 @@ def plot_all_seismic(
                     )
                 except Exception as e:
                     print(
-                        "\nRatio correlation map for {} sequence failed with the error:".format(
-                            ratseq
-                        ),
+                        f"\nRatio correlation map for {ratseq} sequence failed with the error:",
                         e,
                     )
 
     if obsfreqmeta["getglitch"]:
         for glitchseq in obsfreqmeta["glitch"]["plot"]:
-            glitchnamestr = "glitches_{0}".format(glitchseq)
+            glitchnamestr = f"glitches_{glitchseq}"
             try:
                 plot_seismic.glitchplot(
                     obsfreqdata,
@@ -307,14 +303,12 @@ def plot_all_seismic(
                 )
             except Exception as e:
                 print(
-                    "\nGlitch plot for {} sequence failed with the error:".format(
-                        glitchseq
-                    ),
+                    f"\nGlitch plot for {glitchseq} sequence failed with the error:",
                     e,
                 )
             if glitchseq != "glitches":
                 ratseq = glitchseq[1:]
-                ratnamestr = "ratios_{0}".format(ratseq)
+                ratnamestr = f"ratios_{ratseq}"
                 if ratseq not in obsfreqdata:
                     mask = np.where(
                         np.isin(obsfreqdata[glitchseq]["data"][2, :], [1.0, 2.0, 10.0])
@@ -337,9 +331,7 @@ def plot_all_seismic(
                     )
                 except Exception as e:
                     print(
-                        "\nRatio plot for {} sequence failed with the error:".format(
-                            ratseq
-                        ),
+                        f"\nRatio plot for {ratseq} sequence failed with the error:",
                         e,
                     )
             if fitfreqs["correlations"]:
@@ -351,16 +343,14 @@ def plot_all_seismic(
                     )
                 except Exception as e:
                     print(
-                        "\nGlitch correlation map for {} sequence failed with the error:".format(
-                            glitchseq
-                        ),
+                        f"\nGlitch correlation map for {glitchseq} sequence failed with the error:",
                         e,
                     )
 
     if obsfreqmeta["getepsdiff"]:
         for epsseq in obsfreqmeta["epsdiff"]["plot"]:
             try:
-                epsnamestr = "epsdiff_{0}".format(epsseq)
+                epsnamestr = f"epsdiff_{epsseq}"
                 plot_seismic.epsilon_difference_diagram(
                     mod=maxmod,
                     modkey=maxmodkey,
@@ -371,9 +361,7 @@ def plot_all_seismic(
                 )
             except Exception as e:
                 print(
-                    "\nEpsilon difference plot for {} sequence failed with the error:".format(
-                        epsseq
-                    ),
+                    f"\nEpsilon difference plot for {epsseq} sequence failed with the error:",
                     e,
                 )
 
@@ -386,9 +374,7 @@ def plot_all_seismic(
                     )
                 except Exception as e:
                     print(
-                        "\nEpsilon difference correlation map for {} sequence failed with the error:".format(
-                            epsseq
-                        ),
+                        f"\nEpsilon difference correlation map for {epsseq} sequence failed with the error:",
                         e,
                     )
 
@@ -408,4 +394,4 @@ def plot_all_seismic(
                 )
             except Exception as e:
                 print("\nEpsilon difference compoenent plot failed with the error:", e)
-    return None
+    return

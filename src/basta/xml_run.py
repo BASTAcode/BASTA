@@ -2,24 +2,23 @@
 Running BASTA from XML files. Main wrapper!
 """
 
-import os
-import gc
-import sys
 import copy
-import h5py
+import gc
+import os
+import sys
 import traceback
 from xml.etree import ElementTree
 
+import h5py
 import numpy as np
 
 from basta.bastamain import BASTA, LibraryError
+from basta.constants import freqtypes, parameters
 from basta.constants import sydsun as sydc
-from basta.constants import parameters
-from basta.constants import freqtypes
 from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
-from basta.utils_xml import ascii_to_xml
-from basta.utils_general import strtobool, unique_unsort
 from basta.interpolation_driver import perform_interpolation
+from basta.utils_general import strtobool, unique_unsort
+from basta.utils_xml import ascii_to_xml
 
 
 def _find_get(root, path, value, *default):
@@ -52,12 +51,12 @@ def _find_get(root, path, value, *default):
     if place == None:
         if default:
             return default[0]
-        raise KeyError("Missing tag '{0}' in input!".format(tag))
+        raise KeyError(f"Missing tag '{tag}' in input!")
     val = place.get(value)
     if val == None:
         if default:
             return default[0]
-        raise ValueError("Missing '{0}' in tag '{1}'!".format(value, tag))
+        raise ValueError(f"Missing '{value}' in tag '{tag}'!")
     return val
 
 
@@ -127,7 +126,7 @@ def _get_true_or_list(
     if len(params) == 0:
         extract = []
     elif len(params) == 1:
-        if params[0].tag.lower() == "true" and type(deflist) == type(None):
+        if params[0].tag.lower() == "true" and (deflist is None):
             extract = [True]
         elif params[0].tag.lower() == "true":
             extract = [par for par in deflist]
@@ -139,7 +138,7 @@ def _get_true_or_list(
         extract = []
         for par in params:
             extract.append(par.tag)
-    if check and not type(deflist) == type(None):
+    if check and deflist is not None:
         checklist = ["distance", "parallax", *parameters.names]
         mask = [True if par in checklist else False for par in extract]
         extract = list(np.asarray(extract)[mask])
@@ -240,9 +239,7 @@ def _get_intpol(root, gridfile, freqpath=None):
             }
         else:
             raise ValueError(
-                "Unknown parameter encountered in group 'interpolation': {0}".format(
-                    param
-                )
+                f"Unknown parameter encountered in group 'interpolation': {param}"
             )
 
     # Read and check construction method
@@ -305,10 +302,8 @@ def _get_intpol(root, gridfile, freqpath=None):
 
                 if err and err * nsigma < abstol / 2.0:
                     abstol = 2 * err * nsigma
-                if min(vals) - abstol / 2.0 > minval:
-                    minval = min(vals) - abstol / 2.0
-                if max(vals) + abstol / 2.0 < maxval:
-                    maxval = max(vals) + abstol / 2.0
+                minval = max(minval, min(vals) - abstol / 2.0)
+                maxval = min(maxval, max(vals) + abstol / 2.0)
             if minval != -np.inf or maxval != np.inf:
                 limits[param] = [minval, maxval]
         if freqpath:
@@ -328,7 +323,7 @@ def _get_intpol(root, gridfile, freqpath=None):
 
         elif construct == "encompass":
             gridname = gridfile.split("/")[-1].split(".")[-2]
-            intpolstar["name"] = {"value": "intpol_{0}".format(gridname)}
+            intpolstar["name"] = {"value": f"intpol_{gridname}"}
 
         elif "name" in intpol and construct == "bystar":
             intpolstar["name"]["value"] = "intpol_{0}_{1}".format(
@@ -336,7 +331,7 @@ def _get_intpol(root, gridfile, freqpath=None):
             )
 
         elif construct == "bystar":
-            intpolstar["name"] = {"value": "intpol_{0}".format(starid)}
+            intpolstar["name"] = {"value": f"intpol_{starid}"}
 
         # Decide limits for interpolation
         if construct == "encompass":
@@ -358,10 +353,8 @@ def _get_intpol(root, gridfile, freqpath=None):
 
                     if err and err * nsigma < abstol / 2.0:
                         abstol = 2 * err * nsigma
-                    if val - abstol / 2.0 > minval:
-                        minval = val - abstol / 2.0
-                    if val + abstol / 2.0 < maxval:
-                        maxval = val + abstol / 2.0
+                    minval = max(minval, val - abstol / 2.0)
+                    maxval = min(maxval, val + abstol / 2.0)
                 if minval != -np.inf or maxval != np.inf:
                     intpolstar["limits"][param] = [minval, maxval]
             if freqpath:
@@ -822,10 +815,8 @@ def run_xml(
                     val, error = inputparams["fitparams"][param]
                     if error * nsigma < abstol / 2.0:
                         abstol = 2 * error * nsigma
-                    if val - abstol / 2.0 > minval:
-                        minval = val - abstol / 2.0
-                    if val + abstol / 2.0 < maxval:
-                        maxval = val + abstol / 2.0
+                    minval = max(minval, val - abstol / 2.0)
+                    maxval = min(maxval, val + abstol / 2.0)
                 if minval != -np.inf or maxval != np.inf:
                     inputparams["limits"][param] = [minval, maxval]
 
@@ -901,20 +892,16 @@ def run_xml(
                 write_star_to_errfile(
                     starid,
                     inputparams,
-                    "Interpolation {}: {}".format(e.__class__.__name__, e),
+                    f"Interpolation {e.__class__.__name__}: {e}",
                 )
                 continue
             except Exception as e:
-                print(
-                    "BASTA interpolation failed for star {0} with the error:".format(
-                        starid
-                    )
-                )
+                print(f"BASTA interpolation failed for star {starid} with the error:")
                 print(traceback.format_exc())
                 no_models(
                     starid,
                     inputparams,
-                    "Unhandled {}: {}".format(e.__class__.__name__, e),
+                    f"Unhandled {e.__class__.__name__}: {e}",
                 )
 
             # Call BASTA itself!
@@ -941,12 +928,12 @@ def run_xml(
                 print("BASTA stopped due to a library error!")
                 return
             except Exception as e:
-                print("BASTA failed for star {0} with the error:".format(starid))
+                print(f"BASTA failed for star {starid} with the error:")
                 print(traceback.format_exc())
                 no_models(
                     starid,
                     inputparams,
-                    "Unhandled {}: {}".format(e.__class__.__name__, e),
+                    f"Unhandled {e.__class__.__name__}: {e}",
                 )
 
             # Make sure to write to file, and clear memory

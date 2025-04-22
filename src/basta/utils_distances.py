@@ -2,8 +2,8 @@
 Utility functions for the distance calculation and parallax fitting
 """
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 matplotlib.use("Agg")
 import matplotlib.pyplot as plt

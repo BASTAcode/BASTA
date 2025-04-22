@@ -10,6 +10,7 @@ Any prior defined here can be used from an .xml input file.
 """
 
 import numpy as np
+
 from basta import utils_general as util
 
 
@@ -33,13 +34,12 @@ def millerscalo1979(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    elif (ms[2] <= m) & (m < ms[3]):
+    if (ms[2] <= m) & (m < ms[3]):
         return ks[2] * m ** alphas[2]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def kennicutt1994(libitem, index):
@@ -54,11 +54,10 @@ def kennicutt1994(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def scalo1998(libitem, index):
@@ -73,13 +72,12 @@ def scalo1998(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    elif (ms[2] <= m) & (m < ms[3]):
+    if (ms[2] <= m) & (m < ms[3]):
         return ks[2] * m ** alphas[2]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def kroupa2001(libitem, index):
@@ -95,14 +93,13 @@ def kroupa2001(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
     # This case and the last case are identical with these values
-    elif (ms[2] <= m) & (m < ms[4]):
+    if (ms[2] <= m) & (m < ms[4]):
         return ks[2] * m ** alphas[2]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def baldryglazebrook2003(libitem, index):
@@ -117,11 +114,10 @@ def baldryglazebrook2003(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def chabrier2003(libitem, index):
@@ -138,5 +134,4 @@ def chabrier2003(libitem, index):
             * (1 / m)
             * np.exp(-0.5 * ((np.log10(m) - np.log10(0.079)) / 0.69) ** 2)
         )
-    else:
-        return ks[1] * m ** (-2.3)
+    return ks[1] * m ** (-2.3)

@@ -4,9 +4,11 @@ Creation of XML input files
 
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, SubElement, tostring
+
 import numpy as np
-from basta.constants import sydsun as sydc
+
 from basta.constants import freqtypes
+from basta.constants import sydsun as sydc
 from basta.utils_xml import create_xmltag
 
 
@@ -21,7 +23,7 @@ def generate_xml(
     sunnumax: float = sydc.SUNnumax,
     sundnu: float = sydc.SUNdnu,
     solarmodel: bool = False,
-    missingval: float | int = -999.999,
+    missingval: float = -999.999,
     centroid: str = "median",
     uncert: str = "quantiles",
     plotfmt: str = "png",

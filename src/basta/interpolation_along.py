@@ -6,13 +6,13 @@ import os
 import time
 
 import h5py
+import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
-import matplotlib.pyplot as plt
 
+from basta import interpolation_helpers as ih
 from basta import utils_general as gu
 from basta import utils_seismic as su
-from basta import interpolation_helpers as ih
 
 
 # ======================================================================================
@@ -184,7 +184,7 @@ def interpolate_along(
         fig1, ax1 = plt.subplots()  # Full grid (Kiel)
         fig2, ax2 = plt.subplots()  # Only selection (Kiel)
         fig3, ax3 = plt.subplots()  # Age/mass information
-        print("Interpolating in {0}s with basepath '{1}'".format(modestr, basepath))
+        print(f"Interpolating in {modestr}s with basepath '{basepath}'")
         print(
             "Required resolution in {0}: {1}".format(
                 resolution["param"], resolution["value"]
@@ -216,7 +216,7 @@ def interpolate_along(
         intcount += len(tracks.items())
 
     # Use a progress bar (with the package tqdm; will write to stderr)
-    print("\nInterpolating along {0} tracks/isochrones ...".format(intcount))
+    print(f"\nInterpolating along {intcount} tracks/isochrones ...")
     pbar = tqdm(total=intcount, desc="--> Progress", ascii=True)
 
     # Do the actual loop
@@ -267,7 +267,7 @@ def interpolate_along(
             # *** BLOCK 1: Obtain reduced tracks ***
             #
             # Check which models have parameters within limits to define mask
-            if not os.path.join(gname, name) in selectedmodels:
+            if os.path.join(gname, name) not in selectedmodels:
                 continue
 
             index = selectedmodels[os.path.join(gname, name)]
@@ -305,9 +305,7 @@ def interpolate_along(
             # Check we improve the resolution
             if Npoints < sum(index):
                 print(
-                    "Stopped interpolation along {0} as the number of points would decrease from {1} to {2}".format(
-                        name, sum(index), Npoints
-                    )
+                    f"Stopped interpolation along {name} as the number of points would decrease from {sum(index)} to {Npoints}"
                 )
                 continue
             if debug:
@@ -458,7 +456,7 @@ def interpolate_along(
 
         ax3.set_xlabel("Age / Myr" if baseparam == "age" else "Mass / Msun")
         ax3.set_ylabel("Teff / K")
-        fig3.savefig("intpol_diagnostic_{0}.pdf".format(baseparam), bbox_inches="tight")
+        fig3.savefig(f"intpol_diagnostic_{baseparam}.pdf", bbox_inches="tight")
 
-        print("\nIn total {0} {1}(s) interpolated!\n".format(trackcounter, modestr))
+        print(f"\nIn total {trackcounter} {modestr}(s) interpolated!\n")
         print("Interpolation process finished!")

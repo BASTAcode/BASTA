@@ -2,21 +2,18 @@
 Interpolation for BASTA: Across/between tracks
 """
 
+import copy
 import os
 import sys
-import copy
 
 import h5py
 import numpy as np
-from tqdm import tqdm
 from scipy import spatial
+from tqdm import tqdm
 
 from basta import interpolation_helpers as ih
 from basta import plot_interp as ip
-
 from basta.utils_seismic import transform_obj_array
-
-import traceback
 
 
 # ======================================================================================
@@ -65,9 +62,7 @@ def _check_sobol(grid, res):
             raise KeyError(errstr)
         sobol = res["scale"]
     else:
-        raise KeyError(
-            "Interpolation not possible for grid of type {0}".format(gridtype)
-        )
+        raise KeyError(f"Interpolation not possible for grid of type {gridtype}")
 
     # Highlight redundant resolution for the user
     if sobol:
@@ -75,7 +70,7 @@ def _check_sobol(grid, res):
             if (var not in ["scale", "baseparam", "extend", "retrace"]) and res[
                 var
             ] != 0:
-                prtstr = "Gridresolution in '{0}' is set but ignored, ".format(var)
+                prtstr = f"Gridresolution in '{var}' is set but ignored, "
                 prtstr += "as 'scale' is set for Sobol interpolation."
                 print(prtstr)
     return sobol
@@ -425,7 +420,7 @@ def interpolate_across(
     # Main loop #
     #############
     numnew = len(new_points)
-    print("Interpolating {0} tracks/isochrones ... ".format(numnew))
+    print(f"Interpolating {numnew} tracks/isochrones ... ")
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=numnew, desc="--> Progress", ascii=True)
@@ -443,13 +438,13 @@ def interpolate_across(
         else:
             FeH = point[bpars.index("FeHini")]
             age = point[bpars.index("age")]
-            libname = basepath + "FeH={0:.4f}/age={1:.4f}".format(FeH, age)
+            libname = basepath + f"FeH={FeH:.4f}/age={age:.4f}"
 
         # Form the basis of interpolation, and collect minmax of the along track variable
         ind = triangulation.simplices[tind]
         count = sum([sum(selectedmodels[tracknames[i]]) for i in ind])
         intbase = np.zeros((count, len(bpars) + 1))
-        y = np.zeros((count))
+        y = np.zeros(count)
         minmax = np.zeros((len(ind), 3))
         ir = 0
         sections = [0]
@@ -475,11 +470,9 @@ def interpolate_across(
 
         minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
         if minmax[0] > minmax[1]:
-            warstr = "Warning: Interpolating {0} {1} ".format(
-                modestr, newnum + tracknum
-            )
-            warstr += "was aborted due to no overlap in {0}".format(along_var)
-            warstr += " of the enveloping {0}!".format(modestr)
+            warstr = f"Warning: Interpolating {modestr} {newnum + tracknum} "
+            warstr += f"was aborted due to no overlap in {along_var}"
+            warstr += f" of the enveloping {modestr}!"
             print(warstr)
             success[tracknum] = False
             outfile[os.path.join(libname, "IntStatus")] = -1
@@ -489,7 +482,7 @@ def interpolate_across(
         try:
             newbvar = ih.calc_along_points(intbase, sections, minmax, point)
         except:
-            warstr = "Choice of base parameter '{:s}' resulted".format(along_var)
+            warstr = f"Choice of base parameter '{along_var:s}' resulted"
             warstr += " in an error when determining it's variance along the track."
             raise ValueError(warstr)
 
@@ -530,9 +523,7 @@ def interpolate_across(
                     )
 
                     if any(np.isnan(newparam)):
-                        nan = "{0} {1} had NaN value(s)!".format(
-                            modestr, newnum + tracknum
-                        )
+                        nan = f"{modestr} {newnum + tracknum} had NaN value(s)!"
                         raise ValueError(nan)
 
                     # Write to new grid
@@ -621,9 +612,7 @@ def interpolate_across(
 
             if debug:
                 debugnum = str(int(newnum + tracknum)).zfill(numfmt)
-                plotpath = os.path.join(
-                    debugpath, "debug_kiel_{0}.png".format(debugnum)
-                )
+                plotpath = os.path.join(debugpath, f"debug_kiel_{debugnum}.png")
                 if not os.path.exists(plotpath):
                     try:
                         tracks = [tracknames[i] for i in ind]
@@ -638,15 +627,9 @@ def interpolate_across(
                             selmods,
                             plotpath,
                         )
-                        print(
-                            "Plotted debug Kiel for {0} {1}".format(modestr, debugnum)
-                        )
+                        print(f"Plotted debug Kiel for {modestr} {debugnum}")
                     except:
-                        print(
-                            "Debug plotting failed for {0} {1}".format(
-                                modestr, debugnum
-                            )
-                        )
+                        print(f"Debug plotting failed for {modestr} {debugnum}")
 
         except KeyboardInterrupt:
             print("BASTA interpolation stopped manually. Goodbye!")
@@ -660,11 +643,11 @@ def interpolate_across(
             success[tracknum] = False
             print("Error:", sys.exc_info()[1])
             outfile[os.path.join(libname, "IntStatus")] = -1
-            print("Interpolation failed for {0}".format(libname))
+            print(f"Interpolation failed for {libname}")
             if debug:
                 print("Point at:")
                 [print(name, value, ", ") for name, value in zip(bpars, point)]
-                print("Simplex formed by the {0}s:".format(modestr))
+                print(f"Simplex formed by the {modestr}s:")
                 print(", ".join([tracknames[i] for i in ind]))
 
     ####################

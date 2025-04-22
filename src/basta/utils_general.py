@@ -7,8 +7,9 @@ import time
 from io import IOBase
 
 import numpy as np
-from basta.__about__ import __version__
+
 from basta import distances
+from basta.__about__ import __version__
 from basta.constants import freqtypes
 
 
@@ -67,7 +68,7 @@ def print_bastaheader(
     prt_center("BASTA", llen)
     prt_center("The BAyesian STellar Algorithm", llen)
     print()
-    prt_center("Version {0}".format(__version__), llen)
+    prt_center(f"Version {__version__}", llen)
     print()
     prt_center("(c) 2024, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
@@ -346,7 +347,7 @@ def print_priors(limits: dict, usepriors: list[str]) -> None:
     print(f"* Additional priors (IMF): {', '.join(usepriors)}")
 
 
-class Logger(object):
+class Logger:
     """
     Class used to redefine stdout to terminal and an output file.
 
@@ -528,10 +529,10 @@ def compare_output_to_input(
         print("with sigma differences of")
         print(sigmas)
         if isinstance(warnfile, IOBase):
-            warnfile.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+            warnfile.write(f"{starid}\t{ps}\t{sigmas}\n")
         else:
             with open(warnfile, "a") as wf:
-                wf.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+                wf.write(f"{starid}\t{ps}\t{sigmas}\n")
 
     return comparewarn
 
@@ -597,8 +598,7 @@ def normfactor(alphas, ms):
             * (1 / ms[3]) ** alphas[3]
         )
         return ks
-    else:
-        print("Mistake in normfactor")
+    print("Mistake in normfactor")
 
 
 def get_parameter_values(parameter, Grid, selectedmodels, noofind):
@@ -657,7 +657,7 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     None
     """
     # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
-    print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
+    print(f"{centroid:9}  {param:13} :  {xmed:12.6f}")
     if uncert == "quantiles":
         print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
         print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
@@ -682,7 +682,6 @@ def strtobool(val):
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
         return 1
-    elif val in ("n", "no", "f", "false", "off", "0"):
+    if val in ("n", "no", "f", "false", "off", "0"):
         return 0
-    else:
-        raise ValueError("invalid truth value %r" % (val,))
+    raise ValueError("invalid truth value %r" % (val,))

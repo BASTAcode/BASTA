@@ -2,22 +2,22 @@
 Calculation and generation of output, and driver for producing plots
 """
 
-import os
 import copy
-from io import IOBase
+import os
 from copy import deepcopy
+from io import IOBase
 
-import numpy as np
 import matplotlib
+import numpy as np
 
 import basta.fileio as fio
-from basta.constants import sydsun as sydc
-from basta.constants import parameters, statdata
-from basta.utils_distances import compute_distance_from_mag
-from basta.distances import get_absorption, get_EBV_along_LOS
+from basta import plot_corner, plot_kiel, stats
 from basta import utils_general as util
-from basta import stats, plot_corner, plot_kiel
+from basta.constants import parameters, statdata
+from basta.constants import sydsun as sydc
+from basta.distances import get_absorption, get_EBV_along_LOS
 from basta.downloader import get_basta_dir
+from basta.utils_distances import compute_distance_from_mag
 
 # Change matplotlib backend before loading pyplot
 matplotlib.use("Agg")
@@ -294,13 +294,9 @@ def compute_posterior(
                     cornerfile = outfilename + "_distance_corner." + plottype
                     plt.savefig(cornerfile)
                     plt.close()
-                    print("\nSaved distance corner plot to {0}.\n".format(cornerfile))
+                    print(f"\nSaved distance corner plot to {cornerfile}.\n")
                 except Exception as error:
-                    print(
-                        "\nDistance corner plot failed with the error:{0}\n".format(
-                            error
-                        )
-                    )
+                    print(f"\nDistance corner plot failed with the error:{error}\n")
 
                 # Plotting done: Remove keyword
                 cornerplots.remove("distance")
@@ -397,7 +393,7 @@ def compute_posterior(
     if asciifile is not False:
         hline = b"# "
         for i in range(len(hout)):
-            hline += hout[i].encode() + " ".encode()
+            hline += hout[i].encode() + b" "
         if isinstance(asciifile, IOBase):
             asciifile.seek(0)
             if b"#" not in asciifile.readline():
@@ -422,7 +418,7 @@ def compute_posterior(
         if len(hout_dist) > 0:
             hline = b"# "
             for i in range(len(hout_dist)):
-                hline += hout_dist[i].encode() + " ".encode()
+                hline += hout_dist[i].encode() + b" "
             if isinstance(asciifile_dist, IOBase):
                 asciifile_dist.seek(0)
                 if b"#" not in asciifile_dist.readline():
