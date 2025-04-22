@@ -418,7 +418,7 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
         print(f"* Additional priors (IMF): {', '.join(inferencesettings.priors)}")
 
 
-class Logger(object):
+class Logger:
     """
     Class used to redefine stdout to terminal and an output file.
 
@@ -429,19 +429,17 @@ class Logger(object):
     """
 
     # Credit: http://stackoverflow.com/a/14906787
-    def __init__(self, logfilename):
+    def __init__(self, outfilename: str) -> None:
         self.terminal = sys.stdout
-        self.log = open(logfilename, "a")
+        self.log = open(outfilename + ".log", "a")
 
-    def write(self, message):
+    def write(self, message: str) -> None:
         self.terminal.write(message)
         self.log.write(message)
 
-    def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
-        pass
+    def flush(self) -> None:
+        self.terminal.flush()
+        self.log.flush()
 
 
 def list_metallicities(

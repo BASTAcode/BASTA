@@ -5,7 +5,6 @@ It handles the flow of input and output from the various modules internal in BAS
 """
 
 import os
-import gc
 import sys
 import time
 from copy import deepcopy
@@ -58,6 +57,33 @@ def BASTA(
         A data class containing all options related to plots outputted
         from BASTA, , see `core.py`.
     """
+    # Use try-finally to ensure that sys.stdout is reverted back
+    # even when the run raises an exception.
+    stdout = sys.stdout
+    sys.stdout = util.Logger(filepaths.logfile)  # type: ignore
+    try:
+        _bastamain(
+            star,
+            inferencesettings,
+            filepaths,
+            runfiles,
+            outputoptions,
+            plotconfig,
+        )
+    finally:
+        sys.stdout = stdout
+        print(f"Saved log to {filepaths.logfile}")
+        plt.close("all")
+
+
+def _bastamain(
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    filepaths: core.FilePaths,
+    runfiles: core.RunFiles,
+    outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
+) -> None:
     #### INITIALISATION ####
     # Enable legacy printing of NumPy data types
     # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
@@ -66,8 +92,6 @@ def BASTA(
 
     # Start the log
     t0 = time.localtime()
-    stdout = sys.stdout
-    sys.stdout = util.Logger(filepaths.logfile)
 
     # Pretty printing a header
     util.print_bastaheader(
@@ -599,11 +623,4 @@ def BASTA(
         f"(runtime {time.mktime(t1) - time.mktime(t0)} s).\n",
     )
 
-    # Save log and recover standard output
-    sys.stdout = stdout
-    print(f"Saved log to {filepaths.logfile}")
-
-    # Close grid, close open plots, and try to free memory between multiple runs
     Grid.close()
-    plt.close("all")
-    gc.collect()
