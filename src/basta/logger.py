@@ -58,15 +58,15 @@ class StreamToLogger:
     print("This goes to the logfile and terminal via the logger.")
     """
 
-    def __init__(self, logger: logging.Logger, level: int = logging.INFO):
+    def __init__(self, logger: logging.Logger, level: int = logging.INFO) -> None:
         self.logger = logger
         self.level = level
         self._buffer = ""
 
-    def write(self, message: str):
+    def write(self, message: str) -> None:
         message = message.strip()
         if message:
             self.logger.log(self.level, message)
 
-    def flush(self):
+    def flush(self) -> None:
         pass

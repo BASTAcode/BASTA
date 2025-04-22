@@ -57,7 +57,7 @@ def print_bastaheader(
     prt_center("(c) 2025, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
     print(llen * "=")
-    print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
+    print("\nRun started on {} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
     if developermode:
         print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
     print(f"Random numbers initialised with seed: {seed} .")
@@ -587,7 +587,7 @@ def compare_output_to_input(
                     sigmas.append(sigma)
 
     if comparewarn:
-        print("A >%s sigma difference was found between input and output of" % sigmacut)
+        print(f"A >{sigmacut} sigma difference was found between input and output of")
         print(ps)
         print("with sigma differences of")
         print(sigmas)
@@ -662,6 +662,7 @@ def normfactor(alphas, ms):
         )
         return ks
     print("Mistake in normfactor")
+    return None
 
 
 def get_parameter_values(parameter, Grid, selectedmodels, noofind):
@@ -696,7 +697,9 @@ def get_parameter_values(parameter, Grid, selectedmodels, noofind):
     return x_all
 
 
-def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"):
+def printparam(
+    param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"
+) -> None:
     """
     Pretty-print of output parameter to log and console.
 
@@ -722,10 +725,10 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
     print(f"{centroid:9}  {param:13} :  {xmed:12.6f}")
     if uncert == "quantiles":
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
+        print("{:9}  {:13} :  {:12.6f}".format("err_plus", param, xstdp - xmed))
+        print("{:9}  {:13} :  {:12.6f}".format("err_minus", param, xmed - xstdm))
     else:
-        print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
+        print("{:9}  {:13} :  {:12.6f}".format("stdev", param, xstdm))
     print("-----------------------------------------------------")
 
 
@@ -749,7 +752,7 @@ def strtobool(val: str | Literal[0, 1]) -> Literal[0, 1]:
         return 1
     if val in ("n", "no", "f", "false", "off", "0"):
         return 0
-    raise ValueError("invalid truth value %r" % (val,))
+    raise ValueError(f"invalid truth value {val!r}")
 
 
 def flush_all(*files: IO | None) -> None:

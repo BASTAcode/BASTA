@@ -22,7 +22,7 @@ def plot_all_seismic(
     dnusurf=None,
     glitchparams=None,
     debug=False,
-):
+) -> None:
     """
     Driver for producing all seismic related plots
 

@@ -28,7 +28,7 @@ def BASTA(
     runfiles: core.RunFiles,
     outputoptions: core.OutputOptions,
     plotconfig: core.PlotConfig,
-):
+) -> None:
     """
     The BAyesian STellar Algorithm (BASTA).
     (c) 2025, The BASTA Team

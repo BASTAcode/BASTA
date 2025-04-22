@@ -124,7 +124,7 @@ def _calc_cartesian_points(
     wholebase = copy.deepcopy(base)
 
     # For each interpolation parameter, add the desired number of points
-    for i, (par, res) in enumerate(baseparams.items()):
+    for i, (_par, res) in enumerate(baseparams.items()):
         newpoints = None
         # Unique values of the parameter
         uniq = np.unique(wholebase[:, i])
@@ -269,7 +269,7 @@ def interpolate_across(
     along_var="xcen",
     outbasename="",
     debug=False,
-):
+) -> None:
     """
     Interpolates a grid across the tracks, within a box of observational limits.
 

@@ -171,7 +171,7 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
     # estimate the progress.
     if show_progress:
         trackcount = 0
-        for _, tracks in grid[basepath].items():
+        for tracks in grid[basepath].values():
             trackcount += len(tracks.items())
         pbar = tqdm(total=trackcount, desc="--> Transversing grid", ascii=True)
 
@@ -591,7 +591,7 @@ def interpolate_frequencies(
 # ======================================================================================
 # Management of header and weights
 # ======================================================================================
-def update_header(outfile, basepath, headvars):
+def update_header(outfile, basepath, headvars) -> None:
     """
     Rewrites the header with the information from the new tracks.
 
@@ -623,7 +623,7 @@ def update_header(outfile, basepath, headvars):
             headpath = os.path.join("header", basepath, var)
         if var not in ["tracks", "isochs"]:
             values = np.zeros(ltracks)
-            for _, group in outfile[basepath].items():
+            for group in outfile[basepath].values():
                 for n, (_, libitem) in enumerate(group.items()):
                     if libitem["IntStatus"][()] >= 0:
                         values[n] = libitem[var][0]
@@ -634,7 +634,7 @@ def update_header(outfile, basepath, headvars):
             outfile[headpath] = [b"Interpolated"] * ltracks
 
 
-def write_header(grid, outfile, basepath):
+def write_header(grid, outfile, basepath) -> None:
     """
     Write the header of the new grid. Basically copies the old header.
 
@@ -681,7 +681,7 @@ def write_header(grid, outfile, basepath):
                 outfile[keystr] = grid[keystr][()]
 
 
-def recalculate_param_weights(outfile, basepath):
+def recalculate_param_weights(outfile, basepath) -> None:
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
@@ -708,7 +708,7 @@ def recalculate_param_weights(outfile, basepath):
     # Collect the relevant tracks/isochrones
     mask = []
     names = []
-    for nogroup, (gname, group) in enumerate(outfile[basepath].items()):
+    for _nogroup, (gname, group) in enumerate(outfile[basepath].items()):
         # Determine which tracks are actually present
         for name, libitem in group.items():
             mask.append(libitem["IntStatus"][()])
@@ -737,7 +737,7 @@ def recalculate_param_weights(outfile, basepath):
                 outfile[weight_path] = weights[i]
 
 
-def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False):
+def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False) -> None:
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.

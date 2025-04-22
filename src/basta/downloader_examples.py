@@ -16,7 +16,7 @@ from basta.__about__ import __version__
 EXAMPLESFILE = "_examplespath.py"
 
 
-def get_bundle(version: str, force: bool = False):
+def get_bundle(version: str, force: bool = False) -> None:
     """
     Download a bundle file with examples from the BASTAcode examples repository.
 
@@ -92,7 +92,7 @@ def get_bundle(version: str, force: bool = False):
         print(f"The folder '{outpath}' already exists! Will not overwrite.")
 
 
-def main():
+def main() -> None:
     """
     Run the examples/templates downloader
     """

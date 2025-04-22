@@ -5,7 +5,7 @@ Calculation and generation of output, and driver for producing plots
 import os
 from copy import deepcopy
 
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 
 import basta.fileio as fio
@@ -17,7 +17,7 @@ from basta.downloader import get_basta_dir
 from basta.utils_distances import compute_distance_from_mag
 
 # Change matplotlib backend before loading pyplot
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 # Set the style of all plots
@@ -41,7 +41,7 @@ def compute_posterior(
     outputoptions: core.OutputOptions,
     plotconfig: core.PlotConfig,
     compareinputoutput=False,
-):
+) -> None:
     """
     This function computes the posterior distributions and produce plots.
 
@@ -288,7 +288,7 @@ def compute_posterior(
                 for filt in distanceparams.magnitudes.keys():
                     clabels.append("d(" + filt + ")")
                     clabels.append("A(" + filt + ")")
-                clabels = clabels + ["d(joint)", "E(B-V)(joint)"]
+                clabels = [*clabels, "d(joint)", "E(B-V)(joint)"]
                 try:
                     cornerfig = plot_corner.corner(
                         d_samples, labels=clabels, plotout=plotout, **ckwargs

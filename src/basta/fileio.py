@@ -8,7 +8,7 @@ import warnings
 from copy import deepcopy
 from pathlib import Path
 from xml.dom import minidom
-from xml.etree import ElementTree
+from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import Element, SubElement, tostring
 
 import h5py  # type: ignore[import]
@@ -46,7 +46,7 @@ def _import_selectedmodels(data: dict) -> dict:
     return res
 
 
-def save_selectedmodels(fname: str | Path, selectedmodels):
+def save_selectedmodels(fname: str | Path, selectedmodels) -> None:
     s = json.dumps(_export_selectedmodels(selectedmodels))
     with open(fname, "w") as fp:
         fp.write(s)
@@ -59,7 +59,9 @@ def load_selectedmodels(fname: str):
     return _import_selectedmodels(data)
 
 
-def write_star_to_errfile(starid: str, runfiles: core.RunFiles, errormessage: str):
+def write_star_to_errfile(
+    starid: str, runfiles: core.RunFiles, errormessage: str
+) -> None:
     """
     Write starid and error message to .err-file
 
@@ -192,7 +194,7 @@ def read_freq_xml(
     orders = []
     degrees = []
 
-    for mode in ElementTree.parse(filename).getroot().findall("mode"):
+    for mode in ET.parse(filename).getroot().findall("mode"):
 
         def _get_element_attrib(element: str, attrib: str) -> str:
             e = mode.find(element)
@@ -238,7 +240,7 @@ def _read_freq_cov_xml(
         Covariance matrix of frequencies
     """
     # Parse the XML file:
-    tree = ElementTree.parse(filename)
+    tree = ET.parse(filename)
     root = tree.getroot()
 
     # Find a list of all the frequency ratios:
@@ -249,15 +251,15 @@ def _read_freq_cov_xml(
     cov = np.zeros((len(obskey[0, :]), len(obskey[0, :])))
 
     # Loop over all modes to collect input
-    for i, mode1 in enumerate(freqs):
+    for _i, mode1 in enumerate(freqs):
         id1 = mode1.get("id")
-        column = root.findall("frequency_corr[@id1='%s']" % id1)
+        column = root.findall(f"frequency_corr[@id1='{id1}']")
         if not len(column):
             raise KeyError(
                 "Frequency fit correlations not provided - set correlations=False"
             )
         # Loop over possible all modes again
-        for j, mode2 in enumerate(freqs):
+        for _j, mode2 in enumerate(freqs):
             id2 = mode2.get("id")
             # Loop to find matching entries in matrix
             for row in column:
@@ -455,13 +457,13 @@ def _read_precomputed_ratios_xml(
         Covariance matrix matching the ratios.
     """
     # Print warning to user
-    if excludemodes != None:
+    if excludemodes is not None:
         wstr = "Warning: Removing precomputed ratios based on "
         wstr += "not-trusted-file is not yet supported!"
         print(wstr)
 
     # Read in xml tree/root
-    tree = ElementTree.parse(filename)
+    tree = ET.parse(filename)
     root = tree.getroot()
 
     # Get all ratios available in xml
@@ -949,7 +951,7 @@ def freqs_ascii_to_xml(
     symmetric_errors: bool = True,
     check_radial_orders: bool = False,
     verbose: bool = True,
-):
+) -> None:
     """
     Creates frequency xml-file based on ascii-files.
 
@@ -1356,11 +1358,9 @@ def _read_freq_ascii(
 
     sym = np.any([col[0] == "error" for col in cols])
     asym = all(
-        [
-            item in col[0]
-            for col in cols
-            for item in rdict["error_plus"]["recognisednames"]
-        ]
+        item in col[0]
+        for col in cols
+        for item in rdict["error_plus"]["recognisednames"]
     )
     if not sym ^ asym:
         if sym | asym:

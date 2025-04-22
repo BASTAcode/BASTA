@@ -36,7 +36,7 @@ def _run_consistency_checks(
 
     # TASK 0: Grid
     if not os.path.exists(define_io["gridfile"]):
-        print("--> WARNING: Cannot find a grid at '{0}'".format(define_io["gridfile"]))
+        print("--> WARNING: Cannot find a grid at '{}'".format(define_io["gridfile"]))
         print("    Did you want to use on of our example grids? Then run the command")
         print("    'BASTAdownload -h' and pick a grid to be downloaded.")
         errors += 1
@@ -57,7 +57,7 @@ def _run_consistency_checks(
         )
     except Exception:
         print(
-            "--> WARNING: Issues detected reading the file '{0}'!".format(
+            "--> WARNING: Issues detected reading the file '{}'!".format(
                 define_io["asciifile"]
             )
         )
@@ -82,13 +82,11 @@ def _run_consistency_checks(
 
     # TASK 3: Activated special fits or outputs?
     allparams = list(
-        set(
-            [
-                *define_fit["fitparams"],
-                *define_output["outparams"],
-                *define_plots["cornerplots"],
-            ]
-        )
+        {
+            *define_fit["fitparams"],
+            *define_output["outparams"],
+            *define_plots["cornerplots"],
+        }
     )
     globast = False
     freqfit = False
@@ -173,7 +171,7 @@ def _print_summary(
     define_output,
     define_plots,
     define_intpol,
-):
+) -> None:
     """
     Print a human-readable summary of the BASTA run resulting from the given input.
 
@@ -192,7 +190,7 @@ def _print_summary(
     # Basic info
     fitlist = ", ".join(define_fit["fitparams"])
     print(
-        "A total of {0} star(s) will be fitted with {{{1}}} to the grid '{2}'.".format(
+        "A total of {} star(s) will be fitted with {{{}}} to the grid '{}'.".format(
             numfits, fitlist, define_io["gridfile"]
         )
     )
@@ -229,7 +227,7 @@ def _print_summary(
     else:
         distout = False
     print(
-        "\nThis will output {{{0}}} to a results file. {1}".format(
+        "\nThis will output {{{}}} to a results file. {}".format(
             ", ".join(outlist),
             exstr,
         )
@@ -251,7 +249,7 @@ def _print_summary(
         distcorner = False
     if len(define_plots["cornerplots"]) > 0:
         print(
-            "Corner plots include {{{0}}} with observational bands on {{{1}}}.".format(
+            "Corner plots include {{{}}} with observational bands on {{{}}}.".format(
                 ", ".join(cornerlist), fitlist
             )
         )
@@ -282,7 +280,7 @@ def _print_summary(
 
     if len(flat_priors) > 0:
         print(
-            "A restricted flat prior will be applied to: {0}.".format(
+            "A restricted flat prior will be applied to: {}.".format(
                 ", ".join(flat_priors)
             )
         )
@@ -291,7 +289,7 @@ def _print_summary(
 
 
 # Main routine for running! Will be imported by specific examples
-def make_basta_input(define_user_input):
+def make_basta_input(define_user_input) -> None:
     """
     Get user input, run consistency checks, produce files, print summary.
 

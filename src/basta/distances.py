@@ -9,7 +9,7 @@ from pathlib import Path
 
 import dustmaps  # type: ignore[import]
 import h5py  # type: ignore[import]
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 import scipy.stats  # type: ignore[import]
 from astropy.coordinates import SkyCoord  # type: ignore[import]
@@ -21,7 +21,7 @@ import basta.constants as cnsts
 import basta.utils_distances as udist
 from basta import core, stats
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 # Don't print Astropy warnings (catch error caused by mock'ing astropy in Sphinx)

@@ -4,10 +4,10 @@ Utility functions for the distance calculation and parallax fitting
 
 from pathlib import Path
 
-import matplotlib
+import matplotlib as mpl
 import numpy as np
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 

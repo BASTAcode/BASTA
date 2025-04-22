@@ -22,7 +22,7 @@ def cd(newdir: str):
 
 def _process_xmldir(
     rundir: str, nproc: int = 4, seed: int | None = None, debug: bool = False
-):
+) -> None:
     """
     Run BASTA on all files in a given directory. Multi-threaded version.
 
@@ -63,7 +63,7 @@ def _process_xmldir(
     print("\n~~~~~~ DONE! ~~~~~~\n")
 
 
-def main():
+def main() -> None:
     """Main"""
     # Setup argument parser
     helptext = "BASTA -- Run the BAyesian STellar Algorithm"
@@ -130,7 +130,7 @@ def main():
     )
 
 
-def multi():
+def multi() -> None:
     """
     Run BASTA on multiple input files
     """

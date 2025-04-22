@@ -4,11 +4,10 @@ Running BASTA from XML files. Main wrapper!
 
 import copy
 import os
-import sys
 import traceback
 from io import BufferedIOBase
 from typing import Any, Literal, TypedDict, overload
-from xml.etree import ElementTree
+from xml.etree import ElementTree as ET
 
 import h5py  # type: ignore[import]
 import numpy as np
@@ -25,23 +24,19 @@ from basta.utils_xml import ascii_to_xml
 
 
 @overload
-def _find_get(root: ElementTree.Element, path: str, value: str) -> str: ...
+def _find_get(root: ET.Element, path: str, value: str) -> str: ...
+@overload
+def _find_get(root: ET.Element, path: str, value: str, default: str) -> str: ...
+@overload
+def _find_get(root: ET.Element, path: str, value: str, default: None) -> str | None: ...
 @overload
 def _find_get(
-    root: ElementTree.Element, path: str, value: str, default: str
-) -> str: ...
-@overload
-def _find_get(
-    root: ElementTree.Element, path: str, value: str, default: None
-) -> str | None: ...
-@overload
-def _find_get(
-    root: ElementTree.Element, path: str, value: str, default: float
+    root: ET.Element, path: str, value: str, default: float
 ) -> str | float | int: ...
 
 
 def _find_get(
-    root: ElementTree.Element,
+    root: ET.Element,
     path: str,
     value: str,
     default: str | float | None = "no-default",
@@ -84,7 +79,7 @@ def _find_get(
 
 
 def _define_centroid_and_uncertainties(
-    root: ElementTree.Element, inputparams: dict[str, Any]
+    root: ET.Element, inputparams: dict[str, Any]
 ) -> dict[str, Any]:
     """
     Extract the centroid and uncertainty definitions for the fit. These need to
@@ -134,7 +129,7 @@ def _define_centroid_and_uncertainties(
 
 
 def _get_true_or_list(
-    params: list[ElementTree.Element],
+    params: list[ET.Element],
     deflist: list[str] | None = None,
     check: bool = True,
 ) -> list[str] | list[bool]:
@@ -187,7 +182,7 @@ def _get_true_or_list(
     return extract
 
 
-def _get_freq_minmax(star: ElementTree.Element, freqpath: str) -> tuple[float, float]:
+def _get_freq_minmax(star: ET.Element, freqpath: str) -> tuple[float, float]:
     """
     Extract the frequency interval of the star, using dnu as an
     estimation of the extension of the boundaries.
@@ -285,7 +280,7 @@ class Intpol(TypedDict, total=False):
     method: IntpolMethod
 
 
-def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
+def _get_intpol(root: ET.Element, gridfile, freqpath=None):
     """
     Extract interpolation settings.
 
@@ -436,14 +431,14 @@ def _get_intpol(root: ElementTree.Element, gridfile, freqpath=None):
 
         # Determine output gridname
         if "name" in intpol and construct == "encompass":
-            intpolstar["name"]["value"] = "intpol_{0}".format(intpol["name"]["value"])
+            intpolstar["name"]["value"] = "intpol_{}".format(intpol["name"]["value"])
 
         elif construct == "encompass":
             gridname = gridfile.split("/")[-1].split(".")[-2]
             intpolstar["name"] = {"value": f"intpol_{gridname}"}
 
         elif "name" in intpol and construct == "bystar":
-            intpolstar["name"]["value"] = "intpol_{0}_{1}".format(
+            intpolstar["name"]["value"] = "intpol_{}_{}".format(
                 intpol["name"]["value"], starid
             )
 
@@ -558,7 +553,7 @@ def run_xml(
     flag_debug: bool = False,
     flag_developermode: bool = False,
     flag_validationmode: bool = False,
-):
+) -> None:
     """
     Parses an XML input file, extracts parameters, and prepares inputs for BASTA.
 
@@ -588,7 +583,7 @@ def run_xml(
         os.chdir(xmlpath)
 
     # Parse XML file
-    tree = ElementTree.parse(xmlname)
+    tree = ET.parse(xmlname)
     root = tree.getroot()
 
     # Initialize parameters
@@ -645,7 +640,7 @@ def run_xml(
     overwriteparams: dict[str, tuple[float, float]] = {}
     overwritephasedif: dict[str, str] = {}
     for param in root.findall("default/overwriteparams/"):
-        if param.tag == "phase" or param.tag == "dif":
+        if param.tag in {"phase", "dif"}:
             overwritephasedif[param.tag] = param.attrib["value"]
         else:
             overwriteparams[param.tag] = (
