@@ -16,6 +16,7 @@ from io import BufferedIOBase, TextIOBase
 from pathlib import Path
 from typing import Any, TypedDict, Literal
 
+
 Fitparam = tuple[float, float]
 
 
@@ -36,7 +37,36 @@ class ClassicalParameters:
 
 @dataclass(kw_only=True)
 class GlobalSeismicParameters:
+    """
+    orig = globalseismic.get_original("numax")
+    val = globalseismic.get_scaled("numax")
+    """
+
     params: dict[str, ScaledValueError]
+    scalefactors: dict[str, float]
+    scaled_params: Optional[dict[str, ScaledValueError]] = field(
+        default=None, init=False
+    )
+
+    def set_scalefactor(self, scalefactors: dict[str, float]) -> None:
+        self.scalefactors = scalefactors
+
+    def set_scaled(self) -> None:
+        self.scaled_params = {
+            key: ScaledValueError(
+                original=param.original,
+                scale=param.scale * self.scalefactors.get(key, 1.0),
+            )
+            for key, param in self.params.items()
+        }
+
+    def get_scaled(self, key: str) -> tuple[float, float]:
+        if self.scaled_params is None:
+            raise ValueError("Scaled fitparams have not been set.")
+        return self.scaled_params[key].scaled
+
+    def get_original(self, key: str) -> tuple[float, float]:
+        return self.params[key].original
 
 
 @dataclass(kw_only=True, frozen=True)
