@@ -869,7 +869,7 @@ def run_xml(
                 starid = star.get("starid")
                 assert starid is not None
                 assert isinstance(starid, str)
-                starfitparams = {}
+                starfitparams: dict[str, core.Fitparam] = {}
                 skipstar = False
                 gridfile = grid
 
@@ -904,10 +904,10 @@ def run_xml(
                             inputparams[param] = val
                     elif val is not None:
                         assert err is not None
-                        starfitparams[param] = [
+                        starfitparams[param] = (
                             float(val),
                             float(err),
-                        ]
+                        )
                     else:
                         skipstar = True
                         msg = f"Fitparameter '{param}' not provided for star {starid} and will be skipped"
@@ -994,7 +994,7 @@ def run_xml(
                     }
 
                 # Add fitparams and limits
-                inputparams["fitparams"] = starfitparams
+                # inputparams["fitparams"] = starfitparams
                 inputparams["magnitudes"] = {}
                 inputparams["limits"] = {}
                 for param, (minval, maxval, abstol, nsigma) in limits.items():
@@ -1122,26 +1122,14 @@ def run_xml(
                     parallax=inputparams["distanceparams"]["parallax"],
                     EBV=inputparams["distanceparams"]["EBV"],
                 )
-                freqs = core.Frequencies(
-                    active=inputparams["fitfreqs"]["active"],
-                    fittypes=inputparams["fitfreqs"]["fittypes"],
+                frequencies = core.IndividualFrequencies(
                     freqpath=inputparams["fitfreqs"]["freqpath"],
-                    fcor=inputparams["fitfreqs"]["fcor"],
+                    freqfile=inputparams["fitfreqs"]["freqfile"],
+                    surfacecorrection=inputparams["fitfreqs"]["fcor"],
                     bexp=inputparams["fitfreqs"]["bexp"],
                     correlations=inputparams["fitfreqs"]["correlations"],
-                    nrealizations=inputparams["fitfreqs"]["nrealizations"],
-                    threepoint=inputparams["fitfreqs"]["threepoint"],
-                    readratios=inputparams["fitfreqs"]["readratios"],
                     dnufrac=inputparams["fitfreqs"]["dnufrac"],
-                    dnufit_in_ratios=inputparams["fitfreqs"]["dnufit_in_ratios"],
-                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
-                    nsorting=inputparams["fitfreqs"]["nsorting"],
-                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
-                    dnubias=inputparams["fitfreqs"]["dnubias"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
-                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
-                    freqfile=inputparams["fitfreqs"]["freqfile"],
-                    glitchfile=inputparams["fitfreqs"]["glitchfile"],
                     dnufit=inputparams["fitfreqs"]["dnufit"],
                     numax=inputparams["fitfreqs"]["numax"],
                     dnufit_err=inputparams["fitfreqs"]["dnufit_err"],
@@ -1149,10 +1137,72 @@ def run_xml(
                     excludemodes=inputparams["fitfreqs"]["excludemodes"],
                     onlyradial=inputparams["fitfreqs"]["onlyradial"],
                 )
+                ratios = core.Ratios(
+                    # TODO(Amalie) This is not fully right
+                    fittypes=inputparams["fitfreqs"]["fittypes"],
+                    readratios=inputparams["fitfreqs"]["readratios"],
+                    threepoint=inputparams["fitfreqs"]["threepoint"],
+                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
+                    dnufit_in_ratios=inputparams["fitfreqs"]["dnufit_in_ratios"],
+                )
+                glitches = core.Glitches(
+                    # TODO(Amalie) This is not fully right
+                    fittypes=inputparams["fitfreqs"]["fittypes"],
+                    nrealizations=inputparams["fitfreqs"]["nrealizations"],
+                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
+                    glitchfile=inputparams["fitfreqs"]["glitchfile"],
+                )
+                epsilondifferences = core.EpsilonDifferences(
+                    # TODO(Amalie) This is not fully right
+                    fittypes=inputparams["fitfreqs"]["fittypes"],
+                    nsorting=inputparams["fitfreqs"]["nsorting"],
+                )
+                seismicparams = core.SeismicParameters(
+                    # active=inputparams["fitfreqs"]["active"],
+                    # fittypes=inputparams["fitfreqs"]["fittypes"],
+                    frequencies=(
+                        frequencies
+                        if any(
+                            np.isin(
+                                freqtypes.freqs, inputparams["fitfreqs"]["fittypes"]
+                            )
+                        )
+                        else None
+                    ),
+                    ratios=(
+                        ratios
+                        if any(
+                            np.isin(
+                                freqtypes.rtypes, inputparams["fitfreqs"]["fittypes"]
+                            )
+                        )
+                        else None
+                    ),
+                    glitches=(
+                        glitches
+                        if any(
+                            np.isin(
+                                freqtypes.glitches, inputparams["fitfreqs"]["fittypes"]
+                            )
+                        )
+                        else None
+                    ),
+                    epsilondifferences=(
+                        epsilondifferences
+                        if any(
+                            np.isin(
+                                freqtypes.epsdiff, inputparams["fitfreqs"]["fittypes"]
+                            )
+                        )
+                        else None
+                    ),
+                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
+                    dnubias=inputparams["fitfreqs"]["dnubias"],
+                )
                 star = core.Star(
                     starid=starid,
-                    fitparams=inputparams["fitparams"],
-                    fitfreqs=inputparams["fitfreqs"],
+                    fitparams=starfitparams,
+                    seismicparams=seismicparams,
                     distanceparams=distparams,
                 )
                 inferencesettings = core.InferenceSettings(

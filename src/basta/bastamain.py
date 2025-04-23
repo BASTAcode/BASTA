@@ -117,20 +117,16 @@ def _bastamain(
 
     # Create list of all available input parameters
     fitparams = star.fitparams
-    fitfreqs = star.fitfreqs
+    fitfreqs = star.seismicparams
     limits = inferencesettings.limits
 
     # Scale dnu and numax using a solar model or default solar values
-    dnu_scales = su.solar_scaling(
+    seismic_scales = su.solar_scaling(
         Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo
     )
 
     # Prepare asteroseismic quantities if required
-    if fitfreqs["active"]:
-        if not all(x in freqtypes.alltypes for x in fitfreqs["fittypes"]):
-            print(fitfreqs["fittypes"])
-            raise ValueError("Unrecognized frequency fitting parameters!")
-
+    if star.seismicparams.has_any_case:
         # Obtain/calculate all frequency related quantities
         (
             obskey,

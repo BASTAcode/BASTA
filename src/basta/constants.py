@@ -2,9 +2,8 @@
 Collection of all constants used in BASTA
 """
 
-from dataclasses import dataclass  # Python 3.7+ !
-
 import numpy as np
+from dataclasses import dataclass
 
 
 @dataclass
@@ -23,6 +22,7 @@ class freqtypes:
     Different possibilities of fitting frequencies, for global access
     """
 
+    # TODO(Amalie) remove the overall dependency on this class from different places in the code
     rtypes = ["r010", "r02", "r01", "r10", "r012", "r102"]
     freqs = ["freqs"]
     glitches = ["glitches", "gr010", "gr02", "gr01", "gr10", "gr012", "gr102"]
@@ -34,6 +34,68 @@ class freqtypes:
     surfeffcorrs = ["HK08", "BG14", "cubicBG14"]
 
 
+@dataclass
+class SeismicfitAliases:
+    """
+    Specify aliases for common user specifications for different seismic fitting cases
+    Note that all keys are in lowercase.
+    """
+
+    alias = {
+        "frequencies": "frequencies",
+        "individualfrequencies": "frequencies",
+        "freqs": "frequencies",
+        "frequency": "frequencies",
+        "fs": "frequencies",
+        "ratios": "r01",
+        "ratio": "r01",
+        "r010": "r010",
+        "010": "r010",
+        "r02": "r02",
+        "02": "r02",
+        "r01": "r01",
+        "01": "r01",
+        "r10": "r10",
+        "10": "r10",
+        "r012": "r012",
+        "012": "r012",
+        "r102": "r102",
+        "102": "r102",
+        "glitches": "glitches",
+        "glitch": "glitches",
+        "gr010": "gr010",
+        "gr02": "gr02",
+        "gr01": "gr01",
+        "gr10": "gr10",
+        "gr012": "gr012",
+        "gr102": "gr102",
+        "gr102": "gr102",
+        "epsilondifferences": "e012",
+        "epsilon": "e012",
+        "e01": "e01",
+        "e02": "e02",
+        "e012": "e012",
+    }
+
+    scalias = {
+        "kbc08": "KBC08",
+        "hk08": "KBC08",
+        "kbcd08": "KBC08",
+        "kjeldsen08": "KBC08",
+        "kjeldsen2008": "KBC08",
+        "two-term-bg14": "two-term-BG14",
+        "twotermbg14": "two-term-BG14",
+        "bg14": "two-term-BG14",
+        "ball14": "two-term-BG14",
+        "ball2014": "two-term-BG14",
+        "cubic-term-bg14": "cubic-term-BG14",
+        "cubicbg14": "cubic-term-BG14",
+        "cubic-bg14": "cubic-term-BG14",
+        "cbg14": "cubic-term-BG14",
+    }
+
+
+# TODO(Amalie) I am not convinced that default values like nsamples and nsigma should be specified like this? Consider rearranging
 @dataclass
 class statdata:
     """

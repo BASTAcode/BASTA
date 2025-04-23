@@ -14,7 +14,116 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from io import BufferedIOBase, TextIOBase
 from pathlib import Path
-from typing import Any, TypedDict
+from typing import Any, TypedDict, Literal
+
+Fitparam = tuple[float, float]
+
+
+@dataclass
+class ScaledValueError:
+    original: tuple[float, float]
+    scale: float
+
+    @property
+    def scaled(self) -> tuple[float, float]:
+        return (self.original[0] * self.scale, self.original[1] * self.scale)
+
+
+@dataclass(kw_only=True)
+class ClassicalParameters:
+    params: dict[str, Fitparam]
+
+
+@dataclass(kw_only=True)
+class GlobalSeismicParameters:
+    params: dict[str, ScaledValueError]
+
+
+@dataclass(kw_only=True, frozen=True)
+class IndividualFrequencies:
+    # TODO(Amalie) clean and add context
+    # TODO(Amalie) get_frequencies: dict = {freqpath:, freqfile}
+    freqpath: str
+    freqfile: str
+    # TODO(Amalie) surfacecorrection: use typeddicts per surfacecorrection for numax/bexp
+    surfacecorrection: str  # fcor
+    bexp: None | float = None
+    # TODO(Amalie) Rewrite so these are only read from fitfreqs/GlobalSeismic instead of duplicated
+    # dnufit: float
+    # dnufit_err: float
+    # numax: float
+    correlations: bool | int = False
+    # TODO(Amalie) dnufrac should be in 'priors'
+    dnufrac: float = 0.15
+    seismicweights: dict[str, Any]
+    # TODO(Amalie)
+    # remove_frequencies: dict = {nottrustedfile: nottrustedfile, excludemodes, onlyradial, onlyls}
+    nottrustedfile: str | None = None
+    excludemodes: bool | None = None
+    onlyradial: bool | None = None
+
+
+@dataclass(kw_only=True, frozen=True)
+class Ratios:
+    fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
+
+    readratios: bool | int = False
+    threepoint: bool | int = False
+    interp_ratios: bool | int = True
+    dnufit_in_ratios: bool | int = False
+
+
+@dataclass(kw_only=True, frozen=True)
+class Glitches:
+    fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
+    glitchfit: bool = False
+    glitchfile: str | None = None
+    nrealizations: int = 10000
+
+
+@dataclass(kw_only=True, frozen=True)
+class EpsilonDifferences:
+    fittypes: list[Literal["e01", "e012", "e02"]]
+    nsorting: bool | int = True
+
+
+@dataclass(kw_only=True, frozen=True)
+class SeismicParameters:
+    frequencies: IndividualFrequencies | None = None
+    ratios: Ratios | None = None
+    glitches: Glitches | None = None
+    epsilondifferences: EpsilonDifferences | None = None
+
+    # TODO(Amalie) Consider removing entirely
+    dnuprior: bool | int = True
+    dnubias: float = 0.0
+
+    @property
+    def has_frequencies(self) -> bool:
+        return self.frequencies is not None
+
+    @property
+    def has_ratios(self) -> bool:
+        return self.ratios is not None
+
+    @property
+    def has_glitches(self) -> bool:
+        return self.glitches is not None
+
+    @property
+    def has_epsilondifferences(self) -> bool:
+        return self.epsilondifferences is not None
+
+    @property
+    def has_any_case(self) -> bool:
+        return any(
+            (
+                self.has_frequencies,
+                self.has_ratios,
+                self.has_glitches,
+                self.has_epsilondifferences,
+            )
+        )
 
 
 class AbsoluteMagnitude(TypedDict):
@@ -45,38 +154,7 @@ class DistanceParameters:
     EBV: list[Any]
 
 
-@dataclass(kw_only=True, frozen=True)
-class Frequencies:
-    # TODO(Amalie) Currently this is the content of fitfreqs.
-    # I think a lot of clean up can be done here.
-    active: bool
-    fittypes: list[str]
-    freqpath: str
-    freqfile: str
-    dnufit: float
-    dnufit_err: float
-    numax: float
-    fcor: str
-    seismicweights: dict[str, Any]
-    bexp: None | float = None
-    correlations: bool | int = False
-    nrealizations: int = 10000
-    threepoint: bool | int = False
-    readratios: bool | int = False
-    dnufrac: float = 0.15
-    dnufit_in_ratios: bool | int = False
-    interp_ratios: bool | int = True
-    nsorting: bool | int = True
-    dnuprior: bool | int = True
-    dnubias: float = 0.0
-    glitchfit: bool = False
-    glitchfile: str | None = None
-    nottrustedfile: str | None = None
-    excludemodes: bool | None = None
-    onlyradial: bool | None = None
-
-
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True)
 class Star:
     """
     Main class containing star-specific information.
@@ -92,8 +170,11 @@ class Star:
 
     starid: str
     # inputparams: dict[str, Any]
-    fitparams: dict[str, Any]  # observed_properties
-    fitfreqs: dict[str, Any]  # specifically individual frequencies
+    # Allowed keys of fitparams are those in constants.py under parameters.params
+    # fitparams: dict[str, Fitparam]  # observed_properties, now minus the global asteroseismic ones
+    classicalparams: ClassicalParameters
+    globalseismicparams: GlobalSeismicParameters
+    seismicparams: SeismicParameters
     distanceparams: DistanceParameters
 
 
@@ -199,7 +280,6 @@ class InferenceSettings:
     solarvalues: dict[
         str, float
     ]  #  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
-    # TODO(Amalie) This is being used as a bool in utils_seismic
     solarmodel: str = ""
     gridid: tuple[float, float, float, float] | None = None
 
