@@ -75,7 +75,7 @@ def solar_scaling(
     star: core.Star,
     inferencesettings: core.InferenceSettings,
     gridinfo: util.GridInfo,
-) -> dict[str, core.ScaledValueError]:
+) -> None:
     """
     Convert certain seismic quantities to solar units based on the assumed solar values.
 
