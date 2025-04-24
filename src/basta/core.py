@@ -242,7 +242,7 @@ class AbsoluteMagnitudes(TypedDict):
     Attributes
     ----------
     magnitudes : dict of str to AbsoluteMagnitude
-        Dictionary mapping filter names (see `basta.constan) to absolute magnitude info.
+        Dictionary mapping filter names (see `basta.constants`) to absolute magnitude info.
     absorption : dict of str to list
         Dictionary containing absorption in different bands.
     prior_EBV : list of float
