@@ -1119,9 +1119,17 @@ def run_xml(
                         "RA": inputparams["distanceparams"]["RA"],
                         "DEC": inputparams["distanceparams"]["DEC"],
                     },
-                    parallax=inputparams["distanceparams"]["parallax"],
+                    params={"parallax": inputparams["distanceparams"]["parallax"],},
                     EBV=inputparams["distanceparams"]["EBV"],
                 )
+
+                prefixes = ('dnu', 'numax')
+                classicalparams = core.ClassicalParameters(
+                        params={k: v for k, v in starfitparams.items() if not k.startswith(prefixes) and k not in ['parallax',]}
+                        )
+                globalseismicparams = core.GlobalSeismicParameters(
+                        params={k: core.ScaledValueError(original=v, scale=1.0) for k, v in starfitparams.items() if k.startswith(prefixes)}
+                        )
                 frequencies = core.IndividualFrequencies(
                     freqpath=inputparams["fitfreqs"]["freqpath"],
                     freqfile=inputparams["fitfreqs"]["freqfile"],
@@ -1130,9 +1138,6 @@ def run_xml(
                     correlations=inputparams["fitfreqs"]["correlations"],
                     dnufrac=inputparams["fitfreqs"]["dnufrac"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
-                    dnufit=inputparams["fitfreqs"]["dnufit"],
-                    numax=inputparams["fitfreqs"]["numax"],
-                    dnufit_err=inputparams["fitfreqs"]["dnufit_err"],
                     nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
                     excludemodes=inputparams["fitfreqs"]["excludemodes"],
                     onlyradial=inputparams["fitfreqs"]["onlyradial"],
@@ -1201,7 +1206,8 @@ def run_xml(
                 )
                 star = core.Star(
                     starid=starid,
-                    fitparams=starfitparams,
+                    classicalparams=classicalparams,
+                    globalseismicparams=globalseismicparams,
                     seismicparams=seismicparams,
                     distanceparams=distparams,
                 )

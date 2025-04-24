@@ -116,14 +116,13 @@ def _bastamain(
     )
 
     # Create list of all available input parameters
-    fitparams = star.fitparams
-    fitfreqs = star.seismicparams
+    #fitparams = star.fitparams
+    #fitfreqs = star.seismicparams
     limits = inferencesettings.limits
 
     # Scale dnu and numax using a solar model or default solar values
-    seismic_scales = su.solar_scaling(
-        Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo
-    )
+    su.solar_scaling(Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo)
+    print(star)
 
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:

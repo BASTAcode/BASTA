@@ -278,7 +278,7 @@ def add_absolute_magnitudes(
     inputparams : dict
         Modified version of inputparams including absolute magnitudes.
     """
-    if "parallax" not in star.fitparams:
+    if len(star.distanceparams.params["parallax"]) < 1:
         return {
             "magnitudes": {},
             "absorption": {},
@@ -288,8 +288,8 @@ def add_absolute_magnitudes(
 
     print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
-    fitparams = star.fitparams
     distanceparams = star.distanceparams
+    fitparams = distanceparams.params
 
     # Get apparent magnitudes from input data
     # mobs = distanceparams.m

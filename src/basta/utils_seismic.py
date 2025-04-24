@@ -59,7 +59,7 @@ def extract_solar_model_dnu(
         raise NotImplementedError("More than one solar model found in grid!")
 
     sunmodpath = os.path.join("solar_models", sunmodname)
-    print(f"> Using solar model '{sunmodname}' for dnu scaling")
+    print(f"* Using solar model '{sunmodname}' for dnu scaling")
 
     sunmoddnu = {
         name: Grid[sunmodpath][name][()]
@@ -78,6 +78,7 @@ def solar_scaling(
 ) -> None:
     """
     Convert certain seismic quantities to solar units based on the assumed solar values.
+    Update the GlobalSeismicParameters object with solar-scaled values.
 
     Grids use solar units for numax and for dnu's based on scaling relations.
     The input values (given in microHz) are converted into solar units to match the grid.
@@ -113,11 +114,11 @@ def solar_scaling(
     )
 
     # TODO(Amalie) remember to scale limits that depend on dnu/numax!
-    dnu_scales: dict[str, core.ScaledValueError] = {}
 
-    fitparams = star.globalseismic.fitparams
+    scalefactors = {}
+    fitparams = star.globalseismicparams
 
-    for key in fitparams.keys():
+    for key in fitparams.params.keys():
         if key.startswith("numax"):
             factor = 1 / solar_values["numax"]
         elif key.startswith("dnu") and key not in ["dnufit", "dnufitMos12"]:
@@ -126,11 +127,9 @@ def solar_scaling(
             factor = 1
         else:
             continue
-
-        dnu_scales[key] = core.ScaledValueError(fitparams[key], factor)
-        print(
-            f"  - {key}: {dnu_scales[key].original[0]:.2f} → {dnu_scales[key].scaled[0]:.6f} (solar units)"
-        )
+        
+        scalefactors[key] = factor
+        print(f"  - {key}: {fitparams.get_original(key)[0]:.2f} → {fitparams.get_original(key)[0]*factor:.6f} (solar units)")
 
     # Read the user-set flag: Should the scaling be activated?
     try:
@@ -146,30 +145,26 @@ def solar_scaling(
     sunmodpath, sunmoddnu = extract_solar_model_dnu(Grid, gridinfo, flag_solarmodel)
     if not sunmoddnu:
         print("* No solar model scaling applied.")
-        return dnu_scales
 
     # Apply scaling using solar model values
-    print(f"\n> Applying solar model scaling from: {sunmodpath}")
-
-    solarmodelscaled = {}
-    for key in dnu_scales.keys():
-        original = dnu_scales[key].original
-        scale = dnu_scales[key].scale
-        if key in sunmoddnu.keys():
-            sunmodscale = sunmoddnu[key]
+    print(f"* Applying solar model scaling from: {sunmodpath}")
+    for key in scalefactors:
+        if key in sunmoddnu:
             if key in ["dnufit", "dnufitMos12"]:
-                scale *= sunmodscale / solar_values["dnu"]
+                scalefactors[key] *= sunmoddnu[key] / solar_values["dnu"]
             else:
-                scale *= sunmodscale
-            solarmodelscaled[key] = core.ScaledValueError(original, scale)
-            print(
-                f"  - {key}: {solarmodelscaled[key].original[0]:.2f} → {solarmodelscaled[key].scaled[0]:.6f} (solar units)"
-            )
-        else:
-            solarmodelscaled[key] = core.ScaledValueError(original, scale)
+                scalefactors[key] *= sunmoddnu[key]
+
+    star.globalseismicparams.set_scalefactor(scalefactors)
+    star.globalseismicparams.set_scaled()
+
+    if star.globalseismicparams.scaled_params is not None:
+        for key in star.globalseismicparams.scaled_params.keys():
+            orig = fitparams.get_original(key)[0]
+            scaled = fitparams.get_scaled(key)[0]
+            print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")
 
     print("\n>>> Solar scaling complete <<<")
-    return solarmodelscaled
 
 
 def prepare_obs(inputparams, verbose=False, debug=False):

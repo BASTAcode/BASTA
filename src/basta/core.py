@@ -101,19 +101,23 @@ class GlobalSeismicParameters:
         Retrieves the original (value, error) for the given parameter key.
     """
     params: dict[str, ScaledValueError]
-    scalefactors: dict[str, float]
+    scalefactors: Optional[dict[str, float]] = None
     scaled_params: Optional[dict[str, ScaledValueError]] = field(
         default=None, init=False
     )
 
     def set_scalefactor(self, scalefactors: dict[str, float]) -> None:
+        if self.scalefactors is None:
+            self.scalefactors = {}
         self.scalefactors = scalefactors
 
     def set_scaled(self) -> None:
         self.scaled_params = {
             key: ScaledValueError(
                 original=param.original,
-                scale=param.scale * self.scalefactors.get(key, 1.0),
+                scale=param.scale * (
+                    self.scalefactors[key] if self.scalefactors and key in self.scalefactors else 1.0
+                ),
             )
             for key, param in self.params.items()
         }
@@ -274,15 +278,9 @@ class DistanceParameters:
     EBV : list of Any
         Reddening values or prior information about extinction, format may vary.
     """
-    # could just be keys in obs that are not 'parallax' or 'EBV
-    # filters: List[str]
-    # m: Dict[str, float]
-    # m_err: Dict[str, float]
-    # Can be combined in dict called magnitudes
+    params: dict[str, Fitparam]
     magnitudes: dict[str, tuple[float, float]]
     coordinates: dict[str, Any]
-    # TODO(Amalie) why is parallax here? should it be in star.fitparams?
-    parallax: list[float]
     EBV: list[Any]
 
 
@@ -309,9 +307,7 @@ class Star:
     """
 
     starid: str
-    # inputparams: dict[str, Any]
-    # Allowed keys of fitparams are those in constants.py under parameters.params
-    # fitparams: dict[str, Fitparam]  # observed_properties, now minus the global asteroseismic ones
+    # Allowed parameter keys can be found `basta.constants` in `parameters.params`
     classicalparams: ClassicalParameters
     globalseismicparams: GlobalSeismicParameters
     seismicparams: SeismicParameters
