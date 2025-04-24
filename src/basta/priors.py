@@ -11,7 +11,32 @@ Any prior defined here can be used from an .xml input file.
 
 import numpy as np
 
+from basta import core
 from basta import utils_general as util
+
+
+def dnufrac_prior(
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    priorid: str = "dnufrac",
+    dnu_name: str = "dnufit",
+) -> None:
+    if any(np.isin([priorid, dnu_name], list(inferencesettings.priors.keys()))):
+        assert dnu_name in star.globalseismicparams.params.keys()
+        dnufit = star.globalseismicparams.get_scaled(dnu_name)
+        print(dnufit)
+        dnufit_frac = inferencesettings.dnufrac * dnufit[0]
+        dnuerr = max(3 * dnufit[1], dnufit_frac)
+        limits = [
+            dnufit - dnuerr,
+            dnufit + dnuerr,
+        ]
+        inferencesettings.priors[dnu_name].limits = limits
+    print(inferencesettings.priors)
+
+
+# IMFs
 
 
 def salpeter1955(libitem, index):

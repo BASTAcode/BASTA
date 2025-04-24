@@ -433,11 +433,20 @@ class FilePaths:
         print(f"Saved plot to {path}")
         return path
 
+
 @dataclass(kw_only=True)
-class Priors:
+class PriorEntry:
+    priorid: str
+    kwargs: dict[str, Any]
+    limits: list[float] | None = None
+
+    #TODO(Amalie) add a property where it computes limits if 'abstol' or something is set
+    #@property
+    #def get_limits(self, params) -> limits[float]:
 
 
-@dataclass(kw_only=True, frozen=True)
+
+@dataclass(kw_only=True)
 class InferenceSettings:
     """
     Contains configuration settings used to control a BASTA inference run.
@@ -465,7 +474,6 @@ class InferenceSettings:
 
     gridfile: str
     seed: int
-    limits: dict[str, Any]
 
     solarvalues: dict[
         str, float
@@ -473,15 +481,14 @@ class InferenceSettings:
     solarmodel: str = ""
     gridid: tuple[float, float, float, float] | None = None
 
+    priors: dict[str, PriorEntry]
+    dnufrac: float = 0.15
+
     # TODO(Amalie) Consider removing entirely
     dnuprior: bool | int = True
     dnubias: float = 0.0
-    # TODO(Amalie) dnufrac should be in 'priors'
-    dnufrac: float = 0.15
 
     usebayw: bool = True
-
-    priors: tuple[str, ...] | list[str] | None = None
 
 
 @dataclass(kw_only=True, frozen=True)

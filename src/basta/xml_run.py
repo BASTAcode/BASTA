@@ -1127,8 +1127,14 @@ def run_xml(
                 classicalparams = core.ClassicalParameters(
                         params={k: v for k, v in starfitparams.items() if not k.startswith(prefixes) and k not in ['parallax',]}
                         )
+                numaxdnuparams = {k: core.ScaledValueError(original=v, scale=1.0) for k, v in starfitparams.items() if k.startswith(prefixes)}
+                if not numaxdnuparams:
+                    numaxdnuparams = {
+                            'dnufit': core.ScaledValueError(original=(fitfreqs['dnufit'], fitfreqs['dnufit_err']), scale=1.0),
+                            'numax': core.ScaledValueError(original=(fitfreqs['numax'], 0.05 * fitfreqs['numax']), scale=1.0),
+                            }
                 globalseismicparams = core.GlobalSeismicParameters(
-                        params={k: core.ScaledValueError(original=v, scale=1.0) for k, v in starfitparams.items() if k.startswith(prefixes)}
+                        params=numaxdnuparams,
                         )
                 frequencies = core.IndividualFrequencies(
                     freqpath=inputparams["fitfreqs"]["freqpath"],
@@ -1136,7 +1142,6 @@ def run_xml(
                     surfacecorrection=inputparams["fitfreqs"]["fcor"],
                     bexp=inputparams["fitfreqs"]["bexp"],
                     correlations=inputparams["fitfreqs"]["correlations"],
-                    dnufrac=inputparams["fitfreqs"]["dnufrac"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
                     nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
                     excludemodes=inputparams["fitfreqs"]["excludemodes"],
@@ -1201,8 +1206,6 @@ def run_xml(
                         )
                         else None
                     ),
-                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
-                    dnubias=inputparams["fitfreqs"]["dnubias"],
                 )
                 star = core.Star(
                     starid=starid,
@@ -1211,18 +1214,36 @@ def run_xml(
                     seismicparams=seismicparams,
                     distanceparams=distparams,
                 )
+                priors = {
+                          'dnufit': core.PriorEntry(priorid='dnufrac', kwargs={'dnufrac': inputparams["fitfreqs"]["dnufrac"]}),
+                          }
+                for param in root.findall("default/priors/"):
+                    param_name = param.tag
+                    kwargs = {}
+
+                    # Only include these if they are present
+                    for key in ["min", "max", "abstol", "sigmacut"]:
+                        if key in param.attrib:
+                            kwargs[key] = float(param.attrib[key])
+                    if param_name == "IMF":
+                        param_name = "salpeter1955"
+                    priors[param_name] = core.PriorEntry(
+                        priorid=param_name,
+                        kwargs=kwargs if kwargs else {}
+                    )
                 inferencesettings = core.InferenceSettings(
                     gridfile=gridfile,
                     gridid=gridid,
                     seed=seed,
-                    limits=inputparams["limits"],
+                    priors=priors,
                     usebayw=bool(usebayw),
-                    priors=usepriors,
                     solarmodel=inputparams["solarmodel"],
                     solarvalues={
                         "numax": inputparams["numsun"],
                         "dnu": inputparams["dnusun"],
                     },
+                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
+                    dnubias=inputparams["fitfreqs"]["dnubias"],
                 )
                 plotconfig = core.PlotConfig(
                     nameinplot=inputparams["nameinplot"],
