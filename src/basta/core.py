@@ -145,8 +145,6 @@ class IndividualFrequencies:
     # dnufit_err: float
     # numax: float
     correlations: bool | int = False
-    # TODO(Amalie) dnufrac should be in 'priors'
-    dnufrac: float = 0.15
     seismicweights: dict[str, Any]
     # TODO(Amalie)
     # remove_frequencies: dict = {nottrustedfile: nottrustedfile, excludemodes, onlyradial, onlyls}
@@ -185,10 +183,6 @@ class SeismicParameters:
     ratios: Ratios | None = None
     glitches: Glitches | None = None
     epsilondifferences: EpsilonDifferences | None = None
-
-    # TODO(Amalie) Consider removing entirely
-    dnuprior: bool | int = True
-    dnubias: float = 0.0
 
     @property
     def has_frequencies(self) -> bool:
@@ -439,6 +433,9 @@ class FilePaths:
         print(f"Saved plot to {path}")
         return path
 
+@dataclass(kw_only=True)
+class Priors:
+
 
 @dataclass(kw_only=True, frozen=True)
 class InferenceSettings:
@@ -475,6 +472,12 @@ class InferenceSettings:
     ]  #  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
     solarmodel: str = ""
     gridid: tuple[float, float, float, float] | None = None
+
+    # TODO(Amalie) Consider removing entirely
+    dnuprior: bool | int = True
+    dnubias: float = 0.0
+    # TODO(Amalie) dnufrac should be in 'priors'
+    dnufrac: float = 0.15
 
     usebayw: bool = True
 

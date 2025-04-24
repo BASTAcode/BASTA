@@ -122,7 +122,6 @@ def _bastamain(
 
     # Scale dnu and numax using a solar model or default solar values
     su.solar_scaling(Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo)
-    print(star)
 
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:
@@ -139,15 +138,18 @@ def _bastamain(
 
     #### END PREPARATION ####
     #### APPLY PRIORS ####
-    if fitfreqs["active"]:
-        # Apply prior on dnufit to mimick the range defined by dnufrac
-        if fitfreqs["dnuprior"] and ("dnufit" not in limits):
-            dnufit_frac = fitfreqs["dnufrac"] * fitfreqs["dnufit"]
-            dnuerr = max(3 * fitfreqs["dnufit_err"], dnufit_frac)
-            limits["dnufit"] = [
-                fitfreqs["dnufit"] - dnuerr,
-                fitfreqs["dnufit"] + dnuerr,
-            ]
+    if star.seismicparams.has_any_case:
+        def apply_dnufit_prior(star, inferencesettings):
+            if inferencesettings.dnuprior and ("dnufit" not in inferencesettings.limits):
+                assert 'dnufit' in star.globalseismicparams.params.keys()
+                dnufit = star.globalseismicparams.params['dnufit']
+                dnufit_frac = inferencesettings.dnufrac * dnufit[0]
+                dnuerr = max(3 * dnufit[1], dnufit_frac)
+                inference["dnufit"] = [
+                    dnufit - dnuerr,
+                    dnufit + dnuerr,
+                ]
+        apply_dnufit_prior (star,inferencesettings)
 
     # Check if any specified limit in prior is in header, and can be used to
     # skip computation of models, in order to speed up computation
@@ -192,7 +194,7 @@ def _bastamain(
             )
 
     util.print_fitparams(fitparams=fitparams)
-    if fitfreqs["active"]:
+    if star.seismicparams.has_any_case:
         util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
     util.print_distances(star, outputoptions)
     util.print_additional(star)
