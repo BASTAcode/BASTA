@@ -33,12 +33,9 @@ def dnufrac_prior(
             dnufit + dnuerr,
         ]
         inferencesettings.priors[dnu_name].limits = limits
-    print(inferencesettings.priors)
 
 
 # IMFs
-
-
 def salpeter1955(libitem, index):
     """
     Initial mass function from Salpeter (1955)

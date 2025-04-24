@@ -116,10 +116,10 @@ def _bastamain(
     )
 
     # Scale dnu and numax using a solar model or default solar values
-    su.solar_scaling(Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo)
+    su.solar_scaling(
+        Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo
+    )
 
-    if star.seismicparams.has_any_case:
-        priors.dnufrac_prior(star=star, inferencesettings=inferencesettings, outputoptions=outputoptions)
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:
         # Obtain/calculate all frequency related quantities
@@ -135,6 +135,10 @@ def _bastamain(
 
     #### END PREPARATION ####
     #### APPLY PRIORS ####
+    if star.seismicparams.has_any_case:
+        priors.dnufrac_prior(
+            star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
+        )
 
     # Check if any specified limit in prior is in header, and can be used to
     # skip computation of models, in order to speed up computation

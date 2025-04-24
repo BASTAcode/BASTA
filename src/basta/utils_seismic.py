@@ -105,7 +105,7 @@ def solar_scaling(
     inputparams : tuple
         Modified version of `inputparams` with the added scaled values.
     """
-    print("\n Scaling solar-based asteroseismic quantities:", flush=True)
+    print("\nScaling solar-based asteroseismic quantities:", flush=True)
 
     # Extract solar constants
     solar_values = inferencesettings.solarvalues
