@@ -74,6 +74,7 @@ def solar_scaling(
     Grid: h5py.File,
     star: core.Star,
     inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
     gridinfo: util.GridInfo,
 ) -> None:
     """
@@ -118,18 +119,23 @@ def solar_scaling(
     scalefactors = {}
     fitparams = star.globalseismicparams
 
+    already_scaled = ["dnufit", "dnufitMos12"]
     for key in fitparams.params.keys():
         if key.startswith("numax"):
             factor = 1 / solar_values["numax"]
-        elif key.startswith("dnu") and key not in ["dnufit", "dnufitMos12"]:
+        elif key.startswith("dnu") and key not in already_scaled:
             factor = 1 / solar_values["dnu"]
-        elif key in ["dnufit", "dnufitMos12"]:
+        elif key in already_scaled:
             factor = 1
         else:
             continue
-        
+
         scalefactors[key] = factor
-        print(f"  - {key}: {fitparams.get_original(key)[0]:.2f} → {fitparams.get_original(key)[0]*factor:.6f} (solar units)")
+        if key not in already_scaled:
+            if outputoptions.verbose:
+                print(
+                    f"  - {key}: {fitparams.get_original(key)[0]:.2f} → {fitparams.get_original(key)[0]*factor:.6f} (solar units)"
+                )
 
     # Read the user-set flag: Should the scaling be activated?
     try:
@@ -150,9 +156,16 @@ def solar_scaling(
     print(f"* Applying solar model scaling from: {sunmodpath}")
     for key in scalefactors:
         if key in sunmoddnu:
-            if key in ["dnufit", "dnufitMos12"]:
+            if key in already_scaled:
+                # Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
                 scalefactors[key] *= sunmoddnu[key] / solar_values["dnu"]
             else:
+                # Using the scaling relations on the solar model in the grid generally
+                # yields DNU_SUN_SCALING_GRID != DNU_SUN_SCALING_OBS.
+                # The exact value of the solar model DNU from scaling relations
+                # is stored in the grid in solar units (a number close to 1,
+                # but not exactly 1).
+                # This number is used as the scaling factor of solar-unit input dnu's
                 scalefactors[key] *= sunmoddnu[key]
 
     star.globalseismicparams.set_scalefactor(scalefactors)
@@ -162,7 +175,19 @@ def solar_scaling(
         for key in star.globalseismicparams.scaled_params.keys():
             orig = fitparams.get_original(key)[0]
             scaled = fitparams.get_scaled(key)[0]
-            print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")
+            if outputoptions.verbose:
+                if orig != scaled:
+                    print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")
+            if key in already_scaled:
+                print(
+                    f"  - {key} scaled by {scalefactors[key]:.4f} from {orig:.2f} to {scaled:.2f} µHz"
+                )
+                print(
+                    f"    (grid Sun: {sunmoddnu[key]:.2f} µHz, real Sun: {solar_values['dnu']:.2f} µHz)"
+                )
+                print(
+                        f"    (Note: {key} will be scaled back before outputting results!)"
+                )
 
     print("\n>>> Solar scaling complete <<<")
 

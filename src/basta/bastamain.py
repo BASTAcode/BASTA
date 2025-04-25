@@ -117,7 +117,7 @@ def _bastamain(
 
     # Scale dnu and numax using a solar model or default solar values
     su.solar_scaling(
-        Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo
+        Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo, outputoptions=outputoptions,
     )
 
     # Prepare asteroseismic quantities if required
