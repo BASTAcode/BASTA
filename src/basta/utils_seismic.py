@@ -190,7 +190,7 @@ def solar_scaling(
                 )
 
 
-def prepare_obs(inputparams, verbose=False, debug=False):
+def prepare_obs(star: core.Star, plotconfig: core.Plotconfig, outputoptions: core.OutputOptions):
     """
     Prepare frequencies and ratios for fitting
 
@@ -240,6 +240,9 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     fitfreqs = inputparams.get("fitfreqs")
 
     # Get frequency correction method
+
+    #TODO(Amalie) these checks are being done elsewhere
+    """
     fcor = fitfreqs.get("fcor", "BG14")
     if fcor not in ["None", *freqtypes.surfeffcorrs]:
         raise ValueError(
@@ -258,16 +261,16 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     # Just check if 'dnufit' is specified, will be used otherwhere
     if fitfreqs.get("dnufit", False) is False:
         raise ValueError("ERROR: We need a deltanu value!")
+    """
 
     # Get freqplots for what additional to compute to generate plots
-    freqplots = inputparams.get("freqplots")
+    freqplots = plotconfig.freqplots
 
     # Load or compute frequency-dependent products
     obskey, obs, obsfreqdata, obsfreqmeta = fio.read_allseismic(
-        fitfreqs,
-        freqplots,
-        verbose=verbose,
-        debug=debug,
+            star=star,
+        freqplots=freqplots,
+        outputoptions=outputoptions
     )
 
     # Compute the intervals used in frequency fitting

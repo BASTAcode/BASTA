@@ -556,10 +556,9 @@ def _make_obsfreqs(
     obskey: np.ndarray,
     obs: np.ndarray,
     obscov: np.ndarray,
-    allfits: list[str] | tuple[str, ...],
-    freqplots: list[str] | tuple[str, ...],
-    numax: float,
-    debug: bool = False,
+    star: core.Star,
+    plotconfig: core.PlotConfig,
+    outputoptions: core.OutputOptions,
 ) -> tuple[dict, dict]:
     """
     Make a dictionary of frequency-dependent data
@@ -597,48 +596,19 @@ def _make_obsfreqs(
     """
     obsfreqdata: dict = {}
     obsfreqmeta: dict = {}
+    seismic = star.seismicparams
 
-    fitratiotypes = []
-    plotratiotypes = []
-    fitglitchtypes = []
-    plotglitchtypes = []
-    fitepsdifftypes = []
-    plotepsdifftypes = []
-
-    getratios = False
-    getglitch = False
-    getepsdiff = False
-
+    # Compute inverse covariance matrix
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    obsls = np.unique(obskey[0, :])
+    obsls = np.unique(obskey[0, :]).astype(str)  #TODO not loving this test
 
-    # Large frequency separation from individual frequencies
-    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax)
+    # Compute dnu
+    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax=star.globalseismicparams.get_scaled("numax"))
 
-    for fit in allfits:
-        obsfreqdata[fit] = {}
-        # Look for ratios
-        if fit in freqtypes.rtypes:
-            getratios = True
-            fitratiotypes.append(fit)
-            if "ratios" not in obsfreqmeta.keys():
-                obsfreqmeta["ratios"] = {}
-        # Look for glitches
-        elif fit in freqtypes.glitches:
-            getglitch = True
-            fitglitchtypes.append(fit)
-            if "glitch" not in obsfreqmeta.keys():
-                obsfreqmeta["glitch"] = {}
-        # Look for epsdiff
-        elif fit in freqtypes.epsdiff:
-            getepsdiff = True
-            fitepsdifftypes.append(fit)
-            if "epsdiff" not in obsfreqmeta.keys():
-                obsfreqmeta["epsdiff"] = {}
-        elif fit not in freqtypes.freqs:
-            print(f"Fittype {fit} not recognised")
-            raise ValueError
+    def has_required_modes(fittype: str) -> bool:
+        return all(l in obsls for l in fittype if l.isdigit())
 
+    #TODO(Amalie) Is this necessairy?
     obsfreqdata["freqs"] = {
         "cov": obscov,
         "covinv": obscovinv,
@@ -646,100 +616,79 @@ def _make_obsfreqs(
         "dnudata_err": dnudata_err,
     }
 
-    # If all frequency plots enabled, turn on defaults
-    if len(freqplots) and freqplots[0] == True:  # noqa: E712
-        getratios = True
-        getepsdiff = True
+    if seismic.has_ratios:
+        assert seismic.ratios is not None
+        valid_fittypes = [f for f in seismic.ratios.fittypes if has_required_modes(f)]
+        #if not valid_fittypes:
+        #    raise ValueError("No valid modes found for fitting ratios.")
+        obsfreqmeta["ratios"] = {
+            "fit": valid_fittypes,
+            "plot": [],
+        }
 
-        plotratiotypes = list(set(freqtypes.defaultrtypes) | set(fitratiotypes))
-        plotepsdifftypes = list(set(freqtypes.defaultepstypes) | set(fitepsdifftypes))
+    if seismic.has_glitches:
+        assert seismic.glitches is not None
+        valid_fittypes = [f for f in seismic.glitches.fittypes if has_required_modes(f)]
+        #if not valid_fittypes:
+        #    raise ValueError("No valid modes found for fitting glitches.")
+        obsfreqmeta["glitch"] = {
+            "fit": valid_fittypes,
+            "plot": [],
+        }
 
-        # Only turn on glitches if they are fitted (expensive)
-        if getglitch:
-            plotglitchtypes = list(set(fitglitchtypes))
+    if seismic.has_epsilondifferences:
+        assert seismic.epsilondifferences is not None
+        valid_fittypes = [f for f in seismic.epsilondifferences.fittypes if has_required_modes(f)]
+        #if not valid_fittypes:
+        #    raise ValueError("No valid modes found for fitting epsilon differences.")
+        obsfreqmeta["epsdiff"] = {
+            "fit": valid_fittypes,
+            "plot": [],
+        }
 
-    elif len(freqplots):
-        for plot in freqplots:
-            # Look for ratios
-            if plot in ["ratios", *freqtypes.rtypes]:
-                getratios = True
-                if plot in [
-                    "ratios",
-                ]:
-                    for rtype in freqtypes.defaultrtypes:
-                        if rtype not in plotratiotypes:
-                            plotratiotypes.append(rtype)
-                elif plot not in plotratiotypes:
-                    plotratiotypes.append(plot)
-            # Look for glitches
-            if plot in freqtypes.glitches:
-                getglitch = True
-                if plot not in plotglitchtypes:
-                    plotglitchtypes.append(plot)
-            # Look for epsdiff
-            if plot in ["epsdiff", *freqtypes.epsdiff]:
-                getepsdiff = True
-                if plot in ["epsdiff"]:
-                    for etype in freqtypes.defaultepstypes:
-                        if etype not in plotepsdifftypes:
-                            plotepsdifftypes.append(etype)
-                elif plot not in plotepsdifftypes:
-                    plotepsdifftypes.append(plot)
+    for fittype in plotconfig.freqplots:
+        if fittype in freqtypes.rtypes:
+            if "ratios" not in obsfreqmeta:
+                obsfreqmeta["ratios"] = {"fit": [], "plot": []}
+            if has_required_modes(fittype):
+                obsfreqmeta["ratios"]["plot"].append(fittype)
+            elif debug:
+                print(f"*BASTA {fittype} cannot be plotted")
 
-    # Check that there is observational data available for fits and plots
-    if getratios or getepsdiff:
-        for fittype in set(fitratiotypes) | set(fitepsdifftypes) | set(fitglitchtypes):
-            if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
-                for l in fittype[1:]:
-                    if l not in obsls.astype(str):
-                        print(f"* No l={l} modes were found in the observations")
-                        print(f"* It is not possible to fit {fittype}")
-                        raise ValueError
-        for fittype in (
-            set(plotratiotypes) | set(plotepsdifftypes) | set(plotglitchtypes)
-        ):
-            if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
-                if debug:
-                    print(f"*BASTA {fittype} cannot be plotted")
-                if fittype in plotratiotypes:
-                    plotratiotypes.remove(fittype)
-                if fittype in plotepsdifftypes:
-                    plotepsdifftypes.remove(fittype)
-                if fittype in plotglitchtypes:
-                    plotglitchtypes.remove(fittype)
-        if getratios and ((len(fitratiotypes) == 0) & (len(plotratiotypes) == 0)):
-            getratios = False
-        if getepsdiff and ((len(fitepsdifftypes) == 0) & (len(plotepsdifftypes) == 0)):
-            getepsdiff = False
+        elif fittype in freqtypes.glitches:
+            if "glitch" not in obsfreqmeta:
+                obsfreqmeta["glitch"] = {"fit": [], "plot": []}
+            if has_required_modes(fittype):
+                obsfreqmeta["glitch"]["plot"].append(fittype)
+            elif debug:
+                print(f"*BASTA {fittype} cannot be plotted")
 
-    if getratios:
-        obsfreqmeta["ratios"] = {}
-        obsfreqmeta["ratios"]["fit"] = fitratiotypes
-        obsfreqmeta["ratios"]["plot"] = plotratiotypes
+        elif fittype in freqtypes.epsdiff:
+            if "epsdiff" not in obsfreqmeta:
+                obsfreqmeta["epsdiff"] = {"fit": [], "plot": []}
+            if has_required_modes(fittype):
+                obsfreqmeta["epsdiff"]["plot"].append(fittype)
+            elif debug:
+                print(f"*BASTA {fittype} cannot be plotted")
 
-    if getglitch:
-        obsfreqmeta["glitch"] = {}
-        obsfreqmeta["glitch"]["fit"] = fitglitchtypes
-        obsfreqmeta["glitch"]["plot"] = plotglitchtypes
-
-    if getepsdiff:
-        obsfreqmeta["epsdiff"] = {}
-        obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
-        obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
-
-    obsfreqmeta["getratios"] = getratios
-    obsfreqmeta["getglitch"] = getglitch
-    obsfreqmeta["getepsdiff"] = getepsdiff
+    # Final flags
+    obsfreqmeta["getratios"] = "ratios" in obsfreqmeta and (
+        obsfreqmeta["ratios"]["fit"] or obsfreqmeta["ratios"]["plot"]
+    )
+    obsfreqmeta["getglitch"] = "glitch" in obsfreqmeta and (
+        obsfreqmeta["glitch"]["fit"] or obsfreqmeta["glitch"]["plot"]
+    )
+    obsfreqmeta["getepsdiff"] = "epsdiff" in obsfreqmeta and (
+        obsfreqmeta["epsdiff"]["fit"] or obsfreqmeta["epsdiff"]["plot"]
+    )
 
     return obsfreqdata, obsfreqmeta
 
 
 def read_allseismic(
-    fitfreqs: dict,
+        star: core.Star,
     freqplots: list,
-    # TODO(Amalie): take outputoptions instead of verbose,debug
-    verbose: bool = False,
-    debug: bool = False,
+    outputoptions: core.OutputOptions
 ) -> tuple[np.ndarray, np.ndarray, dict, dict]:
     """
     Routine to all necesary data from individual frequencies for the
@@ -775,19 +724,12 @@ def read_allseismic(
         plot, unpacked for easier access later.
     """
 
-    if "freqs" in fitfreqs["fittypes"] and fitfreqs["correlations"]:
+    if star.seismicparams.has_frequencies:
         obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"],
-            excludemodes=fitfreqs["excludemodes"],
-            onlyradial=fitfreqs["onlyradial"],
-            covarfre=True,
-        )
-    else:
-        obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"],
-            excludemodes=fitfreqs["excludemodes"],
-            onlyradial=fitfreqs["onlyradial"],
-            covarfre=False,
+            freqfile=star.seismicparams.individualfrequencies.freqfile,
+            excludemodes=star.seismicparams.individualfrequencies.excludemodes,
+            onlyradial=star.seismicparams.individualfrequencies.onlyradial,
+            covarfre=star.seismicparams.individualfrequencies.correlations,
         )
 
     # Construct data and metadata dictionaries

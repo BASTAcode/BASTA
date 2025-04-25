@@ -66,7 +66,7 @@ class ScaledValueError:
 @dataclass(kw_only=True)
 class GlobalSeismicParameters:
     """
-    Container for global asteroseismic parameters and their scale transformations.
+    Container forglobal asteroseismic parameters and their scale transformations.
 
     This class manages both original and scaled versions of global parameters like
     `numax` and `dnu`, enabling on-the-fly conversion for inference or model comparison.

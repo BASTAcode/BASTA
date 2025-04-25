@@ -85,10 +85,8 @@ def _bastamain(
     #     and 'Teff' instead of np.str_('Teff') to the .log file
     # np.set_printoptions(legacy="1.25")
 
-    # Start the log
+    # Pretty print a header
     t0 = time.localtime()
-
-    # Pretty printing a header
     util.print_bastaheader(
         t0=t0, seed=inferencesettings.seed, developermode=outputoptions.developermode
     )
@@ -117,8 +115,14 @@ def _bastamain(
 
     # Scale dnu and numax using a solar model or default solar values
     su.solar_scaling(
-        Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo, outputoptions=outputoptions,
+        Grid,
+        star=star,
+        inferencesettings=inferencesettings,
+        gridinfo=gridinfo,
+        outputoptions=outputoptions,
     )
+
+
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:
         # Obtain/calculate all frequency related quantities
@@ -129,16 +133,17 @@ def _bastamain(
             obsfreqmeta,
             obsintervals,
         ) = su.prepare_obs(
-            inputparams, verbose=outputoptions.verbose, debug=outputoptions.debug
+                star=star, plotconfig=plotconfig, outputoptions=outputoptions
         )
 
     #### END PREPARATION ####
     #### SET-UP PRIORS ####
+    priors.grid_cut(grid=Grid, gridheader=gridheader, gridinfo=gridinfo, inferencesettings=inferencesettings, outputoptions=outputoptions)
+
     if star.seismicparams.has_any_case:
         priors.dnufrac_prior(
             star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
         )
-    priors.grid_cut(grid=grid, gridheader=gridheader, gridinfo=gridinfo, inferencesettings=inferencesettings, outputoptions=outputoptions)
 
     util.print_fitparams(fitparams=fitparams)
     if star.seismicparams.has_any_case:

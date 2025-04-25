@@ -53,10 +53,9 @@ def grid_cut(
 
         if gridcut:
             print("\nCutting in grid based on sampling parameters ('gridcut'):")
-            # TODO(Amalie) why c? cpar, cval?
-            for cpar, cval in gridcut.items():
-                if cpar != "dif":
-                    print(f"* {cpar}: {cval}")
+            for cutpar, cutval in gridcut.items():
+                if cutpar != "dif":
+                    print(f"* {cutpar}: {cutval}")
 
             # Special handling for diffusion switch
             if "dif" in gridcut:
@@ -65,7 +64,7 @@ def grid_cut(
                 print(
                     f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
                 )
-    #TODO(Amalie) I should probably change this so it aligns with the application.
+    #TODO(Amalie) I should probably change this so it aligns with the application of the prior
     inferencesettings.priors['gridcut'] = core.PriorEntry(
             priorid = 'gridcut',
             kwargs = {'gridcut': gridcut},
