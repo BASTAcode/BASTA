@@ -9,10 +9,68 @@ PRIOR = PRIORFUN(LIBITEM, INDEX)
 Any prior defined here can be used from an .xml input file.
 """
 
+import h5py  # type: ignore[import]
 import numpy as np
 
 from basta import core
 from basta import utils_general as util
+
+
+def grid_cut(
+    grid: h5py.File,
+    gridheader: util.GridHeader,
+    gridinfo: util.GridInfo,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+) -> None:
+    """
+    Refactor of grid cut section
+    
+    Check if any specified limit in prior is in header, and can be used to
+    skip computation of models, in order to speed up computation
+    """
+    limits = list(inferencesettings.priors.keys())
+
+    gridcut = {}
+
+    # Determine header path
+    if "tracks" in gridheader["gridtype"]:
+        headerpath = "header/"
+    elif "isochrones" in gridheader["gridtype"]:
+        headerpath = f"header/{gridinfo['defaultpath']}"
+        if "FeHini" in limits:
+            print("Warning: Dropping prior in FeHini, redundant for isochrones!")
+            inferencesettings.priors.pop("FeHini")
+    else:
+        headerpath = None
+
+    if headerpath:
+        header_keys = grid[headerpath].keys()
+
+        # Extract gridcut params
+        gridcut_keys = set(header_keys) & set(limits)
+        gridcut = {key: limits.pop(key) for key in gridcut_keys}
+
+        if gridcut:
+            print("\nCutting in grid based on sampling parameters ('gridcut'):")
+            # TODO(Amalie) why c? cpar, cval?
+            for cpar, cval in gridcut.items():
+                if cpar != "dif":
+                    print(f"* {cpar}: {cval}")
+
+            # Special handling for diffusion switch
+            if "dif" in gridcut:
+                # Expecting value like [-inf, 0.5] or [0.5, inf]
+                switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
+                print(
+                    f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
+                )
+    #TODO(Amalie) I should probably change this so it aligns with the application.
+    inferencesettings.priors['gridcut'] = core.PriorEntry(
+            priorid = 'gridcut',
+            kwargs = {'gridcut': gridcut},
+            limits = None,
+            )
 
 
 def dnufrac_prior(
@@ -25,12 +83,11 @@ def dnufrac_prior(
     if any(np.isin([priorid, dnu_name], list(inferencesettings.priors.keys()))):
         assert dnu_name in star.globalseismicparams.params.keys()
         dnufit = star.globalseismicparams.get_scaled(dnu_name)
-        print(dnufit)
         dnufit_frac = inferencesettings.dnufrac * dnufit[0]
         dnuerr = max(3 * dnufit[1], dnufit_frac)
         limits = [
-            dnufit - dnuerr,
-            dnufit + dnuerr,
+            min(dnufit[0] - dnuerr, 0),
+            dnufit[0] + dnuerr,
         ]
         inferencesettings.priors[dnu_name].limits = limits
 

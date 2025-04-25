@@ -189,8 +189,6 @@ def solar_scaling(
                         f"    (Note: {key} will be scaled back before outputting results!)"
                 )
 
-    print("\n>>> Solar scaling complete <<<")
-
 
 def prepare_obs(inputparams, verbose=False, debug=False):
     """

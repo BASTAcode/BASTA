@@ -119,7 +119,6 @@ def _bastamain(
     su.solar_scaling(
         Grid, star=star, inferencesettings=inferencesettings, gridinfo=gridinfo, outputoptions=outputoptions,
     )
-
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:
         # Obtain/calculate all frequency related quantities
@@ -134,53 +133,12 @@ def _bastamain(
         )
 
     #### END PREPARATION ####
-    #### APPLY PRIORS ####
+    #### SET-UP PRIORS ####
     if star.seismicparams.has_any_case:
         priors.dnufrac_prior(
             star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
         )
-
-    # Check if any specified limit in prior is in header, and can be used to
-    # skip computation of models, in order to speed up computation
-    tracks_headerpath = "header/"
-    if "tracks" in gridheader["gridtype"].lower():
-        headerpath: str | bool = tracks_headerpath
-    elif "isochrones" in gridheader["gridtype"].lower():
-        headerpath = tracks_headerpath + defaultpath
-        if "FeHini" in limits:
-            del limits["FeHini"]
-            print("Warning: Dropping prior in FeHini, redundant for isochrones!")
-    else:
-        headerpath = False
-
-    # Gridcut dictionary containing cutting parameters
-    gridcut = {}
-    if headerpath:
-        keys = Grid[headerpath].keys()
-        # Compare keys in header and limits
-        for key in keys:
-            if key in limits:
-                gridcut[key] = limits[key]
-                # Remove key from limits, to avoid redundant second check
-                del limits[key]
-
-    # Apply the cut on header parameters with a special treatment of diffusion
-    if headerpath and gridcut:
-        print("\nCutting in grid based on sampling parameters ('gridcut'):")
-        noofskips = [0, 0]
-        for cpar, cval in gridcut.items():
-            if cpar != "dif":
-                print(f"* {cpar}: {cval}")
-
-        # Diffusion switch printed in a more readable format
-        if "dif" in gridcut:
-            # As gridcut['dif'] is always either [-inf, 0.5] or [0.5, inf]
-            # The location of 0.5 can be used as the switch
-            switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
-            print(
-                "* Only considering tracks with diffusion turned",
-                "{:s}!".format(["on", "off"][switch]),
-            )
+    priors.grid_cut(grid=grid, gridheader=gridheader, gridinfo=gridinfo, inferencesettings=inferencesettings, outputoptions=outputoptions)
 
     util.print_fitparams(fitparams=fitparams)
     if star.seismicparams.has_any_case:
