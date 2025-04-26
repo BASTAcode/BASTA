@@ -137,7 +137,7 @@ def _bastamain(
 
     #### END PREPARATION ####
     #### SET-UP PRIORS ####
-    priors.grid_cut(
+    priors.gridlimits(
         grid=Grid,
         gridheader=gridheader,
         gridinfo=gridinfo,
@@ -171,31 +171,23 @@ def _bastamain(
         Grid, gridinfo=gridinfo, inferencesettings=inferencesettings
     )
 
-    pmap = {"pre-ms": 1, "solar": 2, "rgb": 3, "flash": 4, "clump": 5, "agb": 6}
     if "phase" in star.classicalparams.params.keys():
         iphases = (
-            [pmap[ip] for ip in star.classicalparams.params["phase"][0]]
+            [
+                constants.phasemap.map[ip]
+                for ip in star.classicalparams.params["phase"][0]
+            ]
             if isinstance(star.classicalparams.params["phase"], tuple)
-            else [pmap[star.classicalparams.params["phase"]]]
+            else [constants.phasemap.map[star.classicalparams.params["phase"]]]
         )
 
-    def compute_group_names(
-        gridinfo: util.GridInfo, metallicities: np.ndarray
-    ) -> dict[float, str]:
-        if "grid" in gridinfo["defaultpath"]:
-            return {feh: gridinfo["defaultpath"] + "tracks/" for feh in metallicities}
-        return {
-            feh: f"{gridinfo['defaultpath']}FeH={feh:.4f}/" for feh in metallicities
-        }
-
-    group_names = compute_group_names(gridinfo=gridinfo, metallicities=metallicities)
+    group_names = util.compute_group_names(
+        gridinfo=gridinfo, metallicities=metallicities
+    )
 
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
-    trackcounter = 0
-    for FeH in metallicities:
-        group = Grid[group_names[FeH]]
-        trackcounter += len(group.items())
+    trackcounter = sum(len(Grid[group_names[feh]].items()) for feh in metallicities)
 
     # Prepare the main loop
     shapewarn = 0
@@ -203,6 +195,8 @@ def _bastamain(
     selectedmodels: dict[str, stats.priorlogPDF | stats.Trackstats] = {}
     noofind = 0
     noofposind = 0
+    noofskips = [0, 0]
+
     # In some cases we need to store quantities computed at runtime
     # TODO(Amalie) Why do we need this? Is this the right logic?
     if star.seismicparams.has_any_case and star.seismicparams.ratios.dnufit_in_ratios:
@@ -224,36 +218,31 @@ def _bastamain(
             # Update progress bar in the start of the loop to count skipped tracks
             pbar.update(1)
 
+            # Check entire track
             # For grid with interpolated tracks, skip tracks flagged as empty
             if gridheader["is_interpolated"]:
                 if libitem["IntStatus"][()] < 0:
                     continue
 
-            # Check for diffusion
-            # TODO(Amalie) what
-            # if "dif" in inputparams:
-            #    if int(round(libitem["dif"][0])) != int(
-            #        round(float(inputparams["dif"]))
-            #    ):
-            #        continue
+            if any(
+                np.isin(["dif", "diffusion"], list(star.classicalparams.params.keys()))
+            ):
+                if int(round(libitem["dif"][0])) != int(
+                    round(float(star.classicalparams.params["dif"][0]))
+                ):
+                    continue
 
-            # TODO(Amalie) we must be able to optimise this
-            # Check if mass or age is in limits to efficiently skip
             if "grid" not in gridinfo["defaultpath"]:
-                param, val = name.split("=")
-                if param == "mass":
-                    param += "ini"
-                if param in limits:
-                    # if age or massini is outside limits, skip this iteration
-                    if float(val) < limits[param][0] or float(val) > limits[param][1]:
-                        continue
+                if util.should_skip_track(libitem, name, noingrid, inferencesettings):
+                    continue
 
             """
-            # Check if track should be skipped from cut in initial parameters
             if "gridcut" in inferencesettings.priors.keys():
                 noofskips[1] += 1
                 docut = False
-                for param in inferencesettings.priors['gridcut'].keys():
+                for param in inferencesettings.priors['gridcut'].kwargs.keys():
+                    if param == "gridcut":
+                        continue
                     if "tracks" in gridheader["gridtype"].lower():
                         value = Grid[tracks_headerpath][param][noingrid]
                     elif "isochrones" in gridheader["gridtype"].lower():
@@ -262,7 +251,7 @@ def _bastamain(
                         if param == "age":
                             value = float(name[4:])
                     # If value is outside cut limits, skip looking at the rest
-                    if not (value >= inferencesettings.priors['gridcut']ys()[param][0] and value <= gridcut[param][1]):
+                    if not (value >= inferencesettings.priors['gridcut'].kwargs[param]["limits"][0] and value <= inferencesettings.priors['gridcut'].kwargs[param]["limits"][1]):
                         docut = True
                         continue
                 # Actually skip this iteration
@@ -271,8 +260,9 @@ def _bastamain(
                     continue
             """
 
-            index = np.ones(len(libitem["age"][:]), dtype=bool)
             # Check which models have parameters within limits
+            index = np.ones(len(libitem["age"][:]), dtype=bool)
+
             # TODO(Amalie) Do this prior to the loop....
             """
             for param in limits:
@@ -281,6 +271,10 @@ def _bastamain(
             """
 
             # TODO(Amalie) Do this prior to the loop...
+            if "phase" in star.classicalparams.params.keys():
+                phaseindex = np.isin(libitem["phase"][:], iphases)
+                index &= phaseindex
+
             """
             # Check which models have phases as specified
             if "phase" in star.classicalparams.params.keys():

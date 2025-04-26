@@ -16,7 +16,7 @@ from basta import core
 from basta import utils_general as util
 
 
-def grid_cut(
+def gridlimits(
     grid: h5py.File,
     gridheader: util.GridHeader,
     gridinfo: util.GridInfo,
@@ -25,7 +25,7 @@ def grid_cut(
 ) -> None:
     """
     Refactor of grid cut section
-    
+
     Check if any specified limit in prior is in header, and can be used to
     skip computation of models, in order to speed up computation
     """
@@ -64,12 +64,12 @@ def grid_cut(
                 print(
                     f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
                 )
-    #TODO(Amalie) I should probably change this so it aligns with the application of the prior
-    inferencesettings.priors['gridcut'] = core.PriorEntry(
-            priorid = 'gridcut',
-            kwargs = {'gridcut': gridcut},
-            limits = None,
-            )
+    # TODO(Amalie) I should probably change this so it aligns with the application of the prior
+    inferencesettings.priors["gridcut"] = core.PriorEntry(
+        priorid="gridcut",
+        kwargs={"gridcut": gridcut},
+        limits=None,
+    )
 
 
 def dnufrac_prior(

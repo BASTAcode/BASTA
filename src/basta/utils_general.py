@@ -809,3 +809,29 @@ def h5py_to_array(xs) -> np.ndarray:
     res = np.empty(shape=xs.shape, dtype=xs.dtype)
     res[:] = xs[:]
     return res
+
+
+def compute_group_names(
+    gridinfo: GridInfo, metallicities: np.ndarray
+) -> dict[float, str]:
+    if "grid" in gridinfo["defaultpath"]:
+        return {feh: gridinfo["defaultpath"] + "tracks/" for feh in metallicities}
+    return {feh: f"{gridinfo['defaultpath']}FeH={feh:.4f}/" for feh in metallicities}
+
+
+def should_skip_track(
+    libitem, name: str, noingrid: int, inferencesettings: core.InferenceSettings
+) -> bool:
+    """
+    Return True if a track should be skipped based on prior limits.
+    """
+    print(name)
+    param, val = name.split("=")
+    if param == "mass":
+        param += "ini"
+
+    priors = inferencesettings.priors
+    for prior in priors:
+        if prior.limits is not None:
+            return not (prior.limits[0] <= float(val) <= prior.limits[1])
+    return False
