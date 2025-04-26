@@ -32,7 +32,6 @@ def compute_posterior(
     selectedmodels,
     Grid,
     gridheader: util.GridHeader,
-    dnu_scales: dict,
     absolutemagnitudes: core.AbsoluteMagnitudes,
     star: core.Star,
     filepaths: core.FilePaths,
@@ -332,6 +331,7 @@ def compute_posterior(
     if outputoptions.debug:
         lsamples = np.zeros((nsamples, len(cornerplots)))
         wsamples = np.zeros((nsamples, len(cornerplots)))
+    # TODO(Amalie) make fillvalue in constants
     plotin = np.ones(2 * len(cornerplots)) * -9999
     plotout = np.zeros(3 * len(cornerplots))
     for numpar, param in enumerate(params):
@@ -339,14 +339,16 @@ def compute_posterior(
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
 
         # Scale back to muHz before output/plot
+        # TODO(Amalie) Make sure to use the right original/scaled version
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            x *= inferencesettings.solarvalues["dnu"] / dnu_rescal
+            # dnu_rescal = dnu_scales.get(param, 1.00)
+            scale = star.globalseismicparams.get_scale(param)
+            x *= inferencesettings.solarvalues["dnu"] / scale
             if param in fitparams:
                 fitparams[param] = (
                     np.asarray(fitparams[param])
                     * inferencesettings.solarvalues["dnu"]
-                    / dnu_rescal
+                    / scale
                 )
 
         elif param.startswith("numax"):
@@ -357,7 +359,7 @@ def compute_posterior(
                     * inferencesettings.solarvalues["numax"]
                 )
         elif param in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
+            scale = star.globalseismicparams.get_scale(param)
             x /= dnu_rescal
             if param in fitparams:
                 fitparams[param] = np.asarray(fitparams[param]) / dnu_rescal

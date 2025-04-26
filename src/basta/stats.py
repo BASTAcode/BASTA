@@ -533,7 +533,7 @@ def chi_for_plot(selectedmodels):
 def get_highest_likelihood(
     Grid,
     selectedmodels,
-    dnu_scales,
+    star: core.Star,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
 ):
@@ -578,12 +578,13 @@ def get_highest_likelihood(
 
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inferencesettings.solarvalues["dnu"] / dnu_rescal
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval * inferencesettings.solarvalues["dnu"] / scale
         elif param.startswith("numax"):
             scaleval = paramval * inferencesettings.solarvalues["numax"]
         elif param in ["dnufit", "dnufitMos12"]:
-            scaleval = paramval / dnu_scales.get(param, 1.00)
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval / scale
         else:
             scaleval = None
 
@@ -598,7 +599,7 @@ def get_highest_likelihood(
 def get_lowest_chi2(
     Grid,
     selectedmodels,
-    dnu_scales,
+    star: core.Star,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
 ):
@@ -637,15 +638,15 @@ def get_lowest_chi2(
             continue
         paramval = Grid[os.path.join(minchi2_path, param)][minchi2_ind]
 
-        # TODO(Amalie) make DRY
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inferencesettings.solarvalues["dnu"] / dnu_rescal
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval * inferencesettings.solarvalues["dnu"] / scale
         elif param.startswith("numax"):
             scaleval = paramval * inferencesettings.solarvalues["numax"]
         elif param in ["dnufit", "dnufitMos12"]:
-            scaleval = paramval / dnu_scales.get(param, 1.00)
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval / scale
         else:
             scaleval = None
 

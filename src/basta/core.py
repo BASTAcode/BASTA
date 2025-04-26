@@ -128,13 +128,16 @@ class GlobalSeismicParameters:
             for key, param in self.params.items()
         }
 
+    def get_original(self, key: str) -> tuple[float, float]:
+        return self.params[key].original
+
+    def get_scale(self, key: str) -> float:
+        return self.params[key].scale
+
     def get_scaled(self, key: str) -> tuple[float, float]:
         if self.scaled_params is None:
             raise ValueError("Scaled fitparams have not been set.")
         return self.scaled_params[key].scaled
-
-    def get_original(self, key: str) -> tuple[float, float]:
-        return self.params[key].original
 
 
 @dataclass(kw_only=True)
@@ -157,8 +160,6 @@ class IndividualFrequencies:
     nottrustedfile: str | None = None
     excludemodes: bool | None = None
     onlyradial: bool | None = None
-
-    frequencies: dict
 
 
 @dataclass(kw_only=True, frozen=True)

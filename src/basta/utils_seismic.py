@@ -1,4 +1,8 @@
 """
+    fitfreqs = inputparams.get("fitfreqs")
+
+    # Get frequency correction method
+
 Auxiliary functions for frequency analysis
 """
 
@@ -109,9 +113,9 @@ def solar_scaling(
     print("\nScaling solar-based asteroseismic quantities:", flush=True)
 
     # Extract solar constants
-    solar_values = inferencesettings.solarvalues
+    solarvalues = inferencesettings.solarvalues
     print(
-        f"* Solar references: dnu = {solar_values['dnu']} µHz, numax = {solar_values['numax']} µHz"
+        f"* Solar references: dnu = {solarvalues['dnu']} µHz, numax = {solarvalues['numax']} µHz"
     )
 
     # TODO(Amalie) remember to scale limits that depend on dnu/numax!
@@ -122,9 +126,9 @@ def solar_scaling(
     already_scaled = ["dnufit", "dnufitMos12"]
     for key in fitparams.params.keys():
         if key.startswith("numax"):
-            factor = 1 / solar_values["numax"]
+            factor = 1 / solarvalues["numax"]
         elif key.startswith("dnu") and key not in already_scaled:
-            factor = 1 / solar_values["dnu"]
+            factor = 1 / solarvalues["dnu"]
         elif key in already_scaled:
             factor = 1
         else:
@@ -158,7 +162,7 @@ def solar_scaling(
         if key in sunmoddnu:
             if key in already_scaled:
                 # Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
-                scalefactors[key] *= sunmoddnu[key] / solar_values["dnu"]
+                scalefactors[key] *= sunmoddnu[key] / solarvalues["dnu"]
             else:
                 # Using the scaling relations on the solar model in the grid generally
                 # yields DNU_SUN_SCALING_GRID != DNU_SUN_SCALING_OBS.
@@ -183,7 +187,7 @@ def solar_scaling(
                     f"  - {key} scaled by {scalefactors[key]:.4f} from {orig:.2f} to {scaled:.2f} µHz"
                 )
                 print(
-                    f"    (grid Sun: {sunmoddnu[key]:.2f} µHz, real Sun: {solar_values['dnu']:.2f} µHz)"
+                    f"    (grid Sun: {sunmoddnu[key]:.2f} µHz, real Sun: {solarvalues['dnu']:.2f} µHz)"
                 )
                 print(
                     f"    (Note: {key} will be scaled back before outputting results!)"
@@ -239,12 +243,12 @@ def prepare_obs(
     """
     print("\nPreparing asteroseismic input ...")
 
-    fitfreqs = inputparams.get("fitfreqs")
-
     # Get frequency correction method
 
     # TODO(Amalie) these checks are being done elsewhere
     """
+    fitfreqs = inputparams.get("fitfreqs")
+
     fcor = fitfreqs.get("fcor", "BG14")
     if fcor not in ["None", *freqtypes.surfeffcorrs]:
         raise ValueError(
