@@ -332,10 +332,10 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
     if len(star.distanceparams.magnitudes) < 1:
         return
     if (
-        len(star.distanceparams.parallax) > 0
+        len(star.distanceparams.params["parallax"]) > 0
     ) and "distance" in outputoptions.asciiparams:
         print("* Parallax fitting and distance inference activated!")
-    elif len(star.distanceparams.parallax) > 0:
+    elif len(star.distanceparams.params["parallax"]) > 0:
         print("* Parallax fitting activated!")
     elif "distance" in outputoptions.asciiparams:
         print("* Distance inference activated!")
@@ -353,8 +353,8 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
     for filt, (m, m_err) in star.distanceparams.magnitudes.items():
         print(f"    + {filt}: [{m}, {m_err}]")
 
-    if len(star.distanceparams.parallax) > 0:
-        print(f"  - Parallax: {star.distanceparams.parallax}")
+    if len(star.distanceparams.params["parallax"]) > 0:
+        print(f"  - Parallax: {star.distanceparams.params['parallax']}")
 
     if len(star.distanceparams.EBV) > 0:
         # TODO(Amalie) is EBV a list of [0, value, 0] or a flat value? should probably be the latter
@@ -364,8 +364,9 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
 
 
 def print_additional(star: core.Star) -> None:
-    if "phase" in star.fitparams.keys():
+    if "phase" in star.classicalparams.params.keys():
         print("* Fitting evolutionary phase!")
+    # TODO(Amalie) check that this points at the right things
     print("\nAdditional input parameters and settings in alphabetical order:")
     noprint = [
         "asciioutput",
@@ -382,12 +383,12 @@ def print_additional(star: core.Star) -> None:
         "excludemodes",
         "numax",
     ]
-    for ip in sorted(star.fitparams.keys()):
+    for ip in sorted(star.classicalparams.params.keys()):
         assert ip not in [
             "warnoutput",
         ]
         if ip not in noprint:
-            print(f"* {ip}: {star.fitparams[ip]}")
+            print(f"* {ip}: {star.classicalparams.params[ip]}")
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
@@ -411,12 +412,12 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
 
 
 def print_priors(inferencesettings: core.InferenceSettings) -> None:
-    print("* Flat, constrained priors and ranges:")
-    for lim in inferencesettings.limits.keys():
-        print(f"  - {lim}: {inferencesettings.limits[lim]}")
-    # TODO(Amalie) Fix priors so it is not just IMF
     if inferencesettings.priors is not None:
         print(f"* Additional priors (IMF): {', '.join(inferencesettings.priors)}")
+        print("* Flat, constrained priors and ranges:")
+        for lim in inferencesettings.priors.keys():
+            print(f"  - {lim}: {inferencesettings.priors[lim]}")
+        # TODO(Amalie) Fix priors so it is not just IMF
 
 
 class Logger:
@@ -444,7 +445,7 @@ class Logger:
 
 
 def list_metallicities(
-    Grid: h5py.File, gridinfo: GridInfo, inferencesettings: core.InferenceSettings
+    grid: h5py.File, gridinfo: GridInfo, inferencesettings: core.InferenceSettings
 ) -> np.ndarray:
     """
     Get a list of metallicities in the grid that we loop over
@@ -467,20 +468,27 @@ def list_metallicities(
         `bastamain`.
     """
     if "grid" in gridinfo["defaultpath"]:
-        return np.asarray(range(1))
-    metallist = []
-    metalstr = [x for x in Grid[gridinfo["defaultpath"]].items() if "=" in x[0]]
-    for i in range(len(metalstr)):
-        metallist.append(float(metalstr[i][0][4:]))
-    metal = np.asarray(metallist)
+        return np.asarray([0])
 
-    limits = inferencesettings.limits
-    metal_name = "MeH" if "MeH" in limits else "FeH"
-    if metal_name in limits:
-        metal = metal[
-            (metal >= limits[metal_name][0]) & (metal <= limits[metal_name][1])
-        ]
-    return metal
+    # Collect metallicities available in grid
+    metallicity_strings = [
+        name for name, _ in grid[gridinfo["defaultpath"]].items() if "=" in name
+    ]
+    metallist = [float(name[4:]) for name in metallicity_strings]
+    metallicities = np.array(metallist)
+
+    priors = inferencesettings.priors
+    metal_name = "MeH" if "MeH" in priors else "FeH"
+
+    if metal_name in list(priors.keys()):
+        limits = priors[metal_name].limits
+        if limits is not None:
+            lower, upper = limits
+            metallicities = metallicities[
+                (metallicities >= lower) & (metallicities <= upper)
+            ]
+
+    return metallicities
 
 
 def unique_unsort(params):

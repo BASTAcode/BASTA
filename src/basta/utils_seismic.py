@@ -186,11 +186,13 @@ def solar_scaling(
                     f"    (grid Sun: {sunmoddnu[key]:.2f} µHz, real Sun: {solar_values['dnu']:.2f} µHz)"
                 )
                 print(
-                        f"    (Note: {key} will be scaled back before outputting results!)"
+                    f"    (Note: {key} will be scaled back before outputting results!)"
                 )
 
 
-def prepare_obs(star: core.Star, plotconfig: core.Plotconfig, outputoptions: core.OutputOptions):
+def prepare_obs(
+    star: core.Star, plotconfig: core.PlotConfig, outputoptions: core.OutputOptions
+):
     """
     Prepare frequencies and ratios for fitting
 
@@ -241,7 +243,7 @@ def prepare_obs(star: core.Star, plotconfig: core.Plotconfig, outputoptions: cor
 
     # Get frequency correction method
 
-    #TODO(Amalie) these checks are being done elsewhere
+    # TODO(Amalie) these checks are being done elsewhere
     """
     fcor = fitfreqs.get("fcor", "BG14")
     if fcor not in ["None", *freqtypes.surfeffcorrs]:
@@ -268,9 +270,7 @@ def prepare_obs(star: core.Star, plotconfig: core.Plotconfig, outputoptions: cor
 
     # Load or compute frequency-dependent products
     obskey, obs, obsfreqdata, obsfreqmeta = fio.read_allseismic(
-            star=star,
-        freqplots=freqplots,
-        outputoptions=outputoptions
+        star=star, freqplots=freqplots, outputoptions=outputoptions
     )
 
     # Compute the intervals used in frequency fitting

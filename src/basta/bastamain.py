@@ -122,9 +122,9 @@ def _bastamain(
         outputoptions=outputoptions,
     )
 
-
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:
+        """
         # Obtain/calculate all frequency related quantities
         (
             obskey,
@@ -135,17 +135,27 @@ def _bastamain(
         ) = su.prepare_obs(
                 star=star, plotconfig=plotconfig, outputoptions=outputoptions
         )
+        """
+        # TODO(Amalie) We just need a check of ls and a split into 'fit' and 'plot'
+        # and somewhere covariance and inverse covariance needs to be
+        # and obsinterval
 
     #### END PREPARATION ####
     #### SET-UP PRIORS ####
-    priors.grid_cut(grid=Grid, gridheader=gridheader, gridinfo=gridinfo, inferencesettings=inferencesettings, outputoptions=outputoptions)
+    priors.grid_cut(
+        grid=Grid,
+        gridheader=gridheader,
+        gridinfo=gridinfo,
+        inferencesettings=inferencesettings,
+        outputoptions=outputoptions,
+    )
 
     if star.seismicparams.has_any_case:
         priors.dnufrac_prior(
             star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
         )
 
-    util.print_fitparams(fitparams=fitparams)
+    # util.print_fitparams(fitparams=fitparams)
     if star.seismicparams.has_any_case:
         util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
     util.print_distances(star, outputoptions)
@@ -162,17 +172,295 @@ def _bastamain(
     #   Here the outer loop will run only once.
     # - For BaSTI, the top level is a list of metallicities and the outer loop will run
     #   multiple times.
-    metal = util.list_metallicities(
+    metallicities = util.list_metallicities(
         Grid, gridinfo=gridinfo, inferencesettings=inferencesettings
     )
 
-    # We assume Garstec grid structure. The path will be updated in the loop for BaSTI
-    group_name = gridinfo["defaultpath"] + "tracks/"
+    pmap = {"pre-ms": 1, "solar": 2, "rgb": 3, "flash": 4, "clump": 5, "agb": 6}
+    iphases = (
+        [pmap[ip] for ip in inputparams["phase"]]
+        if isinstance(inputparams["phase"], tuple)
+        else [pmap[inputparams["phase"]]]
+    )
 
+    def compute_group_names(gridinfo, metallicities: np.ndarray) -> dict[float, str]:
+        """
+        Compute group names prior to main loop
+
+        We assume Garstec grid structure.
+        The path will be updated in the loop for BaSTI
+        """
+        if "grid" in gridinfo["defaultpath"]:
+            return {feh: gridinfo["defaultpath"] + "tracks/" for feh in metallicities}
+        return {
+            feh: f"{gridinfo['defaultpath']}FeH={feh:.4f}/" for feh in metallicities
+        }
+
+    group_names = compute_group_names(gridinfo=gridinfo, metallicities=metallicities)
+
+    def should_skip_track(
+        libitem, inferencesettings: core.InferenceSettings, name: str, noingrid: int
+    ) -> bool:
+        """
+        Return True if a track should be skipped based on the priors.
+        """
+        if inferencesettings.priors is None:
+            return False
+        param, val = name.split("=")
+        if param == "mass":
+            param += "ini"
+
+        if param in inferencesettings.priors.keys():
+            prior = inferencesettings.priors[param]
+            if prior.limits is not None:
+                return not (prior.limits[0] <= float(val) <= prior.limits[1])
+            return False
+
+    def apply_grid_cut(
+        libitem, noingrid: int, gridcut: dict, gridheader: dict, tracks_headerpath: str
+    ) -> bool:
+        """Check if a track should be skipped based on grid cuts."""
+        for param, (low, high) in gridcut.items():
+            if "tracks" in gridheader["gridtype"].lower():
+                value = Grid[tracks_headerpath][param][noingrid]
+            elif "isochrones" in gridheader["gridtype"].lower() and param == "age":
+                value = float(name[4:])
+            else:
+                continue
+            if not (low <= value <= high):
+                return True
+            return False
+
+    def select_models_within_limits(libitem, limits: dict) -> np.ndarray:
+        """Return boolean index array for models within the specified parameter limits."""
+        index = np.ones(len(libitem["age"][:]), dtype=bool)
+        for param, (low, high) in limits.items():
+            index &= (libitem[param][:] >= low) & (libitem[param][:] <= high)
+        return index
+
+    def filter_seismic_models(
+        libitem, index, star, obs, obskey, fitfreqs
+    ) -> np.ndarray:
+        """Return boolean index for models passing seismic parameter cuts."""
+        indexf = np.zeros(len(index), dtype=bool)
+        for ind in np.where(index)[0]:
+            rawmod = libitem["osc"][ind]
+            rawmodkey = libitem["osckey"][ind]
+            mod = su.transform_obj_array(rawmod)
+            modkey = su.transform_obj_array(rawmodkey)
+            modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
+
+            same_n = modkeyl0[1, :] == obskey[1, 0]
+            cl0 = modl0[0, same_n]
+            if cl0.size > 0:
+                cl0 = cl0[0]
+                dnufit_tolerance = min(
+                    fitfreqs["dnufrac"] / 2 * fitfreqs["dnufit"], 3 * obs[1, 0]
+                )
+                if abs(cl0 - obs[0, 0]) <= fitfreqs["dnufrac"] * fitfreqs["dnufit"]:
+                    indexf[ind] = True
+        return indexf
+
+    def compute_log_likelihood(
+        libitem,
+        index,
+        fitparams,
+        allparams,
+        fitfreqs,
+        absolutemagnitudes,
+        bayweights,
+        dweight,
+        inferencesettings,
+        outputoptions,
+    ) -> Tuple[np.ndarray, dict]:
+        """Compute log likelihood array and any additional parameters."""
+        chi2 = np.zeros(index.sum())
+        paramvalues = {param: libitem[param][index] for param in allparams}
+
+        """
+        if star.seismicparams.has_any_case:
+            if fitfreqs["dnufit_in_ratios"]:
+                dnusurf = np.zeros(index.sum())
+            if fitfreqs["glitchfit"]:
+                glitchpar = np.zeros((index.sum(), 3))
+
+            for indd, ind in enumerate(np.where(index)[0]):
+                chi2_freq, _, _, addpars = stats.chi2_astero(
+                    obskey,
+                    obs,
+                    obsfreqmeta,
+                    obsfreqdata,
+                    obsintervals,
+                    libitem,
+                    ind,
+                    fitfreqs,
+                    warnings=True,
+                    shapewarn=0,
+                    debug=outputoptions.debug,
+                    verbose=outputoptions.verbose,
+                )
+                chi2[indd] += chi2_freq
+                if fitfreqs["dnufit_in_ratios"]:
+                    dnusurf[indd] = addpars["dnusurf"]
+                if fitfreqs["glitchfit"]:
+                    glitchpar[indd] = addpars["glitchparams"]
+        """
+
+        logPDF = np.zeros(index.sum())
+        if bayweights:
+            for weight in bayweights:
+                logPDF += util.inflog(libitem[weight][()])
+            logPDF += util.inflog(libitem[dweight][index])
+
+        for f in absolutemagnitudes["magnitudes"]:
+            mags = absolutemagnitudes["magnitudes"][f]["prior"]
+            absmags = libitem[f][index]
+            logPDF += util.inflog(mags(absmags))
+
+        for prior in inferencesettings.priors or ():
+            logPDF += util.inflog(getattr(priors, prior)(libitem, index))
+
+        logPDFarr = logPDF - 0.5 * chi2
+
+        return logPDFarr, {
+            "dnusurf": dnusurf if fitfreqs["dnufit_in_ratios"] else None,
+            "glitchpar": glitchpar if fitfreqs["glitchfit"] else None,
+        }
+
+    def main_likelihood_loop(
+        Grid,
+        gridinfo,
+        gridheader,
+        inferencesettings,
+        fitfreqs,
+        absolutemagnitudes,
+        bayweights,
+        dweight,
+        outputoptions,
+        star,
+        obs,
+        obskey,
+        obsfreqmeta,
+        obsfreqdata,
+        obsintervals,
+        fitparams,
+        allparams,
+        tracks_headerpath,
+        gridcut,
+        noofskips,
+    ):
+        metallicities = util.list_metallicities(
+            Grid, gridinfo=gridinfo, inferencesettings=inferencesettings
+        )
+        group_names = compute_group_names(gridinfo, metallicities)
+
+        # Precompute total number of tracks
+        trackcounter = sum(len(Grid[group_names[feh]].items()) for feh in metallicities)
+
+        print(
+            f"\n\nComputing likelihood of models in the grid ({trackcounter} {gridinfo['entryname']}) ..."
+        )
+        pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
+
+        selectedmodels = {}
+        dnusurfmodels = (
+            {} if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"] else None
+        )
+        glitchmodels = {} if fitfreqs["active"] and fitfreqs["glitchfit"] else None
+        noofind = 0
+        noofposind = 0
+
+        for FeH in metallicities:
+            group = Grid[group_names[FeH]]
+            for noingrid, (name, libitem) in enumerate(group.items()):
+                pbar.update(1)
+
+                if gridheader["is_interpolated"] and libitem["IntStatus"][()] < 0:
+                    continue
+
+                if should_skip_track(name, inferencesettings.limits):
+                    continue
+
+                # if gridcut and apply_grid_cut(
+                #    libitem, noingrid, gridcut, gridheader, tracks_headerpath
+                # ):
+                #    noofskips[0] += 1
+                #    continue
+
+                index = select_models_within_limits(libitem, inferencesettings.limits)
+
+                if "phase" in star.fitparams:
+                    phaseindex = np.isin(libitem["phase"][:], iphases)
+                    index &= phaseindex
+
+                if star.seismicparams.has_any_case:
+                    index &= filter_seismic_models(
+                        libitem, index, star, obs, obskey, fitfreqs
+                    )
+
+                if not np.any(index):
+                    continue
+
+                logPDFarr, extras = compute_log_likelihood(
+                    libitem,
+                    index,
+                    fitparams,
+                    allparams,
+                    fitfreqs,
+                    absolutemagnitudes,
+                    bayweights,
+                    dweight,
+                    inferencesettings,
+                    outputoptions,
+                )
+
+                noofind += len(logPDFarr)
+                noofposind += np.count_nonzero(~np.isinf(logPDFarr))
+
+                key = group_names[FeH] + name
+                if outputoptions.debug:
+                    selectedmodels[key] = stats.priorlogPDF(
+                        index, logPDFarr, chi2, bayw, magw, IMFw
+                    )
+                else:
+                    selectedmodels[key] = stats.Trackstats(index, logPDFarr, chi2)
+                if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+                    dnusurfmodels[key] = stats.Trackdnusurf(extras["dnusurf"])
+
+                if fitfreqs["active"] and fitfreqs["glitchfit"]:
+                    glitchmodels[key] = stats.Trackglitchpar(*extras["glitchpar"].T)
+
+            pbar.close()
+
+            return selectedmodels, dnusurfmodels, glitchmodels, noofind, noofposind
+
+    main_likelihood_loop(
+        Grid,
+        gridinfo,
+        gridheader,
+        inferencesettings,
+        fitfreqs,
+        absolutemagnitudes,
+        bayweights,
+        dweight,
+        outputoptions,
+        star,
+        obs,
+        obskey,
+        obsfreqmeta,
+        obsfreqdata,
+        obsintervals,
+        fitparams,
+        allparams,
+        tracks_headerpath,
+        gridcut,
+        noofskips,
+    )
+    """
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
     trackcounter = 0
-    for FeH in metal:
+    for FeH in metallicities:
         if "grid" not in gridinfo["defaultpath"]:
             group_name = f"{gridinfo['defaultpath']}FeH={FeH:.4f}/"
 
@@ -197,7 +485,7 @@ def _bastamain(
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
-    for FeH in metal:
+    for FeH in metallicities:
         # TODO(Amalie) this can be dry'er, make list of group_names outside loop?
         if "grid" not in gridinfo["defaultpath"]:
             group_name = f"{gridinfo['defaultpath']}FeH={FeH:.4f}/"
@@ -437,6 +725,7 @@ def _bastamain(
     # End loop over metals
     ###########################################################################
     pbar.close()
+    """
     print(
         f"Done! Computed the likelihood of {noofind!s} models,",
         f"found {noofposind!s} models with non-zero likelihood!\n",

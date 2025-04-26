@@ -32,6 +32,7 @@ class ClassicalParameters:
         Dictionary mapping parameter names (e.g., 'teff', 'feh') to their
         value and uncertainty as a (value, error) tuple.
     """
+
     params: dict[str, Fitparam]
 
 
@@ -49,12 +50,13 @@ class ScaledValueError:
         Original (value, error) before scaling.
     scale : float
         Multiplicative factor to scale the original value and error.
-    
+
     Attributes
     ----------
     scaled : tuple of float
         Returns the scaled (value, error).
     """
+
     original: tuple[float, float]
     scale: float
 
@@ -70,7 +72,7 @@ class GlobalSeismicParameters:
 
     This class manages both original and scaled versions of global parameters like
     `numax` and `dnu`, enabling on-the-fly conversion for inference or model comparison.
-    
+
     Example use:
     ```
     numax = globalseismic.get_original("numax")
@@ -88,7 +90,7 @@ class GlobalSeismicParameters:
     ----------
     scaled_params : dict of str to ScaledValueError, optional
         Stores scaled parameter values once `set_scaled()` has been called.
-    
+
     Methods
     -------
     set_scalefactor(scalefactors)
@@ -100,6 +102,7 @@ class GlobalSeismicParameters:
     get_original(key)
         Retrieves the original (value, error) for the given parameter key.
     """
+
     params: dict[str, ScaledValueError]
     scalefactors: Optional[dict[str, float]] = None
     scaled_params: Optional[dict[str, ScaledValueError]] = field(
@@ -115,8 +118,11 @@ class GlobalSeismicParameters:
         self.scaled_params = {
             key: ScaledValueError(
                 original=param.original,
-                scale=param.scale * (
-                    self.scalefactors[key] if self.scalefactors and key in self.scalefactors else 1.0
+                scale=param.scale
+                * (
+                    self.scalefactors[key]
+                    if self.scalefactors and key in self.scalefactors
+                    else 1.0
                 ),
             )
             for key, param in self.params.items()
@@ -131,7 +137,7 @@ class GlobalSeismicParameters:
         return self.params[key].original
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True)
 class IndividualFrequencies:
     # TODO(Amalie) clean and add context
     # TODO(Amalie) get_frequencies: dict = {freqpath:, freqfile}
@@ -151,6 +157,8 @@ class IndividualFrequencies:
     nottrustedfile: str | None = None
     excludemodes: bool | None = None
     onlyradial: bool | None = None
+
+    frequencies: dict
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -177,7 +185,7 @@ class EpsilonDifferences:
     nsorting: bool | int = True
 
 
-@dataclass(kw_only=True, frozen=True)
+@dataclass(kw_only=True)
 class SeismicParameters:
     frequencies: IndividualFrequencies | None = None
     ratios: Ratios | None = None
@@ -227,6 +235,7 @@ class AbsoluteMagnitude(TypedDict):
     errm : float
         The negative uncertainty on the absolute magnitude.
     """
+
     prior: Callable[[float], float]
     median: float
     errp: float
@@ -248,6 +257,7 @@ class AbsoluteMagnitudes(TypedDict):
     prior_distance : list of float
         Prior information on distance (in parsecs).
     """
+
     magnitudes: dict[str, AbsoluteMagnitude]
     absorption: dict[str, list[Any]]
     prior_EBV: list[float]
@@ -272,6 +282,7 @@ class DistanceParameters:
     EBV : list of Any
         Reddening values or prior information about extinction, format may vary.
     """
+
     params: dict[str, Fitparam]
     magnitudes: dict[str, tuple[float, float]]
     coordinates: dict[str, Any]
@@ -330,6 +341,7 @@ class RunFiles:
     erroroutput : TextIOBase or None, optional
         File stream for logging critical errors.
     """
+
     runbasepath: str
     summarytable: BufferedIOBase
     summarytablepath: str
@@ -440,10 +452,9 @@ class PriorEntry:
     kwargs: dict[str, Any]
     limits: list[float] | None = None
 
-    #TODO(Amalie) add a property where it computes limits if 'abstol' or something is set
-    #@property
-    #def get_limits(self, params) -> limits[float]:
-
+    # TODO(Amalie) add a property where it computes limits if 'abstol' or something is set
+    # @property
+    # def get_limits(self, params) -> limits[float]:
 
 
 @dataclass(kw_only=True)
