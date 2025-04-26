@@ -178,8 +178,12 @@ def kiel(
 
     # Assign params
     kielplots = plotconfig.kielplots
-    fitfreqs = star.fitfreqs
-    fitparams = star.fitparams
+    fitparams = (
+        star.classicalparams.params
+        | star.globalseismicparams.params
+        | star.distanceparams.params
+        # set(star.seismicparams.params.keys())
+    )
     toggle_freqs = True
     filters = list(absolutemagnitudes["magnitudes"].keys())
 
@@ -196,14 +200,14 @@ def kiel(
             elif par in filters:
                 new_filters.append(par)
             else:
-                new_fitpars[par] = fitparams[par]
+                new_fitpars[par] = fitparams[par].scaled
         filters = new_filters
         fitparams = new_fitpars
 
     # Save the tracks in selectedmodels with appropriate massini and FeH
     tracks = []
     constants = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
-    metal = "MeH" if "MeH" in fitparams else "FeH"
+    metal = "MeH" if "MeH" in fitparams.keys() else "FeH"
     for modelpath in selectedmodels:
         if "tracks" in gridtype.lower():
             trackvalue = Grid[modelpath]["massini"][0]
@@ -212,7 +216,7 @@ def kiel(
         if trackvalue >= lp_interval[0] and trackvalue <= lp_interval[1]:
             track_pass = True
             for param in constants:
-                if param in fitparams:
+                if param in fitparams.keys():
                     err = fitparams[param][1]
                     param_interval = [
                         fitparams[param][0] - err,
@@ -441,10 +445,10 @@ def kiel(
             ):
                 ncol += 1
                 # Set up the parameter-limit
-                if param in fitparams:
-                    err = fitparams[param][1]
-                    parmin = fitparams[param][0] - err
-                    parmax = fitparams[param][0] + err
+                if param in star.globalseismicparams.params.keys():
+                    err = fitparams[param].scaled[1]
+                    parmin = fitparams[param].scaled[0] - err
+                    parmax = fitparams[param].scaled[0] + err
                 # If not regular fitparam, check if it is in filters
                 elif param in filters:
                     errm = absolutemagnitudes["magnitudes"][param]["errm"]
@@ -452,6 +456,10 @@ def kiel(
                     med = absolutemagnitudes["magnitudes"][param]["median"]
                     parmin = med - errm
                     parmax = med + errp
+                else:
+                    err = fitparams[param][1]
+                    parmin = fitparams[param][0] - err
+                    parmax = fitparams[param][0] + err
                 for track in tracks:
                     # For each track, check what indices is within
                     # the paramlimits
@@ -470,10 +478,11 @@ def kiel(
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
         # TODO(Amalie) This can be simplified
-        if fitfreqs["active"] and toggle_freqs:
+        if star.seismicparams.has_frequencies and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
-            dnufrac = fitfreqs["dnufrac"]
+            dnufrac = inferencesettings.dnufrac
+            # TODO(Amalie) Why is this repeated here?
             obskey, obs, _ = fio.read_freq(fitfreqs["freqfile"])
 
             for track in tracks:
@@ -498,12 +507,19 @@ def kiel(
                             >= (
                                 obs[0, 0]
                                 - max(
-                                    (dnufrac / 2 * fitfreqs["dnufit"]),
+                                    (
+                                        dnufrac
+                                        / 2
+                                        * star.globalseismicparams.params["dnufit"]
+                                    ),
                                     (3 * obs[1, 0]),
                                 )
                             )
                         )
-                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs["dnufit"]))
+                        and (
+                            (cl0 - obs[0, 0])
+                            <= (dnufrac * star.globalseismicparams.params["dnufit"])
+                        )
                     ):
                         index[ind] = False
 

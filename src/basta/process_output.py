@@ -78,7 +78,12 @@ def compute_posterior(
 
     # List of params for plotting
     kielplots = plotconfig.kielplots
-    fitparams = star.fitparams
+    fitparams = (
+        star.classicalparams.params
+        | star.globalseismicparams.params
+        | star.distanceparams.params
+        # set(star.seismicparams.params.keys())
+    )
 
     # TODO(Amalie) can this be simplified?
     # Initialise strings for printing
@@ -331,38 +336,43 @@ def compute_posterior(
     if outputoptions.debug:
         lsamples = np.zeros((nsamples, len(cornerplots)))
         wsamples = np.zeros((nsamples, len(cornerplots)))
+
     # TODO(Amalie) make fillvalue in constants
     plotin = np.ones(2 * len(cornerplots)) * -9999
     plotout = np.zeros(3 * len(cornerplots))
+
+    fitparams_scaled = {}
+
     for numpar, param in enumerate(params):
         # Generate list of x values
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
 
-        # Scale back to muHz before output/plot
-        # TODO(Amalie) Make sure to use the right original/scaled version
+        # Scale back to µHz before output/plot
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            # dnu_rescal = dnu_scales.get(param, 1.00)
             scale = star.globalseismicparams.get_scale(param)
             x *= inferencesettings.solarvalues["dnu"] / scale
             if param in fitparams:
-                fitparams[param] = (
-                    np.asarray(fitparams[param])
-                    * inferencesettings.solarvalues["dnu"]
-                    / scale
-                )
+                fitparams_scaled[param] = fitparams[param].original
+                # (
+                #    np.asarray([fitparams[param]])
+                #    * inferencesettings.solarvalues["dnu"]
+                #    / scale
+                # )
 
         elif param.startswith("numax"):
             x *= inferencesettings.solarvalues["numax"]
             if param in fitparams:
-                fitparams[param] = (
-                    np.asarray(fitparams[param])
-                    * inferencesettings.solarvalues["numax"]
-                )
+                fitparams_scaled[param] = fitparams[param].original
+                # fitparams_scaled[param] = (
+                #    np.asarray([fitparams[param]])
+                #    * inferencesettings.solarvalues["numax"]
+                # )
         elif param in ["dnufit", "dnufitMos12"]:
             scale = star.globalseismicparams.get_scale(param)
-            x /= dnu_rescal
+            x /= scale
             if param in fitparams:
-                fitparams[param] = np.asarray(fitparams[param]) / dnu_rescal
+                fitparams_scaled[param] = fitparams[param].original
+                # fitparams_scaled[param] = np.asarray([fitparams[param]]) / scale
 
         # Compute quantiles (using np.quantile is ~50 times faster than quantile_1D)
         xcen, xstdm, xstdp = stats.calc_key_stats(
@@ -376,8 +386,8 @@ def compute_posterior(
 
         if param in cornerplots:
             idx = cornerplots.index(param)
-            if param in fitparams:
-                xin, stdin = fitparams[param]
+            if param in fitparams_scaled:
+                xin, stdin = fitparams_scaled[param]
                 plotin[2 * idx : 2 * idx + 2] = [xin, stdin]
             samples[:, idx] = x[nonzeroprop][sampled_indices]
             if outputoptions.debug:
@@ -539,7 +549,7 @@ def compute_posterior(
         )
 
         # Use correct metallicity (only important for alpha enhancement)
-        metalname = "MeH" if "MeH" in fitparams else "FeH"
+        metalname = "MeH" if "MeH" in fitparams_scaled else "FeH"
         x = util.get_parameter_values(metalname, Grid, selectedmodels, noofind)
         feh_interval = np.quantile(
             x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
