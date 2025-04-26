@@ -13,6 +13,7 @@ from dataclasses import dataclass, field
 from io import BufferedIOBase, TextIOBase
 from pathlib import Path
 from typing import Any, TypedDict, Literal, Optional
+import numpy as np
 
 
 Fitparam = tuple[float, float]
@@ -141,6 +142,15 @@ class GlobalSeismicParameters:
 
 
 @dataclass(kw_only=True)
+class ObservedFrequencies:
+    obskey: np.ndarray
+    obs: np.ndarray
+    obsfreqdata: dict[str, Any]
+    obsfreqmeta: dict[str, Any]
+    obsintervals: np.ndarray
+
+
+@dataclass(kw_only=True)
 class IndividualFrequencies:
     # TODO(Amalie) clean and add context
     # TODO(Amalie) get_frequencies: dict = {freqpath:, freqfile}
@@ -160,6 +170,8 @@ class IndividualFrequencies:
     nottrustedfile: str | None = None
     excludemodes: bool | None = None
     onlyradial: bool | None = None
+
+    frequencies: Optional[ObservedFrequencies] = field(default=None, init=False)
 
 
 @dataclass(kw_only=True, frozen=True)

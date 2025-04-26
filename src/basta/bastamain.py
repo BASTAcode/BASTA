@@ -119,18 +119,8 @@ def _bastamain(
 
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:
-        """
         # Obtain/calculate all frequency related quantities
-        (
-            obskey,
-            obs,
-            obsfreqdata,
-            obsfreqmeta,
-            obsintervals,
-        ) = su.prepare_obs(
-                star=star, plotconfig=plotconfig, outputoptions=outputoptions
-        )
-        """
+        su.prepare_obs(star=star, plotconfig=plotconfig, outputoptions=outputoptions)
         # TODO(Amalie) We just need a check of ls and a split into 'fit' and 'plot'
         # and somewhere covariance and inverse covariance needs to be
         # and obsinterval

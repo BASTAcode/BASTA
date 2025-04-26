@@ -284,12 +284,12 @@ def prepare_obs(
         obsintervals = None
 
     print("Done!")
-    return (
-        obskey,
-        obs,
-        obsfreqdata,
-        obsfreqmeta,
-        obsintervals,
+    star.seismicparams.individualfrequencies.frequencies = core.ObservedFrequencies(
+        obskey=obskey,
+        obs=obs,
+        obsfreqdata=obsfreqdata,
+        obsfreqmeta=obsfreqmeta,
+        obsintervals=obsinterval,
     )
 
 
