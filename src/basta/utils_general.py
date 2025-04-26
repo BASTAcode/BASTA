@@ -58,10 +58,10 @@ def print_bastaheader(
     prt_center("(c) 2025, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
     print(llen * "=")
-    print("\nRun started on {} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
+    print(f"\nRun started on {time.strftime('%Y-%m-%d %H:%M:%S', t0)}.\n")
     if developermode:
-        print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
-    print(f"Random numbers initialised with seed: {seed} .")
+        print("DEVELOPERMODE ACTIVATED: Experimental features activated!\n")
+    print(f"Random numbers initialised with seed: {seed}")
 
 
 class GridHeader(TypedDict):
@@ -118,7 +118,7 @@ def read_grid_header(Grid) -> GridHeader:
 
 
 def print_gridinfo(gridfile: str, header: GridHeader) -> None:
-    print(f"* Using the grid '{gridfile}' of type '{header['gridtype']}'.")
+    print(f"\n* Using the grid '{gridfile}' of type '{header['gridtype']}'.")
     print(
         f"  - Grid built with BASTA version {header['version']}, timestamp: {header['time']}."
     )
@@ -331,6 +331,7 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
     # Fitting info: Distance
     if len(star.distanceparams.magnitudes) < 1:
         return
+    print("")
     if (
         len(star.distanceparams.params["parallax"]) > 0
     ) and "distance" in outputoptions.asciiparams:
@@ -349,12 +350,12 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
             f"  - Coordinates (galactic): lat = {star.distanceparams.coordinates['lat']}, lon = {star.distanceparams.coordinates['lon']}"
         )
 
+    if len(star.distanceparams.params["parallax"]) > 0:
+        print(f"  - Parallax: {star.distanceparams.params['parallax']}")
+
     print("  - Filters (magnitude value and uncertainty): ")
     for filt, (m, m_err) in star.distanceparams.magnitudes.items():
         print(f"    + {filt}: [{m}, {m_err}]")
-
-    if len(star.distanceparams.params["parallax"]) > 0:
-        print(f"  - Parallax: {star.distanceparams.params['parallax']}")
 
     if len(star.distanceparams.EBV) > 0:
         # TODO(Amalie) is EBV a list of [0, value, 0] or a flat value? should probably be the latter
@@ -412,12 +413,32 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
 
 
 def print_priors(inferencesettings: core.InferenceSettings) -> None:
-    if inferencesettings.priors is not None:
-        print(f"* Additional priors (IMF): {', '.join(inferencesettings.priors)}")
-        print("* Flat, constrained priors and ranges:")
-        for lim in inferencesettings.priors.keys():
-            print(f"  - {lim}: {inferencesettings.priors[lim]}")
-        # TODO(Amalie) Fix priors so it is not just IMF
+    priors = inferencesettings.priors
+    if not priors:
+        return
+
+    print("* Additional set priors:")
+
+    empty_priors = sorted(
+        [lim for lim, entry in priors.items() if lim != "gridcut" and not entry.kwargs]
+    )
+
+    for lim in empty_priors:
+        print(f"  - {lim}")
+
+    constrained = sorted(
+        [
+            (lim, k, v)
+            for lim, entry in priors.items()
+            if lim != "gridcut" and entry.kwargs
+            for k, v in entry.kwargs.items()
+        ]
+    )
+
+    if constrained:
+        print("* Flat, constrained priors:")
+        for lim, k, v in constrained:
+            print(f"  - {lim}: ({k}: {v})")
 
 
 class Logger:

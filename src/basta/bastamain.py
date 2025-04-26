@@ -80,11 +80,6 @@ def _bastamain(
     plotconfig: core.PlotConfig,
 ) -> None:
     #### INITIALISATION ####
-    # Enable legacy printing of NumPy data types
-    # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
-    #     and 'Teff' instead of np.str_('Teff') to the .log file
-    # np.set_printoptions(legacy="1.25")
-
     # Pretty print a header
     t0 = time.localtime()
     util.print_bastaheader(

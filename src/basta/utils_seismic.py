@@ -63,7 +63,7 @@ def extract_solar_model_dnu(
         raise NotImplementedError("More than one solar model found in grid!")
 
     sunmodpath = os.path.join("solar_models", sunmodname)
-    print(f"* Using solar model '{sunmodname}' for dnu scaling")
+    print(f"* Using solar model '{sunmodname}' for dnu scaling.")
 
     sunmoddnu = {
         name: Grid[sunmodpath][name][()]
@@ -157,7 +157,7 @@ def solar_scaling(
         print("* No solar model scaling applied.")
 
     # Apply scaling using solar model values
-    print(f"* Applying solar model scaling from: {sunmodpath}")
+    print(f"* Applying solar model scaling from: {sunmodpath}.")
     for key in scalefactors:
         if key in sunmoddnu:
             if key in already_scaled:

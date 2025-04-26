@@ -286,7 +286,8 @@ def add_absolute_magnitudes(
             "prior_distance": [],
         }
 
-    print("\nPreparing distance/parallax/magnitude input ...", flush=True)
+    if outputoptions.verbose:
+        print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
     distanceparams = star.distanceparams
     fitparams = distanceparams.params
@@ -434,7 +435,9 @@ def add_absolute_magnitudes(
     #                    "metallicity"
     #                    ]["max"]
 
-    print("Done!")
+    if outputoptions.verbose:
+        print("Done!")
+
     return {
         "magnitudes": new_magnitudes,
         "absorption": new_As,
