@@ -566,17 +566,16 @@ def _bastamain(
 
     # Collect additional output for plotting and saving
     addstats: dict[str, Any] = {}
-    if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
-        addstats["dnusurf"] = dnusurfmodels
-    if fitfreqs["active"] and fitfreqs["glitchfit"]:
-        addstats["glitchparams"] = glitchmodels
+    # if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
+    #    addstats["dnusurf"] = dnusurfmodels
+    # if fitfreqs["active"] and fitfreqs["glitchfit"]:
+    #    addstats["glitchparams"] = glitchmodels
 
     # Make frequency-related plots
-    if fitfreqs["active"] and len(plotconfig.freqplots):
+    if plotconfig.freqplots and star.seismicparams.has_any_case:
         plot_driver.plot_all_seismic(
             plotconfig,
             Grid=Grid,
-            fitfreqs=fitfreqs,
             obsfreqmeta=obsfreqmeta,
             obsfreqdata=obsfreqdata,
             obskey=obskey,
