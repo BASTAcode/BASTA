@@ -72,7 +72,7 @@ def BASTA(
 
 
 def _bastamain(
-    star: core.Star,
+    inputstar: core.InputStar,
     inferencesettings: core.InferenceSettings,
     filepaths: core.FilePaths,
     runfiles: core.RunFiles,
@@ -80,12 +80,11 @@ def _bastamain(
     plotconfig: core.PlotConfig,
 ) -> None:
     #### INITIALISATION ####
-    # Pretty print a header
     t0 = time.localtime()
     util.print_bastaheader(
         t0=t0, seed=inferencesettings.seed, developermode=outputoptions.developermode
     )
-    util.print_targetinformation(star)
+    util.print_targetinformation(inputstar.starid)
 
     # Load the desired grid and obtain information from the header
     Grid, gridheader, gridinfo = util.get_grid(inferencesettings)
@@ -96,9 +95,12 @@ def _bastamain(
     #### PREPARE DISTANCE FITTING AND FREQUENCY FITTING, IF REQUIRED ####
 
     # Get list of parameters
-    cornerplots = plotconfig.cornerplots
-    outparams = outputoptions.asciiparams
-    allparams = list(np.unique(cornerplots + outparams))
+    #cornerplots = plotconfig.cornerplots
+    #outparams = outputoptions.asciiparams
+    #allparams = list(np.unique(cornerplots + outparams))
+
+    #### PREPARE STAR ####
+    # star = setup_star()
 
     absolutemagnitudes, allparams = util.prepare_distancefitting(
         star=star,
@@ -135,13 +137,13 @@ def _bastamain(
         outputoptions=outputoptions,
     )
 
-    if star.seismicparams.has_any_case:
+    if star.seismicparams.has_any_seismic_case:
         priors.dnufrac_prior(
             star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
         )
 
     # util.print_fitparams(fitparams=fitparams)
-    if star.seismicparams.has_any_case:
+    if star.seismicparams.has_any_seismic_case:
         util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
     util.print_distances(star, outputoptions)
     util.print_additional(star)
@@ -165,10 +167,10 @@ def _bastamain(
         iphases = (
             [
                 constants.phasemap.map[ip]
-                for ip in star.classicalparams.params["phase"][0]
+                for ip in star.classical.params["phase"][0]
             ]
-            if isinstance(star.classicalparams.params["phase"], tuple)
-            else [constants.phasemap.map[star.classicalparams.params["phase"]]]
+            if isinstance(star.classical.params["phase"], tuple)
+            else [constants.phasemap.map[star.classical.params["phase"]]]
         )
 
     group_names = util.compute_group_names(
@@ -189,7 +191,7 @@ def _bastamain(
 
     # In some cases we need to store quantities computed at runtime
     # TODO(Amalie) Why do we need this? Is this the right logic?
-    if star.seismicparams.has_any_case and star.seismicparams.ratios.dnufit_in_ratios:
+    if star.seismicparams.has_any_seismic_case and star.seismicparams.ratios.dnufit_in_ratios:
         dnusurfmodels = {}
     if star.seismicparams.has_glitches:
         glitchmodels = {}

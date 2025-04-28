@@ -329,6 +329,9 @@ class IndividualFrequencies:
 
     surfacecorrection: dict[str, Any] | None = None
     # bexp: None | float = None -> this should be in surfacecorrection
+
+    obsintervals: np.ndarray | None = None
+
     correlations: bool | int = False
     seismicweights: dict[str, Any]
 

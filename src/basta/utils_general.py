@@ -183,7 +183,7 @@ def get_grid(
     return Grid, header, check_gridtype(header["gridtype"], gridid)
 
 
-def print_targetinformation(star: core.Star) -> None:
+def print_targetinformation(starid: str) -> None:
     print(f"\nFitting star id: {star.starid}.")
 
 
