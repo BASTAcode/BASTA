@@ -97,6 +97,7 @@ def salpeter1955(libitem, index):
     Initial mass function from Salpeter (1955)
     https://ui.adsabs.harvard.edu/abs/1955ApJ...121..161S
     """
+
     return libitem["massini"][index] ** (-2.35)
 
 

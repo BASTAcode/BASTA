@@ -461,7 +461,6 @@ class FilePaths:
 
 @dataclass(kw_only=True)
 class PriorEntry:
-    priorid: str
     kwargs: dict[str, Any]
     limits: list[float] | None = None
 
@@ -505,7 +504,7 @@ class InferenceSettings:
     solarmodel: str = ""
     gridid: tuple[float, float, float, float] | None = None
 
-    priors: dict[str, PriorEntry]
+    boxpriors: dict[str, PriorEntry]
     dnufrac: float = 0.15
 
     # TODO(Amalie) Consider removing entirely
