@@ -12,7 +12,7 @@ from collections.abc import Callable
 from dataclasses import dataclass, field
 from io import BufferedIOBase, TextIOBase
 from pathlib import Path
-from typing import Any, TypedDict, Literal, Optional
+from typing import Any, TypedDict, Literal
 import numpy as np
 
 
@@ -105,10 +105,8 @@ class GlobalSeismicParameters:
     """
 
     params: dict[str, ScaledValueError]
-    scalefactors: Optional[dict[str, float]] = None
-    scaled_params: Optional[dict[str, ScaledValueError]] = field(
-        default=None, init=False
-    )
+    scalefactors: dict[str, float] | None  = None
+    scaled_params: dict[str, ScaledValueError] | None = None
 
     def set_scalefactor(self, scalefactors: dict[str, float]) -> None:
         if self.scalefactors is None:
@@ -142,16 +140,7 @@ class GlobalSeismicParameters:
 
 
 @dataclass(kw_only=True)
-class ObservedFrequencies:
-    obskey: np.ndarray
-    obs: np.ndarray
-    obsfreqdata: dict[str, Any]
-    obsfreqmeta: dict[str, Any]
-    obsintervals: np.ndarray
-
-
-@dataclass(kw_only=True)
-class IndividualFrequencies:
+class InputIndividualFrequencies:
     # TODO(Amalie) clean and add context
     # TODO(Amalie) get_frequencies: dict = {freqpath:, freqfile}
     freqpath: str
@@ -171,11 +160,9 @@ class IndividualFrequencies:
     excludemodes: bool | None = None
     onlyradial: bool | None = None
 
-    frequencies: Optional[ObservedFrequencies] = field(default=None, init=False)
-
 
 @dataclass(kw_only=True, frozen=True)
-class Ratios:
+class InputRatios:
     fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
 
     readratios: bool | int = False
@@ -185,7 +172,7 @@ class Ratios:
 
 
 @dataclass(kw_only=True, frozen=True)
-class Glitches:
+class InputGlitches:
     fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
     glitchfit: bool = False
     glitchfile: str | None = None
@@ -193,13 +180,14 @@ class Glitches:
 
 
 @dataclass(kw_only=True, frozen=True)
-class EpsilonDifferences:
+class InputEpsilonDifferences:
     fittypes: list[Literal["e01", "e012", "e02"]]
     nsorting: bool | int = True
 
 
 @dataclass(kw_only=True)
 class SeismicParameters:
+    #TODO(Amalie) I will probably remove this
     frequencies: IndividualFrequencies | None = None
     ratios: Ratios | None = None
     glitches: Glitches | None = None
@@ -302,8 +290,8 @@ class DistanceParameters:
     EBV: list[Any]
 
 
-@dataclass(kw_only=True)
-class Star:
+@dataclass(kw_only=True, frozen=True)
+class InputStar:
     """
     Main container for all relevant observational and input data for a single star.
 
@@ -330,6 +318,98 @@ class Star:
     globalseismicparams: GlobalSeismicParameters
     seismicparams: SeismicParameters
     distanceparams: DistanceParameters
+
+
+@dataclass(kw_only=True)
+class IndividualFrequencies:
+    l: np.ndarray  # [int]
+    n: np.ndarray  # [int]
+    frequencies: np.ndarray  # [float]
+    errors: np.ndarray  # [float]
+
+    surfacecorrection: dict[str, Any] | None = None
+    # bexp: None | float = None -> this should be in surfacecorrection
+    correlations: bool | int = False
+    seismicweights: dict[str, Any]
+
+
+@dataclass(kw_only=True)
+class Ratios:
+    # thought ratios['r01': [list of ratios], "r012": [list of ratios
+    # keys should be in fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
+    ratios: dict[str, np.ndarray]
+    #TODO(Amalie) I am not sure this makes all the best sense..
+    # But this was a way of saying:
+    # I want to fit r012, but I want to plot that and r01.
+    fit: dict[str, bool]
+
+    covariance: np.ndarray
+
+
+@dataclass(kw_only=True)
+class Glitches:
+    # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
+    glitches : dict[str, np.ndarray]
+    
+    #TODO(Amalie) does this make sense for the combined fit?
+    ratios: dict[str, np.ndarray]
+
+    covariance: np.ndarray
+
+
+@dataclass(kw_only=True)
+class EpsilonDifferences:
+    # freq_fit
+    # 0: difference, 1: freq, 2: l, 3: n
+    differences: np.ndarray# [float]
+    frequencies: np.ndarray# [float]
+    l: np.ndarray# [int]
+    n: np.ndarray# [int]
+
+    covariance: np.ndarray
+
+
+@dataclass(kw_only=True)
+class Star:
+    starid : str
+
+    classical: ClassicalParameters
+    globalseismic: GlobalSeismicParameters
+    distance: DistanceParameters
+
+    frequencies: IndividualFrequencies | None = None
+    ratios: Ratios | None = None
+    glitches: Glitches | None = None
+    epsilondifferences: EpsilonDifferences | None = None
+
+    @property
+    def has_frequencies(self) -> bool:
+        return self.frequencies is not None
+
+    @property
+    def has_ratios(self) -> bool:
+        return self.ratios is not None
+
+    @property
+    def has_glitches(self) -> bool:
+        return self.glitches is not None
+
+    @property
+    def has_epsilondifferences(self) -> bool:
+        return self.epsilondifferences is not None
+
+    @property
+    def has_any_seismic_case(self) -> bool:
+        return any(
+            (
+                self.has_frequencies,
+                self.has_ratios,
+                self.has_glitches,
+                self.has_epsilondifferences,
+            )
+        )
+
+    limits: dict[str, tuple[float, float]] | None = None
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -464,11 +544,6 @@ class PriorEntry:
     kwargs: dict[str, Any]
     limits: list[float] | None = None
 
-    # TODO(Amalie) add a property where it computes limits if 'abstol' or something is set
-    # @property
-    # def get_limits(self, params) -> limits[float]:
-
-
 @dataclass(kw_only=True)
 class InferenceSettings:
     """
@@ -504,6 +579,8 @@ class InferenceSettings:
     solarmodel: str = ""
     gridid: tuple[float, float, float, float] | None = None
 
+    usebayw: bool = True
+    imf: Literal["IMF", "salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003"] = "salpeter1955"
     boxpriors: dict[str, PriorEntry]
     dnufrac: float = 0.15
 
@@ -511,7 +588,6 @@ class InferenceSettings:
     dnuprior: bool | int = True
     dnubias: float = 0.0
 
-    usebayw: bool = True
 
 
 @dataclass(kw_only=True, frozen=True)
