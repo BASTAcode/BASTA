@@ -27,10 +27,10 @@ copyright = "2025, The BASTA Team"
 author = "The BASTA Team"
 
 # The short X.Y version.
-version = "1.5.2"
+version = "1.5.3"
 
 # The full version, including alpha/beta/rc tags.
-release = "1.5.2"
+release = "1.5.3"
 
 
 # -- General configuration ------------------------------------------------
@@ -98,6 +98,8 @@ autodoc_mock_imports = [
     "sklearn",
     "scipy",
     "tqdm",
+    "basta._dustpath",
+    "basta._gridpath",
 ]
 
 
