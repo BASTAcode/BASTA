@@ -8,17 +8,17 @@ Key|Unit|Parameter|Description
 ``dif``||Diffusion|Atomic diffusion: 0) no and 1) yes
 ``distance``|pc|:math:`d\text{ (pc)}`|Stellar distance
 ``dmass``|solar|:math:`M_\mathrm{weight}`|Bayesian mass weight
-``dnuAsf``|solar|:math:`\Delta \nu_\mathrm{Sharma22}\text{ (}\mu\text{Hz)}`|Large frequency separation corrected following Sharma+22
-``dnufit``|microHz|:math:`\Delta \nu_\mathrm{fit}\text{ (}\mu\text{Hz)}`|Large frequency separation from linear fit to individual :math:`\ell=0` modes
-``dnufitMos12``|microHz|:math:`\Delta \nu_\mathrm{fit}\text{ (}\mu\text{Hz)}`|Large frequency separation from linear fit to individual :math:`\ell=0` modes (Mosser et al 12)
+``dnuAsf``|solar|:math:`\Delta \nu_\mathrm{Asfgrid}\text{ (}\mu\text{Hz)}`|Large frequency separation corrected with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022
+``dnufit``|microHz|:math:`\Delta \nu_\mathrm{fit}\text{ (}\mu\text{Hz)}`|Large frequency separation from linear fit to individual  :math:`\ell=0` modes
+``dnufitMos12``|microHz|:math:`\Delta \nu_\mathrm{fit}\text{ (}\mu\text{Hz)}`|Large frequency separation from linear fit to individual  :math:`\ell=0` modes (Mosser et al. 2012)
 ``dnuscal``|solar|:math:`\Delta \nu_\mathrm{scaling}\text{ (}\mu\text{Hz)}`|Large frequency separation from scaling relations
-``dnuSer``|solar|:math:`\Delta \nu_\mathrm{Serenelli 17}`|Large frequency separation corrected following Serenelli+17
+``dnuSer``|solar|:math:`\Delta \nu_\mathrm{Serenelli 17}`|Large frequency separation corrected following Serenelli et al. 2017
 ``epsfit``||:math:`\epsilon_\mathrm{fit}`|Dimensionless frequency offset
-``epsfitMos12``||:math:`\epsilon_\mathrm{fit}`|Dimensionless frequency offset (Mosser et al 12)
-``errflagSer``||:math:`\text{error}_\mathrm{flag}\text{ (Serenelli 17)}`|Error output of the corrections from Serenelli+17
+``epsfitMos12``||:math:`\epsilon_\mathrm{fit}`|Dimensionless frequency offset (Mosser et al. 12)
+``errflagSer``||:math:`\text{error}_\mathrm{flag}\text{ (Serenelli 17)}`|Error output of the corrections from Serenelli et al. 2017
 ``eta``||:math:`\eta`|Reimers mass loss
-``fdnuAsf``||:math:`\text{f}_{\Delta \nu}\text{ (Sharma 22)}`|Correction factor for large frequency separation from Sharma+22
-``fdnuSer``||:math:`\text{f}_\Delta \nu\text{ (Serenelli 17)}`|Correction factor for large frequency separatoin from Serenelli+17
+``fdnuAsf``||:math:`\text{f}_{\Delta \nu}\text{ (Asfgrid)}`|Correction factor for large frequency separation with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022
+``fdnuSer``||:math:`\text{f}_\Delta \nu\text{ (Serenelli 17)}`|Correction factor for large frequency separatoin from Serenelli et al. 2017
 ``FeH``|dex|[Fe/H] (dex)|Iron abundance
 ``FeHini``|dex|:math:`\text{[Fe/H]}_\mathrm{ini}\text{ (dex)}`|Initial iron abundance
 ``Gconst``|cm3/gs2|G|Gravitational constant
@@ -35,8 +35,8 @@ Key|Unit|Parameter|Description
 ``MMaxNucE``||:math:`\text{M}_\mathrm{max}(\epsilon)\text{ (m/M)}`|Mass coordinate of maximum energy generation
 ``modnum``||Model|Model number
 ``numax``|solar|:math:`\nu_\mathrm{max}\text{ (}\mu\text{Hz)}`|Frequency of maximum oscillation power
-``numaxAsf``|solar|:math:`\nu_\mathrm{max,\,Sharma22}\text{ (}\mu\text{Hz)}`|Frequency of maximum oscillation power corrected following Sharma+22
-``nummodSer``||:math:`\text{N}_\mathrm{modes}\text{ (Serenelli 17)}`|Number of modes used in the corrections from Serenelli+17
+``numaxAsf``|solar|:math:`\nu_\mathrm{max,\,Asfgrid}\text{ (}\mu\text{Hz)}`|Frequency of maximum oscillation power corrected with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022
+``nummodSer``||:math:`\text{N}_\mathrm{modes}\text{ (Serenelli 17)}`|Number of modes used in the corrections from Serenelli et al. 2017
 ``ove``||:math:`\xi_\mathrm{ove}`|Overshooting efficiency
 ``phase``||Phase|Evolutionary phase: 1) hydrogen or 2) helium burning
 ``PS``|s|:math:`\Delta \Pi\text{ (s)}`|Asymptotic period spacing
@@ -48,7 +48,7 @@ Key|Unit|Parameter|Description
 ``rho``|g/cm3|:math:`\rho\text{ (g/cm}^3\text{)}`|Mean stellar density
 ``rhocen``|g/cm3|:math:`\rho_\mathrm{cen}\text{ (g/cm}^3\text{)}`|Central density
 ``RMaxNucE``||:math:`\text{R}_\mathrm{max}(\epsilon)\text{ (r/R)}_\mathrm{phot}`|Radius coordinate of maximum energy generation
-``TAMS``||TAMS|Terminal age main sequence (X:math:`_\mathrm{cen}` <1e-5)
+``TAMS``||TAMS|Age scaled by TAMS (terminal age of main sequence, X :math:`_\mathrm{cen}` <1e-5)
 ``tau0``|s|:math:`\tau\text{ (s)}`|Acoustic radius
 ``taubcz``|s|:math:`\tau_\mathrm{bcz,\,integration}\text{ (s)}`|Acoustic depth of the base the convective envelope by integration
 ``tauhe``|s|:math:`\tau_\mathrm{He,\,integration}\text{ (s)}`|Acoustic depth of the helium ionization zone by integration
@@ -56,7 +56,7 @@ Key|Unit|Parameter|Description
 ``TPS``|s|t|to be completed
 ``xcen``||:math:`\text{X}_\mathrm{cen}`|Central hydrogen fraction
 ``xini``||:math:`\text{X}_\mathrm{ini}`|Initial hydrogen fraction
-``xsur``||:math:`X_\mathrm{sur}`|Surface hydrogen fraction
+``xsur``||:math:`\text{X}_\mathrm{sur}`|Surface hydrogen fraction
 ``ycen``||:math:`\text{Y}_\mathrm{cen}`|Central helium fraction
 ``yini``||:math:`\text{Y}_\mathrm{ini}`|Initial helium fraction
 ``ysur``||:math:`\text{Y}_\mathrm{sur}`|Surface helium fraction
