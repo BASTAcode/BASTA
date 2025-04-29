@@ -95,29 +95,78 @@ def _bastamain(
     #### PREPARE DISTANCE FITTING AND FREQUENCY FITTING, IF REQUIRED ####
 
     # Get list of parameters
-    #cornerplots = plotconfig.cornerplots
-    #outparams = outputoptions.asciiparams
-    #allparams = list(np.unique(cornerplots + outparams))
+    # cornerplots = plotconfig.cornerplots
+    # outparams = outputoptions.asciiparams
+    # allparams = list(np.unique(cornerplots + outparams))
 
     #### PREPARE STAR ####
     # star = setup_star()
+    """
+    def setup_star(inputstar=inputstar, inferencesettings=inferencesettings, filepaths=filepaths, outputoptions=outputoptions):
+        absolutemagnitudes = util.prepare_distancefitting(
+            star=star,
+            inferencesettings=inferencesettings,
+            filepaths=filepaths,
+            outputoptions=outputoptions,
+            ):
 
-    absolutemagnitudes, allparams = util.prepare_distancefitting(
-        star=star,
-        inferencesettings=inferencesettings,
-        filepaths=filepaths,
-        outputoptions=outputoptions,
-        allparams=allparams,
+
+    # start by 'prepare_seismic':
+
+        frequencies = core.IndividualFrequencies(
+                 l: np.ndarray  # [int]
+    n: np.ndarray  # [int]
+    frequencies: np.ndarray  # [float]
+    errors: np.ndarray  # [float]
+
+    surfacecorrection: dict[str, Any] | None = None
+    # bexp: None | float = None -> this should be in surfacecorrection
+
+    obsintervals: np.ndarray | None = None
+
+    correlations: bool | int = False
+    seismicweights: dict[str, Any]
     )
+    ratios = core.Ratios(
+            ratios=
+            fit=,
+            covariance=)
+    glitches = core.Glitches(
+            glitches
+            ratios
+            covariance)
+    epsilondifferences = core.EpsilonDifferences(
+            differences
+                    frequencies: np.ndarray# [float]
+            l: np.ndarray# [int]
+            n: np.ndarray
+            covariance)
+
+
+        # First move stuff from inputstar to star
+        star = core.Star(
+                starid,
+                classical: ClassicalParameters
+    globalseismic: GlobalSeismicParameters
+    distance: DistanceParameters
+
+    frequencies: IndividualFrequencies | None = None
+    ratios: Ratios | None = None
+    glitches: Glitches | None = None
+    epsilondifferences
+    limits)
+
+        # then
 
     # Scale dnu and numax using a solar model or default solar values
-    su.solar_scaling(
-        Grid,
-        star=star,
-        inferencesettings=inferencesettings,
-        gridinfo=gridinfo,
-        outputoptions=outputoptions,
-    )
+        su.solar_scaling(
+            Grid,
+            star=star,
+            inferencesettings=inferencesettings,
+            gridinfo=gridinfo,
+            outputoptions=outputoptions,
+        )
+    """
 
     # Prepare asteroseismic quantities if required
     if star.seismicparams.has_any_case:
@@ -165,10 +214,7 @@ def _bastamain(
 
     if "phase" in star.classicalparams.params.keys():
         iphases = (
-            [
-                constants.phasemap.map[ip]
-                for ip in star.classical.params["phase"][0]
-            ]
+            [constants.phasemap.map[ip] for ip in star.classical.params["phase"][0]]
             if isinstance(star.classical.params["phase"], tuple)
             else [constants.phasemap.map[star.classical.params["phase"]]]
         )
@@ -191,7 +237,10 @@ def _bastamain(
 
     # In some cases we need to store quantities computed at runtime
     # TODO(Amalie) Why do we need this? Is this the right logic?
-    if star.seismicparams.has_any_seismic_case and star.seismicparams.ratios.dnufit_in_ratios:
+    if (
+        star.seismicparams.has_any_seismic_case
+        and star.seismicparams.ratios.dnufit_in_ratios
+    ):
         dnusurfmodels = {}
     if star.seismicparams.has_glitches:
         glitchmodels = {}
