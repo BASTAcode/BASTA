@@ -775,20 +775,23 @@ def run_xml(
     useoptoutput = bool(optoutput)
 
     # Get priors
-    limits = {}
-    usepriors = []
+    priors = {}
     for param in root.findall("default/priors/"):
         if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
-            limits[param.tag] = [
+            priors[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
                 float(param.attrib.get("abstol", np.inf)),
                 float(param.attrib.get("sigmacut", np.inf)),
             ]
         elif param.tag == "IMF":
-            usepriors.append("salpeter1955")
+            priors['imf'] = "salpeter1955"
+        elif param.tag in ["salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003"]:
+            priors['imf'] = param.tag
         else:
-            usepriors.append(param.tag)
+            raise ValueError
+    if inputparams["fitfreqs"]["dnufrac"] is not None:
+        priors['dnufrac'] = {"dnufrac": inputparams["fitfreqs"]["dnufrac"]}
 
     # Get interpolation if requested (and if available!), otherwise empty dictionary
     if root.find("default/interpolation"):
@@ -1137,30 +1140,14 @@ def run_xml(
                         params=numaxdnuparams,
                         )
                 frequencies = core.IndividualFrequencies(
-                    freqpath=inputparams["fitfreqs"]["freqpath"],
-                    freqfile=inputparams["fitfreqs"]["freqfile"],
-                    surfacecorrection=inputparams["fitfreqs"]["fcor"],
-                    bexp=inputparams["fitfreqs"]["bexp"],
-                    correlations=inputparams["fitfreqs"]["correlations"],
-                    seismicweights=inputparams["fitfreqs"]["seismicweights"],
-                    nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
-                    excludemodes=inputparams["fitfreqs"]["excludemodes"],
-                    onlyradial=inputparams["fitfreqs"]["onlyradial"],
                 )
                 ratios = core.Ratios(
                     # TODO(Amalie) This is not fully right
                     fittypes=inputparams["fitfreqs"]["fittypes"],
-                    readratios=inputparams["fitfreqs"]["readratios"],
-                    threepoint=inputparams["fitfreqs"]["threepoint"],
-                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
-                    dnufit_in_ratios=inputparams["fitfreqs"]["dnufit_in_ratios"],
                 )
                 glitches = core.Glitches(
                     # TODO(Amalie) This is not fully right
                     fittypes=inputparams["fitfreqs"]["fittypes"],
-                    nrealizations=inputparams["fitfreqs"]["nrealizations"],
-                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
-                    glitchfile=inputparams["fitfreqs"]["glitchfile"],
                 )
                 epsilondifferences = core.EpsilonDifferences(
                     # TODO(Amalie) This is not fully right
@@ -1207,16 +1194,32 @@ def run_xml(
                         else None
                     ),
                 )
-                star = core.Star(
+                star = core.InputStar(
                     starid=starid,
                     classicalparams=classicalparams,
                     globalseismicparams=globalseismicparams,
-                    seismicparams=seismicparams,
                     distanceparams=distparams,
+                    freqpath=inputparams["fitfreqs"]["freqpath"],
+                    freqfile=inputparams["fitfreqs"]["freqfile"],
+                    surfacecorrection=inputparams["fitfreqs"]["fcor"],
+                    bexp=inputparams["fitfreqs"]["bexp"],
+                    correlations=inputparams["fitfreqs"]["correlations"],
+                    seismicweights=inputparams["fitfreqs"]["seismicweights"],
+                    nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
+                    excludemodes=inputparams["fitfreqs"]["excludemodes"],
+                    onlyradial=inputparams["fitfreqs"]["onlyradial"],
+                    readratios=inputparams["fitfreqs"]["readratios"],
+                    threepoint=inputparams["fitfreqs"]["threepoint"],
+                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
+                    dnufit_in_ratios=inputparams["fitfreqs"]["dnufit_in_ratios"],
+                    nrealizations=inputparams["fitfreqs"]["nrealizations"],
+                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
+                    glitchfile=inputparams["fitfreqs"]["glitchfile"],
+                    nsorting=inputparams["fitfreqs"]["nsorting"],
+                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
+                    dnubias=inputparams["fitfreqs"]["dnubias"],
+
                 )
-                priors = {
-                          'dnufit': core.PriorEntry(priorid='dnufrac', kwargs={'dnufrac': inputparams["fitfreqs"]["dnufrac"]}),
-                          }
                 for param in root.findall("default/priors/"):
                     param_name = param.tag
                     kwargs = {}
@@ -1231,6 +1234,9 @@ def run_xml(
                         priorid=param_name,
                         kwargs=kwargs if kwargs else {}
                     )
+                # Add dnufrac to priors
+                if inputparams["fitfreqs"]["dnufrac"] is not None:
+                    priors['dnufrac'] = {"dnufrac": inputparams["fitfreqs"]["dnufrac"]}
                 inferencesettings = core.InferenceSettings(
                     gridfile=gridfile,
                     gridid=gridid,
@@ -1242,8 +1248,6 @@ def run_xml(
                         "numax": inputparams["numsun"],
                         "dnu": inputparams["dnusun"],
                     },
-                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
-                    dnubias=inputparams["fitfreqs"]["dnubias"],
                 )
                 plotconfig = core.PlotConfig(
                     nameinplot=inputparams["nameinplot"],

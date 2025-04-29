@@ -244,7 +244,7 @@ def get_absorption(EBV: np.ndarray, fitparams: dict, filt: str) -> np.ndarray:
 
 
 def add_absolute_magnitudes(
-    star: core.Star,
+    star: core.InputStar,
     filepaths: core.FilePaths,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,

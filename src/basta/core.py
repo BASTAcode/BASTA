@@ -139,88 +139,6 @@ class GlobalSeismicParameters:
         return self.scaled_params[key].scaled
 
 
-@dataclass(kw_only=True)
-class InputIndividualFrequencies:
-    # TODO(Amalie) clean and add context
-    # TODO(Amalie) get_frequencies: dict = {freqpath:, freqfile}
-    freqpath: str
-    freqfile: str
-    # TODO(Amalie) surfacecorrection: use typeddicts per surfacecorrection for numax/bexp
-    surfacecorrection: str  # fcor
-    bexp: None | float = None
-    # TODO(Amalie) Rewrite so these are only read from fitfreqs/GlobalSeismic instead of duplicated
-    # dnufit: float
-    # dnufit_err: float
-    # numax: float
-    correlations: bool | int = False
-    seismicweights: dict[str, Any]
-    # TODO(Amalie)
-    # remove_frequencies: dict = {nottrustedfile: nottrustedfile, excludemodes, onlyradial, onlyls}
-    nottrustedfile: str | None = None
-    excludemodes: bool | None = None
-    onlyradial: bool | None = None
-
-
-@dataclass(kw_only=True, frozen=True)
-class InputRatios:
-    fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
-
-    readratios: bool | int = False
-    threepoint: bool | int = False
-    interp_ratios: bool | int = True
-    dnufit_in_ratios: bool | int = False
-
-
-@dataclass(kw_only=True, frozen=True)
-class InputGlitches:
-    fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
-    glitchfit: bool = False
-    glitchfile: str | None = None
-    nrealizations: int = 10000
-
-
-@dataclass(kw_only=True, frozen=True)
-class InputEpsilonDifferences:
-    fittypes: list[Literal["e01", "e012", "e02"]]
-    nsorting: bool | int = True
-
-
-@dataclass(kw_only=True)
-class SeismicParameters:
-    #TODO(Amalie) I will probably remove this
-    frequencies: IndividualFrequencies | None = None
-    ratios: Ratios | None = None
-    glitches: Glitches | None = None
-    epsilondifferences: EpsilonDifferences | None = None
-
-    @property
-    def has_frequencies(self) -> bool:
-        return self.frequencies is not None
-
-    @property
-    def has_ratios(self) -> bool:
-        return self.ratios is not None
-
-    @property
-    def has_glitches(self) -> bool:
-        return self.glitches is not None
-
-    @property
-    def has_epsilondifferences(self) -> bool:
-        return self.epsilondifferences is not None
-
-    @property
-    def has_any_case(self) -> bool:
-        return any(
-            (
-                self.has_frequencies,
-                self.has_ratios,
-                self.has_glitches,
-                self.has_epsilondifferences,
-            )
-        )
-
-
 class AbsoluteMagnitude(TypedDict):
     """
     Dictionary specifying the prior and uncertainties for an absolute magnitude in a given filter.
@@ -290,36 +208,6 @@ class DistanceParameters:
     EBV: list[Any]
 
 
-@dataclass(kw_only=True, frozen=True)
-class InputStar:
-    """
-    Main container for all relevant observational and input data for a single star.
-
-    This class bundles classical parameters, global and detailed seismic parameters,
-    and distance-related data for use in a BASTA inference run.
-
-    Parameters
-    ----------
-    starid : str
-        Unique identifier for the star.
-    classicalparams : ClassicalParameters
-        Classical observational parameters such as effective temperature or metallicity.
-    globalseismicparams : GlobalSeismicParameters
-        Global seismic observables like `numax` and `dnu`.
-    seismicparams : SeismicParameters
-        Detailed seismic diagnostics including frequencies, ratios, glitches, and more.
-    distanceparams : DistanceParameters
-        Information related to the star's distance, magnitudes, and extinction.
-    """
-
-    starid: str
-    # Allowed parameter keys can be found `basta.constants` in `parameters.params`
-    classicalparams: ClassicalParameters
-    globalseismicparams: GlobalSeismicParameters
-    seismicparams: SeismicParameters
-    distanceparams: DistanceParameters
-
-
 @dataclass(kw_only=True)
 class IndividualFrequencies:
     l: np.ndarray  # [int]
@@ -376,6 +264,8 @@ class EpsilonDifferences:
 class Star:
     starid : str
 
+    limits: dict[str, tuple[float, float]] | None = None
+
     classical: ClassicalParameters
     globalseismic: GlobalSeismicParameters
     distance: DistanceParameters
@@ -411,8 +301,6 @@ class Star:
                 self.has_epsilondifferences,
             )
         )
-
-    limits: dict[str, tuple[float, float]] | None = None
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -542,10 +430,49 @@ class FilePaths:
         return path
 
 
+@dataclass(kw_only=True, frozen=True)
+class InputStar:
+    classicalparams: dict[str, Fitparam]
+    globalseismicparams: dict[str, Fitparam]
+    distanceparams: DistanceParameters
+
+    freqpath: str
+    freqfile: str
+
+    surfacecorrection: str | None = None
+    bexp: None | float = None
+
+    correlations: bool | int = False
+    seismicweights: dict[str, Any]
+
+    nottrustedfile: str | None = None
+    excludemodes: bool | None = None
+    onlyradial: bool | None = None
+    #fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
+
+    readratios: bool | int = False
+    threepoint: bool | int = False
+    interp_ratios: bool | int = True
+    dnufit_in_ratios: bool | int = False
+
+    # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
+    glitchfit: bool = False
+    glitchfile: str | None = None
+    nrealizations: int = 10000
+
+    # fittypes: list[Literal["e01", "e012", "e02"]]
+    nsorting: bool | int = True
+
+    # TODO(Amalie) Consider removing entirely
+    dnuprior: bool | int = True
+    dnubias: float = 0.0
+
+
 @dataclass(kw_only=True)
 class PriorEntry:
     kwargs: dict[str, Any]
     limits: list[float] | None = None
+
 
 @dataclass(kw_only=True)
 class InferenceSettings:
@@ -572,25 +499,21 @@ class InferenceSettings:
     priors : tuple or list of str, optional
         Priors to apply during the inference (e.g. an IMF, metallicity priors).
     """
+    fitparams: list[str]
 
-    gridfile: str
     seed: int
 
-    solarvalues: dict[
-        str, float
-    ]  #  = {"numax": constants.sydsun.SUNnumax, "dnu": constants.sydsun.SUNdnu}
-    solarmodel: str = ""
+    gridfile: str
     gridid: tuple[float, float, float, float] | None = None
+    solarvalues: dict[str, float]
+    solarmodel: str = ""
 
     usebayw: bool = True
     imf: Literal["IMF", "salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003"] = "salpeter1955"
     boxpriors: dict[str, PriorEntry]
+    #TODO(Amalie) consider dnufrac in get_input
+    # boxpriors = {"dnufrac": dnufrac, } -> star.limits
     dnufrac: float = 0.15
-
-    # TODO(Amalie) Consider removing entirely
-    dnuprior: bool | int = True
-    dnubias: float = 0.0
-
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -638,8 +561,7 @@ class PlotConfig:
     ----------
 
     """
-
     nameinplot: str
-    kielplots: list
-    cornerplots: list
-    freqplots: list
+    kielplots: list[str]
+    cornerplots: list[str]
+    freqplots: list[str]

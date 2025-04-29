@@ -76,7 +76,7 @@ def extract_solar_model_dnu(
 
 def solar_scaling(
     Grid: h5py.File,
-    star: core.Star,
+    globalseismic: core.GlobalSeismicParameters,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
     gridinfo: util.GridInfo,
@@ -121,10 +121,9 @@ def solar_scaling(
     # TODO(Amalie) remember to scale limits that depend on dnu/numax!
 
     scalefactors = {}
-    fitparams = star.globalseismicparams
 
     already_scaled = ["dnufit", "dnufitMos12"]
-    for key in fitparams.params.keys():
+    for key in globalseismic.params.keys():
         if key.startswith("numax"):
             factor = 1 / solarvalues["numax"]
         elif key.startswith("dnu") and key not in already_scaled:
@@ -138,7 +137,7 @@ def solar_scaling(
         if key not in already_scaled:
             if outputoptions.verbose:
                 print(
-                    f"  - {key}: {fitparams.get_original(key)[0]:.2f} → {fitparams.get_original(key)[0]*factor:.6f} (solar units)"
+                    f"  - {key}: {globalseismic.get_original(key)[0]:.2f} → {globalseismic.get_original(key)[0]*factor:.6f} (solar units)"
                 )
 
     # Read the user-set flag: Should the scaling be activated?
@@ -172,13 +171,13 @@ def solar_scaling(
                 # This number is used as the scaling factor of solar-unit input dnu's
                 scalefactors[key] *= sunmoddnu[key]
 
-    star.globalseismicparams.set_scalefactor(scalefactors)
-    star.globalseismicparams.set_scaled()
+    globalseismicparams.set_scalefactor(scalefactors)
+    globalseismicparams.set_scaled()
 
-    if star.globalseismicparams.scaled_params is not None:
-        for key in star.globalseismicparams.scaled_params.keys():
-            orig = fitparams.get_original(key)[0]
-            scaled = fitparams.get_scaled(key)[0]
+    if globalseismicparams.scaled_params is not None:
+        for key in globalseismicparams.scaled_params.keys():
+            orig = globalseismic.get_original(key)[0]
+            scaled = globalseismic.get_scaled(key)[0]
             if outputoptions.verbose:
                 if orig != scaled:
                     print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")
@@ -197,6 +196,7 @@ def solar_scaling(
 def prepare_obs(
     star: core.Star, plotconfig: core.PlotConfig, outputoptions: core.OutputOptions
 ):
+    #TODO DEPRECATED
     """
     Prepare frequencies and ratios for fitting
 
@@ -278,13 +278,13 @@ def prepare_obs(
     )
 
     # Compute the intervals used in frequency fitting
-    if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]):
+    if star.any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]):
         obsintervals = freq_fit.make_intervals(obs, obskey, dnu=fitfreqs["dnufit"])
     else:
         obsintervals = None
 
     print("Done!")
-    star.seismicparams.individualfrequencies.frequencies = core.ObservedFrequencies(
+    return (
         obskey=obskey,
         obs=obs,
         obsfreqdata=obsfreqdata,

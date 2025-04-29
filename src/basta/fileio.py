@@ -686,9 +686,10 @@ def _make_obsfreqs(
 
 
 def read_allseismic(
-        star: core.Star,
-    freqplots: list,
-    outputoptions: core.OutputOptions
+        star: core.InputStar,
+        inferensesettings: core.InferenceSettings,
+        outputoptions: core.OutputOptionsm,
+        plotconfig: core.PlotConfig,
 ) -> tuple[np.ndarray, np.ndarray, dict, dict]:
     """
     Routine to all necesary data from individual frequencies for the
@@ -737,10 +738,9 @@ def read_allseismic(
         obskey,
         obs,
         obscov,
-        fitfreqs["fittypes"],
-        freqplots,
-        numax=fitfreqs["numax"],
-        debug=debug,
+        inferencesettings.fitparams,
+        numax=star.globalseismicparams.get_scaled("numax"),
+        debug=outputoptions.debug,
     )
 
     # Add large frequency separation bias (default is 0)

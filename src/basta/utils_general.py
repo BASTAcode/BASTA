@@ -233,8 +233,8 @@ def prepare_distancefitting(
     inferencesettings: core.InferenceSettings,
     filepaths: core.FilePaths,
     outputoptions: core.OutputOptions,
-    allparams: list[str],
-) -> tuple[core.AbsoluteMagnitudes, list[str]]:
+) -> core.AbsoluteMagnitudes:
+    #TODO DEPRECATED
     # Add magnitudes and colors to fitparams if fitting distance
     absolutmagnitudes = distances.add_absolute_magnitudes(
         star=star,
@@ -242,7 +242,8 @@ def prepare_distancefitting(
         inferencesettings=inferencesettings,
         outputoptions=outputoptions,
     )
-
+    return absolutmagnitudes
+    """
     # TODO(Amalie): Why? I think we need a better overview of what is being fitted than this
     # If keyword present, add individual filters
     if "distance" in allparams:
@@ -251,6 +252,7 @@ def prepare_distancefitting(
         )
         allparams.remove("distance")
     return absolutmagnitudes, allparams
+    """
 
 
 def print_fitparams(fitparams: dict) -> None:

@@ -79,7 +79,7 @@ def _bastamain(
     outputoptions: core.OutputOptions,
     plotconfig: core.PlotConfig,
 ) -> None:
-    #### INITIALISATION ####
+    #### INITIALISATION OF BASTA RUN ####
     t0 = time.localtime()
     util.print_bastaheader(
         t0=t0, seed=inferencesettings.seed, developermode=outputoptions.developermode
@@ -91,90 +91,105 @@ def _bastamain(
     bayweights, dweight = util.read_bayesianweights(
         Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
     )
-    #### END INITIALISATION ####
-    #### PREPARE DISTANCE FITTING AND FREQUENCY FITTING, IF REQUIRED ####
-
-    # Get list of parameters
-    # cornerplots = plotconfig.cornerplots
-    # outparams = outputoptions.asciiparams
-    # allparams = list(np.unique(cornerplots + outparams))
 
     #### PREPARE STAR ####
-    # star = setup_star()
-    """
-    def setup_star(inputstar=inputstar, inferencesettings=inferencesettings, filepaths=filepaths, outputoptions=outputoptions):
-        absolutemagnitudes = util.prepare_distancefitting(
-            star=star,
-            inferencesettings=inferencesettings,
-            filepaths=filepaths,
-            outputoptions=outputoptions,
-            ):
+    # star = util.setup_star()
+    def setup_star(
+            inputstar: core.InputStar,
+            inferencesettings: core.InferenceSettings,
+            filepaths: core.FilePaths,
+            outputoptions: core.OutputOptions,
+            plotconfig: core.PlotConfig
+            ) -> core.Star:
 
-
-    # start by 'prepare_seismic':
-
-        frequencies = core.IndividualFrequencies(
-                 l: np.ndarray  # [int]
-    n: np.ndarray  # [int]
-    frequencies: np.ndarray  # [float]
-    errors: np.ndarray  # [float]
-
-    surfacecorrection: dict[str, Any] | None = None
-    # bexp: None | float = None -> this should be in surfacecorrection
-
-    obsintervals: np.ndarray | None = None
-
-    correlations: bool | int = False
-    seismicweights: dict[str, Any]
-    )
-    ratios = core.Ratios(
-            ratios=
-            fit=,
-            covariance=)
-    glitches = core.Glitches(
-            glitches
-            ratios
-            covariance)
-    epsilondifferences = core.EpsilonDifferences(
-            differences
-                    frequencies: np.ndarray# [float]
-            l: np.ndarray# [int]
-            n: np.ndarray
-            covariance)
-
-
-        # First move stuff from inputstar to star
-        star = core.Star(
-                starid,
-                classical: ClassicalParameters
-    globalseismic: GlobalSeismicParameters
-    distance: DistanceParameters
-
-    frequencies: IndividualFrequencies | None = None
-    ratios: Ratios | None = None
-    glitches: Glitches | None = None
-    epsilondifferences
-    limits)
-
-        # then
-
-    # Scale dnu and numax using a solar model or default solar values
+        classical = params=inputstar.classicalparams
+        globalseismic = inputstar.globalseismic
+        
         su.solar_scaling(
             Grid,
-            star=star,
+            globalseismic=globalseismic,
             inferencesettings=inferencesettings,
             gridinfo=gridinfo,
             outputoptions=outputoptions,
         )
-    """
+        if len(globalseismic.params.keys()) > 0:
+            assert globalseismic.scalefactors is not None
+        
+        if inferencesettings.has_any_seismic_cases:
+            obskey, obs, obscov = read_freq(
+                freqfile=star.seismicparams.individualfrequencies.freqfile,
+                excludemodes=star.seismicparams.individualfrequencies.excludemodes,
+                onlyradial=star.seismicparams.individualfrequencies.onlyradial,
+                covarfre=star.seismicparams.individualfrequencies.correlations,
+            )
 
-    # Prepare asteroseismic quantities if required
-    if star.seismicparams.has_any_case:
-        # Obtain/calculate all frequency related quantities
-        su.prepare_obs(star=star, plotconfig=plotconfig, outputoptions=outputoptions)
-        # TODO(Amalie) We just need a check of ls and a split into 'fit' and 'plot'
-        # and somewhere covariance and inverse covariance needs to be
-        # and obsinterval
+        obskey, obs, obsfreqdata, obsfreqmeta = fio.read_allseismic(
+            star=star, freqplots=freqplots, outputoptions=outputoptions
+        )
+
+        if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in inferencesettings.fitparams):
+            if "dnufit" in globalseismic.params.keys():
+                dnu = globalseismic.get_scaled("dnufit")
+            elif "numax" in globalseismic.params.keys():
+                dnu = compute_dnu_wfit(obskey, obs, numax=globalseismic.params.get_scaled("numax"))
+            else:
+                raise ValueError("Missing dnu")
+            obsintervals = freq_fit.make_intervals(obs, obskey, dnu=dnu)
+        else:
+            obsintervals = None
+
+
+        frequencies = core.IndividualFrequencies(
+                l=obskey[0, :],
+                n=obskey[1, :],
+                frequencies=obs[0, :],
+                errors=obs[1, :],
+                surfacecorrection=inputstar.surfacecorrection,
+                obsintervals=obsintervals,
+                correlations=inputstar.correlations,
+                seismicweights=inputstar.seismicweights,
+            )
+        ratios = core.Ratios(
+                ratios=
+                fit=,
+                covariance=)
+        glitches = core.Glitches(
+                glitches
+                ratios
+                covariance)
+        epsilondifferences = core.EpsilonDifferences(
+                differences
+                        frequencies: np.ndarray# [float]
+                l: np.ndarray# [int]
+                n: np.ndarray
+                covariance)
+
+        # Fix distances
+        absolutmagnitudes, distancelimits = distances.add_absolute_magnitudes(
+                star=inputstar,
+                filepaths=filepaths,
+                inferencesettings=inferencesettings,
+                outputoptions=outputoptions,
+                )
+
+        # limits
+
+
+        # First move stuff from inputstar to star
+        star = core.Star(
+                starid=inputstar.starid,
+                limits=limits,
+                classical=classical,
+                globalseismic=globalseismic,
+                distance=distance,
+                frequencies=frequencies,
+                ratios=ratios,
+                glitches=glitches,
+                epsilondifferences=epsilondifferences
+                )
+
+        return star
+
 
     #### END PREPARATION ####
     #### SET-UP PRIORS ####

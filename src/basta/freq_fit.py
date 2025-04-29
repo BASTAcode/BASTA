@@ -17,6 +17,7 @@ Individual frequencies
 
 
 def compute_dnu_wfit(obskey, obs, numax):
+    #TODO(Amalie) Rename and use
     """
     Compute large frequency separation weighted around numax, the same way as dnufit.
     Coefficients based on White et al. 2011.
