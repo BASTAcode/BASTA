@@ -45,7 +45,7 @@ def BASTA(
 ):
     """
     The BAyesian STellar Algorithm (BASTA).
-    (c) 2024, The BASTA Team
+    (c) 2025, The BASTA Team
 
     For a description of how to use BASTA, please explore the documentation (https://github.com/BASTAcode/BASTA).
     This function is typically called by :func:'xmltools.run_xml()'
