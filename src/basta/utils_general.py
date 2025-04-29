@@ -11,10 +11,11 @@ from typing import IO, Literal, NamedTuple, TypedDict
 
 import h5py  # type: ignore[import]
 import numpy as np
+import scipy.linalg  # type: ignore[import]
 
-from basta import core, distances, errors
+from basta import core, constants, distances, errors, freq_fit, glitch_fit
+from basta import fileio as fio
 from basta.__about__ import __version__
-from basta.constants import freqtypes
 
 
 def prt_center(text: str, llen: int) -> None:
@@ -184,7 +185,7 @@ def get_grid(
 
 
 def print_targetinformation(starid: str) -> None:
-    print(f"\nFitting star id: {star.starid}.")
+    print(f"\nFitting star id: {starid}.")
 
 
 def read_bayesianweights(
@@ -229,12 +230,12 @@ def read_bayesianweights(
 
 
 def prepare_distancefitting(
-    star: core.Star,
+    star: core.InputStar,
     inferencesettings: core.InferenceSettings,
     filepaths: core.FilePaths,
     outputoptions: core.OutputOptions,
 ) -> core.AbsoluteMagnitudes:
-    #TODO DEPRECATED
+    # TODO DEPRECATED
     # Add magnitudes and colors to fitparams if fitting distance
     absolutmagnitudes = distances.add_absolute_magnitudes(
         star=star,
@@ -273,13 +274,13 @@ def print_seismic(fitfreqs: dict, obskey: np.ndarray, obs: np.ndarray) -> None:
         return
     if "freqs" in fitfreqs["fittypes"]:
         print("* Fitting of individual frequencies activated!")
-    elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
+    elif any(x in constants.freqtypes.rtypes for x in fitfreqs["fittypes"]):
         print(f"* Fitting of frequency ratios {fitfreqs['fittypes']} activated!")
         if "r010" in fitfreqs["fittypes"]:
             print(
                 "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
             )
-    elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+    elif any(x in constants.freqtypes.glitches for x in fitfreqs["fittypes"]):
         print(f"* Fitting of glitches {fitfreqs['fittypes']} activated using:")
         print(f"  - Method: {fitfreqs['glitchmethod']}")
         print(f"  - Parameters in smooth component: {fitfreqs['npoly_params']}")
@@ -288,7 +289,7 @@ def print_seismic(fitfreqs: dict, obskey: np.ndarray, obs: np.ndarray) -> None:
         print(f"  - Regularization parameter: {fitfreqs['regu_param']}")
         print(f"  - Initial guesses: {fitfreqs['nguesses']}")
         print("* General frequency fitting configuration:")
-    elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
+    elif any(x in constants.freqtypes.epsdiff for x in fitfreqs["fittypes"]):
         print(f"* Fitting of epsilon differences {fitfreqs['fittypes']} activated!")
 
     # Translate True/False to Yes/No
@@ -367,7 +368,7 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
 
 
 def print_additional(star: core.Star) -> None:
-    if "phase" in star.classicalparams.params.keys():
+    if "phase" in star.classical.params.keys():
         print("* Fitting evolutionary phase!")
     # TODO(Amalie) check that this points at the right things
     print("\nAdditional input parameters and settings in alphabetical order:")
@@ -386,12 +387,12 @@ def print_additional(star: core.Star) -> None:
         "excludemodes",
         "numax",
     ]
-    for ip in sorted(star.classicalparams.params.keys()):
+    for ip in sorted(star.classical.params.keys()):
         assert ip not in [
             "warnoutput",
         ]
         if ip not in noprint:
-            print(f"* {ip}: {star.classicalparams.params[ip]}")
+            print(f"* {ip}: {star.classical.params[ip]}")
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
@@ -538,6 +539,7 @@ def compare_output_to_input(
     star: core.Star,
     absolutemagnitudes: core.AbsoluteMagnitudes,
     runfiles: core.RunFiles,
+    inferencesettings: core.InferenceSettings,
     hout,
     out,
     hout_dist,
@@ -576,7 +578,7 @@ def compare_output_to_input(
     """
     if runfiles.warnoutput is None:
         return False
-    fitparams = star.fitparams
+    fitparams = star.classical.params
     warnfile = runfiles.warnoutput
     comparewarn = False
     ps = []
@@ -822,18 +824,221 @@ def compute_group_names(
 
 
 def should_skip_track(
-    libitem, name: str, noingrid: int, inferencesettings: core.InferenceSettings
+    libitem, name: str, noingrid: int, star: core.Star
 ) -> bool:
     """
     Return True if a track should be skipped based on prior limits.
     """
-    print(name)
     param, val = name.split("=")
     if param == "mass":
         param += "ini"
 
-    priors = inferencesettings.priors
-    for prior in priors:
-        if prior.limits is not None:
-            return not (prior.limits[0] <= float(val) <= prior.limits[1])
+    limits = star.limits
+    #TODO(Amalie this does not work
+    """
+    if limits not is None:
+        for limit in limits:
+            if limit is not None:
+                assert isinstance(limit, tuple(float, float))
+                return not (limit[0] <= float(val) <= limit[1])
+    """
     return False
+
+
+def add_bias_to_dnuerror(globalseismicparams, inputstar, dnu="dnufit"):
+    if inputstar.dnubias == 0.0:
+        return
+    dnu_value, dnu_error = globalseismicparams.params[dnu]
+    new_dnu_error = np.sqrt(dnu_error**2.0 + inputstar.dnubias**2.0)
+    print(
+        f"Added a given systematic increase of uncertainty in dnu of {inputstar.dnubias}"
+    )
+    print(f"Increases uncertainty from {dnu_error:.3f} µHz to {new_dnu_error:.3f} µHz")
+    globalseismicparams.params[dnu][1] = new_dnu_error
+
+
+def compute_inverse_covariancematrix(covariance: np.ndarray, inputstar: core.InputStar):
+    if not inputstar.correlations:
+        cov = np.diag(np.diag(covariance))
+
+    try:
+        # Compute Cholesky factorization
+        c_factor = scipy.linalg.cho_factor(cov, lower=True, check_finite=False)
+        covinv = scipy.linalg.cho_solve(c_factor, np.eye(cov.shape[0]), check_finite=False)
+    except np.linalg.LinAlgError:
+        covinv = np.linalg.pinv(cov, rcond=1e-8)
+
+    return covinv
+
+
+def get_frequencies_and_intervals(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    globalseismicparams: core.GlobalSeismicParameters,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+):
+    if not any(
+        x in [*constants.freqtypes.freqs, *constants.freqtypes.rtypes]
+        for x in inferencesettings.fitparams
+    ):
+        return None, None
+
+    if "dnufit" in globalseismicparams.params:
+        dnu = globalseismicparams.get_scaled("dnufit")
+    elif "numax" in globalseismicparams.params:
+        dnu = freq_fit.compute_dnu_wfit(
+            obskey=obskey, obs=obs, numax=globalseismicparams.get_scaled("numax")
+        )
+    else:
+        raise ValueError("Missing dnu")
+
+    obsintervals = freq_fit.make_intervals(obs, obskey, dnu=dnu)
+
+
+    frequencies = core.IndividualFrequencies(
+        l=obskey[0, :],
+        n=obskey[1, :],
+        frequencies=obs[0, :],
+        errors=obs[1, :],
+        surfacecorrection=inputstar.surfacecorrection,
+        obsintervals=obsintervals,
+        correlations=inputstar.correlations,
+        seismicweights=inputstar.seismicweights,
+    )
+    return frequencies, obsintervals
+
+
+def get_ratios(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+):
+    if not any(np.isin(constants.freqtypes.rtypes, fit_plot_params)):
+        return None
+
+    ratios_dict: dict[str, core.Ratio] = {}
+    for ratiotype in constants.freqtypes.rtypes:
+        if ratiotype not in fit_plot_params:
+            continue
+
+        if inputstar.readratios:
+            datos = fio._read_precomputed_ratios_xml(
+                filename=inputstar.freqfile,
+                ratiotype=ratiotype,
+                obskey=obskey,
+                obs=obs,
+                excludemodes=inputstar.nottrustedfile,
+                correlations=bool(inputstar.correlations),
+            )
+        else:
+            datos = freq_fit.compute_ratios(
+                obskey, obs, ratiotype, threepoint=inputstar.threepoint
+            )
+
+        if datos is None:
+            if ratiotype in inferencesettings.fitparams:
+                raise ValueError(
+                    f"Fitting parameter {ratiotype} could not be computed."
+                )
+            datos = (None, None)
+
+        covinv = compute_inverse_covariancematrix(covariance=datos[1], inputstar=inputstar)
+
+        ratios_dict[ratiotype] = core.Ratio(ratios=datos[0], inverse_covariance=covinv)
+
+    return core.Ratios(ratios=ratios_dict)
+
+
+def get_glitches(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    globalseismicparams: core.GlobalSeismicParameters,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
+    if not any(np.isin(constants.freqtypes.glitches, fit_plot_params)):
+        return None
+
+    glitches_dict: dict[str, core.Glitch] = {}
+    for glitchtype in constants.freqtypes.glitches:
+        if glitchtype not in fit_plot_params:
+            continue
+
+        if inputstar.readratios:
+            assert inputstar.glitchfile is not None
+            datos = fio._read_precomputed_glitches(
+                filename=inputstar.glitchfile,
+                type=glitchtype,
+            )
+        else:
+            datos = glitch_fit.compute_observed_glitches(
+                osckey=obskey,
+                osc=obs,
+                sequence=glitchtype,
+                dnu=globalseismicparams.get_scaled("dnufit")[0],
+                fitfreqs={"threepoint": inputstar.threepoint, "nrealisations": inputstar.nrealizations,}, 
+                debug=outputoptions.debug,
+            )
+
+        if datos is None:
+            if glitchtype in inferencesettings.fitparams:
+                raise ValueError(
+                    f"Fitting parameter {glitchtype} could not be computed."
+                )
+            datos = (None, None)
+
+        covinv = compute_inverse_covariancematrix(datos[1], inputstar=inputstar)
+
+        glitches_dict[glitchtype] = core.Glitch(glitches=datos[0], inverse_covariance=covinv)
+    return core.Glitches(glitches=glitches_dict)
+
+
+def get_epsilondifferences(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    globalseismicparams: core.GlobalSeismicParameters,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
+    if not any(np.isin(constants.freqtypes.epsdiff, fit_plot_params)):
+        return None
+
+    epsilondiff_dict: dict[str, core.EpsilonDifference] = {}
+    for epsilondifftype in constants.freqtypes.epsdiff:
+        if epsilondifftype not in fit_plot_params:
+            continue
+
+        nrealisations = (
+            inputstar.nrealizations if epsilondifftype in inferencesettings.fitparams else 2000
+        )
+        datos = freq_fit.compute_epsilondiff(
+            osckey=obskey,
+            osc=obs,
+            avgdnu=globalseismicparams.get_scaled("dnufit")[0],
+            sequence=epsilondifftype,
+            nsorting=inputstar.nsorting,
+            nrealisations=nrealisations,
+            debug=outputoptions.debug,
+        )
+        if datos is None:
+            if epsilondifftype in inferencesettings.fitparams:
+                raise ValueError(
+                    f"Fitting parameter {epsilondifftype} could not be computed."
+                )
+            datos = (None, None)
+
+        covinv = compute_inverse_covariancematrix(datos[1], inputstar=inputstar)
+
+        epsilondiff_dict[epsilondifftype] = core.EpsilonDifference(
+            epsilondifferences=datos[0], inverse_covariance=covinv
+        )
+
+    return core.EpsilonDifferences(epsilondifferences=epsilondiff_dict)

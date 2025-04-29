@@ -15,6 +15,8 @@ from pathlib import Path
 from typing import Any, TypedDict, Literal
 import numpy as np
 
+from basta import constants
+
 
 Fitparam = tuple[float, float]
 
@@ -225,39 +227,31 @@ class IndividualFrequencies:
 
 
 @dataclass(kw_only=True)
+class Ratio:
+    ratios: np.ndarray
+    inverse_covariance: np.ndarray
+
+@dataclass(kw_only=True)
 class Ratios:
-    # thought ratios['r01': [list of ratios], "r012": [list of ratios
-    # keys should be in fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
-    ratios: dict[str, np.ndarray]
-    #TODO(Amalie) I am not sure this makes all the best sense..
-    # But this was a way of saying:
-    # I want to fit r012, but I want to plot that and r01.
-    fit: dict[str, bool]
+    ratios: dict[str, Ratio]
 
-    covariance: np.ndarray
-
+@dataclass(kw_only=True)
+class Glitch:
+    glitches: np.ndarray
+    inverse_covariance: np.ndarray
 
 @dataclass(kw_only=True)
 class Glitches:
-    # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
-    glitches : dict[str, np.ndarray]
-    
-    #TODO(Amalie) does this make sense for the combined fit?
-    ratios: dict[str, np.ndarray]
+    glitches : dict[str, Glitch]
 
-    covariance: np.ndarray
-
+@dataclass(kw_only=True)
+class EpsilonDifference:
+    epsilondifferences: np.ndarray
+    inverse_covariance: np.ndarray
 
 @dataclass(kw_only=True)
 class EpsilonDifferences:
-    # freq_fit
-    # 0: difference, 1: freq, 2: l, 3: n
-    differences: np.ndarray# [float]
-    frequencies: np.ndarray# [float]
-    l: np.ndarray# [int]
-    n: np.ndarray# [int]
-
-    covariance: np.ndarray
+    epsilondifferences: dict[str, EpsilonDifference]
 
 
 @dataclass(kw_only=True)
@@ -266,9 +260,11 @@ class Star:
 
     limits: dict[str, tuple[float, float]] | None = None
 
-    classical: ClassicalParameters
-    globalseismic: GlobalSeismicParameters
-    distance: DistanceParameters
+    classicalparams: ClassicalParameters
+    globalseismicparams: GlobalSeismicParameters
+    distanceparams: DistanceParameters
+    
+    absolutemagnitudes: core.AbsoluteMagnitudes | None = None
 
     frequencies: IndividualFrequencies | None = None
     ratios: Ratios | None = None
@@ -441,14 +437,13 @@ class InputStar:
     freqpath: str
     freqfile: str
 
-    surfacecorrection: str | None = None
-    bexp: None | float = None
+    surfacecorrection: dict[str, Any] | None = None
 
     correlations: bool | int = False
     seismicweights: dict[str, Any]
 
     nottrustedfile: str | None = None
-    excludemodes: bool | None = None
+    excludemodes: str | None = None
     onlyradial: bool | None = None
     #fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
 
@@ -512,6 +507,38 @@ class InferenceSettings:
 
     usebayw: bool = True
     priors: dict[str, PriorEntry]
+
+    @property
+    def has_frequencies(self) -> bool:
+        return any([x in constants.freqtypes.freqs for x in self.fitparams])
+
+    @property
+    def has_ratios(self) -> bool:
+        return any([x in constants.freqtypes.rtypes for x in self.fitparams])
+
+    @property
+    def has_glitches(self) -> bool:
+        return any([x in constants.freqtypes.glitches for x in self.fitparams])
+
+    @property
+    def has_epsilondifferences(self) -> bool:
+        return any([x in constants.freqtypes.epsdiff for x in self.fitparams])
+
+    @property
+    def has_any_seismic_case(self) -> bool:
+        return any(
+            (
+                self.has_frequencies,
+                self.has_ratios,
+                self.has_glitches,
+                self.has_epsilondifferences,
+            )
+        )
+
+    @property
+    def has_distance_case(self) -> bool:
+        return any([x in ['parallax', 'distance'] for x in self.fitparams])
+
 
 
 @dataclass(kw_only=True, frozen=True)

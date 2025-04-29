@@ -76,7 +76,7 @@ def extract_solar_model_dnu(
 
 def solar_scaling(
     Grid: h5py.File,
-    globalseismic: core.GlobalSeismicParameters,
+    globalseismicparams: core.GlobalSeismicParameters,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
     gridinfo: util.GridInfo,
@@ -123,7 +123,7 @@ def solar_scaling(
     scalefactors = {}
 
     already_scaled = ["dnufit", "dnufitMos12"]
-    for key in globalseismic.params.keys():
+    for key in globalseismicparams.params.keys():
         if key.startswith("numax"):
             factor = 1 / solarvalues["numax"]
         elif key.startswith("dnu") and key not in already_scaled:
@@ -137,7 +137,7 @@ def solar_scaling(
         if key not in already_scaled:
             if outputoptions.verbose:
                 print(
-                    f"  - {key}: {globalseismic.get_original(key)[0]:.2f} → {globalseismic.get_original(key)[0]*factor:.6f} (solar units)"
+                    f"  - {key}: {globalseismicparams.get_original(key)[0]:.2f} → {globalseismicparams.get_original(key)[0]*factor:.6f} (solar units)"
                 )
 
     # Read the user-set flag: Should the scaling be activated?

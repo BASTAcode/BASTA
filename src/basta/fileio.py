@@ -289,7 +289,7 @@ def _read_freq_cov_xml(
 def read_freq(
     filename: str,
     excludemodes: str | None = None,
-    onlyradial: bool = False,
+    onlyradial: bool | None = None,
     covarfre: bool = False,
 ) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
@@ -766,7 +766,6 @@ def read_allseismic(
                     ratiotype,
                     obskey,
                     obs,
-                    ratiotype,
                     fitfreqs["excludemodes"],
                 )
                 obsfreqdata[ratiotype] = {}

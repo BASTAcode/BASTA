@@ -31,7 +31,7 @@ class freqtypes:
     defaultrtypes = ["r01"]
     defaultepstypes = ["e012"]
 
-    surfeffcorrs = ["HK08", "BG14", "cubicBG14"]
+    #surfeffcorrs = ["HK08", "BG14", "cubicBG14"]
 
 
 @dataclass

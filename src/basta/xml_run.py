@@ -1137,6 +1137,10 @@ def run_xml(
                 globalseismicparams = core.GlobalSeismicParameters(
                         params=numaxdnuparams,
                         )
+
+                surfcor = constants.SeismicfitAliases.scalias[inputparams["fitfreqs"]["fcor"].lower()]
+
+                surfacecorrection = {surfcor: {"bexp": inputparams["fitfreqs"]["bexp"]} if surfcor == "KBC08" else surfcor: {}}
                 star = core.InputStar(
                     starid=starid,
                     classicalparams=classicalparams,
@@ -1144,8 +1148,7 @@ def run_xml(
                     distanceparams=distparams,
                     freqpath=inputparams["fitfreqs"]["freqpath"],
                     freqfile=inputparams["fitfreqs"]["freqfile"],
-                    surfacecorrection=inputparams["fitfreqs"]["fcor"],
-                    bexp=inputparams["fitfreqs"]["bexp"],
+                    surfacecorrection=surfacecorrection,
                     correlations=inputparams["fitfreqs"]["correlations"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
                     nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
