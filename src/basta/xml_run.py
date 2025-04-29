@@ -775,23 +775,21 @@ def run_xml(
     useoptoutput = bool(optoutput)
 
     # Get priors
-    priors = {}
+    limits: dict[str, Any] = {}
     for param in root.findall("default/priors/"):
         if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
-            priors[param.tag] = [
+            limits[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
                 float(param.attrib.get("abstol", np.inf)),
                 float(param.attrib.get("sigmacut", np.inf)),
             ]
         elif param.tag == "IMF":
-            priors['imf'] = "salpeter1955"
+            limits['imf'] = ["salpeter1955"]
         elif param.tag in ["salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003"]:
-            priors['imf'] = param.tag
+            limits['imf'] = [param.tag]
         else:
             raise ValueError
-    if inputparams["fitfreqs"]["dnufrac"] is not None:
-        priors['dnufrac'] = {"dnufrac": inputparams["fitfreqs"]["dnufrac"]}
 
     # Get interpolation if requested (and if available!), otherwise empty dictionary
     if root.find("default/interpolation"):
@@ -1139,61 +1137,6 @@ def run_xml(
                 globalseismicparams = core.GlobalSeismicParameters(
                         params=numaxdnuparams,
                         )
-                frequencies = core.IndividualFrequencies(
-                )
-                ratios = core.Ratios(
-                    # TODO(Amalie) This is not fully right
-                    fittypes=inputparams["fitfreqs"]["fittypes"],
-                )
-                glitches = core.Glitches(
-                    # TODO(Amalie) This is not fully right
-                    fittypes=inputparams["fitfreqs"]["fittypes"],
-                )
-                epsilondifferences = core.EpsilonDifferences(
-                    # TODO(Amalie) This is not fully right
-                    fittypes=inputparams["fitfreqs"]["fittypes"],
-                    nsorting=inputparams["fitfreqs"]["nsorting"],
-                )
-                seismicparams = core.SeismicParameters(
-                    # active=inputparams["fitfreqs"]["active"],
-                    # fittypes=inputparams["fitfreqs"]["fittypes"],
-                    frequencies=(
-                        frequencies
-                        if any(
-                            np.isin(
-                                freqtypes.freqs, inputparams["fitfreqs"]["fittypes"]
-                            )
-                        )
-                        else None
-                    ),
-                    ratios=(
-                        ratios
-                        if any(
-                            np.isin(
-                                freqtypes.rtypes, inputparams["fitfreqs"]["fittypes"]
-                            )
-                        )
-                        else None
-                    ),
-                    glitches=(
-                        glitches
-                        if any(
-                            np.isin(
-                                freqtypes.glitches, inputparams["fitfreqs"]["fittypes"]
-                            )
-                        )
-                        else None
-                    ),
-                    epsilondifferences=(
-                        epsilondifferences
-                        if any(
-                            np.isin(
-                                freqtypes.epsdiff, inputparams["fitfreqs"]["fittypes"]
-                            )
-                        )
-                        else None
-                    ),
-                )
                 star = core.InputStar(
                     starid=starid,
                     classicalparams=classicalparams,
@@ -1220,6 +1163,7 @@ def run_xml(
                     dnubias=inputparams["fitfreqs"]["dnubias"],
 
                 )
+                priors: dict[str, core.PriorEntry] = {}
                 for param in root.findall("default/priors/"):
                     param_name = param.tag
                     kwargs = {}
@@ -1231,13 +1175,13 @@ def run_xml(
                     if param_name == "IMF":
                         param_name = "salpeter1955"
                     priors[param_name] = core.PriorEntry(
-                        priorid=param_name,
                         kwargs=kwargs if kwargs else {}
                     )
                 # Add dnufrac to priors
                 if inputparams["fitfreqs"]["dnufrac"] is not None:
-                    priors['dnufrac'] = {"dnufrac": inputparams["fitfreqs"]["dnufrac"]}
+                    priors['dnufrac'] = core.PriorEntry(kwargs={"dnufrac": inputparams["fitfreqs"]["dnufrac"]})
                 inferencesettings = core.InferenceSettings(
+                        fitparams=inputparams["fitparams"],
                     gridfile=gridfile,
                     gridid=gridid,
                     seed=seed,

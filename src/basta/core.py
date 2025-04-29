@@ -432,8 +432,10 @@ class FilePaths:
 
 @dataclass(kw_only=True, frozen=True)
 class InputStar:
-    classicalparams: dict[str, Fitparam]
-    globalseismicparams: dict[str, Fitparam]
+    starid: str
+
+    classicalparams: ClassicalParameters
+    globalseismicparams: GlobalSeismicParameters
     distanceparams: DistanceParameters
 
     freqpath: str
@@ -509,11 +511,7 @@ class InferenceSettings:
     solarmodel: str = ""
 
     usebayw: bool = True
-    imf: Literal["IMF", "salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003"] = "salpeter1955"
-    boxpriors: dict[str, PriorEntry]
-    #TODO(Amalie) consider dnufrac in get_input
-    # boxpriors = {"dnufrac": dnufrac, } -> star.limits
-    dnufrac: float = 0.15
+    priors: dict[str, PriorEntry]
 
 
 @dataclass(kw_only=True, frozen=True)

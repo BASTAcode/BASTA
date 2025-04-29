@@ -19,7 +19,7 @@ from basta.constants import freqtypes
 
 
 def BASTA(
-    star: core.Star,
+    star: core.InputStar,
     inferencesettings: core.InferenceSettings,
     filepaths: core.FilePaths,
     runfiles: core.RunFiles,
@@ -94,6 +94,7 @@ def _bastamain(
 
     #### PREPARE STAR ####
     # star = util.setup_star()
+    """
     def setup_star(
             inputstar: core.InputStar,
             inferencesettings: core.InferenceSettings,
@@ -123,56 +124,63 @@ def _bastamain(
                 covarfre=star.seismicparams.individualfrequencies.correlations,
             )
 
-        obskey, obs, obsfreqdata, obsfreqmeta = fio.read_allseismic(
-            star=star, freqplots=freqplots, outputoptions=outputoptions
-        )
+            if 
 
-        if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in inferencesettings.fitparams):
-            if "dnufit" in globalseismic.params.keys():
-                dnu = globalseismic.get_scaled("dnufit")
-            elif "numax" in globalseismic.params.keys():
-                dnu = compute_dnu_wfit(obskey, obs, numax=globalseismic.params.get_scaled("numax"))
+            #TODO(Amalie) put this inside a function
+            if inputstar.dnubias != 0.0:
+                dnu = "dnufit"
+                dnu_value, dnu_error = globalseismic.params[dnu]
+                new_dnu_error = np.sqrt(dnu_error ** 2.0 + inputstar.dnubias ** 2.0)
+                print(f"Added a given systematic increase of uncertainty in dnu of {inputstar.dnubias}")
+                print(f"Increases uncertainty from {dnu_error:.3f} µHz to {new_dnu_error:.3f} µHz")
+                globalseismic.params[dnu][1] = new_dnu_error
+
+            if any(x in [*constants.freqtypes.freqs, *constants.freqtypes.rtypes] for x in inferencesettings.fitparams):
+                if "dnufit" in globalseismic.params.keys():
+                    dnu = globalseismic.get_scaled("dnufit")
+                elif "numax" in globalseismic.params.keys():
+                    dnu = compute_dnu_wfit(obskey, obs, numax=globalseismic.params.get_scaled("numax"))
+                else:
+                    raise ValueError("Missing dnu")
+                obsintervals = freq_fit.make_intervals(obs, obskey, dnu=dnu)
             else:
-                raise ValueError("Missing dnu")
-            obsintervals = freq_fit.make_intervals(obs, obskey, dnu=dnu)
-        else:
-            obsintervals = None
+                obsintervals = None
 
-
-        frequencies = core.IndividualFrequencies(
-                l=obskey[0, :],
-                n=obskey[1, :],
-                frequencies=obs[0, :],
-                errors=obs[1, :],
-                surfacecorrection=inputstar.surfacecorrection,
-                obsintervals=obsintervals,
-                correlations=inputstar.correlations,
-                seismicweights=inputstar.seismicweights,
-            )
-        ratios = core.Ratios(
-                ratios=
-                fit=,
-                covariance=)
-        glitches = core.Glitches(
-                glitches
-                ratios
-                covariance)
-        epsilondifferences = core.EpsilonDifferences(
-                differences
-                        frequencies: np.ndarray# [float]
-                l: np.ndarray# [int]
-                n: np.ndarray
-                covariance)
-
-        # Fix distances
-        absolutmagnitudes, distancelimits = distances.add_absolute_magnitudes(
-                star=inputstar,
-                filepaths=filepaths,
-                inferencesettings=inferencesettings,
-                outputoptions=outputoptions,
+            frequencies = core.IndividualFrequencies(
+                    l=obskey[0, :],
+                    n=obskey[1, :],
+                    frequencies=obs[0, :],
+                    errors=obs[1, :],
+                    surfacecorrection=inputstar.surfacecorrection,
+                    obsintervals=obsintervals,
+                    correlations=inputstar.correlations,
+                    seismicweights=inputstar.seismicweights,
                 )
+            ratios = core.Ratios(
+                    ratios=
+                    fit=,
+                    covariance=)
+            glitches = core.Glitches(
+                    glitches
+                    ratios
+                    covariance)
+            epsilondifferences = core.EpsilonDifferences(
+                    differences
+                            frequencies: np.ndarray# [float]
+                    l: np.ndarray# [int]
+                    n: np.ndarray
+                    covariance)
 
-        # limits
+            # Fix distances
+            absolutmagnitudes, distancelimits = distances.add_absolute_magnitudes(
+                    star=inputstar,
+                    filepaths=filepaths,
+                    inferencesettings=inferencesettings,
+                    outputoptions=outputoptions,
+                    )
+
+            # limits
+            
 
 
         # First move stuff from inputstar to star
@@ -182,13 +190,17 @@ def _bastamain(
                 classical=classical,
                 globalseismic=globalseismic,
                 distance=distance,
-                frequencies=frequencies,
+                frequencies=(frequencies
+                        if any(np.isin(freqtypes.freqs, inferencesettings.fitparams + plotconfig.freqplots))
+                        else None
+                             ),
                 ratios=ratios,
                 glitches=glitches,
                 epsilondifferences=epsilondifferences
                 )
 
         return star
+    """
 
 
     #### END PREPARATION ####

@@ -285,11 +285,11 @@ def prepare_obs(
 
     print("Done!")
     return (
-        obskey=obskey,
-        obs=obs,
-        obsfreqdata=obsfreqdata,
-        obsfreqmeta=obsfreqmeta,
-        obsintervals=obsinterval,
+        obskey,
+        obs,
+        obsfreqdata,
+        obsfreqmeta,
+        obsintervals,
     )
 
 
