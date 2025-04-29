@@ -2,28 +2,63 @@
 Key statistics functions
 """
 
-import os
 import copy
 import math
-import collections
+import os
+from dataclasses import dataclass
+from typing import Any, NamedTuple
 
 import numpy as np
-from scipy.interpolate import interp1d, CubicSpline
-from scipy.ndimage.filters import gaussian_filter1d
+from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
+from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
-from basta import freq_fit, glitch_fit
+from basta import core, freq_fit, glitch_fit
 from basta import utils_seismic as su
-from basta.constants import sydsun as sydc
 from basta.constants import freqtypes, statdata
 
+
 # Define named tuple used in selectedmodels
-Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
-priorlogPDF = collections.namedtuple("Trackstats", "index logPDF chi2 bayw magw IMFw")
-Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
-Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
+# TODO(Amalie): Switch to dataclasses and add more precise types
+class Trackdnusurf(NamedTuple):
+    dnusurf: Any
 
 
-def _hist_bin_fd(x: np.array) -> float:
+class Trackglitchpar(NamedTuple):
+    AHe: Any
+    dHe: Any
+    tauHe: Any
+
+
+@dataclass(frozen=True)
+class Trackstats:
+    index: np.ndarray
+    logPDF: np.ndarray
+    chi2: np.ndarray
+
+    @property
+    def bayw(self) -> float:
+        raise Exception("attempt to use bayw when not debugging")
+
+    @property
+    def magw(self) -> float:
+        raise Exception("attempt to use magw when not debugging")
+
+    @property
+    def IMFw(self) -> float:
+        raise Exception("attempt to use IMFw when not debugging")
+
+
+@dataclass(frozen=True)
+class priorlogPDF:
+    index: np.ndarray
+    logPDF: np.ndarray
+    chi2: np.ndarray
+    bayw: float
+    magw: float
+    IMFw: float
+
+
+def _hist_bin_fd(x: np.ndarray) -> float:
     """
     The Freedman-Diaconis histogram bin estimator.
 
@@ -166,9 +201,8 @@ def chi2_astero(
     if joins is None:
         chi2rut = np.inf
         return chi2rut, warnings, shapewarn, 0
-    else:
-        joinkeys, join = joins
-        nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
+    joinkeys, join = joins
+    # nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
     if fitfreqs["fcor"] == "None":
@@ -190,7 +224,7 @@ def chi2_astero(
         )
     else:
         print(f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}')
-        return
+        return None
 
     # Initialize chi2 value
     chi2rut = 0.0
@@ -359,7 +393,7 @@ def chi2_astero(
         # Store the determined glitch parameters for outputting
         addpars["glitchparams"] = modglitches[0, -3:]
 
-    if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
+    if any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
         # Purge model freqs of unused modes
@@ -485,19 +519,24 @@ def chi_for_plot(selectedmodels):
     # Get highest likelihood model (HLM)
     maxPDF = -np.inf
     minchi2 = np.inf
-    for _, trackstats in selectedmodels.items():
+    for trackstats in selectedmodels.values():
         i = np.argmax(trackstats.logPDF)
         j = np.argmin(trackstats.chi2)
         if trackstats.logPDF[i] > maxPDF:
             maxPDF = trackstats.logPDF[i]
             maxPDFchi2 = trackstats.chi2[i]
-        if trackstats.chi2[j] < minchi2:
-            minchi2 = trackstats.chi2[j]
+        minchi2 = min(minchi2, trackstats.chi2[j])
 
     return maxPDFchi2, minchi2
 
 
-def get_highest_likelihood(Grid, selectedmodels, inputparams):
+def get_highest_likelihood(
+    Grid,
+    selectedmodels,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
     """
     Find highest likelihood model and print info.
 
@@ -524,15 +563,14 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
         "* Weighted, non-normalized log-probability:",
         np.max(selectedmodels[maxPDF_path].logPDF),
     )
-    print("* Grid-index: {0}[{1}], with parameters:".format(maxPDF_path, maxPDF_ind))
+    print(f"* Grid-index: {maxPDF_path}[{maxPDF_ind}], with parameters:")
 
     # Print name if it exists
     if "name" in Grid[maxPDF_path]:
         print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
 
     # Print parameters
-    outparams = inputparams["asciiparams"]
-    dnu_scales = inputparams.get("dnu_scales", {})
+    outparams = outputoptions.asciiparams
     for param in outparams:
         if param == "distance":
             continue
@@ -540,12 +578,13 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
 
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval * inferencesettings.solarvalues["dnu"] / scale
         elif param.startswith("numax"):
-            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+            scaleval = paramval * inferencesettings.solarvalues["numax"]
         elif param in ["dnufit", "dnufitMos12"]:
-            scaleval = paramval / dnu_scales.get(param, 1.00)
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval / scale
         else:
             scaleval = None
 
@@ -553,11 +592,17 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
-        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
     return maxPDF_path, maxPDF_ind
 
 
-def get_lowest_chi2(Grid, selectedmodels, inputparams):
+def get_lowest_chi2(
+    Grid,
+    selectedmodels,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
     """
     Find model with lowest chi2 value and print info.
 
@@ -580,15 +625,14 @@ def get_lowest_chi2(Grid, selectedmodels, inputparams):
     print("\nLowest chi2 model:")
     minchi2_path, minchi2_ind = lowest_chi2(selectedmodels)
     print("* chi2:", np.min(selectedmodels[minchi2_path].chi2))
-    print("* Grid-index: {0}[{1}], with parameters:".format(minchi2_path, minchi2_ind))
+    print(f"* Grid-index: {minchi2_path}[{minchi2_ind}], with parameters:")
 
     # Print name if it exists
     if "name" in Grid[minchi2_path]:
         print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
 
     # Print parameters
-    outparams = inputparams["asciiparams"]
-    dnu_scales = inputparams.get("dnu_scales", {})
+    outparams = outputoptions.asciiparams
     for param in outparams:
         if param == "distance":
             continue
@@ -596,12 +640,13 @@ def get_lowest_chi2(Grid, selectedmodels, inputparams):
 
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval * inferencesettings.solarvalues["dnu"] / scale
         elif param.startswith("numax"):
-            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
+            scaleval = paramval * inferencesettings.solarvalues["numax"]
         elif param in ["dnufit", "dnufitMos12"]:
-            scaleval = paramval / dnu_scales.get(param, 1.00)
+            scale = star.globalseismicparams.get_scale(param)
+            scaleval = paramval / scale
         else:
             scaleval = None
 
@@ -609,7 +654,7 @@ def get_lowest_chi2(Grid, selectedmodels, inputparams):
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
-        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
 
     return minchi2_path, minchi2_ind
 
@@ -734,13 +779,13 @@ def calc_key_stats(x, centroid, uncert, weights=None):
     xp = None
 
     # Handling af all different combinations of input
-    if uncert == "quantiles" and not type(weights) == type(None):
+    if uncert == "quantiles" and weights is not None:
         xcen, xm, xp = quantile_1D(x, weights, statdata.quantiles)
     elif uncert == "quantiles":
         xcen, xm, xp = np.quantile(x, statdata.quantiles)
     else:
         xm = np.std(x)
-    if centroid == "mean" and not type(weights) == type(None):
+    if centroid == "mean" and weights is not None:
         xcen = np.average(x, weights=weights)
     elif centroid == "mean":
         xcen = np.mean(x)

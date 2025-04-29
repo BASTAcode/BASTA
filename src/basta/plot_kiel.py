@@ -3,19 +3,19 @@ Production of Kiel diagrams
 """
 
 import os
-import numpy as np
-import matplotlib
-import matplotlib.collections
 
-from basta import stats
+import matplotlib as mpl
+import numpy as np
+
+from basta import core, stats
 from basta import fileio as fio
-from basta import utils_seismic as su
 from basta import utils_general as gu
+from basta import utils_seismic as su
 from basta.constants import parameters
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
@@ -96,8 +96,9 @@ def plot_param(Grid, ax, track, all_segments, label, color):
 def kiel(
     Grid,
     selectedmodels,
-    fitparams,
-    inputparams,
+    star: core.Star,
+    plotconfig: core.PlotConfig,
+    absolutemagnitudes: core.AbsoluteMagnitudes,
     lp_interval,
     feh_interval,
     Teffout,
@@ -172,20 +173,24 @@ def kiel(
         lp_interval[1] *= 1 + scalefactor
         if debug:
             print(
-                "DEBUG: Interval after inflation by {0} pct. = {1}\n".format(
-                    scalefactor * 100, lp_interval
-                )
+                f"DEBUG: Interval after inflation by {scalefactor * 100} pct. = {lp_interval}\n"
             )
 
     # Assign params
-    kielplots = inputparams.get("kielplots")
-    fitfreqs = inputparams.get("fitfreqs", False)
+    kielplots = plotconfig.kielplots
+    fitparams = (
+        star.classicalparams.params
+        | star.globalseismicparams.params
+        | star.distanceparams.params
+        # set(star.seismicparams.params.keys())
+    )
     toggle_freqs = True
-    filters = [f for f in inputparams["magnitudes"]]
+    filters = list(absolutemagnitudes["magnitudes"].keys())
 
     # This is by design a "==" comparison to True, because it will otherwise
     # fail, as the type is numpy.bool_ !
-    if not kielplots[0] == True:
+    # TODO(Amalie) I think this can be done more smart
+    if not kielplots[0] == True:  # noqa: E712
         toggle_freqs = False
         new_filters = []
         new_fitpars = {}
@@ -195,14 +200,14 @@ def kiel(
             elif par in filters:
                 new_filters.append(par)
             else:
-                new_fitpars[par] = fitparams[par]
+                new_fitpars[par] = fitparams[par].scaled
         filters = new_filters
         fitparams = new_fitpars
 
     # Save the tracks in selectedmodels with appropriate massini and FeH
     tracks = []
     constants = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
-    metal = "MeH" if "MeH" in fitparams else "FeH"
+    metal = "MeH" if "MeH" in fitparams.keys() else "FeH"
     for modelpath in selectedmodels:
         if "tracks" in gridtype.lower():
             trackvalue = Grid[modelpath]["massini"][0]
@@ -211,7 +216,7 @@ def kiel(
         if trackvalue >= lp_interval[0] and trackvalue <= lp_interval[1]:
             track_pass = True
             for param in constants:
-                if param in fitparams:
+                if param in fitparams.keys():
                     err = fitparams[param][1]
                     param_interval = [
                         fitparams[param][0] - err,
@@ -296,8 +301,11 @@ def kiel(
 
     # Get labels and colors for sorted params
     keys = list(fitparams.keys()) + filters
+    if "parallax" in keys:
+        keys.remove("parallax")
     sorted_parameters = np.array(keys)[np.argsort(keys)]
     _, labels, _, colors = parameters.get_keys(sorted_parameters)
+    assert len(labels) == len(colors) == len(sorted_parameters), sorted_parameters
 
     ################
     # Figure starts
@@ -338,7 +346,7 @@ def kiel(
                 # Make segments to colorcode
                 points = np.transpose([xs, ys]).reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                lc = matplotlib.collections.LineCollection(segments, cmap="gray_r")
+                lc = mpl.collections.LineCollection(segments, cmap="gray_r")
                 lc.set_array(logpdf)
                 lc.set_linewidth(1)
                 ax.add_collection(lc)
@@ -367,7 +375,7 @@ def kiel(
 
         # Plot the max likelihood and median model
         if validationmode:
-            bfmmodlab = "Highest likelihood model (chi2 = {0:1.4e})".format(hlm_chi2)
+            bfmmodlab = f"Highest likelihood model (chi2 = {hlm_chi2:1.4e})"
         else:
             bfmmodlab = "Best fit model"
         ax.plot(
@@ -391,7 +399,7 @@ def kiel(
                 "p",
                 color="k",
                 markersize=15,
-                label="Lowest chi^2 model (chi2 = {0:1.4e})".format(lcm_chi2),
+                label=f"Lowest chi^2 model (chi2 = {lcm_chi2:1.4e})",
             )
 
         # Plot parameter intervals of fitparams
@@ -437,16 +445,21 @@ def kiel(
             ):
                 ncol += 1
                 # Set up the parameter-limit
-                if param in fitparams:
+                if param in star.globalseismicparams.params.keys():
+                    err = fitparams[param].scaled[1]
+                    parmin = fitparams[param].scaled[0] - err
+                    parmax = fitparams[param].scaled[0] + err
+                # If not regular fitparam, check if it is in filters
+                elif param in filters:
+                    errm = absolutemagnitudes["magnitudes"][param]["errm"]
+                    errp = absolutemagnitudes["magnitudes"][param]["errp"]
+                    med = absolutemagnitudes["magnitudes"][param]["median"]
+                    parmin = med - errm
+                    parmax = med + errp
+                else:
                     err = fitparams[param][1]
                     parmin = fitparams[param][0] - err
                     parmax = fitparams[param][0] + err
-                # If not regular fitparam, check if it is in filters
-                elif param in filters:
-                    errm = inputparams["magnitudes"][param]["errm"]
-                    errp = inputparams["magnitudes"][param]["errp"]
-                    parmin = inputparams["magnitudes"][param]["median"] - errm
-                    parmax = inputparams["magnitudes"][param]["median"] + errp
                 for track in tracks:
                     # For each track, check what indices is within
                     # the paramlimits
@@ -464,16 +477,19 @@ def kiel(
 
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
-        if fitfreqs["active"] and toggle_freqs:
+        # TODO(Amalie) This can be simplified
+        if star.seismicparams.has_frequencies and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
-            dnufrac = fitfreqs.get("dnufrac", 0.15)
+            dnufrac = inferencesettings.dnufrac
+            # TODO(Amalie) Why is this repeated here?
             obskey, obs, _ = fio.read_freq(fitfreqs["freqfile"])
 
             for track in tracks:
                 libitem = Grid[track]
                 index = np.ones(len(libitem["age"][:]), dtype=bool)
 
+                # TODO(Amalie) Why is this code repeated in here?
                 # Locate where the lowest l=0 is within set limit
                 for ind in np.where(index)[0]:
                     rawmod = libitem["osc"][ind]
@@ -491,12 +507,19 @@ def kiel(
                             >= (
                                 obs[0, 0]
                                 - max(
-                                    (dnufrac / 2 * fitfreqs["dnufit"]),
+                                    (
+                                        dnufrac
+                                        / 2
+                                        * star.globalseismicparams.params["dnufit"]
+                                    ),
                                     (3 * obs[1, 0]),
                                 )
                             )
                         )
-                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs["dnufit"]))
+                        and (
+                            (cl0 - obs[0, 0])
+                            <= (dnufrac * star.globalseismicparams.params["dnufit"])
+                        )
                     ):
                         index[ind] = False
 
@@ -531,7 +554,7 @@ def kiel(
         if len(metal_list) <= 5:
             metal_str = ", ".join([str(x) for x in list(metal_list)])
         else:
-            metal_str = "{:.3f},...,{:.3f}".format(min(metal_list), max(metal_list))
+            metal_str = f"{min(metal_list):.3f},...,{max(metal_list):.3f}"
 
         _, mlabel, _, _ = parameters.get_keys([metal])
         text = mlabel[0] + ": " + metal_str

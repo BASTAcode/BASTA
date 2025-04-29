@@ -3,23 +3,24 @@ Production of asteroseismic plots
 """
 
 import os
-import h5py
-import numpy as np
-import matplotlib
 import typing
+from collections.abc import Iterable
+from typing import Any
 
-from scipy.interpolate import interp1d, CubicSpline
+import h5py  # type: ignore[import]
+import matplotlib as mpl
+import numpy as np
+from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 
+from basta import freq_fit, stats
 from basta import utils_seismic as su
-from basta import stats, freq_fit
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.transforms as transforms
+from matplotlib import patches, transforms
 
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
@@ -51,12 +52,12 @@ def echelle(
     Grid: h5py.File,
     obs: np.ndarray,
     obskey: np.ndarray,
-    mod: typing.Optional[np.ndarray] = None,
-    modkey: typing.Optional[np.ndarray] = None,
-    dnu: float = None,
-    join: typing.Optional[np.ndarray] = None,
-    joinkeys: typing.Optional[np.ndarray] | bool = False,
-    coeffs: typing.Optional[np.ndarray] | None = None,
+    mod: np.ndarray | None = None,
+    modkey: np.ndarray | None = None,
+    dnu: float | None = None,
+    join: np.ndarray | None = None,
+    joinkeys: np.ndarray | None = None,
+    coeffs: np.ndarray | None = None,
     scalnu: float | None = None,
     freqcor: str = "BG14",
     pairmode: bool = False,
@@ -123,7 +124,7 @@ def echelle(
         dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
 
     if duplicatemode:
-        modx = 1
+        modx = 1.0
         scalex = dnu
     else:
         modx = dnu
@@ -140,7 +141,9 @@ def echelle(
         mod = mod[:, modkey[0, :] <= np.amax(obsls.astype(int))]
         modkey = modkey[:, modkey[0, :] <= np.amax(obsls)]
 
-    cormod = np.copy(mod)
+    assert mod is not None
+    assert modkey is not None
+    cormod = np.array(mod, copy=True)
 
     if coeffs is not None:
         if freqcor == "HK08":
@@ -159,6 +162,7 @@ def echelle(
 
     s = su.scale_by_inertia(modkey, cormod)
     if join is not None:
+        assert joinkeys is not None
         sjoin = su.scale_by_inertia(joinkeys[0:2], join[0:2])
 
     fmod = {}
@@ -174,6 +178,7 @@ def echelle(
         fobs_all[str(l)] = lobs[0, :] / scalex
         eobs_all[str(l)] = lobs[1, :] / scalex
         if join is not None:
+            assert joinkeys is not None
             _, ljoin = su.get_givenl(l=l, osc=join, osckey=joinkeys)
             fmod[str(l)] = ljoin[0, :] / scalex
             fobs[str(l)] = ljoin[2, :] / scalex
@@ -413,23 +418,21 @@ def echelle(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     if duplicatemode:
-        ax.set_xlim([-1, 1])
+        ax.set_xlim((-1, 1))
         aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
         aax.set_xlabel(
-            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
-            % dnu
+            rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
         )
         aax.set_ylabel(r"Frequency ($\mu$Hz)")
         ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
     else:
-        ax.set_xlim([0, modx])
+        ax.set_xlim((0, modx))
         aax.set_ylim(ax.set_ylim()[0] / dnu, ax.set_ylim()[1] / dnu)
         ax.set_xlabel(
-            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
-            % dnu
+            rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
         )
         ax.set_ylabel(r"Frequency ($\mu$Hz)")
         aax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
@@ -450,7 +453,7 @@ def ratioplot(
     outputfilename=None,
     threepoint=False,
     interp_ratios=True,
-):
+) -> None:
     """
     Plot frequency ratios.
 
@@ -508,11 +511,11 @@ def ratioplot(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
         )
 
-    handles = []
+    handles: list[Any] = []
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
-        rtname = "r{:02d}".format(int(rtype))
+        rtname = f"r{int(rtype):02d}"
         modp = ax.scatter(
             modratio[1, modmask],
             modratio[0, modmask],
@@ -520,7 +523,7 @@ def ratioplot(
             color=colors[rtname],
             edgecolors="k",
             zorder=3,
-            label=r"Best fit ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Best fit ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             modratio[1, modmask],
@@ -541,7 +544,7 @@ def ratioplot(
             mew=0.5,
             linestyle="None",
             zorder=3,
-            label=r"Measured ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Measured ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             obsratio[1, obsmask],
@@ -570,7 +573,7 @@ def ratioplot(
                 alpha=0.7,
                 lw=0,
                 zorder=5,
-                label=r"$r_{{{:02d}}}(\nu^{{\mathrm{{obs}}}})$".format(int(rtype)),
+                label=rf"$r_{{{int(rtype):02d}}}(\nu^{{\mathrm{{obs}}}})$",
             )
             handles.extend([modp, intp, obsp])
         else:
@@ -587,7 +590,7 @@ def ratioplot(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(f"Frequency ratio ({ratiotype})")
@@ -659,7 +662,7 @@ def glitchplot(
     maxPath,
     maxInd,
     outputfilename,
-):
+) -> None:
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
         8: r"$\Delta_{\mathrm{He}}$ (s)",
@@ -676,7 +679,7 @@ def glitchplot(
     fig.delaxes(ax[0, 1])
 
     # Loop over each track to plot
-    for path, trackparams in modelvalues.items():
+    for trackparams in modelvalues.values():
         AHe = trackparams.AHe
         dHe = trackparams.dHe[AHe > 1e-14]
         tauHe = trackparams.tauHe[AHe > 1e-14]
@@ -953,11 +956,11 @@ def epsilon_difference_diagram(
         print("Saved figure to " + outputfilename)
         fig.savefig(outputfilename)
         plt.close(fig)
-    else:
-        return fig
+        return None
+    return fig
 
 
-def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None):
+def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
     """
     Routine for plotting a correlation map of the plotted ratios
 
@@ -978,7 +981,7 @@ def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None):
     # Determine information for constructing labels
     if fittype in freqtypes.freqs:
         fmtstr = r"$\nu({:d}, {:d})$"
-        ln_zip = zip(obskey[0, :], obskey[1, :])
+        ln_zip: Iterable[tuple[Any, Any]] = zip(obskey[0, :], obskey[1, :])
 
     elif fittype in freqtypes.rtypes:
         data = obsfreqdata[fittype]["data"]
@@ -1058,7 +1061,7 @@ def epsilon_difference_components_diagram(
     obsfreqdata,
     obsfreqmeta,
     outputfilename,
-):
+) -> None:
     """
     Full comparison figure of observed and best-fit model epsilon
     differences, with individual epsilons and correlation map.
@@ -1185,7 +1188,7 @@ def epsilon_difference_components_diagram(
                 lw=0,
                 alpha=0.5,
                 color=colors["l" + str(ll)],
-                label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
+                label=rf"$\nu(\ell={ll})\,\notin\,\nu(\ell=0)$",
             )
         ax[0, 0].legend()
 

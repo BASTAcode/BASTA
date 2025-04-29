@@ -9,15 +9,95 @@ PRIOR = PRIORFUN(LIBITEM, INDEX)
 Any prior defined here can be used from an .xml input file.
 """
 
+import h5py  # type: ignore[import]
 import numpy as np
+
+from basta import core
 from basta import utils_general as util
 
 
+def gridlimits(
+    grid: h5py.File,
+    gridheader: util.GridHeader,
+    gridinfo: util.GridInfo,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+) -> None:
+    """
+    Refactor of grid cut section
+
+    Check if any specified limit in prior is in header, and can be used to
+    skip computation of models, in order to speed up computation
+    """
+    limits = list(inferencesettings.priors.keys())
+
+    gridcut = {}
+
+    # Determine header path
+    if "tracks" in gridheader["gridtype"]:
+        headerpath = "header/"
+    elif "isochrones" in gridheader["gridtype"]:
+        headerpath = f"header/{gridinfo['defaultpath']}"
+        if "FeHini" in limits:
+            print("Warning: Dropping prior in FeHini, redundant for isochrones!")
+            inferencesettings.priors.pop("FeHini")
+    else:
+        headerpath = None
+
+    if headerpath:
+        header_keys = grid[headerpath].keys()
+
+        # Extract gridcut params
+        gridcut_keys = set(header_keys) & set(limits)
+        gridcut = {key: limits.pop(key) for key in gridcut_keys}
+
+        if gridcut:
+            print("\nCutting in grid based on sampling parameters ('gridcut'):")
+            for cutpar, cutval in gridcut.items():
+                if cutpar != "dif":
+                    print(f"* {cutpar}: {cutval}")
+
+            # Special handling for diffusion switch
+            if "dif" in gridcut:
+                # Expecting value like [-inf, 0.5] or [0.5, inf]
+                switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
+                print(
+                    f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
+                )
+    # TODO(Amalie) I should probably change this so it aligns with the application of the prior
+    inferencesettings.priors["gridcut"] = core.PriorEntry(
+        priorid="gridcut",
+        kwargs={"gridcut": gridcut},
+        limits=None,
+    )
+
+
+def dnufrac_prior(
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    priorid: str = "dnufrac",
+    dnu_name: str = "dnufit",
+) -> None:
+    if any(np.isin([priorid, dnu_name], list(inferencesettings.priors.keys()))):
+        assert dnu_name in star.globalseismicparams.params.keys()
+        dnufit = star.globalseismicparams.get_scaled(dnu_name)
+        dnufit_frac = inferencesettings.dnufrac * dnufit[0]
+        dnuerr = max(3 * dnufit[1], dnufit_frac)
+        limits = [
+            min(dnufit[0] - dnuerr, 0),
+            dnufit[0] + dnuerr,
+        ]
+        inferencesettings.priors[dnu_name].limits = limits
+
+
+# IMFs
 def salpeter1955(libitem, index):
     """
     Initial mass function from Salpeter (1955)
     https://ui.adsabs.harvard.edu/abs/1955ApJ...121..161S
     """
+
     return libitem["massini"][index] ** (-2.35)
 
 
@@ -33,13 +113,12 @@ def millerscalo1979(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    elif (ms[2] <= m) & (m < ms[3]):
+    if (ms[2] <= m) & (m < ms[3]):
         return ks[2] * m ** alphas[2]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def kennicutt1994(libitem, index):
@@ -54,11 +133,10 @@ def kennicutt1994(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def scalo1998(libitem, index):
@@ -73,13 +151,12 @@ def scalo1998(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    elif (ms[2] <= m) & (m < ms[3]):
+    if (ms[2] <= m) & (m < ms[3]):
         return ks[2] * m ** alphas[2]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def kroupa2001(libitem, index):
@@ -95,14 +172,13 @@ def kroupa2001(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
     # This case and the last case are identical with these values
-    elif (ms[2] <= m) & (m < ms[4]):
+    if (ms[2] <= m) & (m < ms[4]):
         return ks[2] * m ** alphas[2]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def baldryglazebrook2003(libitem, index):
@@ -117,11 +193,10 @@ def baldryglazebrook2003(libitem, index):
     ks = util.normfactor(alphas, ms)
     if (ms[0] <= m) & (m < ms[1]):
         return ks[0] * m ** alphas[0]
-    elif (ms[1] <= m) & (m < ms[2]):
+    if (ms[1] <= m) & (m < ms[2]):
         return ks[1] * m ** alphas[1]
-    else:
-        print("Mass outside range of IMF prior")
-        return 0
+    print("Mass outside range of IMF prior")
+    return 0
 
 
 def chabrier2003(libitem, index):
@@ -138,5 +213,4 @@ def chabrier2003(libitem, index):
             * (1 / m)
             * np.exp(-0.5 * ((np.log10(m) - np.log10(0.079)) / 0.69) ** 2)
         )
-    else:
-        return ks[1] * m ** (-2.3)
+    return ks[1] * m ** (-2.3)

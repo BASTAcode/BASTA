@@ -1,30 +1,92 @@
 """
+    fitfreqs = inputparams.get("fitfreqs")
+
+    # Get frequency correction method
+
 Auxiliary functions for frequency analysis
 """
 
-from math import frexp
 import os
 from copy import deepcopy
+from typing import Any, Literal
+
+import h5py  # type: ignore[import]
+import numpy as np
+from sklearn import covariance as skcov  # type: ignore[import]
 from tqdm import tqdm
 
-import numpy as np
-from scipy.interpolate import CubicSpline
-
-from basta import freq_fit
-from basta import glitch_fit
+from basta import core, freq_fit, glitch_fit
 from basta import fileio as fio
-from basta.constants import sydsun as sydc
+from basta import utils_general as util
 from basta.constants import freqtypes
-from basta.utils_general import strtobool
-
-from sklearn import covariance as skcov
 
 
-def solar_scaling(Grid, inputparams, diffusion=None):
+def extract_solar_model_dnu(
+    Grid: h5py.File,
+    gridinfo: util.GridInfo,
+    flag_solarmodel: bool,
+) -> tuple[str, dict[str, float]]:
     """
-    Transform quantities to solar units based on the assumed solar values. Grids use
-    solar units for numax and for dnu's based on scaling relations. The input values
-    (given in microHz) are converted into solar units to match the grid.
+    Extracts dnu values from the selected solar model in the grid.
+
+    Parameters
+    ----------
+    Grid : h5py.File
+        Opened grid file containing solar models.
+    gridinfo : GridInfo
+        Info about grid configuration, including diffusion model selection.
+    flag_solarmodel : bool
+        Whether to apply solar model-based scaling
+
+    Returns
+    -------
+    (sunmodpath, sunmoddnu) : tuple
+        Path to solar model in grid, and extracted dnu dictionary.
+    """
+    try:
+        models = list(Grid["solar_models"])
+    except KeyError:
+        print("! No solar models found in grid.")
+        return "", {}
+
+    if not flag_solarmodel or not models:
+        print("* Solar model scaling is disabled.")
+        return "", {}
+
+    if gridinfo.get("difsolarmodel") is not None:
+        sunmodname = (
+            "bastisun_new_diff" if gridinfo["difsolarmodel"] else "bastisun_new"
+        )
+    elif len(models) == 1:
+        sunmodname = models[0]
+    else:
+        raise NotImplementedError("More than one solar model found in grid!")
+
+    sunmodpath = os.path.join("solar_models", sunmodname)
+    print(f"* Using solar model '{sunmodname}' for dnu scaling.")
+
+    sunmoddnu = {
+        name: Grid[sunmodpath][name][()]
+        for name in Grid[sunmodpath]
+        if name.startswith("dnu")
+    }
+
+    return sunmodpath, sunmoddnu
+
+
+def solar_scaling(
+    Grid: h5py.File,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    gridinfo: util.GridInfo,
+) -> None:
+    """
+    Convert certain seismic quantities to solar units based on the assumed solar values.
+    Update the GlobalSeismicParameters object with solar-scaled values.
+
+    Grids use solar units for numax and for dnu's based on scaling relations.
+    The input values (given in microHz) are converted into solar units to match the grid.
 
     Secondly, if a solar model is found in the grid, scale input dnu's according to the
     value of this model. This scaling will be reversed before outputting results and
@@ -48,187 +110,93 @@ def solar_scaling(Grid, inputparams, diffusion=None):
     inputparams : tuple
         Modified version of `inputparams` with the added scaled values.
     """
-    print("\nTransforming solar-based asteroseismic quantities:", flush=True)
+    print("\nScaling solar-based asteroseismic quantities:", flush=True)
 
-    # Check for solar values, if not set then use default
-    dnusun = inputparams.get("dnusun", sydc.SUNdnu)
-    numsun = inputparams.get("numsun", sydc.SUNnumax)
+    # Extract solar constants
+    solarvalues = inferencesettings.solarvalues
+    print(
+        f"* Solar references: dnu = {solarvalues['dnu']} µHz, numax = {solarvalues['numax']} µHz"
+    )
 
-    # Obtain parameter lists
-    fitparams = inputparams.get("fitparams")
-    fitfreqs = inputparams.get("fitfreqs", {})
-    limits = inputparams.get("limits")
+    # TODO(Amalie) remember to scale limits that depend on dnu/numax!
 
-    # If fitting frequencies, make sure to keep a copy of the original deltaNu
-    if fitfreqs["active"]:
-        fitfreqs["dnu_obs"] = fitfreqs["dnufit"]
+    scalefactors = {}
+    fitparams = star.globalseismicparams
 
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # BLOCK 1: Conversion into solar units
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    print("* Converting to solar units if needed...")
-
-    # ----------------------------------
-    # TASK 1.1: Conversion of parameters
-    # ----------------------------------
-    fitpar_convert = [
-        par for par in fitparams if (par.startswith("dnu") or par.startswith("numax"))
-    ]
-    for param in fitpar_convert:
-        # dnufit is given in muHz in the grid since it is not based on scaling relations
-        if param in ["dnufit", "dnufitMos12"]:
+    already_scaled = ["dnufit", "dnufitMos12"]
+    for key in fitparams.params.keys():
+        if key.startswith("numax"):
+            factor = 1 / solarvalues["numax"]
+        elif key.startswith("dnu") and key not in already_scaled:
+            factor = 1 / solarvalues["dnu"]
+        elif key in already_scaled:
+            factor = 1
+        else:
             continue
 
-        # Apply the correct conversion
-        oldval = fitparams[param][0]
-        if param.startswith("numax"):
-            convert_factor = numsun
-        else:
-            convert_factor = dnusun
-        fitparams[param] = [p / convert_factor for p in fitparams[param]]
-
-        # Print conversion for reference
-        print(
-            "  - {0} converted from {1:.2f} microHz to {2:.6f} solar units".format(
-                param, oldval, fitparams[param][0]
-            ),
-            "(solar value: {0:2f} microHz)".format(convert_factor),
-        )
-
-    # ------------------------------
-    # TASK 1.2: Conversion of limits
-    # ------------------------------
-    # Duplicates the approach above)
-    limits_convert = [
-        par for par in limits if (par.startswith("dnu") or par.startswith("numax"))
-    ]
-    for param in limits_convert:
-        if param in ["dnufit", "dnufitMos12"]:
-            continue
-
-        if param.startswith("numax"):
-            convert_factor = numsun
-        else:
-            convert_factor = dnusun
-        limits[param] = [p / convert_factor for p in limits[param]]
-
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # BLOCK 2: Scaling dnu to the solar value in the grid
-    # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-    # ------------------------------
-    # TASK 2.1: Get dnu of solar model
-    # ------------------------------
-    try:
-        avail_models = list(Grid["solar_models"])
-    except KeyError:
-        avail_models = []
+        scalefactors[key] = factor
+        if key not in already_scaled:
+            if outputoptions.verbose:
+                print(
+                    f"  - {key}: {fitparams.get_original(key)[0]:.2f} → {fitparams.get_original(key)[0]*factor:.6f} (solar units)"
+                )
 
     # Read the user-set flag: Should the scaling be activated?
     try:
-        solarmodel = strtobool(inputparams.get("solarmodel", ""))
+        flag_solarmodel: bool = bool(util.strtobool(inferencesettings.solarmodel))
     except ValueError:
         print(
             "Warning: Invalid value given for activation of solar scaling!",
             "Must be True/False! Will now assume False ...",
         )
-        solarmodel = False
+        flag_solarmodel = False
 
-    if solarmodel and len(avail_models) > 0:
-        # For isochrones, the diffusion is specified and names hardwired!
-        if diffusion is not None:
-            if diffusion == 0:
-                sunmodname = "bastisun_new"
-            else:
-                sunmodname = "bastisun_new_diff"
-        else:
-            if len(avail_models) == 1:
-                sunmodname = avail_models[0]
-            else:
-                raise NotImplementedError("More than one solar model found in grid!")
+    # Extract solar model dnu values (or skip)
+    sunmodpath, sunmoddnu = extract_solar_model_dnu(Grid, gridinfo, flag_solarmodel)
+    if not sunmoddnu:
+        print("* No solar model scaling applied.")
 
-        # Get all solar model dnu values
-        sunmodpath = os.path.join("solar_models", sunmodname)
-        sunmoddnu = {
-            param: Grid.get(os.path.join(sunmodpath, param))[()]
-            for param in Grid[sunmodpath]
-            if param.startswith("dnu")
-        }
-        print(
-            "* Scaling dnu to the solar model in the grid (path: {0}) ...".format(
-                sunmodpath
-            )
-        )
-    elif len(avail_models) == 0:
-        print("* No solar model found!  -->  Dnu will not be scaled.")
-        sunmoddnu = {}
-    else:
-        print("* Solar model scaling not activated!  -->  Dnu will not be scaled.")
-        sunmoddnu = {}
-
-    # ------------------------------
-    # TASK 2.2: Apply the scaling
-    # ------------------------------
-    dnu_scales = {}
-    for dnu in sunmoddnu:
-        if (dnu in fitparams) or (dnu in fitfreqs):
-            if dnu in fitparams:
-                if dnu in ["dnufit", "dnufitMos12"]:
-                    # Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
-                    dnu_rescal = sunmoddnu[dnu] / dnusun
-                    print(
-                        "  - {0} scaled by {1:.4f} from {2:.2f} to {3:.2f} microHz".format(
-                            dnu,
-                            dnu_rescal,
-                            fitparams[dnu][0],
-                            fitparams[dnu][0] * dnu_rescal,
-                        ),
-                        "(grid Sun: {0:.2f} microHz, real Sun: {1:.2f} microHz)".format(
-                            sunmoddnu[dnu], dnusun
-                        ),
-                    )
-                else:
-                    # Using the scaling relations on the solar model in the grid generally
-                    # yields DNU_SUN_SCALING_GRID != DNU_SUN_SCALING_OBS . The exact value
-                    # of the solar model DNU from scaling relations is stored in the grid
-                    # in solar units (a number close to 1, but not exactly 1). This number
-                    # is used as the scaling factor of solar-unit input dnu's
-                    dnu_rescal = sunmoddnu[dnu]
-                    print(
-                        "  - {0} scaled by a factor {1:.8f} according to the".format(
-                            dnu, dnu_rescal
-                        ),
-                        "grid-solar-model value from scaling relations",
-                    )
-                fitparams[dnu] = [(dnu_rescal) * p for p in fitparams[dnu]]
+    # Apply scaling using solar model values
+    print(f"* Applying solar model scaling from: {sunmodpath}.")
+    for key in scalefactors:
+        if key in sunmoddnu:
+            if key in already_scaled:
+                # Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
+                scalefactors[key] *= sunmoddnu[key] / solarvalues["dnu"]
             else:
-                # If in frequency fitting, it is always dnufit (in microHz)
-                # --> Scaling factor is DNU_SUN_GRID / DNU_SUN_OBSERVED
-                dnu_rescal = sunmoddnu[dnu] / dnusun
+                # Using the scaling relations on the solar model in the grid generally
+                # yields DNU_SUN_SCALING_GRID != DNU_SUN_SCALING_OBS.
+                # The exact value of the solar model DNU from scaling relations
+                # is stored in the grid in solar units (a number close to 1,
+                # but not exactly 1).
+                # This number is used as the scaling factor of solar-unit input dnu's
+                scalefactors[key] *= sunmoddnu[key]
+
+    star.globalseismicparams.set_scalefactor(scalefactors)
+    star.globalseismicparams.set_scaled()
+
+    if star.globalseismicparams.scaled_params is not None:
+        for key in star.globalseismicparams.scaled_params.keys():
+            orig = fitparams.get_original(key)[0]
+            scaled = fitparams.get_scaled(key)[0]
+            if outputoptions.verbose:
+                if orig != scaled:
+                    print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")
+            if key in already_scaled:
                 print(
-                    "  - {0} scaled by {1:.4f} from {2:.2f} to {3:.2f} microHz".format(
-                        dnu,
-                        dnu_rescal,
-                        fitfreqs[dnu],
-                        fitfreqs[dnu] * dnu_rescal,
-                    ),
-                    "(grid Sun: {0:.2f} microHz, real Sun: {1:.2f} microHz)".format(
-                        sunmoddnu[dnu], dnusun
-                    ),
+                    f"  - {key} scaled by {scalefactors[key]:.4f} from {orig:.2f} to {scaled:.2f} µHz"
                 )
-                fitfreqs[dnu] = dnu_rescal * fitfreqs[dnu]
-                if fitfreqs[dnu + "_err"]:
-                    fitfreqs[dnu + "_err"] = dnu_rescal * fitfreqs[dnu + "_err"]
-
-            print("    (Note: Will be scaled back before outputting results!)")
-            dnu_scales[dnu] = dnu_rescal
-
-    inputparams["dnu_scales"] = dnu_scales
-
-    print("Done!")
-    return inputparams
+                print(
+                    f"    (grid Sun: {sunmoddnu[key]:.2f} µHz, real Sun: {solarvalues['dnu']:.2f} µHz)"
+                )
+                print(
+                    f"    (Note: {key} will be scaled back before outputting results!)"
+                )
 
 
-def prepare_obs(inputparams, verbose=False, debug=False):
+def prepare_obs(
+    star: core.Star, plotconfig: core.PlotConfig, outputoptions: core.OutputOptions
+):
     """
     Prepare frequencies and ratios for fitting
 
@@ -275,9 +243,12 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     """
     print("\nPreparing asteroseismic input ...")
 
+    # Get frequency correction method
+
+    # TODO(Amalie) these checks are being done elsewhere
+    """
     fitfreqs = inputparams.get("fitfreqs")
 
-    # Get frequency correction method
     fcor = fitfreqs.get("fcor", "BG14")
     if fcor not in ["None", *freqtypes.surfeffcorrs]:
         raise ValueError(
@@ -289,42 +260,42 @@ def prepare_obs(inputparams, verbose=False, debug=False):
     if not numax:
         numaxerr = (
             "ERROR: numax must be specified when fitting individual"
-            + " frequencies or ratios!"
+            " frequencies or ratios!"
         )
         raise ValueError(numaxerr)
 
     # Just check if 'dnufit' is specified, will be used otherwhere
     if fitfreqs.get("dnufit", False) is False:
         raise ValueError("ERROR: We need a deltanu value!")
+    """
 
     # Get freqplots for what additional to compute to generate plots
-    freqplots = inputparams.get("freqplots")
+    freqplots = plotconfig.freqplots
 
     # Load or compute frequency-dependent products
     obskey, obs, obsfreqdata, obsfreqmeta = fio.read_allseismic(
-        fitfreqs,
-        freqplots,
-        verbose=verbose,
-        debug=debug,
+        star=star, freqplots=freqplots, outputoptions=outputoptions
     )
 
     # Compute the intervals used in frequency fitting
-    if any([x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]]):
+    if any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]):
         obsintervals = freq_fit.make_intervals(obs, obskey, dnu=fitfreqs["dnufit"])
     else:
         obsintervals = None
 
     print("Done!")
-    return (
-        obskey,
-        obs,
-        obsfreqdata,
-        obsfreqmeta,
-        obsintervals,
+    star.seismicparams.individualfrequencies.frequencies = core.ObservedFrequencies(
+        obskey=obskey,
+        obs=obs,
+        obsfreqdata=obsfreqdata,
+        obsfreqmeta=obsfreqmeta,
+        obsintervals=obsinterval,
     )
 
 
-def get_givenl(l, osc, osckey):
+def get_givenl(
+    l: int, osc: np.ndarray, osckey: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Returns frequencies, radial orders, and inertias or uncertainties of a
     given angular degree l.
@@ -439,14 +410,16 @@ def check_epsilon_of_freqs(freqs, starid, dnu, quiet=False):
     f = f[filt]
 
     epsilon = calculate_epsilon(n, l, f, dnu)
-    eps_status = lambda eps: eps >= epsilon_limits[0] and eps <= epsilon_limits[1]
+
+    def eps_status(eps):
+        return eps >= epsilon_limits[0] and eps <= epsilon_limits[1]
 
     ncor = 0
     if not eps_status(epsilon):
         if not quiet:
             print(
-                "\nStar {:s} has an odd epsilon".format(starid),
-                "value of {:.1f},".format(epsilon),
+                f"\nStar {starid:s} has an odd epsilon",
+                f"value of {epsilon:.1f},",
             )
         while not eps_status(epsilon):
             if epsilon > epsilon_limits[1]:
@@ -457,16 +430,13 @@ def check_epsilon_of_freqs(freqs, starid, dnu, quiet=False):
 
         if not quiet:
             print(
-                "Correction of n-order by {:d}".format(ncor),
-                "gives epsilon value of {:.1f}.".format(epsilon),
+                f"Correction of n-order by {ncor:d}",
+                f"gives epsilon value of {epsilon:.1f}.",
             )
         return ncor
-    else:
-        if not quiet:
-            print(
-                "Star {:s} has an".format(starid), "epsilon of: {:.1f}.".format(epsilon)
-            )
-        return 0
+    if not quiet:
+        print(f"Star {starid:s} has an", f"epsilon of: {epsilon:.1f}.")
+    return 0
 
 
 def scale_by_inertia(osckey, osc):
@@ -564,7 +534,7 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
     nvalues = nvalues[~np.isnan(nvalues).any(axis=1), :]
 
     # Derive covariance matrix from MC-realisations and test convergence
-    n = int(round((nrealisations - nfailed) / 2))
+    n = round((nrealisations - nfailed) / 2)
     tmpcov = skcov.MinCovDet().fit(nvalues[:n, :]).covariance_
     fullcov = skcov.MinCovDet().fit(nvalues).covariance_
 
@@ -580,15 +550,14 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
 
     if rdif > 0.1:
         print("Warning: Covariance failed to converge!")
-        print("Maximum relative difference = {:.2e} (>0.1)".format(rdif))
+        print(f"Maximum relative difference = {rdif:.2e} (>0.1)")
 
     # Glitch parameters are more robnustly determined as median of realizations
     if fittype in freqtypes.glitches:
         # Simply overwrite values in tmp with median values
         tmp[0, :] = np.median(nvalues, axis=0)
         return tmp, fullcov
-    else:
-        return fullcov
+    return fullcov
 
 
 def extend_modjoin(joinkey, join, modkey, mod):

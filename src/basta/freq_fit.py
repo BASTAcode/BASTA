@@ -2,14 +2,14 @@
 Fitting of frequencies and frequency-dependent properties.
 """
 
-import numpy as np
 import itertools
-from sklearn import linear_model
-from scipy.optimize import minimize
-from scipy.interpolate import CubicSpline
+
+import numpy as np
+from scipy.interpolate import CubicSpline  # type: ignore[import]
+from scipy.optimize import minimize  # type: ignore[import]
+from sklearn import linear_model  # type: ignore[import]
 
 from basta import utils_seismic as su
-
 
 """
 Individual frequencies
@@ -215,7 +215,7 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
                             fmodsubset = fmod[subset]
                             # offs = [(np.abs(matched_l0s[2, :] - f)).argmin()
                             #    for f in fmodsubset]
-                            chi2 = np.sum(np.abs((fmodsubset - offset - fobs[ofilter])))
+                            chi2 = np.sum(np.abs(fmodsubset - offset - fobs[ofilter]))
                             if chi2 < bestchi2:
                                 bestchi2 = chi2
                                 solution = subset
@@ -239,21 +239,23 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
         if l == 0:
             # Compute the offset due to the surface effect to use in the case
             # of mixed modes for the l=1 and l=2 matching.
-            same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
+            # same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
             matched_l0s = np.transpose(np.concatenate(join))
             # Compute offset
             # modmask = [mode in same_ns for mode in modkey_givenl[1, :]]
             # obsmask = [mode in same_ns for mode in obskey_givenl[1, :]]
             # offsets = mod_givenl[0, modmask] - obs_givenl[0, obsmask]
-            offsets = matched_l0s[0, :] - matched_l0s[2, :]
+            # Note that code linting might want to remove the following line (F841),
+            # but the line is needed since the 'offsets' variable is used in the
+            # l=1 and 2 cases in this for-loop.
+            offsets = matched_l0s[0, :] - matched_l0s[2, :]  # noqa: F841
     if len(join) != 0:
         joins = [
             np.transpose(np.concatenate(joinkeys)),
             np.transpose(np.concatenate(join)),
         ]
         return joins
-    else:
-        return None
+    return None
 
 
 def HK08(joinkeys, join, nuref, bcor):
@@ -309,7 +311,6 @@ def HK08(joinkeys, join, nuref, bcor):
     f_model = join[0, :]
     e_model = join[1, :]
     f_obs = join[2, :]
-    e_obs = join[3, :]
 
     # Interpolate inertia to l=0 inertia at same frequency
     interp_inertia = np.interp(f_model, f_modell0, e_modell0)
@@ -865,68 +866,67 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
 
     # Three-point frequency ratios
     # ----------------------------
-    else:
-        if r01 and sequence in ["r01", "r012", "r010"]:
-            # Find lowest indices for l = 0 and 1
-            # i01 point to one n-value lower than i00
-            if n0[0] - 1 >= n1[0]:
-                i00 = 0
-                i01 = n0[0] - n1[0] - 1
-            else:
-                i00 = n1[0] - n0[0] + 1
-                i01 = 0
+    elif r01 and sequence in ["r01", "r012", "r010"]:
+        # Find lowest indices for l = 0 and 1
+        # i01 point to one n-value lower than i00
+        if n0[0] - 1 >= n1[0]:
+            i00 = 0
+            i01 = n0[0] - n1[0] - 1
+        else:
+            i00 = n1[0] - n0[0] + 1
+            i01 = 0
 
-            # Number of r01s
-            if n0[-1] >= n1[-1]:
-                nr01 = n1[-1] - n1[i01]
-            else:
-                nr01 = n0[-1] - n0[i00] + 1
+        # Number of r01s
+        if n0[-1] >= n1[-1]:
+            nr01 = n1[-1] - n1[i01]
+        else:
+            nr01 = n0[-1] - n0[i00] + 1
 
-            # R01
-            r01 = np.zeros((4, nr01))
-            r01[2, :] = 1
-            for i in range(nr01):
-                r01[3, i] = n0[i00 + i]
-                r01[1, i] = f0[i00 + i]
-                r01[0, i] = f0[i00 + i]
-                r01[0, i] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
-                r01[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
+        # R01
+        r01 = np.zeros((4, nr01))
+        r01[2, :] = 1
+        for i in range(nr01):
+            r01[3, i] = n0[i00 + i]
+            r01[1, i] = f0[i00 + i]
+            r01[0, i] = f0[i00 + i]
+            r01[0, i] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
+            r01[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
 
-        elif r10 and sequence in ["r10", "r102", "r010"]:
-            # Find lowest indices for l = 0 and 1
-            if n0[0] >= n1[0]:
-                i00 = 0
-                i01 = n0[0] - n1[0]
-            else:
-                i00 = n1[0] - n0[0]
-                i01 = 0
+    elif r10 and sequence in ["r10", "r102", "r010"]:
+        # Find lowest indices for l = 0 and 1
+        if n0[0] >= n1[0]:
+            i00 = 0
+            i01 = n0[0] - n1[0]
+        else:
+            i00 = n1[0] - n0[0]
+            i01 = 0
 
-            # Number of r10s
-            if n0[-1] >= n1[-1]:
-                nr10 = n1[-1] - n1[i01]
-            else:
-                nr10 = n0[-1] - n0[i00]
+        # Number of r10s
+        if n0[-1] >= n1[-1]:
+            nr10 = n1[-1] - n1[i01]
+        else:
+            nr10 = n0[-1] - n0[i00]
 
-            # R10
-            r10 = np.zeros((4, nr10))
-            r10[2, :] = 10
-            for i in range(nr10):
-                r10[3, i] = n1[i01 + i]
-                r10[1, i] = f1[i01 + i]
-                r10[0, i] = f1[i01 + i]
-                r10[0, i] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
-                r10[0, i] /= f0[i00 + i] - f0[i00 + i + 1]
+        # R10
+        r10 = np.zeros((4, nr10))
+        r10[2, :] = 10
+        for i in range(nr10):
+            r10[3, i] = n1[i01 + i]
+            r10[1, i] = f1[i01 + i]
+            r10[0, i] = f1[i01 + i]
+            r10[0, i] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
+            r10[0, i] /= f0[i00 + i] - f0[i00 + i + 1]
 
     if sequence == "r02":
         return r02
 
-    elif sequence == "r01":
+    if sequence == "r01":
         return r01
 
-    elif sequence == "r10":
+    if sequence == "r10":
         return r10
 
-    elif sequence == "r012":
+    if sequence == "r012":
         if r01 is None or r02 is None:
             return None
         # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
@@ -934,7 +934,7 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
         r012 = np.hstack((r01, r02))[:, mask]
         return r012
 
-    elif sequence == "r102":
+    if sequence == "r102":
         if r10 is None or r02 is None:
             return None
         # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
@@ -942,13 +942,14 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
         r102 = np.hstack((r10, r02))[:, mask]
         return r102
 
-    elif sequence == "r010":
+    if sequence == "r010":
         if r01 is None or r10 is None:
             return None
         # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
         mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
         r010 = np.hstack((r01, r10))[:, mask]
         return r010
+    return None
 
 
 """
@@ -1032,7 +1033,7 @@ def compute_epsilondiff(
                 "The following modes have been skipped from epsilon differences to avoid extrapolation:"
             )
             for f, (l, n) in zip(osc[0, ~indall], osckey[:, ~indall].T):
-                print(" - (l,n,f) = ({0}, {1:02d}, {2:.3f})".format(l, n, f))
+                print(f" - (l,n,f) = ({l}, {n:02d}, {f:.3f})")
 
         osc = osc[:, indall]
         osckey = osckey[:, indall]

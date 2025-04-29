@@ -1,34 +1,20 @@
 """
-General mix of utility functions
+This module contains general purpose functions that are utilized throughout BASTA.
 """
 
 import sys
 import time
+from collections.abc import Sequence
 from io import IOBase
+from pathlib import Path
+from typing import IO, Literal, NamedTuple, TypedDict
 
+import h5py  # type: ignore[import]
 import numpy as np
+
+from basta import core, distances, errors
 from basta.__about__ import __version__
-from basta import distances
 from basta.constants import freqtypes
-
-
-def h5py_to_array(xs) -> np.array:
-    """
-    Copy vector/dataset from an HDF5 file to a NumPy array
-
-    Parameters
-    ----------
-    xs : h5py_dataset
-       The input dataset read by h5py from an HDF5 object
-
-    Returns
-    -------
-    res : array_like
-        Copy of the dataset as NumPy array
-    """
-    res = np.empty(shape=xs.shape, dtype=xs.dtype)
-    res[:] = xs[:]
-    return res
 
 
 def prt_center(text: str, llen: int) -> None:
@@ -67,141 +53,219 @@ def print_bastaheader(
     prt_center("BASTA", llen)
     prt_center("The BAyesian STellar Algorithm", llen)
     print()
-    prt_center("Version {0}".format(__version__), llen)
+    prt_center(f"Version {__version__}", llen)
     print()
-    prt_center("(c) 2024, The BASTA Team", llen)
+    prt_center("(c) 2025, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
     print(llen * "=")
-    print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
+    print(f"\nRun started on {time.strftime('%Y-%m-%d %H:%M:%S', t0)}.\n")
     if developermode:
-        print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
-    print(f"Random numbers initialised with seed: {seed} .")
+        print("DEVELOPERMODE ACTIVATED: Experimental features activated!\n")
+    print(f"Random numbers initialised with seed: {seed}")
 
 
-def check_gridtype(
-    gridtype: str,
-    allowed_gridtype: list[str] = ["tracks", "isochrones"],
-    gridid: str | bool = False,
-) -> tuple[str, str, None | int]:
-    # Check type of grid (isochrones/tracks) and set default grid path
-    gridtype = gridtype.lower()
-    if "tracks" in gridtype:
-        entryname = "tracks"
-        defaultpath = "grid/"
-        difsolarmodel = None
-    elif "isochrones" in gridtype:
-        entryname = "isochrones"
-        if gridid:
-            difsolarmodel = int(gridid[1])
-            defaultpath = f"ove={gridid[0]:.4f}/dif={gridid[1]:.4f}/eta={gridid[2]:.4f}/alphaFe={gridid[3]:.4f}/"
-        else:
-            print(
-                "Unable to construct path for science case."
-                + " Probably missing (ove, dif, eta, alphaFe) in input!"
-            )
-            raise LibraryError
-
-    else:
-        raise OSError(
-            f"Gridtype {gridtype} not supported, only 'tracks' and 'isochrones'!"
-        )
-    return entryname, defaultpath, difsolarmodel
+class GridHeader(TypedDict):
+    gridtype: str
+    version: str
+    time: str
+    is_interpolated: bool
 
 
-def read_grid_header(Grid) -> tuple[str, str, str, bool]:
+class GridInfo(TypedDict):
+    entryname: str
+    defaultpath: str
+    # TODO(Amalie) this could have a better name
+    difsolarmodel: int | None
+
+
+class BayesianWeights(NamedTuple):
+    weight_keys: tuple[str, ...]
+    along_weight: str
+
+
+def read_grid_header(Grid) -> GridHeader:
+    """
+    Reads the essential metadata from a stellar grid HDF5 file header.
+    """
     try:
         gridtype = Grid["header/library_type"][()]
         gridver = Grid["header/version"][()]
         gridtime = Grid["header/buildtime"][()]
 
-        # Allow for usage of both h5py 2.10.x and 3.x.x
-        # --> If things are encoded as bytes, they must be made into standard strings
         if isinstance(gridtype, bytes):
             gridtype = gridtype.decode("utf-8")
             gridver = gridver.decode("utf-8")
             gridtime = gridtime.decode("utf-8")
+
     except KeyError:
         raise SystemExit(
             "Error: Some information is missing in the header of the grid!\n"
-            "Please check the entries in the header! It must include all "
-            "of the following:\n * header/library_type\n * header/version "
-            "\n * header/buildtime"
+            "Required: header/library_type, header/version, header/buildtime."
         )
 
-    # Check if grid is interpolated
     try:
         Grid["header/interpolation_time"][()]
+        is_interpolated = True
     except KeyError:
-        grid_is_intpol = False
-    else:
-        grid_is_intpol = True
+        is_interpolated = False
 
-    assert isinstance(gridtype, str), gridtype
-    assert isinstance(gridver, str), gridver
-    assert isinstance(gridtime, str), gridtime
-    return gridtype, gridver, gridtime, grid_is_intpol
+    return {
+        "gridtype": gridtype,
+        "version": gridver,
+        "time": gridtime,
+        "is_interpolated": is_interpolated,
+    }
 
 
-def read_grid_bayweights(Grid, gridtype) -> tuple[tuple[str, ...], str]:
+def print_gridinfo(gridfile: str, header: GridHeader) -> None:
+    print(f"\n* Using the grid '{gridfile}' of type '{header['gridtype']}'.")
+    print(
+        f"  - Grid built with BASTA version {header['version']}, timestamp: {header['time']}."
+    )
+
+
+def extract_gridid(Grid) -> tuple[float, float, float, float] | bool:
+    """
+    Extracts model parameters needed to build isochrone paths.
+    Returns False if missing.
+    """
     try:
-        grid_weights = [x.decode("utf-8") for x in list(Grid["header/active_weights"])]
-
+        ove = Grid["header/ove"][()]
+        dif = Grid["header/dif"][()]
+        eta = Grid["header/eta"][()]
+        alphaFe = Grid["header/alphaFe"][()]
+        return (ove, dif, eta, alphaFe)
     except KeyError:
-        print("WARNING: Bayesian weights requested, but none specified in grid file!\n")
-        raise
-    bayweights = tuple([x + "_weight" for x in grid_weights])
+        return False
 
-    # Specify the along weight variable, varies due to conceptual difference
-    # - Isochrones --> dmass
-    # - Tracks     --> dage
-    if "isochrones" in gridtype.lower():
+
+def check_gridtype(
+    gridtype: str,
+    gridid: tuple[float, float, float, float] | bool = False,
+) -> GridInfo:
+    """
+    Constructs the appropriate file path based on the grid type.
+    """
+    gridtype = gridtype.lower()
+
+    if "tracks" in gridtype:
+        return {"entryname": "tracks", "defaultpath": "grid/", "difsolarmodel": None}
+
+    if "isochrones" in gridtype:
+        if not gridid or not isinstance(gridid, Sequence) or len(gridid) != 4:
+            raise errors.GridTypeError(
+                "Missing or invalid `gridid`. Expected tuple of (ove, dif, eta, alphaFe)."
+            )
+
+        ove, dif, eta, alphaFe = gridid
+        path = f"ove={ove:.4f}/dif={dif:.4f}/eta={eta:.4f}/alphaFe={alphaFe:.4f}/"
+        return {
+            "entryname": "isochrones",
+            "defaultpath": path,
+            "difsolarmodel": int(dif),
+        }
+
+    raise errors.GridTypeError(
+        f"Gridtype '{gridtype}' not supported. Must be 'tracks' or 'isochrones'."
+    )
+
+
+def get_grid(
+    inferencesettings: core.InferenceSettings,
+) -> tuple[h5py.File, GridHeader, GridInfo]:
+    """
+    Convenience wrapper to extract all required metadata from a grid.
+    """
+    Grid = h5py.File(inferencesettings.gridfile, "r")
+    header = read_grid_header(Grid)
+    gridid = extract_gridid(Grid)
+    print_gridinfo(gridfile=inferencesettings.gridfile, header=header)
+    return Grid, header, check_gridtype(header["gridtype"], gridid)
+
+
+def print_targetinformation(starid: str) -> None:
+    print(f"\nFitting star id: {star.starid}.")
+
+
+def read_bayesianweights(
+    Grid, gridtype: str, optional: bool = False
+) -> BayesianWeights | tuple[None, None]:
+    """
+    Reads Bayesian weights and determines relevant dimensions.
+
+    Parameters
+    ----------
+    Grid: HDF5 file handle.
+        The grid of stellar models
+    gridtype: str
+        Grid type, e.g. 'isochrones' or 'tracks'.
+    optional: bool
+        If True, returns (None, None) when weights are missing.
+
+    Returns:
+        A `BayesianWeights` namedtuple or `(None, None)` if optional and not found.
+    """
+    try:
+        raw_weights = Grid["header/active_weights"]
+        grid_weights = [x.decode("utf-8") for x in list(raw_weights)]
+    except KeyError:
+        if optional:
+            return (None, None)
+        raise errors.MissingBayesianWeightsError(
+            "Bayesian weights requested, but none specified in grid file."
+        )
+
+    bayweights = tuple(f"{x}_weight" for x in grid_weights)
+
+    gridtype = gridtype.lower()
+    if "isochrones" in gridtype:
         dweight = "dmass"
-    elif "tracks" in gridtype.lower():
+    elif "tracks" in gridtype:
         dweight = "dage"
     else:
-        raise Exception(f"Unknown gridtype {gridtype}")
-    return bayweights, dweight
+        raise errors.GridTypeError(f"Unknown gridtype '{gridtype}'.")
+
+    return BayesianWeights(weight_keys=bayweights, along_weight=dweight)
 
 
 def prepare_distancefitting(
-    inputparams: dict, debug: bool, debug_dirpath: str, allparams: list[str]
-) -> tuple[dict, list[str]]:
-    # Special case if assuming gaussian magnitudes
-    if "gaussian_magnitudes" in inputparams:
-        use_gaussian_priors = inputparams["gaussian_magnitudes"]
-    else:
-        use_gaussian_priors = False
-
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    filepaths: core.FilePaths,
+    outputoptions: core.OutputOptions,
+    allparams: list[str],
+) -> tuple[core.AbsoluteMagnitudes, list[str]]:
     # Add magnitudes and colors to fitparams if fitting distance
-    inputparams = distances.add_absolute_magnitudes(
-        inputparams,
-        debug=debug,
-        debug_dirpath=debug_dirpath,
-        use_gaussian_priors=use_gaussian_priors,
+    absolutmagnitudes = distances.add_absolute_magnitudes(
+        star=star,
+        filepaths=filepaths,
+        inferencesettings=inferencesettings,
+        outputoptions=outputoptions,
     )
 
+    # TODO(Amalie): Why? I think we need a better overview of what is being fitted than this
     # If keyword present, add individual filters
     if "distance" in allparams:
         allparams = list(
-            np.unique(allparams + inputparams["distanceparams"]["filters"])
+            np.unique(allparams + list(star.distanceparams.magnitudes.keys()))
         )
         allparams.remove("distance")
-    return inputparams, allparams
+    return absolutmagnitudes, allparams
 
 
 def print_fitparams(fitparams: dict) -> None:
     # Print fitparams
     print("\nFitting information:")
     print("* Fitting parameters with values and uncertainties:")
-    for fp in fitparams.keys():
+    for fp, fpval in fitparams.items():
         if fp in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
             fpstr = f"{fp} (solar units)"
         else:
             fpstr = fp
-        print(f"  - {fpstr}: {fitparams[fp]}")
+        print(f"  - {fpstr}: {fpval}")
 
 
-def print_seismic(fitfreqs: dict, obskey: np.array, obs: np.array) -> None:
+def print_seismic(fitfreqs: dict, obskey: np.ndarray, obs: np.ndarray) -> None:
     # Fitting info: Frequencies
     if not fitfreqs["active"]:
         return
@@ -263,40 +327,47 @@ def print_seismic(fitfreqs: dict, obskey: np.array, obs: np.array) -> None:
     )
 
 
-def print_distances(distparams, asciiparams) -> None:
+def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
     # Fitting info: Distance
-    if not distparams:
+    if len(star.distanceparams.magnitudes) < 1:
         return
-    if ("parallax" in distparams) and "distance" in asciiparams:
+    print("")
+    if (
+        len(star.distanceparams.params["parallax"]) > 0
+    ) and "distance" in outputoptions.asciiparams:
         print("* Parallax fitting and distance inference activated!")
-    elif "parallax" in distparams:
+    elif len(star.distanceparams.params["parallax"]) > 0:
         print("* Parallax fitting activated!")
-    elif "distance" in asciiparams:
+    elif "distance" in outputoptions.asciiparams:
         print("* Distance inference activated!")
 
-    if distparams["dustframe"] == "icrs":
+    if star.distanceparams.coordinates["frame"].lower() == "icrs":
         print(
-            f"  - Coordinates (icrs): RA = {distparams['RA']}, DEC = {distparams['DEC']}"
+            f"  - Coordinates (icrs): RA = {star.distanceparams.coordinates['RA']}, DEC = {star.distanceparams.coordinates['DEC']}"
         )
-    elif distparams["dustframe"] == "galactic":
+    elif star.distanceparams.coordinates["frame"].lower() == "galactic":
         print(
-            f"  - Coordinates (galactic): lat = {distparams['lat']}, lon = {distparams['lon']}"
+            f"  - Coordinates (galactic): lat = {star.distanceparams.coordinates['lat']}, lon = {star.distanceparams.coordinates['lon']}"
         )
+
+    if len(star.distanceparams.params["parallax"]) > 0:
+        print(f"  - Parallax: {star.distanceparams.params['parallax']}")
 
     print("  - Filters (magnitude value and uncertainty): ")
-    for filt in distparams["filters"]:
-        print(f"    + {filt}: [{distparams['m'][filt]}, {distparams['m_err'][filt]}]")
+    for filt, (m, m_err) in star.distanceparams.magnitudes.items():
+        print(f"    + {filt}: [{m}, {m_err}]")
 
-    if "parallax" in distparams:
-        print(f"  - Parallax: {distparams['parallax']}")
+    if len(star.distanceparams.EBV) > 0:
+        # TODO(Amalie) is EBV a list of [0, value, 0] or a flat value? should probably be the latter
+        print(
+            f"  - EBV: {star.distanceparams.EBV[1]} (uniform across all distance samples)"
+        )
 
-    if "EBV" in distparams:
-        print(f"  - EBV: {distparams['EBV'][1]} (uniform across all distance samples)")
 
-
-def print_additional(inputparams) -> None:
-    if "phase" in inputparams:
+def print_additional(star: core.Star) -> None:
+    if "phase" in star.classicalparams.params.keys():
         print("* Fitting evolutionary phase!")
+    # TODO(Amalie) check that this points at the right things
     print("\nAdditional input parameters and settings in alphabetical order:")
     noprint = [
         "asciioutput",
@@ -312,11 +383,13 @@ def print_additional(inputparams) -> None:
         "magnitudes",
         "excludemodes",
         "numax",
-        "warnoutput",
     ]
-    for ip in sorted(inputparams.keys()):
+    for ip in sorted(star.classicalparams.params.keys()):
+        assert ip not in [
+            "warnoutput",
+        ]
         if ip not in noprint:
-            print(f"* {ip}: {inputparams[ip]}")
+            print(f"* {ip}: {star.classicalparams.params[ip]}")
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
@@ -339,14 +412,36 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
         print("No Bayesian weights applied")
 
 
-def print_priors(limits: dict, usepriors: list[str]) -> None:
-    print("* Flat, constrained priors and ranges:")
-    for lim in limits.keys():
-        print(f"  - {lim}: {limits[lim]}")
-    print(f"* Additional priors (IMF): {', '.join(usepriors)}")
+def print_priors(inferencesettings: core.InferenceSettings) -> None:
+    priors = inferencesettings.priors
+    if not priors:
+        return
+
+    print("* Additional set priors:")
+
+    empty_priors = sorted(
+        [lim for lim, entry in priors.items() if lim != "gridcut" and not entry.kwargs]
+    )
+
+    for lim in empty_priors:
+        print(f"  - {lim}")
+
+    constrained = sorted(
+        [
+            (lim, k, v)
+            for lim, entry in priors.items()
+            if lim != "gridcut" and entry.kwargs
+            for k, v in entry.kwargs.items()
+        ]
+    )
+
+    if constrained:
+        print("* Flat, constrained priors:")
+        for lim, k, v in constrained:
+            print(f"  - {lim}: ({k}: {v})")
 
 
-class Logger(object):
+class Logger:
     """
     Class used to redefine stdout to terminal and an output file.
 
@@ -357,22 +452,22 @@ class Logger(object):
     """
 
     # Credit: http://stackoverflow.com/a/14906787
-    def __init__(self, outfilename):
+    def __init__(self, outfilename: Path) -> None:
         self.terminal = sys.stdout
-        self.log = open(outfilename + ".log", "a")
+        self.log = open(outfilename, "a")
 
-    def write(self, message):
+    def write(self, message: str) -> None:
         self.terminal.write(message)
         self.log.write(message)
 
-    def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
-        pass
+    def flush(self) -> None:
+        self.terminal.flush()
+        self.log.flush()
 
 
-def list_metallicities(Grid, defaultpath, inputparams, limits):
+def list_metallicities(
+    grid: h5py.File, gridinfo: GridInfo, inferencesettings: core.InferenceSettings
+) -> np.ndarray:
     """
     Get a list of metallicities in the grid that we loop over
 
@@ -393,20 +488,28 @@ def list_metallicities(Grid, defaultpath, inputparams, limits):
         List of possible metalliticies that should be looped over in
         `bastamain`.
     """
-    if "grid" in defaultpath:
-        metal = range(1)
-    else:
-        metal = [x for x in Grid[defaultpath].items() if "=" in x[0]]
-        for i in range(len(metal)):
-            metal[i] = float(metal[i][0][4:])
-        metal = np.asarray(metal)
+    if "grid" in gridinfo["defaultpath"]:
+        return np.asarray([0])
 
-        metal_name = "MeH" if "MeH" in limits else "FeH"
-        if metal_name in limits:
-            metal = metal[
-                (metal >= limits[metal_name][0]) & (metal <= limits[metal_name][1])
+    # Collect metallicities available in grid
+    metallicity_strings = [
+        name for name, _ in grid[gridinfo["defaultpath"]].items() if "=" in name
+    ]
+    metallist = [float(name[4:]) for name in metallicity_strings]
+    metallicities = np.array(metallist)
+
+    priors = inferencesettings.priors
+    metal_name = "MeH" if "MeH" in priors else "FeH"
+
+    if metal_name in list(priors.keys()):
+        limits = priors[metal_name].limits
+        if limits is not None:
+            lower, upper = limits
+            metallicities = metallicities[
+                (metallicities >= lower) & (metallicities <= upper)
             ]
-    return metal
+
+    return metallicities
 
 
 def unique_unsort(params):
@@ -430,7 +533,15 @@ def unique_unsort(params):
 
 
 def compare_output_to_input(
-    starid, inputparams, hout, out, hout_dist, out_dist, uncert="qunatiles", sigmacut=1
+    star: core.Star,
+    absolutemagnitudes: core.AbsoluteMagnitudes,
+    runfiles: core.RunFiles,
+    hout,
+    out,
+    hout_dist,
+    out_dist,
+    uncert="qunatiles",
+    sigmacut=1,
 ):
     """
     This function compares the outputted value of all fitting parameters
@@ -461,10 +572,10 @@ def compare_output_to_input(
     comparewarn : bool
         Flag to determine whether or not a warning was raised.
     """
-    if inputparams["warnoutput"] is False:
+    if runfiles.warnoutput is None:
         return False
-    fitparams = inputparams["fitparams"]
-    warnfile = inputparams["warnoutput"]
+    fitparams = star.fitparams
+    warnfile = runfiles.warnoutput
     comparewarn = False
     ps = []
     sigmas = []
@@ -485,14 +596,14 @@ def compare_output_to_input(
                 ps.append(p)
                 sigmas.append(sigma)
 
-    if len(inputparams["magnitudes"]) > 0:
-        for m in list(inputparams["distanceparams"]["filters"]):
+    if len(absolutemagnitudes["magnitudes"].keys()) > 0:
+        for m in list(absolutemagnitudes["magnitudes"].keys()):
             mdist = "M_" + m
             if mdist in hout_dist:
                 idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
-                priorM = inputparams["magnitudes"][m]["median"]
-                priorerrp = inputparams["magnitudes"][m]["errp"]
-                priorerrm = inputparams["magnitudes"][m]["errm"]
+                priorM = absolutemagnitudes["magnitudes"][m]["median"]
+                priorerrp = absolutemagnitudes["magnitudes"][m]["errp"]
+                priorerrm = absolutemagnitudes["magnitudes"][m]["errm"]
                 if uncert == "quantiles":
                     outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
                 else:
@@ -505,33 +616,16 @@ def compare_output_to_input(
                     ps.append(mdist)
                     sigmas.append(sigma)
 
-        if "distance" in hout_dist:
-            idx = np.nonzero([x == "distance_joint" for x in hout_dist])[0][0]
-            priordistqs = inputparams["distanceparams"]["priordistance"]
-            priorerrm = priordistqs[0] - priordistqs[1]
-            priorerrp = priordistqs[2] - priordistqs[0]
-            if uncert == "quantiles":
-                outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
-            else:
-                outerr = out_dist[idx + 1]
-            serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
-            sigma = np.abs(out_dist[idx] - priordistqs[1]) / serr
-            bigdiff = sigma >= sigmacut
-            if bigdiff:
-                comparewarn = True
-                ps.append("distance")
-                sigmas.append(sigma)
-
     if comparewarn:
-        print("A >%s sigma difference was found between input and output of" % sigmacut)
+        print(f"A >{sigmacut} sigma difference was found between input and output of")
         print(ps)
         print("with sigma differences of")
         print(sigmas)
         if isinstance(warnfile, IOBase):
-            warnfile.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+            warnfile.write(f"{star.starid}\t{ps}\t{sigmas}\n")
         else:
             with open(warnfile, "a") as wf:
-                wf.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+                wf.write(f"{star.starid}\t{ps}\t{sigmas}\n")
 
     return comparewarn
 
@@ -597,8 +691,8 @@ def normfactor(alphas, ms):
             * (1 / ms[3]) ** alphas[3]
         )
         return ks
-    else:
-        print("Mistake in normfactor")
+    print("Mistake in normfactor")
+    return None
 
 
 def get_parameter_values(parameter, Grid, selectedmodels, noofind):
@@ -633,7 +727,9 @@ def get_parameter_values(parameter, Grid, selectedmodels, noofind):
     return x_all
 
 
-def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"):
+def printparam(
+    param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"
+) -> None:
     """
     Pretty-print of output parameter to log and console.
 
@@ -657,16 +753,16 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     None
     """
     # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
-    print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
+    print(f"{centroid:9}  {param:13} :  {xmed:12.6f}")
     if uncert == "quantiles":
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
+        print("{:9}  {:13} :  {:12.6f}".format("err_plus", param, xstdp - xmed))
+        print("{:9}  {:13} :  {:12.6f}".format("err_minus", param, xmed - xstdm))
     else:
-        print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
+        print("{:9}  {:13} :  {:12.6f}".format("stdev", param, xstdm))
     print("-----------------------------------------------------")
 
 
-def strtobool(val):
+def strtobool(val: str | Literal[0, 1]) -> Literal[0, 1]:
     """
     Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'.
@@ -679,10 +775,63 @@ def strtobool(val):
     val: str
         String value to be converted into a boolean.
     """
+    if not isinstance(val, str):
+        return val
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
         return 1
-    elif val in ("n", "no", "f", "false", "off", "0"):
+    if val in ("n", "no", "f", "false", "off", "0"):
         return 0
-    else:
-        raise ValueError("invalid truth value %r" % (val,))
+    raise ValueError(f"invalid truth value {val!r}")
+
+
+def flush_all(*files: IO | None) -> None:
+    """Flush multiple file buffers to ensure data is written."""
+    for f in files:
+        if f:
+            f.flush()
+
+
+def h5py_to_array(xs) -> np.ndarray:
+    """
+    Copy vector/dataset from an HDF5 file to a NumPy array
+
+    Parameters
+    ----------
+    xs : h5py_dataset
+       The input dataset read by h5py from an HDF5 object
+
+    Returns
+    -------
+    res : array_like
+        Copy of the dataset as NumPy array
+    """
+    res = np.empty(shape=xs.shape, dtype=xs.dtype)
+    res[:] = xs[:]
+    return res
+
+
+def compute_group_names(
+    gridinfo: GridInfo, metallicities: np.ndarray
+) -> dict[float, str]:
+    if "grid" in gridinfo["defaultpath"]:
+        return {feh: gridinfo["defaultpath"] + "tracks/" for feh in metallicities}
+    return {feh: f"{gridinfo['defaultpath']}FeH={feh:.4f}/" for feh in metallicities}
+
+
+def should_skip_track(
+    libitem, name: str, noingrid: int, inferencesettings: core.InferenceSettings
+) -> bool:
+    """
+    Return True if a track should be skipped based on prior limits.
+    """
+    print(name)
+    param, val = name.split("=")
+    if param == "mass":
+        param += "ini"
+
+    priors = inferencesettings.priors
+    for prior in priors:
+        if prior.limits is not None:
+            return not (prior.limits[0] <= float(val) <= prior.limits[1])
+    return False

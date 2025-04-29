@@ -4,9 +4,11 @@ Creation of XML input files
 
 from xml.dom import minidom
 from xml.etree.ElementTree import Element, SubElement, tostring
+
 import numpy as np
-from basta.constants import sydsun as sydc
+
 from basta.constants import freqtypes
+from basta.constants import sydsun as sydc
 from basta.utils_xml import create_xmltag
 
 
@@ -21,7 +23,7 @@ def generate_xml(
     sunnumax: float = sydc.SUNnumax,
     sundnu: float = sydc.SUNdnu,
     solarmodel: bool = False,
-    missingval: float | int = -999.999,
+    missingval: float = -999.999,
     centroid: str = "median",
     uncert: str = "quantiles",
     plotfmt: str = "png",
@@ -33,9 +35,9 @@ def generate_xml(
     overwriteparams: dict | None = None,
     freqparams: dict | None = None,
     glitchparams: dict | None = None,
-    filters: tuple[str, ...] | None = None,
+    filters: list[str] | tuple[str, ...] | None = None,
     dustframe: str | None = None,
-    cornerplots: tuple[str, ...] | bool = False,
+    cornerplots: str | list[str] | tuple[str, ...] | None = None,
     kielplots: tuple[str, ...] | bool = False,
     freqplots: bool = False,
     optionaloutputs: bool = True,
@@ -149,9 +151,7 @@ def generate_xml(
         Inputted delimiter if asciifile uses a special delimiter not easily
         recognised by numpy.genfromtxt
     """
-    inp = np.genfromtxt(
-        asciifile, dtype=None, names=params, encoding=None, delimiter=delimiter
-    )
+    inp = np.genfromtxt(asciifile, dtype=None, names=params, delimiter=delimiter)
     if inp.ndim == 0:
         inp = inp.reshape(1, -1)[0]
 
@@ -226,13 +226,13 @@ def generate_xml(
         if "trackresolution" in intpolparams:
             trackres = intpolparams["trackresolution"]
             for tag, val in trackres.items():
-                if isinstance(val, (float, int)):
+                if isinstance(val, float | int):
                     trackres[tag] = str(val)
             SubElement(intpolelement, "trackresolution", trackres)
         if "gridresolution" in intpolparams:
             gridres = intpolparams["gridresolution"]
             for tag, val in gridres.items():
-                if isinstance(val, (float, int)):
+                if isinstance(val, float | int):
                     gridres[tag] = str(val)
             if "resolution" in gridres:
                 for restag, resval in gridres["resolution"].items():
@@ -254,7 +254,7 @@ def generate_xml(
                         intpollim[name] = list(rules[hits])
 
     # Add subelement <bayesianweights> to <default>
-    if isinstance(bayweights, (bool, str)):
+    if isinstance(bayweights, bool | str):
         SubElement(default, "bayesianweights", {"value": str(bayweights)})
 
     # Add subelement <fitparams to <default>
@@ -262,8 +262,7 @@ def generate_xml(
     if isinstance(fitparams, str):
         fitparams = [fitparams]
     for param in fitparams:
-        paramdic = {}
-        SubElement(fitelement, param, paramdic)
+        SubElement(fitelement, param, {})
 
     # Add subelement priors to <default> (if any priors are included)
     if priors:
@@ -289,7 +288,7 @@ def generate_xml(
     if overwriteparams:
         globalelement = SubElement(default, "overwriteparams")
         for param in overwriteparams:
-            paramdic = {}
+            paramdic: dict[str, str] = {}
             if param == "phase":
                 paramdic["value"] = overwriteparams[param]
             else:
@@ -313,9 +312,12 @@ def generate_xml(
             SubElement(glitchelement, param, {"value": str(glitchparams[param])})
 
     # We need to check these before handling distance input
-    if isinstance(cornerplots, (str, bool)) and len(cornerplots):
+    if not cornerplots:
+        cornerplots = []
+    elif isinstance(cornerplots, str):
         cornerplots = [str(cornerplots)]
-    if isinstance(outparams, (str, bool)) and len(outparams):
+    assert isinstance(cornerplots, list | tuple)
+    if isinstance(outparams, str | bool) and len(outparams):
         outparams = [str(outparams)]
 
     # Handle distance related input
@@ -328,7 +330,7 @@ def generate_xml(
         if isinstance(filters, str):
             filters = (filters,)
 
-        if len(filters) == 0:
+        if filters is None or len(filters) == 0:
             raise ValueError("No filters were given for parallax/distance fitting")
 
         # Add to <default>
@@ -340,7 +342,7 @@ def generate_xml(
 
         # Add coordinate system to the individual targets
         if dustframe == "galactic":
-            distparams = ("lat", "lon")
+            distparams: tuple[str, ...] = ("lat", "lon")
         elif dustframe in ["icrs"]:
             distparams = ("RA", "DEC")
         else:
@@ -352,9 +354,9 @@ def generate_xml(
             distparams += ("EBV",)
 
         # Add magnitudes to list of parameters
-        starparams = fitparams + filters
+        starparams = [*fitparams, *filters]
     else:
-        starparams = fitparams
+        starparams = [*fitparams]
         distparams = ()
 
     # Add subelement <cornerplots> to <default>
@@ -375,11 +377,11 @@ def generate_xml(
 
     # Add subelement <freqplots> to <default>
     freqplotselement = SubElement(default, "freqplots")
-    if isinstance(freqplots, (bool, str)) and freqplots:
+    if isinstance(freqplots, bool | str) and freqplots:
         SubElement(freqplotselement, str(freqplots))
     elif freqplots == "True":
         SubElement(freqplotselement, "True")
-    elif isinstance(freqplots, (list, tuple)):
+    elif isinstance(freqplots, list | tuple):
         for plot in freqplots:
             SubElement(freqplotselement, plot)
 
@@ -390,7 +392,7 @@ def generate_xml(
 
     # Add optional output files to <default>
     optoutputelement = SubElement(default, "optionaloutputfiles")
-    if isinstance(optionaloutputs, (bool, str)):
+    if isinstance(optionaloutputs, bool | str):
         SubElement(optoutputelement, str(optionaloutputs))
 
     # Create xml tags for all the targets in the input file
