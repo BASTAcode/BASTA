@@ -7,7 +7,7 @@
 [![ADS](https://img.shields.io/badge/ads-2022MNRAS.509.4344A-blue.svg)](https://ui.adsabs.harvard.edu/abs/2022MNRAS.509.4344A/abstract)
 [![DOI](https://img.shields.io/badge/doi-10.1093/mnras/stab2911-orange.svg)](https://doi.org/10.1093/mnras/stab2911)
 
-Current stable version: v1.5.1
+Current stable version: v1.5.2
 
 **Important note:** BASTA is currently developed for Python 3.12, but Python >= 3.10 should suffice.
 
@@ -37,6 +37,10 @@ With the virtual environment activated:
 
 ```
 pip install basta
+```
+or
+```
+pip install https://github.com/BASTAcode/BASTA/archive/refs/heads/main.zip
 ```
 
 To make the code ready to run you need to download some additional assets: a grid of stellar models and the dustmaps. To complete the setup of the code and download the grid used in most of our examples run the following (feel free to change the paths as you like):
