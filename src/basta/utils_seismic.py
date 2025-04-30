@@ -171,7 +171,7 @@ def solar_scaling(
 
     globalseismicparams.set_scalefactor(scalefactors)
 
-    for key in globalseismicparams.scaled_params.keys():
+    for key in globalseismicparams.params.keys():
         orig = globalseismicparams.get_original(key)[0]
         scaled = globalseismicparams.get_scaled(key)[0]
         if outputoptions.verbose:

@@ -125,8 +125,6 @@ def _bastamain(
             assert globalseismicparams.scalefactors is not None
 
         util.add_bias_to_dnuerror(globalseismicparams, inputstar)
-        print(globalseismicparams)
-        raise SystemExit
 
         frequencies = ratios = glitches = epsilondifferences = None
         absolutemagnitudes = distancelimits = None
@@ -219,8 +217,8 @@ def _bastamain(
             star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
         )
 
-    util.print_fitparams(fitparams=inferencesettings.fitparams)
-    if star.seismicparams.has_any_seismic_case:
+    util.print_fitparams(star=star, inferencesettings=inferencesettings)
+    if inferencesettings.has_any_seismic_case:
         util.print_seismic(inferencesettings.fitparams, obskey=obskey, obs=obs)
     util.print_distances(star, outputoptions)
     util.print_additional(star)
@@ -268,12 +266,9 @@ def _bastamain(
 
     # In some cases we need to store quantities computed at runtime
     # TODO(Amalie) Why do we need this? Is this the right logic?
-    if (
-        star.seismicparams.has_any_seismic_case
-        and star.seismicparams.ratios.dnufit_in_ratios
-    ):
+    if star.has_any_seismic_case and star.seismicparams.ratios.dnufit_in_ratios:
         dnusurfmodels = {}
-    if star.seismicparams.has_glitches:
+    if star.has_glitches:
         glitchmodels = {}
 
     print(
@@ -282,6 +277,10 @@ def _bastamain(
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
+    # allparams = np.unique(np.asarray(inferencesettings.fitparams + plotconfig.freqplots - star.distanceparams.params.keys()))
+    allparams = ["Teff", "dnuSer", "numax", "MeH"]
+    print(allparams)
+
     for FeH in metallicities:
         group_name = group_names[FeH]
         group = Grid[group_name]
@@ -419,16 +418,19 @@ def _bastamain(
                             (paramvals - star.classicalparams.params[param][0])
                             / star.classicalparams.params[param][1]
                         ) ** 2.0
-                        if param in allparams:
+                        if param in set(inferencesettings.fitparams) | set(
+                            plotconfig.cornerplots
+                        ):
                             paramvalues[param] = paramvals
 
                 # Add parameters not in fitparams
-                for param in allparams:
-                    if param not in star.classicalparams.params.keys():
+                for param in list(allparams):
+                    print(param)
+                    if param not in list(star.classicalparams.params.keys()):
                         paramvalues[param] = libitem[param][index]
 
                 # Frequency (and/or ratio and/or glitch) fitting
-                if star.seismicparams.has_any_case:
+                if inferencesettings.has_any_seismic_case:
                     if fitfreqs["dnufit_in_ratios"]:
                         dnusurf = np.zeros(index.sum())
                     if fitfreqs["glitchfit"]:
@@ -474,7 +476,7 @@ def _bastamain(
                         bayw += util.inflog(libitem[dweight][index])
 
                 # Fold with absolute magnitudes, if present
-                for f in absolutemagnitudes["magnitudes"].keys():
+                for f in star.distanceparams.absolutemagnitudes["magnitudes"].keys():
                     mags = absolutemagnitudes["magnitudes"][f]["prior"]
                     absmags = libitem[f][index]
                     interp_mags = mags(absmags)
