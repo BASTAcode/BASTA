@@ -416,24 +416,13 @@ def add_absolute_magnitudes(
         stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
     )
 
-    # TODO(Amalie) fix this when limits are fixed
-    ## Constrain metallicity within the limits of the color transformations
-    # metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"
-    # metal_limit = inputparams["limits"].get(metal)
-    # if not metal_limit:
-    #    inputparams["limits"][metal] = [
-    #            cnsts.metallicityranges.values["metallicity"]["min"],
-    #            cnsts.metallicityranges.values["metallicity"]["max"],
-    #            ]
-    # else:
-    #    if metal_limit[0] < cnsts.metallicityranges.values["metallicity"]["min"]:
-    #        inputparams["limits"][metal][0] = cnsts.metallicityranges.values[
-    #                "metallicity"
-    #                ]["min"]
-    #        if metal_limit[1] > cnsts.metallicityranges.values["metallicity"]["max"]:
-    #            inputparams["limits"][metal][1] = cnsts.metallicityranges.values[
-    #                    "metallicity"
-    #                    ]["max"]
+    # Constrain metallicity within the limits of the color transformations
+    metal = "MeH" if "MeH" in inferencesettings.fitparams else "FeH"
+    distancelimits: dict[str, (float, float)] = {}
+    distancelimits[metal] = [
+               cnsts.metallicityranges.values["metallicity"]["min"],
+               cnsts.metallicityranges.values["metallicity"]["max"],
+               ]
 
     if outputoptions.verbose:
         print("Done!")
@@ -443,4 +432,4 @@ def add_absolute_magnitudes(
         "absorption": new_As,
         "prior_EBV": prior_EBV,
         "prior_distance": prior_distance,
-    }
+    }, distancelimits

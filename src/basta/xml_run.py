@@ -12,7 +12,7 @@ from xml.etree import ElementTree as ET
 import h5py  # type: ignore[import]
 import numpy as np
 
-from basta import core, constants
+from basta import core, constants, imfs
 from basta.bastamain import BASTA
 from basta.constants import freqtypes, parameters
 from basta.constants import sydsun as sydc
@@ -775,27 +775,20 @@ def run_xml(
     useoptoutput = bool(optoutput)
 
     # Get priors
-    limits: dict[str, Any] = {}
+    boxpriors: dict[str, Any] = {}
+    imf: str | None = None
     for param in root.findall("default/priors/"):
         if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
-            limits[param.tag] = [
+            boxpriors[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
                 float(param.attrib.get("abstol", np.inf)),
                 float(param.attrib.get("sigmacut", np.inf)),
             ]
-        elif param.tag == "IMF":
-            limits["imf"] = ["salpeter1955"]
-        elif param.tag in [
-            "salpeter1955",
-            "millerscalo1979",
-            "kennicutt1994",
-            "scalo1998",
-            "kroupa2001",
-            "baldryglazebrook2003",
-            "chabrier2003",
+        elif param.tag in ["IMF", "salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003",
         ]:
-            limits["imf"] = [param.tag]
+            assert imf is None
+            imf = param.tag
         else:
             raise ValueError
 
@@ -1006,7 +999,7 @@ def run_xml(
                 # inputparams["fitparams"] = starfitparams
                 inputparams["magnitudes"] = {}
                 inputparams["limits"] = {}
-                for param, (minval, maxval, abstol, nsigma) in limits.items():
+                for param, (minval, maxval, abstol, nsigma) in boxpriors.items():
                     if param in starfitparams:
                         val, err = starfitparams[param]
                         abstol = max(abstol, 2 * err * nsigma)
@@ -1166,17 +1159,19 @@ def run_xml(
                     params=numaxdnuparams,
                 )
 
-                surfcor = constants.SeismicfitAliases.scalias[
-                    inputparams["fitfreqs"]["fcor"].lower()
-                ]
-
-                surfacecorrection = {
-                    surfcor: (
-                        {"bexp": inputparams["fitfreqs"]["bexp"]}
-                        if surfcor == "KBC08"
-                        else {}
-                    )
-                }
+                if inputparams["fitfreqs"]["fcor"] == '':
+                    surfacecorrection = None
+                else:
+                    surfcor = constants.SeismicfitAliases.scalias[
+                        inputparams["fitfreqs"]["fcor"].lower()
+                    ] 
+                    surfacecorrection = {
+                        surfcor: (
+                            {"bexp": inputparams["fitfreqs"]["bexp"]}
+                            if surfcor == "KBC08"
+                            else {}
+                        )
+                    }
                 star = core.InputStar(
                     starid=starid,
                     classicalparams=classicalparams,
@@ -1201,7 +1196,7 @@ def run_xml(
                     dnuprior=inputparams["fitfreqs"]["dnuprior"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
                 )
-                priors: dict[str, core.PriorEntry] = {}
+                boxpriors: dict[str, core.PriorEntry] = {}
                 for param in root.findall("default/priors/"):
                     param_name = param.tag
                     kwargs = {}
@@ -1212,20 +1207,23 @@ def run_xml(
                             kwargs[key] = float(param.attrib[key])
                     if param_name == "IMF":
                         param_name = "salpeter1955"
-                    priors[param_name] = core.PriorEntry(
+                    if param_name in imfs.PRIOR_FUNCTIONS:
+                        continue
+                    boxpriors[param_name] = core.PriorEntry(
                         kwargs=kwargs if kwargs else {}
                     )
                 # Add dnufrac to priors
                 if inputparams["fitfreqs"]["dnufrac"] is not None:
-                    priors["dnufrac"] = core.PriorEntry(
-                        kwargs={"dnufrac": inputparams["fitfreqs"]["dnufrac"]}
+                    boxpriors["dnufrac"] = core.PriorEntry(
+                        kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
                     )
                 inferencesettings = core.InferenceSettings(
-                    fitparams=inputparams["fitparams"],
+                    fitparams=fitparams,
                     gridfile=gridfile,
                     gridid=gridid,
                     seed=seed,
-                    priors=priors,
+                    boxpriors=boxpriors,
+                    imf=imf,
                     usebayw=bool(usebayw),
                     solarmodel=inputparams["solarmodel"],
                     solarvalues={

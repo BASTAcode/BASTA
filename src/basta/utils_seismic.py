@@ -118,8 +118,6 @@ def solar_scaling(
         f"* Solar references: dnu = {solarvalues['dnu']} µHz, numax = {solarvalues['numax']} µHz"
     )
 
-    # TODO(Amalie) remember to scale limits that depend on dnu/numax!
-
     scalefactors = {}
 
     already_scaled = ["dnufit", "dnufitMos12"]
@@ -176,8 +174,8 @@ def solar_scaling(
 
     if globalseismicparams.scaled_params is not None:
         for key in globalseismicparams.scaled_params.keys():
-            orig = globalseismic.get_original(key)[0]
-            scaled = globalseismic.get_scaled(key)[0]
+            orig = globalseismicparams.get_original(key)[0]
+            scaled = globalseismicparams.get_scaled(key)[0]
             if outputoptions.verbose:
                 if orig != scaled:
                     print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")

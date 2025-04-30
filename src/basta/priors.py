@@ -29,7 +29,7 @@ def gridlimits(
     Check if any specified limit in prior is in header, and can be used to
     skip computation of models, in order to speed up computation
     """
-    limits = list(inferencesettings.priors.keys())
+    limits = list(inferencesettings.boxpriors.keys())
 
     gridcut = {}
 
@@ -47,6 +47,7 @@ def gridlimits(
     if headerpath:
         header_keys = grid[headerpath].keys()
 
+        #TODO(Amalie) I don't think this handling is necessairy
         # Extract gridcut params
         gridcut_keys = set(header_keys) & set(limits)
         gridcut = {key: limits.pop(key) for key in gridcut_keys}
@@ -65,7 +66,7 @@ def gridlimits(
                     f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
                 )
     # TODO(Amalie) I should probably change this so it aligns with the application of the prior
-    inferencesettings.priors["gridcut"] = core.PriorEntry(
+    inferencesettings.boxpriors["gridcut"] = core.PriorEntry(
         kwargs={"gridcut": gridcut},
         limits=None,
     )

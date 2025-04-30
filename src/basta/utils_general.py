@@ -7,7 +7,7 @@ import time
 from collections.abc import Sequence
 from io import IOBase
 from pathlib import Path
-from typing import IO, Literal, NamedTuple, TypedDict
+from typing import IO, Literal, NamedTuple, TypedDict, Any
 
 import h5py  # type: ignore[import]
 import numpy as np
@@ -256,16 +256,22 @@ def prepare_distancefitting(
     """
 
 
-def print_fitparams(fitparams: dict) -> None:
-    # Print fitparams
+def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) -> None:
     print("\nFitting information:")
     print("* Fitting parameters with values and uncertainties:")
-    for fp, fpval in fitparams.items():
-        if fp in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
-            fpstr = f"{fp} (solar units)"
-        else:
+    for param in inferencesettings.fitparams:
+        if param in star.classicalparams.params:
+            fp, fpval = star.classicalparams.params[param]
             fpstr = fp
-        print(f"  - {fpstr}: {fpval}")
+        elif param in star.globalseismicparams.params:
+            fp, fpval = star.globalseismicparams.get_scaled(param)
+            if param in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
+                fpstr = f"{fp} (solar units)"
+            else:
+                fpstr = fp
+        else:
+            print(f"DEBUG: AMALIE: {param}")
+    print(f"  - {fpstr}: {fpval}")
 
 
 def print_seismic(fitfreqs: dict, obskey: np.ndarray, obs: np.ndarray) -> None:
@@ -368,7 +374,7 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
 
 
 def print_additional(star: core.Star) -> None:
-    if "phase" in star.classical.params.keys():
+    if "phase" in star.classicalparams.params.keys():
         print("* Fitting evolutionary phase!")
     # TODO(Amalie) check that this points at the right things
     print("\nAdditional input parameters and settings in alphabetical order:")
@@ -387,12 +393,12 @@ def print_additional(star: core.Star) -> None:
         "excludemodes",
         "numax",
     ]
-    for ip in sorted(star.classical.params.keys()):
+    for ip in sorted(star.classicalparams.params.keys()):
         assert ip not in [
             "warnoutput",
         ]
         if ip not in noprint:
-            print(f"* {ip}: {star.classical.params[ip]}")
+            print(f"* {ip}: {star.classicalparams.params[ip]}")
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
@@ -416,7 +422,7 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
 
 
 def print_priors(inferencesettings: core.InferenceSettings) -> None:
-    priors = inferencesettings.priors
+    priors = inferencesettings.boxpriors
     if not priors:
         return
 
@@ -501,7 +507,8 @@ def list_metallicities(
     metallist = [float(name[4:]) for name in metallicity_strings]
     metallicities = np.array(metallist)
 
-    priors = inferencesettings.priors
+    #TODO(Amalie) Redo this when limits is determined
+    priors = inferencesettings.boxpriors
     metal_name = "MeH" if "MeH" in priors else "FeH"
 
     if metal_name in list(priors.keys()):
@@ -578,7 +585,7 @@ def compare_output_to_input(
     """
     if runfiles.warnoutput is None:
         return False
-    fitparams = star.classical.params
+    fitparams = star.classicalparams.params
     warnfile = runfiles.warnoutput
     comparewarn = False
     ps = []
@@ -675,28 +682,6 @@ def add_out(hout, out, par, x, xm, xp, uncert):
         hout += [par, par + "_err"]
         out += [x, xm]
     return hout, out
-
-
-def normfactor(alphas, ms):
-    # Algorithm from App. A in Pflamm-Altenburg & Kroupa (2006)
-    # https://ui.adsabs.harvard.edu/abs/2006MNRAS.373..295P/abstract
-    ks = np.zeros(len(alphas))
-    ks[0] = (1 / ms[1]) ** alphas[0]
-    ks[1] = (1 / ms[1]) ** alphas[1]
-    if len(ks) == 2:
-        return ks
-    ks[2] = (ms[2] / ms[1]) ** alphas[1] * (1 / ms[2]) ** alphas[2]
-    if len(ks) == 3:
-        return ks
-    if len(ks) == 4:
-        ks[3] = (
-            (ms[2] / ms[1]) ** alphas[1]
-            * (ms[3] / ms[2]) ** alphas[2]
-            * (1 / ms[3]) ** alphas[3]
-        )
-        return ks
-    print("Mistake in normfactor")
-    return None
 
 
 def get_parameter_values(parameter, Grid, selectedmodels, noofind):
@@ -1055,11 +1040,82 @@ def get_epsilondifferences(
 def get_limits(
     inputstar: core.InputStar,
     inferencesettings: core.InferenceSettings,
-    distancelimits: dict[str, (float, float)],
+    distancelimits: dict[str, tuple[float, float]] | None = None,
 ):
-    limits: dict[str, (float, float)] = {}
-    priors = inferencesettings.priors
-    params = inputstar.classical.params + inputstar.globalseismicparams.params
-    for prior in inferencesettings.priors:
-        print(prior)
-        # limits[param
+    """
+    They are interpreted as
+    - `min`: an absolute lower bound.
+    - `max`: an absolute upper bound.
+    - `abstol`: symmetric bound around the observed stellar property
+    - `sigmacut`: symmetric bound around the observed stellar property
+    
+    As they can overlap, we intersect all apllicable constraints.
+    """
+    limits: dict[str, tuple[float, float]] = {}
+    priors = inferencesettings.boxpriors
+    if distancelimits is None:
+        distancelimits = {}
+
+    params = {
+        **inputstar.classicalparams.params,
+        **inputstar.globalseismicparams.params
+    }
+
+    # Unpack special cases such as gridcut and dnufrac
+    gridcut = priors.get('gridcut')
+    gridcut_limits: dict[str, tuple[float, float]] = gridcut if isinstance(gridcut, dict) else {}
+
+    dnufrac = priors.get('dnufrac')
+    dnufrac_limits: dict[str, tuple[float, float]] = dnufrac if isinstance(dnufrac, dict) else {}
+    
+    all_dimensions = set(priors.keys()) | set(distancelimits.keys()) | set(gridcut_limits.keys())
+
+    for dimension in all_dimensions:
+        if dimension in ['gridcut', 'dnufrac']:
+            continue  # as we are processing its contents instead.
+
+        star_param = params.get(dimension)
+        prior_entry = priors.get(dimension)
+        dist_limit = distancelimits.get(dimension)
+        gridcut_limit = gridcut_limits.get(dimension)
+
+        prior_bounds = []
+        if prior_entry:
+            kwargs = prior_entry.kwargs
+            if 'min' in kwargs:
+                prior_bounds.append((kwargs['min'], float('inf')))
+            if 'max' in kwargs:
+                prior_bounds.append((float('-inf'), kwargs['max']))
+            if 'abstol' in kwargs:
+                tol = kwargs['abstol']
+                if star_param is None:
+                    raise ValueError(f"Missing stellar value for dimension '{dimension}'")
+                prior_bounds.append((star_param[0] - tol, star_param[0] + tol))
+            if 'sigmacut' in kwargs:
+                if star_param is None:
+                    raise ValueError(f"Missing stellar value for dimension '{dimension}'")
+                sigma = star_param[1]
+                sigcut = kwargs['sigmacut']
+                prior_bounds.append((star_param[0] - sigcut * sigma, star_param[0] + sigcut * sigma))
+
+        prior_limit = None
+        if prior_bounds:
+            lower = max(b[0] for b in prior_bounds)
+            upper = min(b[1] for b in prior_bounds)
+            if lower > upper:
+                raise ValueError(f"Incompatible prior limits for '{dimension}': {prior_bounds}")
+            prior_limit = (lower, upper)
+
+        candidate_limits = [l for l in [prior_limit, dist_limit, gridcut_limit] if l is not None]
+
+        # Combine limits by intersecting ranges if this applies
+        if candidate_limits:
+            lower = max(l[0] for l in candidate_limits)
+            upper = min(l[1] for l in candidate_limits)
+            if lower > upper:
+                raise ValueError(f"Incompatible combined limits for '{dimension}': {candidate_limits}")
+            limits[dimension] = (lower, upper)
+        else:
+            raise NotImplementedError(f"Limit generation not implemented for '{dimension}'")
+
+    return limits

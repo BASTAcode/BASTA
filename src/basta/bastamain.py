@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-from basta import core, distances, plot_driver, priors, process_output, stats
+from basta import core, distances, plot_driver, imfs, priors, process_output, stats
 from basta import fileio as fio
 from basta import utils_general as util
 from basta import utils_seismic as su
@@ -125,6 +125,8 @@ def _bastamain(
             assert globalseismicparams.scalefactors is not None
 
         util.add_bias_to_dnuerror(globalseismicparams, inputstar)
+        print(globalseismicparams)
+        raise SystemExit
 
         frequencies = ratios = glitches = epsilondifferences = None
         absolutemagnitudes = distancelimits = None
@@ -481,14 +483,14 @@ def _bastamain(
                     if outputoptions.debug:
                         magw += util.inflog(interp_mags)
 
-                # TODO(Amalie) rewrite this with new structure
                 # Multiply priors into the weight
-                """
-                for prior in inferencesettings.priors or ():
-                    logPDF += util.inflog(getattr(priors, prior)(libitem, index))
-                    if outputoptions.debug:
-                        IMFw += util.inflog(getattr(priors, prior)(libitem, index))
-                """
+                if inferencesettings.imf is not None:
+                    if inferencesettings.imf not in imfs.PRIOR_FUNCTIONS:
+                        raise ValueError(f"Unknown IMF: {inferencesettings.imf}")
+                    val = imfs.PRIOR_FUNCTIONS[inferencesettings.imf](libitem, index)
+                    logPDF += util.inflog(val)
+                    if debug:
+                        IMFw += util.inflog(val)
 
                 # Calculate likelihood from weights, priors and chi2
                 # PDF = weights * np.exp(-0.5 * chi2)

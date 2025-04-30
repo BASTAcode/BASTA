@@ -498,7 +498,7 @@ class InferenceSettings:
     usebayw : bool, optional
         Whether to use Bayesian weights during inference.
         Can also be a tuple for custom weighting.
-    priors : tuple or list of str, optional
+    boxpriors : tuple or list of str, optional
         Priors to apply during the inference (e.g. an IMF, metallicity priors).
     """
 
@@ -512,7 +512,8 @@ class InferenceSettings:
     solarmodel: str = ""
 
     usebayw: bool = True
-    priors: dict[str, PriorEntry]
+    boxpriors: dict[str, PriorEntry]
+    imf: str | None = "salpeter1955"
 
     @property
     def has_frequencies(self) -> bool:

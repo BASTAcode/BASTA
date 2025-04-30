@@ -6,7 +6,6 @@ import h5py  # type: ignore[import]
 import numpy as np
 
 from basta import core
-from basta import utils_general as util
 
 PRIOR_FUNCTIONS = {}
 
@@ -21,6 +20,28 @@ def piecewise_imf(m, ms, alphas, ks):
             return ks[i] * m ** alphas[i]
     print("Mass outside range of IMF prior")
     return 1e-300
+
+
+def normfactor(alphas, ms):
+    # Algorithm from App. A in Pflamm-Altenburg & Kroupa (2006)
+    # https://ui.adsabs.harvard.edu/abs/2006MNRAS.373..295P/abstract
+    ks = np.zeros(len(alphas))
+    ks[0] = (1 / ms[1]) ** alphas[0]
+    ks[1] = (1 / ms[1]) ** alphas[1]
+    if len(ks) == 2:
+        return ks
+    ks[2] = (ms[2] / ms[1]) ** alphas[1] * (1 / ms[2]) ** alphas[2]
+    if len(ks) == 3:
+        return ks
+    if len(ks) == 4:
+        ks[3] = (
+            (ms[2] / ms[1]) ** alphas[1]
+            * (ms[3] / ms[2]) ** alphas[2]
+            * (1 / ms[3]) ** alphas[3]
+        )
+        return ks
+    print("Mistake in normfactor")
+    return None
 
 
 @register_prior
@@ -42,7 +63,7 @@ def millerscalo1979(libitem, index):
     m = libitem["massini"][index]
     ms = [0.1, 1, 10, 100]
     alphas = [-1.4, -2.5, -3.3]
-    ks = util.normfactor(alphas, ms)
+    ks = normfactor(alphas, ms)
     return piecewise_imf(m, ms, alphas, ks)
 
 
@@ -55,7 +76,7 @@ def kennicutt1994(libitem, index):
     m = libitem["massini"][index]
     ms = [0.1, 1, 100]
     alphas = [-1.4, -2.5]
-    ks = util.normfactor(alphas, ms)
+    ks = normfactor(alphas, ms)
     return piecewise_imf(m, ms, alphas, ks)
 
 
@@ -68,7 +89,7 @@ def scalo1998(libitem, index):
     m = libitem["massini"][index]
     ms = [0.1, 1, 10, 100]
     alphas = [-1.2, -2.7, -2.3]
-    ks = util.normfactor(alphas, ms)
+    ks = normfactor(alphas, ms)
     return piecewise_imf(m, ms, alphas, ks)
 
 
@@ -82,7 +103,7 @@ def kroupa2001(libitem, index):
     m = libitem["massini"][index]
     ms = [0.01, 0.08, 0.5, 1, 150]
     alphas = [-0.3, -1.3, -2.3]
-    ks = util.normfactor(alphas, ms)
+    ks = normfactor(alphas, ms)
     return piecewise_imf(m, ms, alphas, ks)
 
 
@@ -95,7 +116,7 @@ def baldryglazebrook2003(libitem, index):
     m = libitem["massini"][index]
     ms = [0.1, 0.5, 120]
     alphas = [-1.5, -2.2]
-    ks = util.normfactor(alphas, ms)
+    ks = normfactor(alphas, ms)
     return piecewise_imf(m, ms, alphas, ks)
 
 
