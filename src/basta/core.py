@@ -108,26 +108,18 @@ class GlobalSeismicParameters:
 
     params: dict[str, ScaledValueError]
     scalefactors: dict[str, float] | None = None
-    scaled_params: dict[str, ScaledValueError] | None = None
 
     def set_scalefactor(self, scalefactors: dict[str, float]) -> None:
-        if self.scalefactors is None:
-            self.scalefactors = {}
         self.scalefactors = scalefactors
 
-    def set_scaled(self) -> None:
-        self.scaled_params = {
-            key: ScaledValueError(
-                original=param.original,
-                scale=param.scale
-                * (
-                    self.scalefactors[key]
-                    if self.scalefactors and key in self.scalefactors
-                    else 1.0
-                ),
-            )
-            for key, param in self.params.items()
-        }
+        # Update params to reflect the new total scale (existing scale × new factor)
+        for key, factor in scalefactors.items():
+            if key in self.params:
+                param = self.params[key]
+                new_scale = param.scale * factor
+                self.params[key] = ScaledValueError(
+                    original=param.original, scale=new_scale
+                )
 
     def get_original(self, key: str) -> tuple[float, float]:
         return self.params[key].original
@@ -136,9 +128,7 @@ class GlobalSeismicParameters:
         return self.params[key].scale
 
     def get_scaled(self, key: str) -> tuple[float, float]:
-        if self.scaled_params is None:
-            raise ValueError("Scaled fitparams have not been set.")
-        return self.scaled_params[key].scaled
+        return self.params[key].scaled
 
 
 class AbsoluteMagnitude(TypedDict):

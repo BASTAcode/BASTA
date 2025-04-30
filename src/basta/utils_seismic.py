@@ -170,31 +170,27 @@ def solar_scaling(
                 scalefactors[key] *= sunmoddnu[key]
 
     globalseismicparams.set_scalefactor(scalefactors)
-    globalseismicparams.set_scaled()
 
-    if globalseismicparams.scaled_params is not None:
-        for key in globalseismicparams.scaled_params.keys():
-            orig = globalseismicparams.get_original(key)[0]
-            scaled = globalseismicparams.get_scaled(key)[0]
-            if outputoptions.verbose:
-                if orig != scaled:
-                    print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")
-            if key in already_scaled:
-                print(
-                    f"  - {key} scaled by {scalefactors[key]:.4f} from {orig:.2f} to {scaled:.2f} µHz"
-                )
-                print(
-                    f"    (grid Sun: {sunmoddnu[key]:.2f} µHz, real Sun: {solarvalues['dnu']:.2f} µHz)"
-                )
-                print(
-                    f"    (Note: {key} will be scaled back before outputting results!)"
-                )
+    for key in globalseismicparams.scaled_params.keys():
+        orig = globalseismicparams.get_original(key)[0]
+        scaled = globalseismicparams.get_scaled(key)[0]
+        if outputoptions.verbose:
+            if orig != scaled:
+                print(f"  - {key}: {orig:.2f} → {scaled:.6f} (solar units)")
+        if key in already_scaled:
+            print(
+                f"  - {key} scaled by {scalefactors[key]:.4f} from {orig:.2f} to {scaled:.2f} µHz"
+            )
+            print(
+                f"    (grid Sun: {sunmoddnu[key]:.2f} µHz, real Sun: {solarvalues['dnu']:.2f} µHz)"
+            )
+            print(f"    (Note: {key} will be scaled back before outputting results!)")
 
 
 def prepare_obs(
     star: core.Star, plotconfig: core.PlotConfig, outputoptions: core.OutputOptions
 ):
-    #TODO DEPRECATED
+    # TODO DEPRECATED
     """
     Prepare frequencies and ratios for fitting
 
@@ -276,7 +272,9 @@ def prepare_obs(
     )
 
     # Compute the intervals used in frequency fitting
-    if star.any(x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]):
+    if star.any(
+        x in [*freqtypes.freqs, *freqtypes.rtypes] for x in fitfreqs["fittypes"]
+    ):
         obsintervals = freq_fit.make_intervals(obs, obskey, dnu=fitfreqs["dnufit"])
     else:
         obsintervals = None
