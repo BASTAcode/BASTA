@@ -66,7 +66,6 @@ def gridlimits(
                 )
     # TODO(Amalie) I should probably change this so it aligns with the application of the prior
     inferencesettings.priors["gridcut"] = core.PriorEntry(
-        priorid="gridcut",
         kwargs={"gridcut": gridcut},
         limits=None,
     )

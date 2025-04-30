@@ -107,7 +107,7 @@ class GlobalSeismicParameters:
     """
 
     params: dict[str, ScaledValueError]
-    scalefactors: dict[str, float] | None  = None
+    scalefactors: dict[str, float] | None = None
     scaled_params: dict[str, ScaledValueError] | None = None
 
     def set_scalefactor(self, scalefactors: dict[str, float]) -> None:
@@ -231,23 +231,28 @@ class Ratio:
     ratios: np.ndarray
     inverse_covariance: np.ndarray
 
+
 @dataclass(kw_only=True)
 class Ratios:
     ratios: dict[str, Ratio]
+
 
 @dataclass(kw_only=True)
 class Glitch:
     glitches: np.ndarray
     inverse_covariance: np.ndarray
 
+
 @dataclass(kw_only=True)
 class Glitches:
-    glitches : dict[str, Glitch]
+    glitches: dict[str, Glitch]
+
 
 @dataclass(kw_only=True)
 class EpsilonDifference:
     epsilondifferences: np.ndarray
     inverse_covariance: np.ndarray
+
 
 @dataclass(kw_only=True)
 class EpsilonDifferences:
@@ -256,15 +261,15 @@ class EpsilonDifferences:
 
 @dataclass(kw_only=True)
 class Star:
-    starid : str
+    starid: str
 
     limits: dict[str, tuple[float, float]] | None = None
 
     classicalparams: ClassicalParameters
     globalseismicparams: GlobalSeismicParameters
     distanceparams: DistanceParameters
-    
-    absolutemagnitudes: core.AbsoluteMagnitudes | None = None
+
+    absolutemagnitudes: AbsoluteMagnitudes | None = None
 
     frequencies: IndividualFrequencies | None = None
     ratios: Ratios | None = None
@@ -445,7 +450,7 @@ class InputStar:
     nottrustedfile: str | None = None
     excludemodes: str | None = None
     onlyradial: bool | None = None
-    #fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
+    # fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
 
     readratios: bool | int = False
     threepoint: bool | int = False
@@ -496,6 +501,7 @@ class InferenceSettings:
     priors : tuple or list of str, optional
         Priors to apply during the inference (e.g. an IMF, metallicity priors).
     """
+
     fitparams: list[str]
 
     seed: int
@@ -537,8 +543,7 @@ class InferenceSettings:
 
     @property
     def has_distance_case(self) -> bool:
-        return any([x in ['parallax', 'distance'] for x in self.fitparams])
-
+        return any([x in ["parallax", "distance"] for x in self.fitparams])
 
 
 @dataclass(kw_only=True, frozen=True)
@@ -586,6 +591,7 @@ class PlotConfig:
     ----------
 
     """
+
     nameinplot: str
     kielplots: list[str]
     cornerplots: list[str]

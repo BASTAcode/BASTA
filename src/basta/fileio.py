@@ -600,15 +600,17 @@ def _make_obsfreqs(
 
     # Compute inverse covariance matrix
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    obsls = np.unique(obskey[0, :]).astype(str)  #TODO not loving this test
+    obsls = np.unique(obskey[0, :]).astype(str)  # TODO not loving this test
 
     # Compute dnu
-    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax=star.globalseismicparams.get_scaled("numax"))
+    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(
+        obskey, obs, numax=star.globalseismicparams.get_scaled("numax")
+    )
 
     def has_required_modes(fittype: str) -> bool:
         return all(l in obsls for l in fittype if l.isdigit())
 
-    #TODO(Amalie) Is this necessairy?
+    # TODO(Amalie) Is this necessairy?
     obsfreqdata["freqs"] = {
         "cov": obscov,
         "covinv": obscovinv,
@@ -619,7 +621,7 @@ def _make_obsfreqs(
     if seismic.has_ratios:
         assert seismic.ratios is not None
         valid_fittypes = [f for f in seismic.ratios.fittypes if has_required_modes(f)]
-        #if not valid_fittypes:
+        # if not valid_fittypes:
         #    raise ValueError("No valid modes found for fitting ratios.")
         obsfreqmeta["ratios"] = {
             "fit": valid_fittypes,
@@ -629,7 +631,7 @@ def _make_obsfreqs(
     if seismic.has_glitches:
         assert seismic.glitches is not None
         valid_fittypes = [f for f in seismic.glitches.fittypes if has_required_modes(f)]
-        #if not valid_fittypes:
+        # if not valid_fittypes:
         #    raise ValueError("No valid modes found for fitting glitches.")
         obsfreqmeta["glitch"] = {
             "fit": valid_fittypes,
@@ -638,8 +640,10 @@ def _make_obsfreqs(
 
     if seismic.has_epsilondifferences:
         assert seismic.epsilondifferences is not None
-        valid_fittypes = [f for f in seismic.epsilondifferences.fittypes if has_required_modes(f)]
-        #if not valid_fittypes:
+        valid_fittypes = [
+            f for f in seismic.epsilondifferences.fittypes if has_required_modes(f)
+        ]
+        # if not valid_fittypes:
         #    raise ValueError("No valid modes found for fitting epsilon differences.")
         obsfreqmeta["epsdiff"] = {
             "fit": valid_fittypes,
@@ -686,10 +690,10 @@ def _make_obsfreqs(
 
 
 def read_allseismic(
-        star: core.InputStar,
-        inferensesettings: core.InferenceSettings,
-        outputoptions: core.OutputOptionsm,
-        plotconfig: core.PlotConfig,
+    star: core.InputStar,
+    inferensesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
 ) -> tuple[np.ndarray, np.ndarray, dict, dict]:
     """
     Routine to all necesary data from individual frequencies for the

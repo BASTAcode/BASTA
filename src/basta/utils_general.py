@@ -823,9 +823,7 @@ def compute_group_names(
     return {feh: f"{gridinfo['defaultpath']}FeH={feh:.4f}/" for feh in metallicities}
 
 
-def should_skip_track(
-    libitem, name: str, noingrid: int, star: core.Star
-) -> bool:
+def should_skip_track(libitem, name: str, noingrid: int, star: core.Star) -> bool:
     """
     Return True if a track should be skipped based on prior limits.
     """
@@ -834,7 +832,7 @@ def should_skip_track(
         param += "ini"
 
     limits = star.limits
-    #TODO(Amalie this does not work
+    # TODO(Amalie this does not work
     """
     if limits not is None:
         for limit in limits:
@@ -864,7 +862,9 @@ def compute_inverse_covariancematrix(covariance: np.ndarray, inputstar: core.Inp
     try:
         # Compute Cholesky factorization
         c_factor = scipy.linalg.cho_factor(cov, lower=True, check_finite=False)
-        covinv = scipy.linalg.cho_solve(c_factor, np.eye(cov.shape[0]), check_finite=False)
+        covinv = scipy.linalg.cho_solve(
+            c_factor, np.eye(cov.shape[0]), check_finite=False
+        )
     except np.linalg.LinAlgError:
         covinv = np.linalg.pinv(cov, rcond=1e-8)
 
@@ -895,7 +895,6 @@ def get_frequencies_and_intervals(
         raise ValueError("Missing dnu")
 
     obsintervals = freq_fit.make_intervals(obs, obskey, dnu=dnu)
-
 
     frequencies = core.IndividualFrequencies(
         l=obskey[0, :],
@@ -946,7 +945,9 @@ def get_ratios(
                 )
             datos = (None, None)
 
-        covinv = compute_inverse_covariancematrix(covariance=datos[1], inputstar=inputstar)
+        covinv = compute_inverse_covariancematrix(
+            covariance=datos[1], inputstar=inputstar
+        )
 
         ratios_dict[ratiotype] = core.Ratio(ratios=datos[0], inverse_covariance=covinv)
 
@@ -982,7 +983,10 @@ def get_glitches(
                 osc=obs,
                 sequence=glitchtype,
                 dnu=globalseismicparams.get_scaled("dnufit")[0],
-                fitfreqs={"threepoint": inputstar.threepoint, "nrealisations": inputstar.nrealizations,}, 
+                fitfreqs={
+                    "threepoint": inputstar.threepoint,
+                    "nrealisations": inputstar.nrealizations,
+                },
                 debug=outputoptions.debug,
             )
 
@@ -995,7 +999,9 @@ def get_glitches(
 
         covinv = compute_inverse_covariancematrix(datos[1], inputstar=inputstar)
 
-        glitches_dict[glitchtype] = core.Glitch(glitches=datos[0], inverse_covariance=covinv)
+        glitches_dict[glitchtype] = core.Glitch(
+            glitches=datos[0], inverse_covariance=covinv
+        )
     return core.Glitches(glitches=glitches_dict)
 
 
@@ -1017,7 +1023,9 @@ def get_epsilondifferences(
             continue
 
         nrealisations = (
-            inputstar.nrealizations if epsilondifftype in inferencesettings.fitparams else 2000
+            inputstar.nrealizations
+            if epsilondifftype in inferencesettings.fitparams
+            else 2000
         )
         datos = freq_fit.compute_epsilondiff(
             osckey=obskey,
@@ -1042,3 +1050,16 @@ def get_epsilondifferences(
         )
 
     return core.EpsilonDifferences(epsilondifferences=epsilondiff_dict)
+
+
+def get_limits(
+    inputstar: core.InputStar,
+    inferencesettings: core.InferenceSettings,
+    distancelimits: dict[str, (float, float)],
+):
+    limits: dict[str, (float, float)] = {}
+    priors = inferencesettings.priors
+    params = inputstar.classical.params + inputstar.globalseismicparams.params
+    for prior in inferencesettings.priors:
+        print(prior)
+        # limits[param

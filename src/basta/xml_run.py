@@ -12,7 +12,7 @@ from xml.etree import ElementTree as ET
 import h5py  # type: ignore[import]
 import numpy as np
 
-from basta import core
+from basta import core, constants
 from basta.bastamain import BASTA
 from basta.constants import freqtypes, parameters
 from basta.constants import sydsun as sydc
@@ -785,9 +785,17 @@ def run_xml(
                 float(param.attrib.get("sigmacut", np.inf)),
             ]
         elif param.tag == "IMF":
-            limits['imf'] = ["salpeter1955"]
-        elif param.tag in ["salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003"]:
-            limits['imf'] = [param.tag]
+            limits["imf"] = ["salpeter1955"]
+        elif param.tag in [
+            "salpeter1955",
+            "millerscalo1979",
+            "kennicutt1994",
+            "scalo1998",
+            "kroupa2001",
+            "baldryglazebrook2003",
+            "chabrier2003",
+        ]:
+            limits["imf"] = [param.tag]
         else:
             raise ValueError
 
@@ -1120,27 +1128,55 @@ def run_xml(
                         "RA": inputparams["distanceparams"]["RA"],
                         "DEC": inputparams["distanceparams"]["DEC"],
                     },
-                    params={"parallax": inputparams["distanceparams"]["parallax"],},
+                    params={
+                        "parallax": inputparams["distanceparams"]["parallax"],
+                    },
                     EBV=inputparams["distanceparams"]["EBV"],
                 )
 
-                prefixes = ('dnu', 'numax')
+                prefixes = ("dnu", "numax")
                 classicalparams = core.ClassicalParameters(
-                        params={k: v for k, v in starfitparams.items() if not k.startswith(prefixes) and k not in ['parallax',]}
-                        )
-                numaxdnuparams = {k: core.ScaledValueError(original=v, scale=1.0) for k, v in starfitparams.items() if k.startswith(prefixes)}
+                    params={
+                        k: v
+                        for k, v in starfitparams.items()
+                        if not k.startswith(prefixes)
+                        and k
+                        not in [
+                            "parallax",
+                        ]
+                    }
+                )
+                numaxdnuparams = {
+                    k: core.ScaledValueError(original=v, scale=1.0)
+                    for k, v in starfitparams.items()
+                    if k.startswith(prefixes)
+                }
                 if not numaxdnuparams:
                     numaxdnuparams = {
-                            'dnufit': core.ScaledValueError(original=(fitfreqs['dnufit'], fitfreqs['dnufit_err']), scale=1.0),
-                            'numax': core.ScaledValueError(original=(fitfreqs['numax'], 0.05 * fitfreqs['numax']), scale=1.0),
-                            }
+                        "dnufit": core.ScaledValueError(
+                            original=(fitfreqs["dnufit"], fitfreqs["dnufit_err"]),
+                            scale=1.0,
+                        ),
+                        "numax": core.ScaledValueError(
+                            original=(fitfreqs["numax"], 0.05 * fitfreqs["numax"]),
+                            scale=1.0,
+                        ),
+                    }
                 globalseismicparams = core.GlobalSeismicParameters(
-                        params=numaxdnuparams,
-                        )
+                    params=numaxdnuparams,
+                )
 
-                surfcor = constants.SeismicfitAliases.scalias[inputparams["fitfreqs"]["fcor"].lower()]
+                surfcor = constants.SeismicfitAliases.scalias[
+                    inputparams["fitfreqs"]["fcor"].lower()
+                ]
 
-                surfacecorrection = {surfcor: {"bexp": inputparams["fitfreqs"]["bexp"]} if surfcor == "KBC08" else surfcor: {}}
+                surfacecorrection = {
+                    surfcor: (
+                        {"bexp": inputparams["fitfreqs"]["bexp"]}
+                        if surfcor == "KBC08"
+                        else {}
+                    )
+                }
                 star = core.InputStar(
                     starid=starid,
                     classicalparams=classicalparams,
@@ -1164,7 +1200,6 @@ def run_xml(
                     nsorting=inputparams["fitfreqs"]["nsorting"],
                     dnuprior=inputparams["fitfreqs"]["dnuprior"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
-
                 )
                 priors: dict[str, core.PriorEntry] = {}
                 for param in root.findall("default/priors/"):
@@ -1182,9 +1217,11 @@ def run_xml(
                     )
                 # Add dnufrac to priors
                 if inputparams["fitfreqs"]["dnufrac"] is not None:
-                    priors['dnufrac'] = core.PriorEntry(kwargs={"dnufrac": inputparams["fitfreqs"]["dnufrac"]})
+                    priors["dnufrac"] = core.PriorEntry(
+                        kwargs={"dnufrac": inputparams["fitfreqs"]["dnufrac"]}
+                    )
                 inferencesettings = core.InferenceSettings(
-                        fitparams=inputparams["fitparams"],
+                    fitparams=inputparams["fitparams"],
                     gridfile=gridfile,
                     gridid=gridid,
                     seed=seed,

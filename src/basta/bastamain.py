@@ -91,6 +91,13 @@ def _bastamain(
     bayweights, dweight = util.read_bayesianweights(
         Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
     )
+    priors.gridlimits(
+        grid=Grid,
+        gridheader=gridheader,
+        gridinfo=gridinfo,
+        inferencesettings=inferencesettings,
+        outputoptions=outputoptions,
+    )
 
     #### PREPARE STAR ####
     def setup_star(
@@ -118,7 +125,7 @@ def _bastamain(
             assert globalseismicparams.scalefactors is not None
 
         util.add_bias_to_dnuerror(globalseismicparams, inputstar)
-        
+
         frequencies = ratios = glitches = epsilondifferences = None
         absolutemagnitudes = distancelimits = None
 
@@ -169,14 +176,16 @@ def _bastamain(
 
         if inferencesettings.has_distance_case:
             absolutemagnitudes, distancelimits = distances.add_absolute_magnitudes(
-                    star=inputstar,
-                    filepaths=filepaths,
-                    inferencesettings=inferencesettings,
-                    outputoptions=outputoptions,
-                    )
+                star=inputstar,
+                filepaths=filepaths,
+                inferencesettings=inferencesettings,
+                outputoptions=outputoptions,
+            )
 
         limits = util.get_limits(
-            inputstar=inputstar, inferencesettings=inferencesettings, distancelimits=distancelimits
+            inputstar=inputstar,
+            inferencesettings=inferencesettings,
+            distancelimits=distancelimits,
         )
 
         return core.Star(
@@ -193,31 +202,24 @@ def _bastamain(
         )
 
     star = setup_star(
-        inputstar=inputstar, 
+        inputstar=inputstar,
         inferencesettings=inferencesettings,
         filepaths=filepaths,
         outputoptions=outputoptions,
         plotconfig=plotconfig,
-        )
+    )
 
     #### END PREPARATION ####
     #### SET-UP PRIORS ####
-    priors.gridlimits(
-        grid=Grid,
-        gridheader=gridheader,
-        gridinfo=gridinfo,
-        inferencesettings=inferencesettings,
-        outputoptions=outputoptions,
-    )
 
     if star.has_any_seismic_case:
         priors.dnufrac_prior(
             star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
         )
 
-    # util.print_fitparams(fitparams=fitparams)
+    util.print_fitparams(fitparams=inferencesettings.fitparams)
     if star.seismicparams.has_any_seismic_case:
-        util.print_seismic(fitfreqs=fitfreqs, obskey=obskey, obs=obs)
+        util.print_seismic(inferencesettings.fitparams, obskey=obskey, obs=obs)
     util.print_distances(star, outputoptions)
     util.print_additional(star)
     util.print_weights(bayweights, gridheader["gridtype"])
