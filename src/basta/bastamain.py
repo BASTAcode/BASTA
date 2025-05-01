@@ -371,8 +371,8 @@ def _bastamain(
                         bayw += util.inflog(libitem[dweight][index])
 
                 # Fold with absolute magnitudes, if present
-                for f in star.distanceparams.absolutemagnitudes["magnitudes"].keys():
-                    mags = absolutemagnitudes["magnitudes"][f]["prior"]
+                for f in star.absolutemagnitudes["magnitudes"].keys():
+                    mags = star.absolutemagnitudes["magnitudes"][f]["prior"]
                     absmags = libitem[f][index]
                     interp_mags = mags(absmags)
 

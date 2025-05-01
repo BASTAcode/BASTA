@@ -1181,7 +1181,6 @@ def run_xml(
                     freqfile=inputparams["fitfreqs"]["freqfile"],
                     surfacecorrection=surfacecorrection,
                     correlations=inputparams["fitfreqs"]["correlations"],
-                    seismicweights=inputparams["fitfreqs"]["seismicweights"],
                     nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
                     excludemodes=inputparams["fitfreqs"]["excludemodes"],
                     onlyradial=inputparams["fitfreqs"]["onlyradial"],
@@ -1193,7 +1192,6 @@ def run_xml(
                     glitchfit=inputparams["fitfreqs"]["glitchfit"],
                     glitchfile=inputparams["fitfreqs"]["glitchfile"],
                     nsorting=inputparams["fitfreqs"]["nsorting"],
-                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
                 )
                 boxpriors: dict[str, core.PriorEntry] = {}
@@ -1219,17 +1217,19 @@ def run_xml(
                     )
                 inferencesettings = core.InferenceSettings(
                     fitparams=fitparams,
+                    seed=seed,
                     gridfile=gridfile,
                     gridid=gridid,
-                    seed=seed,
-                    boxpriors=boxpriors,
-                    imf=imf,
-                    usebayw=bool(usebayw),
                     solarmodel=inputparams["solarmodel"],
                     solarvalues={
                         "numax": inputparams["numsun"],
                         "dnu": inputparams["dnusun"],
                     },
+                    usebayw=bool(usebayw),
+                    boxpriors=boxpriors,
+                    imf=imf,
+                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
+                    seismicweights=inputparams["fitfreqs"]["seismicweights"],
                 )
                 plotconfig = core.PlotConfig(
                     nameinplot=inputparams["nameinplot"],
