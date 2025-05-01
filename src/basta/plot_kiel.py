@@ -97,6 +97,7 @@ def kiel(
     Grid,
     selectedmodels,
     star: core.Star,
+    inferencesettings: core.InferenceSettings,
     plotconfig: core.PlotConfig,
     absolutemagnitudes: core.AbsoluteMagnitudes,
     lp_interval,
@@ -478,7 +479,7 @@ def kiel(
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
         # TODO(Amalie) This can be simplified
-        if star.seismicparams.has_frequencies and toggle_freqs:
+        if inferencesettings.has_frequencies and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
             dnufrac = inferencesettings.dnufrac

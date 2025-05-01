@@ -237,7 +237,7 @@ def _bastamain(
             """
 
             # TODO(Amalie) Do this prior to the loop...
-            if "phase" in star.classicalparams.params.keys():
+            if star.phase is not None:
                 phaseindex = np.isin(libitem["phase"][:], iphases)
                 index &= phaseindex
 
@@ -320,7 +320,6 @@ def _bastamain(
 
                 # Add parameters not in fitparams
                 for param in list(allparams):
-                    print(param)
                     if param not in list(star.classicalparams.params.keys()):
                         paramvalues[param] = libitem[param][index]
 
@@ -386,7 +385,7 @@ def _bastamain(
                         raise ValueError(f"Unknown IMF: {inferencesettings.imf}")
                     val = imfs.PRIOR_FUNCTIONS[inferencesettings.imf](libitem, index)
                     logPDF += util.inflog(val)
-                    if debug:
+                    if outputoptions.debug:
                         IMFw += util.inflog(val)
 
                 # Calculate likelihood from weights, priors and chi2
@@ -416,11 +415,11 @@ def _bastamain(
                         index, logPDFarr, chi2
                     )
                 if (
-                    star.seismicparams.has_any_case
-                    and star.seismicparams.ratios.dnufit_in_ratios
+                    inferencesettings.has_any_seismic_case
+                    and inputstar.dnufit_in_ratios
                 ):
                     dnusurfmodels[group_name + name] = stats.Trackdnusurf(dnusurf)
-                if star.seismicparams.has_glitches:
+                if inferencesettings.has_glitches:
                     glitchmodels[group_name + name] = stats.Trackglitchpar(
                         glitchpar[:, 0],
                         glitchpar[:, 1],
@@ -479,12 +478,7 @@ def _bastamain(
         )
         return
 
-    # Print a header to signal the start of the output section in the log
-    print("\n*****************************************")
-    print("**                                     **")
-    print("**   Output and results from the fit   **")
-    print("**                                     **")
-    print("*****************************************\n")
+    util._banner("Output and results from the fit")
 
     # Find and print highest likelihood model info
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(
@@ -513,7 +507,7 @@ def _bastamain(
         selectedmodels=selectedmodels,
         Grid=Grid,
         gridheader=gridheader,
-        absolutemagnitudes=absolutemagnitudes,
+        absolutemagnitudes=star.absolutemagnitudes,
         star=star,
         filepaths=filepaths,
         runfiles=runfiles,
@@ -530,7 +524,7 @@ def _bastamain(
     #    addstats["glitchparams"] = glitchmodels
 
     # Make frequency-related plots
-    if plotconfig.freqplots and star.seismicparams.has_any_case:
+    if plotconfig.freqplots and inferencesettings.has_any_seismic_case:
         plot_driver.plot_all_seismic(
             plotconfig,
             Grid=Grid,

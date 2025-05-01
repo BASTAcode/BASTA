@@ -313,6 +313,7 @@ def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) 
             label = f"{param} (solar units)"
         else:
             label = param
+        #TODO(Amalie) If constants.parameters.params was a dict, unit could be added here.
         _bullet(f"{label}: {pretty_param(value=val, error=err)}", level=1)
 
 
@@ -559,7 +560,7 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
         _bullet("Flat, constrained priors:", level=0)
         strmap = {
             "abstol": "Symmetric bound around observed value of half-width",
-            "nsigma": "Symmetric bound around observed value (in sigma)",
+            "nsigma": "Symmetric bound around observed value of half-width (in sigma)",
             "min": "Absolute lower bound:",
             "max": "Absolute upper bound:",
         }

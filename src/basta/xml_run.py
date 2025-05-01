@@ -775,11 +775,11 @@ def run_xml(
     useoptoutput = bool(optoutput)
 
     # Get priors
-    boxpriors: dict[str, Any] = {}
+    priors: dict[str, Any] = {}
     imf: str | None = None
     for param in root.findall("default/priors/"):
         if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
-            boxpriors[param.tag] = [
+            priors[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
                 float(param.attrib.get("abstol", np.inf)),
@@ -999,7 +999,7 @@ def run_xml(
                 # inputparams["fitparams"] = starfitparams
                 inputparams["magnitudes"] = {}
                 inputparams["limits"] = {}
-                for param, (minval, maxval, abstol, nsigma) in boxpriors.items():
+                for param, (minval, maxval, abstol, nsigma) in priors.items():
                     if param in starfitparams:
                         val, err = starfitparams[param]
                         abstol = max(abstol, 2 * err * nsigma)

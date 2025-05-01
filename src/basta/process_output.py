@@ -350,29 +350,19 @@ def compute_posterior(
         # Scale back to µHz before output/plot
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
             scale = star.globalseismicparams.get_scale(param)
-            x *= inferencesettings.solarvalues["dnu"] / scale
+            x /= scale
             if param in fitparams:
-                fitparams_scaled[param] = fitparams[param].original
-                # (
-                #    np.asarray([fitparams[param]])
-                #    * inferencesettings.solarvalues["dnu"]
-                #    / scale
-                # )
+                fitparams_scaled[param] = fitparams[param].scaled
 
         elif param.startswith("numax"):
             x *= inferencesettings.solarvalues["numax"]
             if param in fitparams:
                 fitparams_scaled[param] = fitparams[param].original
-                # fitparams_scaled[param] = (
-                #    np.asarray([fitparams[param]])
-                #    * inferencesettings.solarvalues["numax"]
-                # )
         elif param in ["dnufit", "dnufitMos12"]:
             scale = star.globalseismicparams.get_scale(param)
             x /= scale
             if param in fitparams:
                 fitparams_scaled[param] = fitparams[param].original
-                # fitparams_scaled[param] = np.asarray([fitparams[param]]) / scale
 
         # Compute quantiles (using np.quantile is ~50 times faster than quantile_1D)
         xcen, xstdm, xstdp = stats.calc_key_stats(
@@ -566,6 +556,7 @@ def compute_posterior(
                 Grid=Grid,
                 selectedmodels=selectedmodels,
                 star=star,
+                inferencesettings=inferencesettings,
                 plotconfig=plotconfig,
                 absolutemagnitudes=absolutemagnitudes,
                 lp_interval=lp_interval,
