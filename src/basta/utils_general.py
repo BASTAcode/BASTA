@@ -38,8 +38,17 @@ def _header(title: str) -> None:
     print(f"\n{title}")
 
 
-def _bullet(text: str, indent: int = 1) -> None:
-    print("  " * indent + f"- {text}")
+def _bullet(text: str, level:int = 1, indent: int = 1) -> None:
+    if level == 0:
+        symbol = "*"
+        indent = 0
+    elif level == 1:
+        symbol = "-"
+        indent = 2
+    elif level == 2:
+        symbol = "+"
+        indent = 4
+    print("  " * indent + f"{symbol} {text}")
 
 
 def print_bastaheader(
@@ -194,7 +203,7 @@ def get_grid(
 
 
 def print_targetinformation(starid: str) -> None:
-    print(f"\nFitting star id: {starid}.")
+    _header(f"Fitting star id: {starid}.")
 
 
 def read_bayesianweights(
@@ -267,7 +276,7 @@ def prepare_distancefitting(
 
 def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) -> None:
     _header("Fitting information:")
-    print("* Fitting parameters with values and uncertainties:")
+    _bullet("Fitting parameters with values and uncertainties:", level=0)
 
     for param in inferencesettings.fitparams:
         if param in star.classicalparams.params:
@@ -284,7 +293,7 @@ def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) 
             label = f"{param} (solar units)"
         else:
             label = param
-        _bullet(f"{label}: {pretty_param(value=val, error=err)}")
+        _bullet(f"{label}: {pretty_param(value=val, error=err)}", level=1)
 
 
 def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.InputStar,# obskey: np.ndarray, obs: np.ndarray
@@ -297,37 +306,37 @@ def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.Inp
     strmap = {True: "Yes", False: "No"}
 
     if inferencesettings.has_frequencies:
-        print("* Fitting of individual frequencies activated!")
+        _bullet("Fitting of individual frequencies activated!", level=0)
     elif inferencesettings.has_ratios:
         types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.rtypes]
-        print(f"* Fitting of frequency ratios {', '.join(types)} activated!")
+        _bullet(f"Fitting of frequency ratios {', '.join(types)} activated!", level=0)
         if "r010" in inferencesettings.fitparams:
-            print("  - WARNING: r01 and r10 together → overfitting risk!")
+            _bullet("WARNING: r01 and r10 together → overfitting risk!", level=1)
     elif inferencesettings.has_glitches:
         types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.glitches]
-        print(f"* Glitch fitting: {types}")
+        _bullet(f"Glitch fitting: {types}", level=0)
         #TODO(Amalie) Do we use these parameters? How? Where?
         for key in ["glitchmethod", "npoly_params", "nderiv", "tol_grad", "regu_param", "nguesses"]:
             continue
     elif inferencesettings.has_epsilondifferences:
         types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.epsdiff]
-        print(f"* Epsilon differences fitting: {types}")
+        _bullet(f"Epsilon differences fitting: {types}", level=0)
 
     _header("Frequency Fitting Configuration")
-    _bullet("Frequency file: {os.path.join(inputstar.freqpath, inputstar.freqfile)}")
+    _bullet("Frequency file: {os.path.join(inputstar.freqpath, inputstar.freqfile)}", level=1)
 
     if inputstar.correlations is not None:
         if inputstar.correlations:
-            _bullet("Given correlations between frequencies are being taken into account")
+            _bullet("Given correlations between frequencies are being taken into account", level=1)
     if inputstar.nottrustedfile is not None:
-        _bullet("File with frequencies to ignore: {inputstar.nottrustedfile}")
+        _bullet("File with frequencies to ignore: {inputstar.nottrustedfile}", level=1)
     if inputstar.excludemodes is not None:
-        _bullet("File with frequencies to ignore: {inputstar.excludemodes}")
+        _bullet("File with frequencies to ignore: {inputstar.excludemodes}", level=1)
     if inputstar.onlyradial is not None:
         if inputstar.onlyradial:
-            _bullet("Only radial frequencies will be used!")
+            _bullet("Only radial frequencies will be used!", level=1)
 
-    _bullet(f"Speed-up prior on dnu: {strmap[bool(inferencesettings.dnuprior)]}")
+    _bullet(f"Speed-up prior on dnu: {strmap[bool(inferencesettings.dnuprior)]}", level=1)
     #TODO(Amalie) When it is easy to get the anchor frequency, rewrite
     """
     _bullet(
@@ -338,22 +347,22 @@ def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.Inp
 
     if inputstar.surfacecorrection is not None:
         surfcorr = list(inputstar.surfacecorrection.keys())[0]
-        _bullet(f"Surface correction: {surfcorr}")
+        _bullet(f"Surface correction: {surfcorr}", level=1)
         if inputstar.surfacecorrection[surfcorr]:
-            _bullet(f"Power law exponent: b = {inputstar.surfacecorrection[surfcorr]['bexp']}")
+            _bullet(f"Power law exponent: b = {inputstar.surfacecorrection[surfcorr]['bexp']}", level=2)
 
 
     if inputstar.dnufit_in_ratios:
-        print("#TODO(Amalie) dnufit_in_ratios")
+        _bullet("#TODO(Amalie) dnufit_in_ratios", level=1)
     if inputstar.interp_ratios:
-        print("#TODO(Amalie) interp_ratios")
+        _bullet("#TODO(Amalie) interp_ratios", level=1)
     if inputstar.threepoint:
-        print("#TODO(Amalie) threepoint")
+        _bullet("#TODO(Amalie) threepoint", level=1)
 
     for param in ["dnufit", "numax"]:
         if inputstar.globalseismicparams.get_scaled(param):
             val, err = inputstar.globalseismicparams.get_scaled(param)
-            _bullet(f"{param}: {pretty_param(value=val, error=err)} µHz")
+            _bullet(f"{param}: {pretty_param(value=val, error=err)} µHz", level=1)
 
     weights = inferencesettings.seismicweights
     weightinfo = f"{weights['weight']}"
@@ -361,7 +370,7 @@ def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.Inp
         weightinfo += f" | dof = {weights['dof']}"
     if weights.get("N"):
         weightinfo += f" | N = {weights['N']}"
-    _bullet(f"Weighting scheme: {weightinfo}")
+    _bullet(f"Weighting scheme: {weightinfo}", level=1)
 
 
 def pretty_param(param: core.Fitparam | None = None, value: float | None = None, error: float | None = None):
@@ -383,36 +392,36 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
 
     #TODO(Amalie) It needs to be clearer what the difference between 'parallax' and 'distance' in fitparams means
     if is_parallax and is_distance:
-        print("* Parallax fitting and distance inference activated!")
+        _bullet("Parallax fitting and distance inference activated!", level=0)
     elif is_parallax:
-        print("* Parallax fitting activated!")
+        _bullet("Parallax fitting activated!", level=0)
     elif is_distance:
-        print("* Distance inference activated!")
+        _bullet("Distance inference activated!", level=0)
 
     frame = star.distanceparams.coordinates.get("frame", "").lower()
     coords = star.distanceparams.coordinates
     if frame == "icrs":
-        _bullet(f"RA = {coords['RA']}, DEC = {coords['DEC']}")
+        _bullet(f"RA = {coords['RA']}, DEC = {coords['DEC']}", level=1)
     elif frame == "galactic":
-        _bullet(f"lat = {coords['lat']}, lon = {coords['lon']}")
+        _bullet(f"lat = {coords['lat']}, lon = {coords['lon']}", level=1)
 
     if is_parallax:
-        _bullet(f"Parallax: {pretty_param(param=star.distanceparams.params['parallax'])}")
+        _bullet(f"Parallax: {pretty_param(param=star.distanceparams.params['parallax'])}", level=1)
 
-    print("  - Magnitude Filters:")
+    _bullet("Magnitude Filters:", level=1)
     for filt, (m, m_err) in star.distanceparams.magnitudes.items():
-        print(f"    + {filt}: {pretty_param(value=m, error=m_err)}")
+        _bullet(f"{filt}: {pretty_param(value=m, error=m_err)}", level=2)
 
     if isinstance(star.distanceparams.EBV, (list, tuple)) and len(star.distanceparams.EBV) > 1:
         _bullet(f"EBV: {star.distanceparams.EBV[1]} (uniform)")
 
 
 def print_additional(star: core.Star) -> None:
-    if "phase" in star.classicalparams.params:
-        print("* Fitting evolutionary phase!")
-    # TODO(Amalie) check that this points at the right things
+    if star.phase is not None:
+        _bullet(f"Evolutionary phase: {star.phase}", level=1)
 
     _header("Additional Parameters")
+    #TODO(Amalie) When is this run?
     ignored = {
         "asciioutput", "asciioutput_dist", "distanceparams", "dnufit", "dnufrac",
         "erroutput", "fcor", "fitfreqs", "fitparams", "limits", "magnitudes",
@@ -421,13 +430,13 @@ def print_additional(star: core.Star) -> None:
 
     for ip in sorted(star.classicalparams.params):
         if ip not in ignored:
-            print(f"* {ip}: {star.classicalparams.params[ip]}")
+            _bullet(f"{ip}: {star.classicalparams.params[ip]}", level=0)
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
     _header("Weights and Priors")
     if not bayweights:
-        print("No Bayesian weights applied")
+        _bullet("No Bayesian weights applied", level=0)
         return
 
     if "isochrones" in gridtype.lower():
@@ -437,29 +446,29 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
     else:
         gtname, dwname = "unknown", "?"
 
-    print("* Bayesian weights:")
-    _bullet(f"Along {gtname}: {dwname}")
-    _bullet(f"Between {gtname}: {', '.join(q.split('_')[0] for q in bayweights)}")
+    _bullet("Bayesian weights:", level=0)
+    _bullet(f"Along {gtname}: {dwname}", level=1)
+    _bullet(f"Between {gtname}: {', '.join(q.split('_')[0] for q in bayweights)}", level=1)
 
 
 def print_priors(inferencesettings: core.InferenceSettings) -> None:
     imf = inferencesettings.imf
     if imf is not None or imf != "":
-        _header("* Initial mass function: {imf}")
+        _bullet(f"Initial mass function: {imf}", level=0)
     else:
-        _header("* No initial mass function applied.")
+        _bullet("No initial mass function applied.", level=0)
 
     boxpriors = inferencesettings.boxpriors
     if not boxpriors:
         return
 
-    _header("* Additional set priors:")
+    _bullet("Additional set priors:", level=0)
     empty_priors = sorted(
         [lim for lim, entry in boxpriors.items() if lim not in ["gridcut", "dnufrac"] and not entry.kwargs]
     )
     if empty_priors:
         for lim in empty_priors:
-            _bullet(lim)
+            _bullet(lim, level=1)
 
     constrained = sorted(
             (lim, k, v)
@@ -469,9 +478,9 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
     )
 
     if constrained:
-        print("* Flat, constrained priors:")
+        _bullet("Flat, constrained priors:", level=0)
         for lim, k, v in constrained:
-            _bullet(f"{lim}: ({k}: {v})")
+            _bullet(f"{lim}: ({k}: {v})", level=1)
 
 
 class Logger:
