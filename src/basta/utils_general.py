@@ -1119,3 +1119,107 @@ def get_limits(
             raise NotImplementedError(f"Limit generation not implemented for '{dimension}'")
 
     return limits
+
+
+
+def setup_star(
+        inputstar: core.InputStar,
+        inferencesettings: core.InferenceSettings,
+        filepaths: core.FilePaths,
+        outputoptions: core.OutputOptions,
+        plotconfig: core.PlotConfig,
+    ) -> core.Star:
+
+        classicalparams = inputstar.classicalparams
+        globalseismicparams = inputstar.globalseismicparams
+        distanceparams = inputstar.distanceparams
+
+        # Apply solar scaling
+        su.solar_scaling(
+            Grid,
+            globalseismicparams=globalseismicparams,
+            inferencesettings=inferencesettings,
+            gridinfo=gridinfo,
+            outputoptions=outputoptions,
+        )
+
+        if globalseismicparams.params:
+            assert globalseismicparams.scalefactors is not None
+
+        util.add_bias_to_dnuerror(globalseismicparams, inputstar)
+
+        frequencies = ratios = glitches = epsilondifferences = None
+        absolutemagnitudes = distancelimits = None
+
+        if inferencesettings.has_any_seismic_case:
+            obskey, obs, obscov = fio.read_freq(
+                filename=inputstar.freqfile,
+                excludemodes=inputstar.excludemodes,
+                onlyradial=inputstar.onlyradial,
+                covarfre=bool(inputstar.correlations),
+            )
+            fit_plot_params = np.unique(
+                np.asarray(inferencesettings.fitparams + plotconfig.freqplots)
+            )
+
+            frequencies, obsintervals = util.get_frequencies_and_intervals(
+                fit_plot_params=fit_plot_params,
+                inputstar=inputstar,
+                globalseismicparams=globalseismicparams,
+                obskey=obskey,
+                obs=obs,
+                inferencesettings=inferencesettings,
+            )
+            ratios = util.get_ratios(
+                fit_plot_params=fit_plot_params,
+                inputstar=inputstar,
+                obskey=obskey,
+                obs=obs,
+                inferencesettings=inferencesettings,
+            )
+            glitches = util.get_glitches(
+                fit_plot_params=fit_plot_params,
+                inputstar=inputstar,
+                globalseismicparams=globalseismicparams,
+                obskey=obskey,
+                obs=obs,
+                inferencesettings=inferencesettings,
+                outputoptions=outputoptions,
+            )
+            epsilondifferences = util.get_epsilondifferences(
+                fit_plot_params=fit_plot_params,
+                inputstar=inputstar,
+                globalseismicparams=globalseismicparams,
+                obskey=obskey,
+                obs=obs,
+                inferencesettings=inferencesettings,
+                outputoptions=outputoptions,
+            )
+
+        if inferencesettings.has_distance_case:
+            absolutemagnitudes, distancelimits = distances.add_absolute_magnitudes(
+                star=inputstar,
+                filepaths=filepaths,
+                inferencesettings=inferencesettings,
+                outputoptions=outputoptions,
+            )
+
+        # Translate boxpriors into ranges, depending on the given star
+        limits = util.get_limits(
+            inputstar=inputstar,
+            inferencesettings=inferencesettings,
+            distancelimits=distancelimits,
+        )
+
+        return core.Star(
+            starid=inputstar.starid,
+            limits=limits,
+            classicalparams=classicalparams,
+            globalseismicparams=globalseismicparams,
+            distanceparams=distanceparams,
+            absolutemagnitudes=absolutemagnitudes,
+            frequencies=frequencies,
+            ratios=ratios,
+            glitches=glitches,
+            epsilondifferences=epsilondifferences,
+        )
