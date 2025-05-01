@@ -11,7 +11,7 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-from basta import core, distances, plot_driver, imfs, priors, process_output, stats
+from basta import core, constants, distances, plot_driver, imfs, priors, process_output, stats
 from basta import fileio as fio
 from basta import utils_general as util
 from basta import utils_seismic as su
@@ -86,7 +86,7 @@ def _bastamain(
     )
     util.print_targetinformation(inputstar.starid)
 
-    # Load the desired grid and obtain information from the header
+    ## Load the grid
     Grid, gridheader, gridinfo = util.get_grid(inferencesettings)
     bayweights, dweight = util.read_bayesianweights(
         Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
@@ -99,7 +99,16 @@ def _bastamain(
         outputoptions=outputoptions,
     )
 
-    #### PREPARE STAR ####
+    # Apply solar scaling
+    su.solar_scaling(
+        Grid,
+        globalseismicparams=inputstar.globalseismicparams,
+        inferencesettings=inferencesettings,
+        gridinfo=gridinfo,
+        outputoptions=outputoptions,
+    )
+
+    ## Prepare star
     star = util.setup_star(
         inputstar=inputstar,
         inferencesettings=inferencesettings,
@@ -108,17 +117,8 @@ def _bastamain(
         plotconfig=plotconfig,
     )
 
-    #### END PREPARATION ####
-    #### SET-UP PRIORS ####
-
-    if star.has_any_seismic_case:
-        priors.dnufrac_prior(
-            star=star, inferencesettings=inferencesettings, outputoptions=outputoptions
-        )
-
     util.print_fitparams(star=star, inferencesettings=inferencesettings)
-    if inferencesettings.has_any_seismic_case:
-        util.print_seismic(inferencesettings.fitparams, obskey=obskey, obs=obs)
+    util.print_seismic(inferencesettings, inputstar=inputstar)  #, obskey=obskey, obs=obs)
     util.print_distances(star, outputoptions)
     util.print_additional(star)
     util.print_weights(bayweights, gridheader["gridtype"])
@@ -137,15 +137,11 @@ def _bastamain(
         Grid, gridinfo=gridinfo, inferencesettings=inferencesettings
     )
 
-    if "phase" in star.classicalparams.params.keys():
-        iphases = (
-            [
-                constants.phasemap.map[ip]
-                for ip in star.classicalparams.params["phase"][0]
-            ]
-            if isinstance(star.classicalparams.params["phase"], tuple)
-            else [constants.phasemap.map[star.classicalparams.params["phase"]]]
-        )
+    if star.phase is not None:
+        if isinstance(star.phase, tuple):
+            iphases = [constants.phasemap.pmap[ip] for ip in star.phase]
+        else:
+            iphases = [constants.phasemap.pmap[star.phase]]
 
     group_names = util.compute_group_names(
         gridinfo=gridinfo, metallicities=metallicities
@@ -165,9 +161,9 @@ def _bastamain(
 
     # In some cases we need to store quantities computed at runtime
     # TODO(Amalie) Why do we need this? Is this the right logic?
-    if star.has_any_seismic_case and star.seismicparams.ratios.dnufit_in_ratios:
+    if inferencesettings.has_any_seismic_case and inputstar.dnufit_in_ratios:
         dnusurfmodels = {}
-    if star.has_glitches:
+    if inferencesettings.has_glitches:
         glitchmodels = {}
 
     print(
@@ -176,9 +172,9 @@ def _bastamain(
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
-    # allparams = np.unique(np.asarray(inferencesettings.fitparams + plotconfig.freqplots - star.distanceparams.params.keys()))
+    #TODO(Amalie) can we avoid allparams?
+    #allparams = np.unique(np.asarray(inferencesettings.fitparams + plotconfig.freqplots + star.distanceparams.))
     allparams = ["Teff", "dnuSer", "numax", "MeH"]
-    print(allparams)
 
     for FeH in metallicities:
         group_name = group_names[FeH]

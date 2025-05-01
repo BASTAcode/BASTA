@@ -259,9 +259,12 @@ class Star:
     globalseismicparams: GlobalSeismicParameters
     distanceparams: DistanceParameters
 
+    phase: tuple[str] | str | None = None
+
     absolutemagnitudes: AbsoluteMagnitudes | None = None
 
     frequencies: IndividualFrequencies | None = None
+    surfacecorrection: dict[str, Any] | None = None
     ratios: Ratios | None = None
     glitches: Glitches | None = None
     epsilondifferences: EpsilonDifferences | None = None
@@ -435,7 +438,6 @@ class InputStar:
     surfacecorrection: dict[str, Any] | None = None
 
     correlations: bool | int = False
-    seismicweights: dict[str, Any]
 
     nottrustedfile: str | None = None
     excludemodes: str | None = None
@@ -455,8 +457,6 @@ class InputStar:
     # fittypes: list[Literal["e01", "e012", "e02"]]
     nsorting: bool | int = True
 
-    # TODO(Amalie) Consider removing entirely
-    dnuprior: bool | int = True
     dnubias: float = 0.0
 
 
@@ -504,6 +504,9 @@ class InferenceSettings:
     usebayw: bool = True
     boxpriors: dict[str, PriorEntry]
     imf: str | None = "salpeter1955"
+    # TODO(Amalie) Consider removing entirely
+    dnuprior: bool | int = True
+    seismicweights: dict[str, Any]
 
     @property
     def has_frequencies(self) -> bool:

@@ -15,6 +15,7 @@ import scipy.linalg  # type: ignore[import]
 
 from basta import core, constants, distances, errors, freq_fit, glitch_fit
 from basta import fileio as fio
+from basta import utils_seismic as su
 from basta.__about__ import __version__
 
 
@@ -31,6 +32,14 @@ def prt_center(text: str, llen: int) -> None:
     """
     sp = int((llen - len(text)) / 2) * " "
     print(f"{sp}{text}{sp}")
+
+
+def _header(title: str) -> None:
+    print(f"\n{title}")
+
+
+def _bullet(text: str, indent: int = 1) -> None:
+    print("  " * indent + f"- {text}")
 
 
 def print_bastaheader(
@@ -257,197 +266,212 @@ def prepare_distancefitting(
 
 
 def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) -> None:
-    print("\nFitting information:")
+    _header("Fitting information:")
     print("* Fitting parameters with values and uncertainties:")
+
     for param in inferencesettings.fitparams:
         if param in star.classicalparams.params:
-            fp, fpval = star.classicalparams.params[param]
-            fpstr = fp
+            val, err = star.classicalparams.params[param]
         elif param in star.globalseismicparams.params:
-            fp, fpval = star.globalseismicparams.get_scaled(param)
-            if param in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
-                fpstr = f"{fp} (solar units)"
-            else:
-                fpstr = fp
+            val, err = star.globalseismicparams.get_scaled(param)
+        elif param in ['parallax']:
+            continue
         else:
-            print(f"DEBUG: AMALIE: {param}")
-    print(f"  - {fpstr}: {fpval}")
+            print(f"  [#TODO DEBUG] Unknown parameter: {param}")
+            continue
+
+        if param in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
+            label = f"{param} (solar units)"
+        else:
+            label = param
+        _bullet(f"{label}: {pretty_param(value=val, error=err)}")
 
 
-def print_seismic(fitfreqs: dict, obskey: np.ndarray, obs: np.ndarray) -> None:
-    # Fitting info: Frequencies
-    if not fitfreqs["active"]:
+def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.InputStar,# obskey: np.ndarray, obs: np.ndarray
+                  ) -> None:
+    if not inferencesettings.has_any_seismic_case:
         return
-    if "freqs" in fitfreqs["fittypes"]:
+
+    _header("Seismic Fitting Information")
+
+    strmap = {True: "Yes", False: "No"}
+
+    if inferencesettings.has_frequencies:
         print("* Fitting of individual frequencies activated!")
-    elif any(x in constants.freqtypes.rtypes for x in fitfreqs["fittypes"]):
-        print(f"* Fitting of frequency ratios {fitfreqs['fittypes']} activated!")
-        if "r010" in fitfreqs["fittypes"]:
-            print(
-                "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
-            )
-    elif any(x in constants.freqtypes.glitches for x in fitfreqs["fittypes"]):
-        print(f"* Fitting of glitches {fitfreqs['fittypes']} activated using:")
-        print(f"  - Method: {fitfreqs['glitchmethod']}")
-        print(f"  - Parameters in smooth component: {fitfreqs['npoly_params']}")
-        print(f"  - Order of derivative: {fitfreqs['nderiv']}")
-        print(f"  - Gradient tolerance: {fitfreqs['tol_grad']}")
-        print(f"  - Regularization parameter: {fitfreqs['regu_param']}")
-        print(f"  - Initial guesses: {fitfreqs['nguesses']}")
-        print("* General frequency fitting configuration:")
-    elif any(x in constants.freqtypes.epsdiff for x in fitfreqs["fittypes"]):
-        print(f"* Fitting of epsilon differences {fitfreqs['fittypes']} activated!")
+    elif inferencesettings.has_ratios:
+        types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.rtypes]
+        print(f"* Fitting of frequency ratios {', '.join(types)} activated!")
+        if "r010" in inferencesettings.fitparams:
+            print("  - WARNING: r01 and r10 together → overfitting risk!")
+    elif inferencesettings.has_glitches:
+        types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.glitches]
+        print(f"* Glitch fitting: {types}")
+        #TODO(Amalie) Do we use these parameters? How? Where?
+        for key in ["glitchmethod", "npoly_params", "nderiv", "tol_grad", "regu_param", "nguesses"]:
+            continue
+    elif inferencesettings.has_epsilondifferences:
+        types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.epsdiff]
+        print(f"* Epsilon differences fitting: {types}")
 
-    # Translate True/False to Yes/No
-    strmap = ("No", "Yes")
-    print(f"  - Automatic prior on dnu: {strmap[fitfreqs['dnuprior']]}")
-    print(
-        f"  - Constraining lowest l = 0 (n = {obskey[1, 0]}) with f = {obs[0, 0]:.3f} +/-",
-        f"{obs[1, 0]:.3f} muHz to within {fitfreqs['dnufrac'] * 100:.1f} % of dnu ({fitfreqs['dnufrac'] * fitfreqs['dnufit']:.3f} microHz)",
-    )
-    if fitfreqs["bexp"] is not None:
-        bexpstr = f" with b = {fitfreqs['bexp']}"
-    else:
-        bexpstr = ""
-    print(f"  - Correlations: {strmap[fitfreqs['correlations']]}")
-    print(f"  - Frequency input data: {fitfreqs['freqfile']}")
-    print(
-        f"  - Frequency input data (list of ignored modes): {fitfreqs['excludemodes']}"
-    )
-    print(f"  - Inclusion of dnu in ratios fit: {strmap[fitfreqs['dnufit_in_ratios']]}")
-    print(f"  - Interpolation in ratios: {strmap[fitfreqs['interp_ratios']]}")
-    print(f"  - Surface effect correction: {fitfreqs['fcor']}{bexpstr}")
-    print(f"  - Use alternative ratios (3-point): {strmap[fitfreqs['threepoint']]}")
-    if fitfreqs["dnufit_err"]:
-        print(
-            f"  - Value of dnu: {fitfreqs['dnufit']:.3f} +/- {fitfreqs['dnufit_err']:.3f} microHz"
-        )
-    else:
-        print(f"  - Value of dnu: {fitfreqs['dnufit']:.3f} microHz")
-    print(f"  - Value of numax: {fitfreqs['numax']:.3f} microHz")
+    _header("Frequency Fitting Configuration")
+    _bullet("Frequency file: {os.path.join(inputstar.freqpath, inputstar.freqfile)}")
 
-    weightcomment = ""
-    if fitfreqs["seismicweights"]["dof"]:
-        weightcomment += f"  |  dof = {fitfreqs['seismicweights']['dof']}"
-    if fitfreqs["seismicweights"]["N"]:
-        weightcomment += f"  |  N = {fitfreqs['seismicweights']['N']}"
-    print(
-        f"  - Weighting scheme: {fitfreqs['seismicweights']['weight']}{weightcomment}"
+    if inputstar.correlations is not None:
+        if inputstar.correlations:
+            _bullet("Given correlations between frequencies are being taken into account")
+    if inputstar.nottrustedfile is not None:
+        _bullet("File with frequencies to ignore: {inputstar.nottrustedfile}")
+    if inputstar.excludemodes is not None:
+        _bullet("File with frequencies to ignore: {inputstar.excludemodes}")
+    if inputstar.onlyradial is not None:
+        if inputstar.onlyradial:
+            _bullet("Only radial frequencies will be used!")
+
+    _bullet(f"Speed-up prior on dnu: {strmap[bool(inferencesettings.dnuprior)]}")
+    #TODO(Amalie) When it is easy to get the anchor frequency, rewrite
+    """
+    _bullet(
+        f"Constraining lowest l=0 (n={obskey[1, 0]}): f={obs[0, 0]:.3f} ± {obs[1, 0]:.3f} µHz "
+        f"within {inferencesettings.boxpriors['dnufrac'].kwargs['dnufit']*100:.2f}% of dnu"  # ({star.limits['dnufit'][1] - star.limits['dnufit'][0]} µHz)"
     )
+    """
+
+    if inputstar.surfacecorrection is not None:
+        surfcorr = list(inputstar.surfacecorrection.keys())[0]
+        _bullet(f"Surface correction: {surfcorr}")
+        if inputstar.surfacecorrection[surfcorr]:
+            _bullet(f"Power law exponent: b = {inputstar.surfacecorrection[surfcorr]['bexp']}")
+
+
+    if inputstar.dnufit_in_ratios:
+        print("#TODO(Amalie) dnufit_in_ratios")
+    if inputstar.interp_ratios:
+        print("#TODO(Amalie) interp_ratios")
+    if inputstar.threepoint:
+        print("#TODO(Amalie) threepoint")
+
+    for param in ["dnufit", "numax"]:
+        if inputstar.globalseismicparams.get_scaled(param):
+            val, err = inputstar.globalseismicparams.get_scaled(param)
+            _bullet(f"{param}: {pretty_param(value=val, error=err)} µHz")
+
+    weights = inferencesettings.seismicweights
+    weightinfo = f"{weights['weight']}"
+    if weights.get('dof'):
+        weightinfo += f" | dof = {weights['dof']}"
+    if weights.get("N"):
+        weightinfo += f" | N = {weights['N']}"
+    _bullet(f"Weighting scheme: {weightinfo}")
+
+
+def pretty_param(param: core.Fitparam | None = None, value: float | None = None, error: float | None = None):
+    if param is not None:
+        return f"{param[0]:.4f} ± {param[1]:.4f}"
+    assert value is not None
+    assert error is not None
+    return f"{value:.4f} ± {error:.4f}"
 
 
 def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
-    # Fitting info: Distance
-    if len(star.distanceparams.magnitudes) < 1:
+    if not star.distanceparams.magnitudes:
         return
-    print("")
-    if (
-        len(star.distanceparams.params["parallax"]) > 0
-    ) and "distance" in outputoptions.asciiparams:
+
+    _header("Distance and Parallax Information")
+
+    is_parallax = bool(star.distanceparams.params.get("parallax"))
+    is_distance = "distance" in outputoptions.asciiparams
+
+    #TODO(Amalie) It needs to be clearer what the difference between 'parallax' and 'distance' in fitparams means
+    if is_parallax and is_distance:
         print("* Parallax fitting and distance inference activated!")
-    elif len(star.distanceparams.params["parallax"]) > 0:
+    elif is_parallax:
         print("* Parallax fitting activated!")
-    elif "distance" in outputoptions.asciiparams:
+    elif is_distance:
         print("* Distance inference activated!")
 
-    if star.distanceparams.coordinates["frame"].lower() == "icrs":
-        print(
-            f"  - Coordinates (icrs): RA = {star.distanceparams.coordinates['RA']}, DEC = {star.distanceparams.coordinates['DEC']}"
-        )
-    elif star.distanceparams.coordinates["frame"].lower() == "galactic":
-        print(
-            f"  - Coordinates (galactic): lat = {star.distanceparams.coordinates['lat']}, lon = {star.distanceparams.coordinates['lon']}"
-        )
+    frame = star.distanceparams.coordinates.get("frame", "").lower()
+    coords = star.distanceparams.coordinates
+    if frame == "icrs":
+        _bullet(f"RA = {coords['RA']}, DEC = {coords['DEC']}")
+    elif frame == "galactic":
+        _bullet(f"lat = {coords['lat']}, lon = {coords['lon']}")
 
-    if len(star.distanceparams.params["parallax"]) > 0:
-        print(f"  - Parallax: {star.distanceparams.params['parallax']}")
+    if is_parallax:
+        _bullet(f"Parallax: {pretty_param(param=star.distanceparams.params['parallax'])}")
 
-    print("  - Filters (magnitude value and uncertainty): ")
+    print("  - Magnitude Filters:")
     for filt, (m, m_err) in star.distanceparams.magnitudes.items():
-        print(f"    + {filt}: [{m}, {m_err}]")
+        print(f"    + {filt}: {pretty_param(value=m, error=m_err)}")
 
-    if len(star.distanceparams.EBV) > 0:
-        # TODO(Amalie) is EBV a list of [0, value, 0] or a flat value? should probably be the latter
-        print(
-            f"  - EBV: {star.distanceparams.EBV[1]} (uniform across all distance samples)"
-        )
+    if isinstance(star.distanceparams.EBV, (list, tuple)) and len(star.distanceparams.EBV) > 1:
+        _bullet(f"EBV: {star.distanceparams.EBV[1]} (uniform)")
 
 
 def print_additional(star: core.Star) -> None:
-    if "phase" in star.classicalparams.params.keys():
+    if "phase" in star.classicalparams.params:
         print("* Fitting evolutionary phase!")
     # TODO(Amalie) check that this points at the right things
-    print("\nAdditional input parameters and settings in alphabetical order:")
-    noprint = [
-        "asciioutput",
-        "asciioutput_dist",
-        "distanceparams",
-        "dnufit",
-        "dnufrac",
-        "erroutput",
-        "fcor",
-        "fitfreqs",
-        "fitparams",
-        "limits",
-        "magnitudes",
-        "excludemodes",
-        "numax",
-    ]
-    for ip in sorted(star.classicalparams.params.keys()):
-        assert ip not in [
-            "warnoutput",
-        ]
-        if ip not in noprint:
+
+    _header("Additional Parameters")
+    ignored = {
+        "asciioutput", "asciioutput_dist", "distanceparams", "dnufit", "dnufrac",
+        "erroutput", "fcor", "fitfreqs", "fitparams", "limits", "magnitudes",
+        "excludemodes", "numax", "warnoutput"
+    }
+
+    for ip in sorted(star.classicalparams.params):
+        if ip not in ignored:
             print(f"* {ip}: {star.classicalparams.params[ip]}")
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
-    # Print weights and priors
-    print("\nWeights and priors:")
-    if bayweights is not None:
-        if "isochrones" in gridtype.lower():
-            gtname = "isochrones"
-            dwname = "mass"
-        elif "tracks" in gridtype.lower():
-            gtname = "tracks"
-            dwname = "age"
-
-        print("* Bayesian weights:")
-        print(f"  - Along {gtname}: {dwname}")
-        print(
-            f"  - Between {gtname}: {', '.join([q.split('_')[0] for q in bayweights])}"
-        )
-    else:
+    _header("Weights and Priors")
+    if not bayweights:
         print("No Bayesian weights applied")
+        return
+
+    if "isochrones" in gridtype.lower():
+        gtname, dwname = "isochrones", "mass"
+    elif "tracks" in gridtype.lower():
+        gtname, dwname = "tracks", "age"
+    else:
+        gtname, dwname = "unknown", "?"
+
+    print("* Bayesian weights:")
+    _bullet(f"Along {gtname}: {dwname}")
+    _bullet(f"Between {gtname}: {', '.join(q.split('_')[0] for q in bayweights)}")
 
 
 def print_priors(inferencesettings: core.InferenceSettings) -> None:
-    priors = inferencesettings.boxpriors
-    if not priors:
+    imf = inferencesettings.imf
+    if imf is not None or imf != "":
+        _header("* Initial mass function: {imf}")
+    else:
+        _header("* No initial mass function applied.")
+
+    boxpriors = inferencesettings.boxpriors
+    if not boxpriors:
         return
 
-    print("* Additional set priors:")
-
+    _header("* Additional set priors:")
     empty_priors = sorted(
-        [lim for lim, entry in priors.items() if lim != "gridcut" and not entry.kwargs]
+        [lim for lim, entry in boxpriors.items() if lim not in ["gridcut", "dnufrac"] and not entry.kwargs]
     )
-
-    for lim in empty_priors:
-        print(f"  - {lim}")
+    if empty_priors:
+        for lim in empty_priors:
+            _bullet(lim)
 
     constrained = sorted(
-        [
             (lim, k, v)
-            for lim, entry in priors.items()
-            if lim != "gridcut" and entry.kwargs
+            for lim, entry in boxpriors.items()
+            if lim not in ["gridcut", 'dnufrac'] and entry.kwargs
             for k, v in entry.kwargs.items()
-        ]
     )
 
     if constrained:
         print("* Flat, constrained priors:")
         for lim, k, v in constrained:
-            print(f"  - {lim}: ({k}: {v})")
+            _bullet(f"{lim}: ({k}: {v})")
 
 
 class Logger:
@@ -889,7 +913,7 @@ def get_frequencies_and_intervals(
         surfacecorrection=inputstar.surfacecorrection,
         obsintervals=obsintervals,
         correlations=inputstar.correlations,
-        seismicweights=inputstar.seismicweights,
+        seismicweights=inferencesettings.seismicweights,
     )
     return frequencies, obsintervals
 
@@ -1079,7 +1103,7 @@ def get_limits(
         dist_limit = distancelimits.get(dimension)
         gridcut_limit = gridcut_limits.get(dimension)
 
-        prior_bounds = []
+        prior_bounds: list[tuple[float, float]] = []
         if prior_entry:
             kwargs = prior_entry.kwargs
             if 'min' in kwargs:
@@ -1134,19 +1158,10 @@ def setup_star(
         globalseismicparams = inputstar.globalseismicparams
         distanceparams = inputstar.distanceparams
 
-        # Apply solar scaling
-        su.solar_scaling(
-            Grid,
-            globalseismicparams=globalseismicparams,
-            inferencesettings=inferencesettings,
-            gridinfo=gridinfo,
-            outputoptions=outputoptions,
-        )
-
         if globalseismicparams.params:
             assert globalseismicparams.scalefactors is not None
 
-        util.add_bias_to_dnuerror(globalseismicparams, inputstar)
+        add_bias_to_dnuerror(globalseismicparams, inputstar)
 
         frequencies = ratios = glitches = epsilondifferences = None
         absolutemagnitudes = distancelimits = None
@@ -1162,7 +1177,7 @@ def setup_star(
                 np.asarray(inferencesettings.fitparams + plotconfig.freqplots)
             )
 
-            frequencies, obsintervals = util.get_frequencies_and_intervals(
+            frequencies, obsintervals = get_frequencies_and_intervals(
                 fit_plot_params=fit_plot_params,
                 inputstar=inputstar,
                 globalseismicparams=globalseismicparams,
@@ -1170,14 +1185,14 @@ def setup_star(
                 obs=obs,
                 inferencesettings=inferencesettings,
             )
-            ratios = util.get_ratios(
+            ratios = get_ratios(
                 fit_plot_params=fit_plot_params,
                 inputstar=inputstar,
                 obskey=obskey,
                 obs=obs,
                 inferencesettings=inferencesettings,
             )
-            glitches = util.get_glitches(
+            glitches = get_glitches(
                 fit_plot_params=fit_plot_params,
                 inputstar=inputstar,
                 globalseismicparams=globalseismicparams,
@@ -1186,7 +1201,7 @@ def setup_star(
                 inferencesettings=inferencesettings,
                 outputoptions=outputoptions,
             )
-            epsilondifferences = util.get_epsilondifferences(
+            epsilondifferences = get_epsilondifferences(
                 fit_plot_params=fit_plot_params,
                 inputstar=inputstar,
                 globalseismicparams=globalseismicparams,
@@ -1205,7 +1220,7 @@ def setup_star(
             )
 
         # Translate boxpriors into ranges, depending on the given star
-        limits = util.get_limits(
+        limits = get_limits(
             inputstar=inputstar,
             inferencesettings=inferencesettings,
             distancelimits=distancelimits,
