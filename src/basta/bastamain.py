@@ -190,6 +190,7 @@ def _bastamain(
                 if libitem["IntStatus"][()] < 0:
                     continue
 
+            #TODO(Amalie) This would be easier to read if it was a prior? function? handled earlier?
             if any(
                 np.isin(["dif", "diffusion"], list(star.classicalparams.params.keys()))
             ):
@@ -198,9 +199,6 @@ def _bastamain(
                 ):
                     continue
 
-            if "grid" not in gridinfo["defaultpath"]:
-                if util.should_skip_track(libitem, name, noingrid, inferencesettings):
-                    continue
 
             """
             if "gridcut" in inferencesettings.priors.keys():
@@ -225,18 +223,12 @@ def _bastamain(
                     noofskips[0] += 1
                     continue
             """
-
-            # Check which models have parameters within limits
             index = np.ones(len(libitem["age"][:]), dtype=bool)
 
-            # TODO(Amalie) Do this prior to the loop....
-            """
-            for param in limits:
-                index &= libitem[param][:] >= limits[param][0]
-                index &= libitem[param][:] <= limits[param][1]
-            """
+            for param in star.limits:
+                index &= libitem[param][:] >= star.limits[param][0]
+                index &= libitem[param][:] <= star.limits[param][1]
 
-            # TODO(Amalie) Do this prior to the loop...
             if star.phase is not None:
                 phaseindex = np.isin(libitem["phase"][:], iphases)
                 index &= phaseindex
@@ -266,6 +258,7 @@ def _bastamain(
                     iphase = pmap[inputparams["phase"]]
                     index &= libitem["phase"][:] == iphase
             """
+            
 
             """
             # Check which models have l=0, lowest n within tolerance
@@ -305,7 +298,7 @@ def _bastamain(
             # If any models are within tolerances, calculate statistics
             if np.any(index):
                 chi2 = np.zeros(index.sum())
-                paramvalues = {}
+                #paramvalues = {}
                 for param in star.classicalparams.params.keys():
                     if param not in ["parallax", "distance"]:
                         paramvals = libitem[param][index]
@@ -313,21 +306,21 @@ def _bastamain(
                             (paramvals - star.classicalparams.params[param][0])
                             / star.classicalparams.params[param][1]
                         ) ** 2.0
-                        if param in set(inferencesettings.fitparams) | set(
-                            plotconfig.cornerplots
-                        ):
-                            paramvalues[param] = paramvals
+                        #if param in set(inferencesettings.fitparams) | set(
+                        #    plotconfig.cornerplots
+                        #):
+                        #    paramvalues[param] = paramvals
 
                 # Add parameters not in fitparams
-                for param in list(allparams):
-                    if param not in list(star.classicalparams.params.keys()):
-                        paramvalues[param] = libitem[param][index]
+                #for param in list(allparams):
+                #    if param not in list(star.classicalparams.params.keys()):
+                #        paramvalues[param] = libitem[param][index]
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if inferencesettings.has_any_seismic_case:
-                    if fitfreqs["dnufit_in_ratios"]:
+                    if inputstar.dnufit_in_ratios:
                         dnusurf = np.zeros(index.sum())
-                    if fitfreqs["glitchfit"]:
+                    if inputstar.glitchfit:
                         glitchpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
                         chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
@@ -346,9 +339,9 @@ def _bastamain(
                         )
                         chi2[indd] += chi2_freq
 
-                        if fitfreqs["dnufit_in_ratios"]:
+                        if inputstar.dnufit_in_ratios:
                             dnusurf[indd] = addpars["dnusurf"]
-                        if fitfreqs["glitchfit"]:
+                        if inputstar.glitchfit:
                             glitchpar[indd] = addpars["glitchparams"]
 
                 # Bayesian weights (across tracks/isochrones)

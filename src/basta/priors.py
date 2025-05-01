@@ -40,14 +40,14 @@ def gridlimits(
         headerpath = f"header/{gridinfo['defaultpath']}"
         if "FeHini" in limits:
             print("Warning: Dropping prior in FeHini, redundant for isochrones!")
-            inferencesettings.priors.pop("FeHini")
+            inferencesettings.boxpriors.pop("FeHini")
     else:
         headerpath = None
 
     if headerpath:
         header_keys = grid[headerpath].keys()
 
-        #TODO(Amalie) I don't think this handling is necessairy
+        #TODO(Amalie) wait, here diffusion is explicitly handled - why is it also in bastamain?
         # Extract gridcut params
         gridcut_keys = set(header_keys) & set(limits)
         gridcut = {key: limits.pop(key) for key in gridcut_keys}
@@ -79,13 +79,14 @@ def dnufrac_prior(
     priorid: str = "dnufrac",
     dnu_name: str = "dnufit",
 ) -> None:
-    if any(np.isin([priorid, dnu_name], list(inferencesettings.priors.keys()))):
-        assert dnu_name in star.globalseismicparams.params.keys()
+    if any(np.isin([priorid, dnu_name], inferencesettings.boxpriors)):
+        assert dnu_name in star.globalseismicparams.params
         dnufit = star.globalseismicparams.get_scaled(dnu_name)
-        dnufit_frac = inferencesettings.dnufrac * dnufit[0]
+        dnufrac = inferencesettings.boxpriors["dnufrac"]["dnufit"]
+        dnufit_frac = dnufrac * dnufit[0]
         dnuerr = max(3 * dnufit[1], dnufit_frac)
         limits = [
             min(dnufit[0] - dnuerr, 0),
             dnufit[0] + dnuerr,
         ]
-        inferencesettings.priors[dnu_name].limits = limits
+        inferencesettings.boxpriors[dnu_name].limits = limits

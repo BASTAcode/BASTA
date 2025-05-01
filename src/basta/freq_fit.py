@@ -10,6 +10,7 @@ from scipy.optimize import minimize  # type: ignore[import]
 from sklearn import linear_model  # type: ignore[import]
 
 from basta import utils_seismic as su
+from basta import core
 
 """
 Individual frequencies
@@ -84,6 +85,8 @@ def make_intervals(osc, osckey, dnu=None):
 
     if dnu is None:
         dnu = np.median(np.diff(fl0))
+    if isinstance(dnu, tuple):
+        dnu = dnu[0]
 
     # limit is a fugde factor that determines the size in frequency of a gap
     limit = 1.9
