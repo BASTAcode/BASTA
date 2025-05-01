@@ -38,17 +38,37 @@ def _header(title: str) -> None:
     print(f"\n{title}")
 
 
-def _bullet(text: str, level:int = 1, indent: int = 1) -> None:
+def _bullet(text: str, level: int = 1, indent: int = 1) -> None:
     if level == 0:
         symbol = "*"
         indent = 0
     elif level == 1:
         symbol = "-"
-        indent = 2
+        indent = 1
     elif level == 2:
         symbol = "+"
-        indent = 4
+        indent = 2
     print("  " * indent + f"{symbol} {text}")
+
+
+def _banner(
+    text: str | None = None, lines: list[str] | None = None, pad: int = 3
+) -> None:
+    if lines is None:
+        assert text is not None
+        lines = text.split("\n")
+    content_width = max(len(line) for line in lines)
+    full_width = content_width + pad * 2
+    border = "*" * (full_width + 4)
+
+    print(border)
+    empty_line = f"**{' ' * full_width}**"
+    print(empty_line)
+    for line in lines:
+        centered = line.center(full_width)
+        print(f"**{centered}**")
+    print(empty_line)
+    print(border)
 
 
 def print_bastaheader(
@@ -283,7 +303,7 @@ def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) 
             val, err = star.classicalparams.params[param]
         elif param in star.globalseismicparams.params:
             val, err = star.globalseismicparams.get_scaled(param)
-        elif param in ['parallax']:
+        elif param in ["parallax"]:
             continue
         else:
             print(f"  [#TODO DEBUG] Unknown parameter: {param}")
@@ -296,8 +316,10 @@ def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) 
         _bullet(f"{label}: {pretty_param(value=val, error=err)}", level=1)
 
 
-def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.InputStar,# obskey: np.ndarray, obs: np.ndarray
-                  ) -> None:
+def print_seismic(
+    inferencesettings: core.InferenceSettings,
+    inputstar: core.InputStar,  # obskey: np.ndarray, obs: np.ndarray
+) -> None:
     if not inferencesettings.has_any_seismic_case:
         return
 
@@ -308,26 +330,51 @@ def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.Inp
     if inferencesettings.has_frequencies:
         _bullet("Fitting of individual frequencies activated!", level=0)
     elif inferencesettings.has_ratios:
-        types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.rtypes]
+        types = [
+            fit
+            for fit in inferencesettings.fitparams
+            if fit in constants.freqtypes.rtypes
+        ]
         _bullet(f"Fitting of frequency ratios {', '.join(types)} activated!", level=0)
         if "r010" in inferencesettings.fitparams:
             _bullet("WARNING: r01 and r10 together → overfitting risk!", level=1)
     elif inferencesettings.has_glitches:
-        types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.glitches]
+        types = [
+            fit
+            for fit in inferencesettings.fitparams
+            if fit in constants.freqtypes.glitches
+        ]
         _bullet(f"Glitch fitting: {types}", level=0)
-        #TODO(Amalie) Do we use these parameters? How? Where?
-        for key in ["glitchmethod", "npoly_params", "nderiv", "tol_grad", "regu_param", "nguesses"]:
+        # TODO(Amalie) Do we use these parameters? How? Where?
+        for key in [
+            "glitchmethod",
+            "npoly_params",
+            "nderiv",
+            "tol_grad",
+            "regu_param",
+            "nguesses",
+        ]:
             continue
     elif inferencesettings.has_epsilondifferences:
-        types = [fit for fit in inferencesettings.fitparams if fit in constants.freqtypes.epsdiff]
+        types = [
+            fit
+            for fit in inferencesettings.fitparams
+            if fit in constants.freqtypes.epsdiff
+        ]
         _bullet(f"Epsilon differences fitting: {types}", level=0)
 
     _header("Frequency Fitting Configuration")
-    _bullet("Frequency file: {os.path.join(inputstar.freqpath, inputstar.freqfile)}", level=1)
+    _bullet(
+        "Frequency file: {os.path.join(inputstar.freqpath, inputstar.freqfile)}",
+        level=1,
+    )
 
     if inputstar.correlations is not None:
         if inputstar.correlations:
-            _bullet("Given correlations between frequencies are being taken into account", level=1)
+            _bullet(
+                "Given correlations between frequencies are being taken into account",
+                level=1,
+            )
     if inputstar.nottrustedfile is not None:
         _bullet("File with frequencies to ignore: {inputstar.nottrustedfile}", level=1)
     if inputstar.excludemodes is not None:
@@ -336,8 +383,10 @@ def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.Inp
         if inputstar.onlyradial:
             _bullet("Only radial frequencies will be used!", level=1)
 
-    _bullet(f"Speed-up prior on dnu: {strmap[bool(inferencesettings.dnuprior)]}", level=1)
-    #TODO(Amalie) When it is easy to get the anchor frequency, rewrite
+    _bullet(
+        f"Speed-up prior on dnu: {strmap[bool(inferencesettings.dnuprior)]}", level=1
+    )
+    # TODO(Amalie) When it is easy to get the anchor frequency, rewrite
     """
     _bullet(
         f"Constraining lowest l=0 (n={obskey[1, 0]}): f={obs[0, 0]:.3f} ± {obs[1, 0]:.3f} µHz "
@@ -349,8 +398,10 @@ def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.Inp
         surfcorr = list(inputstar.surfacecorrection.keys())[0]
         _bullet(f"Surface correction: {surfcorr}", level=1)
         if inputstar.surfacecorrection[surfcorr]:
-            _bullet(f"Power law exponent: b = {inputstar.surfacecorrection[surfcorr]['bexp']}", level=2)
-
+            _bullet(
+                f"Power law exponent: b = {inputstar.surfacecorrection[surfcorr]['bexp']}",
+                level=2,
+            )
 
     if inputstar.dnufit_in_ratios:
         _bullet("#TODO(Amalie) dnufit_in_ratios", level=1)
@@ -366,19 +417,32 @@ def print_seismic(inferencesettings: core.InferenceSettings, inputstar: core.Inp
 
     weights = inferencesettings.seismicweights
     weightinfo = f"{weights['weight']}"
-    if weights.get('dof'):
+    if weights.get("dof"):
         weightinfo += f" | dof = {weights['dof']}"
     if weights.get("N"):
         weightinfo += f" | N = {weights['N']}"
     _bullet(f"Weighting scheme: {weightinfo}", level=1)
 
 
-def pretty_param(param: core.Fitparam | None = None, value: float | None = None, error: float | None = None):
+def pretty_param(
+    param: core.Fitparam | None = None,
+    value: float | None = None,
+    error: float | None = None,
+):
     if param is not None:
-        return f"{param[0]:.4f} ± {param[1]:.4f}"
+        value, error = param
     assert value is not None
     assert error is not None
-    return f"{value:.4f} ± {error:.4f}"
+
+    # Convert error to string with repr to preserve formatting
+    err_str = f"{error:.10f}".rstrip("0")
+    if "." in err_str:
+        precision = len(err_str.split(".")[-1])
+    else:
+        precision = 0
+
+    fmt = f".{precision}f"
+    return f"{format(value, fmt)} ± {format(error, fmt)}"
 
 
 def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
@@ -390,7 +454,7 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
     is_parallax = bool(star.distanceparams.params.get("parallax"))
     is_distance = "distance" in outputoptions.asciiparams
 
-    #TODO(Amalie) It needs to be clearer what the difference between 'parallax' and 'distance' in fitparams means
+    # TODO(Amalie) It needs to be clearer what the difference between 'parallax' and 'distance' in fitparams means
     if is_parallax and is_distance:
         _bullet("Parallax fitting and distance inference activated!", level=0)
     elif is_parallax:
@@ -406,13 +470,19 @@ def print_distances(star: core.Star, outputoptions: core.OutputOptions) -> None:
         _bullet(f"lat = {coords['lat']}, lon = {coords['lon']}", level=1)
 
     if is_parallax:
-        _bullet(f"Parallax: {pretty_param(param=star.distanceparams.params['parallax'])}", level=1)
+        _bullet(
+            f"Parallax: {pretty_param(param=star.distanceparams.params['parallax'])}",
+            level=1,
+        )
 
-    _bullet("Magnitude Filters:", level=1)
+    _bullet("Magnitudes:", level=1)
     for filt, (m, m_err) in star.distanceparams.magnitudes.items():
         _bullet(f"{filt}: {pretty_param(value=m, error=m_err)}", level=2)
 
-    if isinstance(star.distanceparams.EBV, (list, tuple)) and len(star.distanceparams.EBV) > 1:
+    if (
+        isinstance(star.distanceparams.EBV, (list, tuple))
+        and len(star.distanceparams.EBV) > 1
+    ):
         _bullet(f"EBV: {star.distanceparams.EBV[1]} (uniform)")
 
 
@@ -420,6 +490,7 @@ def print_additional(star: core.Star) -> None:
     if star.phase is not None:
         _bullet(f"Evolutionary phase: {star.phase}", level=1)
 
+    """
     _header("Additional Parameters")
     #TODO(Amalie) When is this run?
     ignored = {
@@ -431,6 +502,7 @@ def print_additional(star: core.Star) -> None:
     for ip in sorted(star.classicalparams.params):
         if ip not in ignored:
             _bullet(f"{ip}: {star.classicalparams.params[ip]}", level=0)
+    """
 
 
 def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
@@ -448,7 +520,9 @@ def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
 
     _bullet("Bayesian weights:", level=0)
     _bullet(f"Along {gtname}: {dwname}", level=1)
-    _bullet(f"Between {gtname}: {', '.join(q.split('_')[0] for q in bayweights)}", level=1)
+    _bullet(
+        f"Between {gtname}: {', '.join(q.split('_')[0] for q in bayweights)}", level=1
+    )
 
 
 def print_priors(inferencesettings: core.InferenceSettings) -> None:
@@ -462,25 +536,35 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
     if not boxpriors:
         return
 
-    _bullet("Additional set priors:", level=0)
     empty_priors = sorted(
-        [lim for lim, entry in boxpriors.items() if lim not in ["gridcut", "dnufrac"] and not entry.kwargs]
+        [
+            lim
+            for lim, entry in boxpriors.items()
+            if lim not in ["gridcut", "dnufrac"] and not entry.kwargs
+        ]
     )
     if empty_priors:
+        _bullet("Additional set priors:", level=0)
         for lim in empty_priors:
             _bullet(lim, level=1)
 
     constrained = sorted(
-            (lim, k, v)
-            for lim, entry in boxpriors.items()
-            if lim not in ["gridcut", 'dnufrac'] and entry.kwargs
-            for k, v in entry.kwargs.items()
+        (lim, k, v)
+        for lim, entry in boxpriors.items()
+        if lim not in ["gridcut", "dnufrac"] and entry.kwargs
+        for k, v in entry.kwargs.items()
     )
 
     if constrained:
         _bullet("Flat, constrained priors:", level=0)
+        strmap = {
+            "abstol": "Symmetric bound around observed value of half-width",
+            "nsigma": "Symmetric bound around observed value (in sigma)",
+            "min": "Absolute lower bound:",
+            "max": "Absolute upper bound:",
+        }
         for lim, k, v in constrained:
-            _bullet(f"{lim}: ({k}: {v})", level=1)
+            _bullet(f"{lim}: {strmap[k]} {v}", level=1)
 
 
 class Logger:
@@ -540,7 +624,7 @@ def list_metallicities(
     metallist = [float(name[4:]) for name in metallicity_strings]
     metallicities = np.array(metallist)
 
-    #TODO(Amalie) Redo this when limits is determined
+    # TODO(Amalie) Redo this when limits is determined
     priors = inferencesettings.boxpriors
     metal_name = "MeH" if "MeH" in priors else "FeH"
 
@@ -1081,7 +1165,7 @@ def get_limits(
     - `max`: an absolute upper bound.
     - `abstol`: symmetric bound around the observed stellar property
     - `sigmacut`: symmetric bound around the observed stellar property
-    
+
     As they can overlap, we intersect all apllicable constraints.
     """
     limits: dict[str, tuple[float, float]] = {}
@@ -1091,20 +1175,26 @@ def get_limits(
 
     params = {
         **inputstar.classicalparams.params,
-        **inputstar.globalseismicparams.params
+        **inputstar.globalseismicparams.params,
     }
 
     # Unpack special cases such as gridcut and dnufrac
-    gridcut = priors.get('gridcut')
-    gridcut_limits: dict[str, tuple[float, float]] = gridcut if isinstance(gridcut, dict) else {}
+    gridcut = priors.get("gridcut")
+    gridcut_limits: dict[str, tuple[float, float]] = (
+        gridcut if isinstance(gridcut, dict) else {}
+    )
 
-    dnufrac = priors.get('dnufrac')
-    dnufrac_limits: dict[str, tuple[float, float]] = dnufrac if isinstance(dnufrac, dict) else {}
-    
-    all_dimensions = set(priors.keys()) | set(distancelimits.keys()) | set(gridcut_limits.keys())
+    dnufrac = priors.get("dnufrac")
+    dnufrac_limits: dict[str, tuple[float, float]] = (
+        dnufrac if isinstance(dnufrac, dict) else {}
+    )
+
+    all_dimensions = (
+        set(priors.keys()) | set(distancelimits.keys()) | set(gridcut_limits.keys())
+    )
 
     for dimension in all_dimensions:
-        if dimension in ['gridcut', 'dnufrac']:
+        if dimension in ["gridcut", "dnufrac"]:
             continue  # as we are processing its contents instead.
 
         star_param = params.get(dimension)
@@ -1115,135 +1205,148 @@ def get_limits(
         prior_bounds: list[tuple[float, float]] = []
         if prior_entry:
             kwargs = prior_entry.kwargs
-            if 'min' in kwargs:
-                prior_bounds.append((kwargs['min'], float('inf')))
-            if 'max' in kwargs:
-                prior_bounds.append((float('-inf'), kwargs['max']))
-            if 'abstol' in kwargs:
-                tol = kwargs['abstol']
+            if "min" in kwargs:
+                prior_bounds.append((kwargs["min"], float("inf")))
+            if "max" in kwargs:
+                prior_bounds.append((float("-inf"), kwargs["max"]))
+            if "abstol" in kwargs:
+                tol = kwargs["abstol"]
                 if star_param is None:
-                    raise ValueError(f"Missing stellar value for dimension '{dimension}'")
+                    raise ValueError(
+                        f"Missing stellar value for dimension '{dimension}'"
+                    )
                 prior_bounds.append((star_param[0] - tol, star_param[0] + tol))
-            if 'sigmacut' in kwargs:
+            if "sigmacut" in kwargs:
                 if star_param is None:
-                    raise ValueError(f"Missing stellar value for dimension '{dimension}'")
+                    raise ValueError(
+                        f"Missing stellar value for dimension '{dimension}'"
+                    )
                 sigma = star_param[1]
-                sigcut = kwargs['sigmacut']
-                prior_bounds.append((star_param[0] - sigcut * sigma, star_param[0] + sigcut * sigma))
+                sigcut = kwargs["sigmacut"]
+                prior_bounds.append(
+                    (star_param[0] - sigcut * sigma, star_param[0] + sigcut * sigma)
+                )
 
         prior_limit = None
         if prior_bounds:
             lower = max(b[0] for b in prior_bounds)
             upper = min(b[1] for b in prior_bounds)
             if lower > upper:
-                raise ValueError(f"Incompatible prior limits for '{dimension}': {prior_bounds}")
+                raise ValueError(
+                    f"Incompatible prior limits for '{dimension}': {prior_bounds}"
+                )
             prior_limit = (lower, upper)
 
-        candidate_limits = [l for l in [prior_limit, dist_limit, gridcut_limit] if l is not None]
+        candidate_limits = [
+            l for l in [prior_limit, dist_limit, gridcut_limit] if l is not None
+        ]
 
         # Combine limits by intersecting ranges if this applies
         if candidate_limits:
             lower = max(l[0] for l in candidate_limits)
             upper = min(l[1] for l in candidate_limits)
             if lower > upper:
-                raise ValueError(f"Incompatible combined limits for '{dimension}': {candidate_limits}")
+                raise ValueError(
+                    f"Incompatible combined limits for '{dimension}': {candidate_limits}"
+                )
             limits[dimension] = (lower, upper)
         else:
-            raise NotImplementedError(f"Limit generation not implemented for '{dimension}'")
+            raise NotImplementedError(
+                f"Limit generation not implemented for '{dimension}'"
+            )
 
     return limits
 
 
-
 def setup_star(
-        inputstar: core.InputStar,
-        inferencesettings: core.InferenceSettings,
-        filepaths: core.FilePaths,
-        outputoptions: core.OutputOptions,
-        plotconfig: core.PlotConfig,
-    ) -> core.Star:
+    inputstar: core.InputStar,
+    inferencesettings: core.InferenceSettings,
+    filepaths: core.FilePaths,
+    outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
+) -> core.Star:
 
-        classicalparams = inputstar.classicalparams
-        globalseismicparams = inputstar.globalseismicparams
-        distanceparams = inputstar.distanceparams
+    classicalparams = inputstar.classicalparams
+    globalseismicparams = inputstar.globalseismicparams
+    distanceparams = inputstar.distanceparams
 
-        if globalseismicparams.params:
-            assert globalseismicparams.scalefactors is not None
+    if globalseismicparams.params:
+        assert globalseismicparams.scalefactors is not None
 
-        add_bias_to_dnuerror(globalseismicparams, inputstar)
+    add_bias_to_dnuerror(globalseismicparams, inputstar)
 
-        frequencies = ratios = glitches = epsilondifferences = None
-        absolutemagnitudes = distancelimits = None
+    frequencies = ratios = glitches = epsilondifferences = None
+    absolutemagnitudes = distancelimits = None
 
-        if inferencesettings.has_any_seismic_case:
-            obskey, obs, obscov = fio.read_freq(
-                filename=inputstar.freqfile,
-                excludemodes=inputstar.excludemodes,
-                onlyradial=inputstar.onlyradial,
-                covarfre=bool(inputstar.correlations),
-            )
-            fit_plot_params = np.unique(
-                np.asarray(inferencesettings.fitparams + plotconfig.freqplots)
-            )
+    if inferencesettings.has_any_seismic_case:
+        obskey, obs, obscov = fio.read_freq(
+            filename=inputstar.freqfile,
+            excludemodes=inputstar.excludemodes,
+            onlyradial=inputstar.onlyradial,
+            covarfre=bool(inputstar.correlations),
+        )
+        fit_plot_params = np.unique(
+            np.asarray(inferencesettings.fitparams + plotconfig.freqplots)
+        )
 
-            frequencies, obsintervals = get_frequencies_and_intervals(
-                fit_plot_params=fit_plot_params,
-                inputstar=inputstar,
-                globalseismicparams=globalseismicparams,
-                obskey=obskey,
-                obs=obs,
-                inferencesettings=inferencesettings,
-            )
-            ratios = get_ratios(
-                fit_plot_params=fit_plot_params,
-                inputstar=inputstar,
-                obskey=obskey,
-                obs=obs,
-                inferencesettings=inferencesettings,
-            )
-            glitches = get_glitches(
-                fit_plot_params=fit_plot_params,
-                inputstar=inputstar,
-                globalseismicparams=globalseismicparams,
-                obskey=obskey,
-                obs=obs,
-                inferencesettings=inferencesettings,
-                outputoptions=outputoptions,
-            )
-            epsilondifferences = get_epsilondifferences(
-                fit_plot_params=fit_plot_params,
-                inputstar=inputstar,
-                globalseismicparams=globalseismicparams,
-                obskey=obskey,
-                obs=obs,
-                inferencesettings=inferencesettings,
-                outputoptions=outputoptions,
-            )
-
-        if inferencesettings.has_distance_case:
-            absolutemagnitudes, distancelimits = distances.add_absolute_magnitudes(
-                star=inputstar,
-                filepaths=filepaths,
-                inferencesettings=inferencesettings,
-                outputoptions=outputoptions,
-            )
-
-        # Translate boxpriors into ranges, depending on the given star
-        limits = get_limits(
+        frequencies, obsintervals = get_frequencies_and_intervals(
+            fit_plot_params=fit_plot_params,
             inputstar=inputstar,
+            globalseismicparams=globalseismicparams,
+            obskey=obskey,
+            obs=obs,
             inferencesettings=inferencesettings,
-            distancelimits=distancelimits,
+        )
+        ratios = get_ratios(
+            fit_plot_params=fit_plot_params,
+            inputstar=inputstar,
+            obskey=obskey,
+            obs=obs,
+            inferencesettings=inferencesettings,
+        )
+        glitches = get_glitches(
+            fit_plot_params=fit_plot_params,
+            inputstar=inputstar,
+            globalseismicparams=globalseismicparams,
+            obskey=obskey,
+            obs=obs,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
+        )
+        epsilondifferences = get_epsilondifferences(
+            fit_plot_params=fit_plot_params,
+            inputstar=inputstar,
+            globalseismicparams=globalseismicparams,
+            obskey=obskey,
+            obs=obs,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
         )
 
-        return core.Star(
-            starid=inputstar.starid,
-            limits=limits,
-            classicalparams=classicalparams,
-            globalseismicparams=globalseismicparams,
-            distanceparams=distanceparams,
-            absolutemagnitudes=absolutemagnitudes,
-            frequencies=frequencies,
-            ratios=ratios,
-            glitches=glitches,
-            epsilondifferences=epsilondifferences,
+    if inferencesettings.has_distance_case:
+        absolutemagnitudes, distancelimits = distances.add_absolute_magnitudes(
+            star=inputstar,
+            filepaths=filepaths,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
         )
+
+    # Translate boxpriors into ranges, depending on the given star
+    limits = get_limits(
+        inputstar=inputstar,
+        inferencesettings=inferencesettings,
+        distancelimits=distancelimits,
+    )
+
+    return core.Star(
+        starid=inputstar.starid,
+        limits=limits,
+        classicalparams=classicalparams,
+        globalseismicparams=globalseismicparams,
+        distanceparams=distanceparams,
+        absolutemagnitudes=absolutemagnitudes,
+        frequencies=frequencies,
+        ratios=ratios,
+        glitches=glitches,
+        epsilondifferences=epsilondifferences,
+    )
