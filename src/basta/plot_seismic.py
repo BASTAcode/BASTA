@@ -5,6 +5,7 @@ Production of asteroseismic plots
 import os
 import typing
 from collections.abc import Iterable
+from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
@@ -13,10 +14,11 @@ import matplotlib as mpl
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 
-from basta import freq_fit, stats
+from basta import core, freq_fit, stats
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
+from basta.utils_general import compute_matrix_inverse
 
 # Set the style of all plots
 mpl.use("Agg")
@@ -123,6 +125,7 @@ def echelle(
     else:
         lw = 0
 
+    star = x.star
     dnu = star.globalseismicparams.get_original("dnufit")[0]
 
     if duplicatemode:
@@ -132,6 +135,7 @@ def echelle(
         modx = dnu
         scalex = 1
 
+    assert star.frequencies is not None
     obsls = np.unique(star.frequencies.l).astype(str)
 
     if x.mod is None and x.modkey is None:
@@ -512,7 +516,7 @@ def ratioplot(
     """
 
     # Exit if there are no ratios to plot
-    if ratiotype not in star.ratios.ratios:
+    if star.ratios is None or ratiotype not in star.ratios.ratios:
         return
 
     obsratio = star.ratios.ratios[ratiotype].ratios
@@ -681,6 +685,8 @@ def glitchplot(
     maxInd,
     outputfilename: Path | None,
 ) -> None:
+    if star.glitches is None or glitchtype not in star.glitches.glitches:
+        return
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
         8: r"$\Delta_{\mathrm{He}}$ (s)",
@@ -728,6 +734,7 @@ def glitchplot(
         zorder=2,
         label="Best fit",
     )
+    obs_cov = compute_matrix_inverse(obs_invcov)
     confidence_ellipse(
         obsparams[0, obsparams[2, :] == 7.0],
         obs_err[obsparams[2, :] == 7.0],
@@ -855,6 +862,11 @@ def epsilon_difference_diagram(
         Name and path of outputfilename plotfile.
     """
 
+    if (
+        star.epsilondifferences is None
+        or sequence not in star.epsilondifferences.epsilondifferences
+    ):
+        return
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
 
     obsepsdiff = star.epsilondifferences.epsilondifferences[sequence].epsilondifferences
@@ -950,7 +962,8 @@ def epsilon_difference_diagram(
             )
 
     # To get the right order of entries in the legend
-    h, l = [], []
+    h: list[Any] = []
+    l: list[Any] = []
     for i in range(3):
         h.extend(handles[i::3])
         l.extend(legends[i::3])
@@ -965,7 +978,8 @@ def epsilon_difference_diagram(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        legend_handle: Any = lgnd.legend_handles[i]
+        legend_handle._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")

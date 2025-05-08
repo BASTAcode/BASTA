@@ -967,16 +967,19 @@ def add_bias_to_dnuerror(globalseismicparams, inputstar, dnu="dnufit"):
 
 def compute_inverse_covariancematrix(covariance: np.ndarray, inputstar: core.InputStar):
     if not inputstar.correlations:
-        cov = np.diag(np.diag(covariance))
+        covariance = np.diag(np.diag(covariance))
+    return compute_matrix_inverse(covariance)
 
+
+def compute_matrix_inverse(covariance: np.ndarray) -> np.ndarray:
     try:
         # Compute Cholesky factorization
-        c_factor = scipy.linalg.cho_factor(cov, lower=True, check_finite=False)
+        c_factor = scipy.linalg.cho_factor(covariance, lower=True, check_finite=False)
         covinv = scipy.linalg.cho_solve(
-            c_factor, np.eye(cov.shape[0]), check_finite=False
+            c_factor, np.eye(covariance.shape[0]), check_finite=False
         )
     except np.linalg.LinAlgError:
-        covinv = np.linalg.pinv(cov, rcond=1e-8)
+        covinv = np.linalg.pinv(covariance, rcond=1e-8)
 
     return covinv
 

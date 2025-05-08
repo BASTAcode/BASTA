@@ -1,6 +1,6 @@
 import numpy as np
 
-from basta import freq_fit, plot_seismic
+from basta import core, freq_fit, plot_seismic
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 
@@ -63,8 +63,6 @@ def plot_all_seismic(
 
     """
 
-    plotfname = filepaths.plotfile_template
-    nameinplot = plotconfig.nameinplot
     freqplots = plotconfig.freqplots
     assert star.frequencies is not None
     obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
@@ -321,11 +319,9 @@ def plot_all_seismic(
                     e,
                 )
 
-    any_epsseq = False
     for epsseq in plotconfig.freqplots:
         if epsseq not in freqtypes.epsdiff:
             continue
-        any_epsseq = True
         try:
             epsnamestr = f"epsdiff_{epsseq}"
             plot_seismic.epsilon_difference_diagram(
