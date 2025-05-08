@@ -592,18 +592,9 @@ def get_highest_likelihood(
         paramval = Grid[os.path.join(maxPDF_path, param)][maxPDF_ind]
 
         # Handle the scaled asteroseismic parameters
-        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            scale = star.globalseismicparams.get_scale(param)
-            scaleval = paramval * inferencesettings.solarvalues["dnu"] / scale
-        elif param.startswith("numax"):
-            scaleval = paramval * inferencesettings.solarvalues["numax"]
-        elif param in ["dnufit", "dnufitMos12"]:
-            scale = star.globalseismicparams.get_scale(param)
-            scaleval = paramval / scale
-        else:
-            scaleval = None
-
-        if scaleval:
+        if param.startswith("dnu") or param.startswith("numax"):
+            scale = star.globalseismicparams.get_scalefactor(param)
+            scaleval = paramval * scale
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
@@ -655,7 +646,7 @@ def get_lowest_chi2(
 
         # Handle the scaled asteroseismic parameters
         if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            scale = star.globalseismicparams.get_scale(param)
+            scale = star.globalseismicparams.get_scalefactor(param)
             scaleval = paramval * inferencesettings.solarvalues["dnu"] / scale
         elif param.startswith("numax"):
             scaleval = paramval * inferencesettings.solarvalues["numax"]

@@ -119,9 +119,10 @@ def solar_scaling(
     )
 
     scalefactors = {}
+    seismicparams = outputoptions.asciiparams + list(globalseismicparams.params.keys())
 
     already_scaled = ["dnufit", "dnufitMos12"]
-    for key in globalseismicparams.params.keys():
+    for key in seismicparams:
         if key.startswith("numax"):
             factor = 1 / solarvalues["numax"]
         elif key.startswith("dnu") and key not in already_scaled:
