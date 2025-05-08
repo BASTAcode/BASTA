@@ -215,6 +215,8 @@ class IndividualFrequencies:
     correlations: bool | int = False
     seismicweights: dict[str, Any]
 
+    inverse_covariance: np.ndarray
+
 
 @dataclass(kw_only=True)
 class Ratio:
@@ -447,10 +449,8 @@ class InputStar:
     readratios: bool | int = False
     threepoint: bool | int = False
     interp_ratios: bool | int = True
-    dnufit_in_ratios: bool | int = False
 
     # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
-    glitchfit: bool = False
     glitchfile: str | None = None
     nrealizations: int = 10000
 
@@ -504,6 +504,11 @@ class InferenceSettings:
     usebayw: bool = True
     boxpriors: dict[str, PriorEntry]
     imf: str | None = "salpeter1955"
+
+    # dnufit_in_ratios: bool | int = False
+    fit_surfacecorrected_dnu: bool | int = False
+    # TODO(Amalie) What does glitchfit do?
+    glitchfit: bool = False
     # TODO(Amalie) Consider removing entirely
     dnuprior: bool | int = True
     seismicweights: dict[str, Any]

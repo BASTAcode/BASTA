@@ -123,14 +123,10 @@ def _weight(N: int, seisw: dict) -> int:
 
 
 def chi2_astero(
-    obskey,
-    obs,
-    obsfreqmeta,
-    obsfreqdata,
-    obsintervals,
     libitem,
     ind,
-    fitfreqs,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
     warnings=True,
     shapewarn=0,
     debug=False,
@@ -195,8 +191,14 @@ def chi2_astero(
     modkey = su.transform_obj_array(rawmodkey)
 
     # Determine which model modes correspond to observed modes
+    obskey = np.asarray([star.frequencies.l, star.frequencies.n])
+    obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
     joins = freq_fit.calc_join(
-        mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
+        mod=mod,
+        modkey=modkey,
+        obs=obs,
+        obskey=obskey,
+        obsintervals=star.frequencies.obsintervals,
     )
     if joins is None:
         chi2rut = np.inf
@@ -205,38 +207,45 @@ def chi2_astero(
     # nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
-    if fitfreqs["fcor"] == "None":
+    if star.frequencies.surfacecorrection is None:
         corjoin = join
-    elif fitfreqs["fcor"] == "HK08":
-        corjoin, _ = freq_fit.HK08(
-            joinkeys=joinkeys,
-            join=join,
-            nuref=fitfreqs["numax"],
-            bcor=fitfreqs["bexp"],
-        )
-    elif fitfreqs["fcor"] == "BG14":
-        corjoin, _ = freq_fit.BG14(
-            joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
-        )
-    elif fitfreqs["fcor"] == "cubicBG14":
-        corjoin, _ = freq_fit.cubicBG14(
-            joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
-        )
     else:
-        print(f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}')
-        return None
+        surfacecorrection = list(star.frequencies.surfacecorrection.keys())[0]
+        if surfacecorrection == "KBC08":
+            corjoin, _ = freq_fit.HK08(
+                joinkeys=joinkeys,
+                join=join,
+                nuref=star.globalseismicparams.get_scaled("numax")[0],
+                bcor=star.frequencies.surfacecorrection[surfacecorrection]["bexp"],
+            )
+        elif surfacecorrection == "two-term-BG14":
+            corjoin, _ = freq_fit.BG14(
+                joinkeys=joinkeys,
+                join=join,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
+            )
+        elif surfacecorrection == "cubic-term-BG14":
+            corjoin, _ = freq_fit.cubicBG14(
+                joinkeys=joinkeys,
+                join=join,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
+            )
+        else:
+            print(
+                f'ERROR: surface correction must be either "None" or in {freqtypes.surfeffcorrs}'
+            )
+            return None
 
     # Initialize chi2 value
     chi2rut = 0.0
 
-    if any(x in freqtypes.freqs for x in fitfreqs["fittypes"]):
+    if inferencesettings.has_frequencies:
         # The frequency correction moved up before the ratios fitting!
         # --> If fitting frequencies, just add the already calculated things
         x = corjoin[0, :] - corjoin[2, :]
-        w = _weight(len(corjoin[0, :]), fitfreqs["seismicweights"])
-        covinv = obsfreqdata["freqs"]["covinv"]
-        if x.shape[0] == covinv.shape[0]:
-            chi2rut += (x.T.dot(covinv).dot(x)) / w
+        w = _weight(len(corjoin[0, :]), star.frequencies.seismicweights)
+        if x.shape[0] == star.frequencies.inverse_covariance.shape[0]:
+            chi2rut += (x.T.dot(star.frequencies.inverse_covariance).dot(x)) / w
         else:
             shapewarn = 1
             chi2rut = np.inf
@@ -254,18 +263,22 @@ def chi2_astero(
     # --> Equivalent to 'dnufit', but using the frequencies *after*
     #     applying the surface correction.
     # --> Compared to the observed value, which is 'dnudata'.
-    if fitfreqs["dnufit_in_ratios"]:
+    # TODO(Amalie) Is this for ratio fits only?
+    if inferencesettings.fit_surfacecorrected_dnu:
         # Read observed dnu
         dnudata = obsfreqdata["freqs"]["dnudata"]
         dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
 
         # Compute surface corrected dnu
-        dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
+        dnusurf, _ = freq_fit.compute_dnu_wfit(
+            joinkeys, corjoin, star.globalseismicparams.get_scaled("numax")[0]
+        )
 
         chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
 
+    # TODO(Amalie) Fix ratios
     # Add the chi-square terms for ratios
-    if any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
+    if inferencesettings.has_ratios:
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
             return chi2rut, warnings, shapewarn, 0
@@ -317,12 +330,14 @@ def chi2_astero(
             chi2rut = np.inf
 
     # Add contribution from glitches
-    if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+    if inferencesettings.has_glitches:
         # Obtain glitch sequence to be fitted
         glitchtype = obsfreqmeta["glitch"]["fit"][0]
         # Compute surface corrected dnu, if not already computed
-        if not fitfreqs["dnufit_in_ratios"]:
-            dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
+        if inferencesettings.fit_surfacecorrected_dnu:
+            dnusurf, _ = freq_fit.compute_dnu_wfit(
+                joinkeys, corjoin, star.globalseismicparams.get_scaled("numax")
+            )
 
         # Assign acoustic depts for glitch search
         ac_depths = {
@@ -393,7 +408,7 @@ def chi2_astero(
         # Store the determined glitch parameters for outputting
         addpars["glitchparams"] = modglitches[0, -3:]
 
-    if any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
+    if inferencesettings.has_epsilondifferences:
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
         # Purge model freqs of unused modes
@@ -448,7 +463,7 @@ def chi2_astero(
             chi2rut = np.inf
 
     # Store dnusurf for output
-    if fitfreqs["dnufit_in_ratios"]:
+    if inferencesettings.fit_surfacecorrected_dnu:
         addpars["dnusurf"] = dnusurf
 
     return chi2rut, warnings, shapewarn, addpars

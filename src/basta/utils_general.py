@@ -2,6 +2,7 @@
 This module contains general purpose functions that are utilized throughout BASTA.
 """
 
+import os
 import sys
 import time
 from collections.abc import Sequence
@@ -305,6 +306,8 @@ def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) 
             val, err = star.globalseismicparams.get_scaled(param)
         elif param in ["parallax"]:
             continue
+        elif param in constants.freqtypes.alltypes:
+            continue
         else:
             print(f"  [#TODO DEBUG] Unknown parameter: {param}")
             continue
@@ -313,7 +316,7 @@ def print_fitparams(star: core.Star, inferencesettings: core.InferenceSettings) 
             label = f"{param} (solar units)"
         else:
             label = param
-        #TODO(Amalie) If constants.parameters.params was a dict, unit could be added here.
+        # TODO(Amalie) If constants.parameters.params was a dict, unit could be added here.
         _bullet(f"{label}: {pretty_param(value=val, error=err)}", level=1)
 
 
@@ -366,7 +369,7 @@ def print_seismic(
 
     _header("Frequency Fitting Configuration")
     _bullet(
-        "Frequency file: {os.path.join(inputstar.freqpath, inputstar.freqfile)}",
+        f"Frequency file: {os.path.join(inputstar.freqpath, inputstar.freqfile)}",
         level=1,
     )
 
@@ -376,6 +379,7 @@ def print_seismic(
                 "Given correlations between frequencies are being taken into account",
                 level=1,
             )
+    # TODO(Amalie) these modes should be translated in get_input to something like ls in star
     if inputstar.nottrustedfile is not None:
         _bullet("File with frequencies to ignore: {inputstar.nottrustedfile}", level=1)
     if inputstar.excludemodes is not None:
@@ -404,8 +408,11 @@ def print_seismic(
                 level=2,
             )
 
-    if inputstar.dnufit_in_ratios:
-        _bullet("#TODO(Amalie) dnufit_in_ratios", level=1)
+    if inferencesettings.fit_surfacecorrected_dnu:
+        _bullet(
+            f"Surface-effect corrected large frequency separation added as fitting constraint",
+            level=1,
+        )
     if inputstar.interp_ratios:
         _bullet("#TODO(Amalie) interp_ratios", level=1)
     if inputstar.threepoint:
@@ -980,6 +987,7 @@ def get_frequencies_and_intervals(
     globalseismicparams: core.GlobalSeismicParameters,
     obskey: np.ndarray,
     obs: np.ndarray,
+    obscov: np.ndarray,
     inferencesettings: core.InferenceSettings,
 ):
     if not any(
@@ -989,15 +997,16 @@ def get_frequencies_and_intervals(
         return None, None
 
     if "dnufit" in globalseismicparams.params:
-        dnu = globalseismicparams.get_scaled("dnufit")
+        dnu = globalseismicparams.get_scaled("dnufit")[0]
     elif "numax" in globalseismicparams.params:
         dnu = freq_fit.compute_dnu_wfit(
-            obskey=obskey, obs=obs, numax=globalseismicparams.get_scaled("numax")
+            obskey=obskey, obs=obs, numax=globalseismicparams.get_scaled("numax")[0]
         )
     else:
         raise ValueError("Missing dnu")
-
     obsintervals = freq_fit.make_intervals(obs, obskey, dnu=dnu)
+
+    covinv = compute_inverse_covariancematrix(covariance=obscov, inputstar=inputstar)
 
     frequencies = core.IndividualFrequencies(
         l=obskey[0, :],
@@ -1008,6 +1017,7 @@ def get_frequencies_and_intervals(
         obsintervals=obsintervals,
         correlations=inputstar.correlations,
         seismicweights=inferencesettings.seismicweights,
+        inverse_covariance=covinv,
     )
     return frequencies, obsintervals
 
@@ -1186,22 +1196,37 @@ def get_limits(
     )
 
     dnufrac = priors.get("dnufrac")
-    dnufrac_limits: dict[str, tuple[float, float]] = (
-        dnufrac if isinstance(dnufrac, dict) else {}
-    )
+    dnufrac_limits = {}
+    if isinstance(dnufrac, core.PriorEntry):
+        dnutype = "dnufit"
+        if dnutype in params:
+            dnu_value, dnu_error = params[dnutype].scaled
+            frac = dnufrac.kwargs[dnutype]
+            three_sigma = 3 * dnu_error
+            delta = min(three_sigma, frac * dnu_value)
+            dnufrac_limits: dict[str, tuple[float, float]] = {
+                dnutype: [max(0, dnu_value - delta), dnu_value + delta]
+            }
 
     all_dimensions = (
-        set(priors.keys()) | set(distancelimits.keys()) | set(gridcut_limits.keys())
+        set(priors.keys())
+        | set(distancelimits.keys())
+        | set(gridcut_limits.keys())
+        | set(dnufrac_limits.keys())
     )
 
     for dimension in all_dimensions:
-        if dimension in ["gridcut", "dnufrac"]:
+        if dimension in [
+            "gridcut",
+            "dnufrac",
+        ]:
             continue  # as we are processing its contents instead.
 
         star_param = params.get(dimension)
         prior_entry = priors.get(dimension)
         dist_limit = distancelimits.get(dimension)
         gridcut_limit = gridcut_limits.get(dimension)
+        dnufrac_limit = dnufrac_limits.get(dimension)
 
         prior_bounds: list[tuple[float, float]] = []
         if prior_entry:
@@ -1239,7 +1264,9 @@ def get_limits(
             prior_limit = (lower, upper)
 
         candidate_limits = [
-            l for l in [prior_limit, dist_limit, gridcut_limit] if l is not None
+            l
+            for l in [prior_limit, dist_limit, gridcut_limit, dnufrac_limit]
+            if l is not None
         ]
 
         # Combine limits by intersecting ranges if this applies
@@ -1296,6 +1323,7 @@ def setup_star(
             globalseismicparams=globalseismicparams,
             obskey=obskey,
             obs=obs,
+            obscov=obscov,
             inferencesettings=inferencesettings,
         )
         ratios = get_ratios(

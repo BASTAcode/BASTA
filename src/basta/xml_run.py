@@ -785,7 +785,15 @@ def run_xml(
                 float(param.attrib.get("abstol", np.inf)),
                 float(param.attrib.get("sigmacut", np.inf)),
             ]
-        elif param.tag in ["IMF", "salpeter1955", "millerscalo1979", "kennicutt1994", "scalo1998", "kroupa2001", "baldryglazebrook2003", "chabrier2003",
+        elif param.tag in [
+            "IMF",
+            "salpeter1955",
+            "millerscalo1979",
+            "kennicutt1994",
+            "scalo1998",
+            "kroupa2001",
+            "baldryglazebrook2003",
+            "chabrier2003",
         ]:
             assert imf is None
             imf = param.tag
@@ -1159,12 +1167,12 @@ def run_xml(
                     params=numaxdnuparams,
                 )
 
-                if inputparams["fitfreqs"]["fcor"] == '':
+                if inputparams["fitfreqs"]["fcor"] == "":
                     surfacecorrection = None
                 else:
                     surfcor = constants.SeismicfitAliases.scalias[
                         inputparams["fitfreqs"]["fcor"].lower()
-                    ] 
+                    ]
                     surfacecorrection = {
                         surfcor: (
                             {"bexp": inputparams["fitfreqs"]["bexp"]}
@@ -1187,9 +1195,7 @@ def run_xml(
                     readratios=inputparams["fitfreqs"]["readratios"],
                     threepoint=inputparams["fitfreqs"]["threepoint"],
                     interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
-                    dnufit_in_ratios=inputparams["fitfreqs"]["dnufit_in_ratios"],
                     nrealizations=inputparams["fitfreqs"]["nrealizations"],
-                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
                     glitchfile=inputparams["fitfreqs"]["glitchfile"],
                     nsorting=inputparams["fitfreqs"]["nsorting"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
@@ -1228,6 +1234,10 @@ def run_xml(
                     usebayw=bool(usebayw),
                     boxpriors=boxpriors,
                     imf=imf,
+                    fit_surfacecorrected_dnu=inputparams["fitfreqs"][
+                        "dnufit_in_ratios"
+                    ],
+                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
                     dnuprior=inputparams["fitfreqs"]["dnuprior"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
                 )

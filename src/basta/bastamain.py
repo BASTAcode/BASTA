@@ -11,7 +11,16 @@ from typing import Any
 import numpy as np
 from tqdm import tqdm
 
-from basta import core, constants, distances, plot_driver, imfs, priors, process_output, stats
+from basta import (
+    core,
+    constants,
+    distances,
+    plot_driver,
+    imfs,
+    priors,
+    process_output,
+    stats,
+)
 from basta import fileio as fio
 from basta import utils_general as util
 from basta import utils_seismic as su
@@ -118,7 +127,9 @@ def _bastamain(
     )
 
     util.print_fitparams(star=star, inferencesettings=inferencesettings)
-    util.print_seismic(inferencesettings, inputstar=inputstar)  #, obskey=obskey, obs=obs)
+    util.print_seismic(
+        inferencesettings, inputstar=inputstar
+    )  # , obskey=obskey, obs=obs)
     util.print_distances(star, outputoptions)
     util.print_additional(star)
     util.print_weights(bayweights, gridheader["gridtype"])
@@ -161,7 +172,7 @@ def _bastamain(
 
     # In some cases we need to store quantities computed at runtime
     # TODO(Amalie) Why do we need this? Is this the right logic?
-    if inferencesettings.has_any_seismic_case and inputstar.dnufit_in_ratios:
+    if inferencesettings.fit_surfacecorrected_dnu:
         dnusurfmodels = {}
     if inferencesettings.has_glitches:
         glitchmodels = {}
@@ -169,11 +180,14 @@ def _bastamain(
     print(
         f"\n\nComputing likelihood of models in the grid ({trackcounter} {gridinfo['entryname']}) ..."
     )
+    if inferencesettings.has_any_seismic_case:
+        obskey = np.asarray([star.frequencies.l, star.frequencies.n])
+        obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
 
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
-    #TODO(Amalie) can we avoid allparams?
-    #allparams = np.unique(np.asarray(inferencesettings.fitparams + plotconfig.freqplots + star.distanceparams.))
+    # TODO(Amalie) can we avoid allparams?
+    # allparams = np.unique(np.asarray(inferencesettings.fitparams + plotconfig.freqplots + star.distanceparams.))
     allparams = ["Teff", "dnuSer", "numax", "MeH"]
 
     for FeH in metallicities:
@@ -190,7 +204,7 @@ def _bastamain(
                 if libitem["IntStatus"][()] < 0:
                     continue
 
-            #TODO(Amalie) This would be easier to read if it was a prior? function? handled earlier?
+            # TODO(Amalie) This would be easier to read if it was a prior? function? handled earlier?
             if any(
                 np.isin(["dif", "diffusion"], list(star.classicalparams.params.keys()))
             ):
@@ -198,7 +212,6 @@ def _bastamain(
                     round(float(star.classicalparams.params["dif"][0]))
                 ):
                     continue
-
 
             """
             if "gridcut" in inferencesettings.priors.keys():
@@ -233,36 +246,8 @@ def _bastamain(
                 phaseindex = np.isin(libitem["phase"][:], iphases)
                 index &= phaseindex
 
-            """
-            # Check which models have phases as specified
-            if "phase" in star.classicalparams.params.keys():
-                # Mapping of verbose input phases to internal numbers
-                pmap = {
-                    "pre-ms": 1,
-                    "solar": 2,
-                    "rgb": 3,
-                    "flash": 4,
-                    "clump": 5,
-                    "agb": 6,
-                }
-
-                # Fitting multiple phases or just one
-                if isinstance(inputparams["phase"], tuple):
-                    iphases = [pmap[ip] for ip in inputparams["phase"]]
-
-                    phaseindex = libitem["phase"][:] == iphases[0]
-                    for j in range(1, len(iphases)):
-                        phaseindex |= libitem["phase"][:] == iphases[j]
-                    index &= phaseindex
-                else:
-                    iphase = pmap[inputparams["phase"]]
-                    index &= libitem["phase"][:] == iphase
-            """
-            
-
-            """
             # Check which models have l=0, lowest n within tolerance
-            if star.seismicparams.has_any_case:
+            if inferencesettings.has_any_seismic_case:
                 indexf = np.zeros(len(index), dtype=bool)
                 for ind in np.where(index)[0]:
                     rawmod = libitem["osc"][ind]
@@ -274,31 +259,35 @@ def _bastamain(
                     # then [0, 0] is the lowest l=0 mode
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     cl0 = modl0[0, same_n]
-                    if len(cl0) > 1:
+                    if cl0.size == 0:
+                        continue
+                    elif cl0.size > 1:
                         cl0 = cl0[0]
 
-                    # Note to self: This code is pretty hard to read...
-                    if (
-                        cl0
-                        >= (
-                            obs[0, 0]
-                            - min(
-                                (fitfreqs["dnufrac"] / 2 * fitfreqs["dnufit"]),
-                                (3 * obs[1, 0]),
-                            )
-                        )
-                    ) and (cl0 - obs[0, 0]) <= (
-                        fitfreqs["dnufrac"] * fitfreqs["dnufit"]
-                    ):
+                    cl0 = cl0.item()
+                    anchordist = cl0 - obs[0, 0]
+                    dnutype = "dnufit"
+                    lower_threshold = min(
+                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
+                        / 2
+                        * star.globalseismicparams.get_scaled(dnutype)[0],
+                        3 * obs[1, 0],
+                    )
+                    upper_threshold = (
+                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
+                        * star.globalseismicparams.get_scaled(dnutype)[0]
+                    )
+
+                    # TODO(Amalie) This seems too restrictive as a default!
+                    if lower_threshold < anchordist <= upper_threshold:
                         indexf[ind] = True
                 index &= indexf
-            """
 
             # TODO(Amalie) rewrite this to a function
             # If any models are within tolerances, calculate statistics
             if np.any(index):
                 chi2 = np.zeros(index.sum())
-                #paramvalues = {}
+                # paramvalues = {}
                 for param in star.classicalparams.params.keys():
                     if param not in ["parallax", "distance"]:
                         paramvals = libitem[param][index]
@@ -306,32 +295,36 @@ def _bastamain(
                             (paramvals - star.classicalparams.params[param][0])
                             / star.classicalparams.params[param][1]
                         ) ** 2.0
-                        #if param in set(inferencesettings.fitparams) | set(
+                        # if param in set(inferencesettings.fitparams) | set(
                         #    plotconfig.cornerplots
-                        #):
+                        # ):
                         #    paramvalues[param] = paramvals
 
                 # Add parameters not in fitparams
-                #for param in list(allparams):
+                # for param in list(allparams):
                 #    if param not in list(star.classicalparams.params.keys()):
                 #        paramvalues[param] = libitem[param][index]
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if inferencesettings.has_any_seismic_case:
-                    if inputstar.dnufit_in_ratios:
+                    if inferencesettings.fit_surfacecorrected_dnu:
                         dnusurf = np.zeros(index.sum())
-                    if inputstar.glitchfit:
+                    if inferencesettings.glitchfit:
                         glitchpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
                         chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
-                            obskey,
-                            obs,
-                            obsfreqmeta,
-                            obsfreqdata,
-                            obsintervals,
                             libitem,
                             ind,
-                            fitfreqs,
+                            star,
+                            inferencesettings,
+                            # obskey,
+                            # obs,
+                            # obsfreqmeta,
+                            # obsfreqdata,
+                            # obsintervals,
+                            # libitem,
+                            # ind,
+                            # fitfreqs,
                             warnings=warn,
                             shapewarn=shapewarn,
                             debug=outputoptions.debug,
@@ -339,9 +332,9 @@ def _bastamain(
                         )
                         chi2[indd] += chi2_freq
 
-                        if inputstar.dnufit_in_ratios:
+                        if inferencesettings.fit_surfacecorrected_dnu:
                             dnusurf[indd] = addpars["dnusurf"]
-                        if inputstar.glitchfit:
+                        if inferencesettings.glitchfit:
                             glitchpar[indd] = addpars["glitchparams"]
 
                 # Bayesian weights (across tracks/isochrones)
@@ -363,14 +356,15 @@ def _bastamain(
                         bayw += util.inflog(libitem[dweight][index])
 
                 # Fold with absolute magnitudes, if present
-                for f in star.absolutemagnitudes["magnitudes"].keys():
-                    mags = star.absolutemagnitudes["magnitudes"][f]["prior"]
-                    absmags = libitem[f][index]
-                    interp_mags = mags(absmags)
+                if inferencesettings.has_distance_case:
+                    for f in star.absolutemagnitudes["magnitudes"].keys():
+                        mags = star.absolutemagnitudes["magnitudes"][f]["prior"]
+                        absmags = libitem[f][index]
+                        interp_mags = mags(absmags)
 
-                    logPDF += util.inflog(interp_mags)
-                    if outputoptions.debug:
-                        magw += util.inflog(interp_mags)
+                        logPDF += util.inflog(interp_mags)
+                        if outputoptions.debug:
+                            magw += util.inflog(interp_mags)
 
                 # Multiply priors into the weight
                 if inferencesettings.imf is not None:
@@ -407,10 +401,7 @@ def _bastamain(
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, logPDFarr, chi2
                     )
-                if (
-                    inferencesettings.has_any_seismic_case
-                    and inputstar.dnufit_in_ratios
-                ):
+                if inferencesettings.fit_surfacecorrected_dnu:
                     dnusurfmodels[group_name + name] = stats.Trackdnusurf(dnusurf)
                 if inferencesettings.has_glitches:
                     glitchmodels[group_name + name] = stats.Trackglitchpar(
@@ -511,10 +502,10 @@ def _bastamain(
 
     # Collect additional output for plotting and saving
     addstats: dict[str, Any] = {}
-    # if fitfreqs["active"] and fitfreqs["dnufit_in_ratios"]:
-    #    addstats["dnusurf"] = dnusurfmodels
-    # if fitfreqs["active"] and fitfreqs["glitchfit"]:
-    #    addstats["glitchparams"] = glitchmodels
+    if inferencesettings.fit_surfacecorrected_dnu:
+        addstats["dnusurf"] = dnusurfmodels
+    if inferencesettings.glitchfit:
+        addstats["glitchparams"] = glitchmodels
 
     # Make frequency-related plots
     if plotconfig.freqplots and inferencesettings.has_any_seismic_case:
