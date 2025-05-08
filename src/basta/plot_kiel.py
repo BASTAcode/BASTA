@@ -175,7 +175,6 @@ def kiel(
             )
 
     # Assign params
-    kielplots = plotconfig.kielplots
     fitparams = inferencesettings.fitparams
     toggle_freqs = False
     filters = []
@@ -473,11 +472,11 @@ def kiel(
 
             for track in tracks:
                 libitem = Grid[track]
-                index = np.ones(len(libitem["age"][:]), dtype=bool)
+                index: list[bool] = []
 
                 # TODO(Amalie) Why is this code repeated in here?
                 # Locate where the lowest l=0 is within set limit
-                for ind in np.where(index)[0]:
+                for ind in range(len(libitem["age"][:])):
                     rawmod = libitem["osc"][ind]
                     rawmodkey = libitem["osckey"][ind]
                     mod = su.transform_obj_array(rawmod)
@@ -494,20 +493,12 @@ def kiel(
                     cl0 = cl0.item()
                     anchordist = cl0 - obs[0, 0]
                     dnutype = "dnufit"
-                    lower_threshold = min(
-                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
-                        / 2
-                        * star.globalseismicparams.get_scaled(dnutype)[0],
-                        3 * obs[1, 0],
-                    )
-                    upper_threshold = (
-                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
-                        * star.globalseismicparams.get_scaled(dnutype)[0]
-                    )
-
+                    dnufrac = inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
+                    dnu = star.globalseismicparams.get_scaled(dnutype)[0]
+                    lower_threshold = -max(dnufrac / 2 * dnu, 3 * obs[1, 0])
+                    upper_threshold = dnufrac * dnu
                     # TODO(Amalie) This seems too restrictive as a default!
-                    if lower_threshold < anchordist <= upper_threshold:
-                        index[ind] = True
+                    index.append(lower_threshold < anchordist <= upper_threshold)
 
                 # Plot the region
                 if True in index:
