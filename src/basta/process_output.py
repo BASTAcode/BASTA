@@ -32,7 +32,6 @@ def compute_posterior(
     selectedmodels,
     Grid,
     gridheader: util.GridHeader,
-    absolutemagnitudes: core.AbsoluteMagnitudes,
     star: core.Star,
     filepaths: core.FilePaths,
     runfiles: core.RunFiles,
@@ -348,11 +347,14 @@ def compute_posterior(
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
 
         # Scale back to µHz before output/plot
-        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            scale = star.globalseismicparams.get_scale(param)
+        if param.startswith("dnu") or param.startswith("numax"):
+            scale = star.globalseismicparams.get_scalefactor(param)
             x /= scale
             if param in fitparams:
-                fitparams_scaled[param] = fitparams[param].scaled
+                fitparams_scaled[param] = star.globalseismicparams.get_original(param)
+        """
+        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
+            scale = star.globalseismicparams.get_scale(param)
 
         elif param.startswith("numax"):
             x *= inferencesettings.solarvalues["numax"]
@@ -363,6 +365,7 @@ def compute_posterior(
             x /= scale
             if param in fitparams:
                 fitparams_scaled[param] = fitparams[param].original
+        """
 
         # Compute quantiles (using np.quantile is ~50 times faster than quantile_1D)
         xcen, xstdm, xstdp = stats.calc_key_stats(
@@ -419,7 +422,7 @@ def compute_posterior(
     if compareinputoutput | outputoptions.developermode:
         comparewarn = util.compare_output_to_input(
             star=star,
-            absolutemagnitudes=absolutemagnitudes,
+            absolutemagnitudes=star.absolutemagnitudes,
             runfiles=runfiles,
             hout=hout,
             out=out,
@@ -465,7 +468,6 @@ def compute_posterior(
                         selectedmodels=selectedmodels,
                         star=star,
                         plotconfig=plotconfig,
-                        absolutemagnitudes=absolutemagnitudes,
                         lp_interval=lp_interval,
                         feh_interval=feh_interval,
                         Teffout=Teffout,
@@ -557,17 +559,14 @@ def compute_posterior(
                 selectedmodels=selectedmodels,
                 star=star,
                 inferencesettings=inferencesettings,
+                outputoptions=outputoptions,
                 plotconfig=plotconfig,
-                absolutemagnitudes=absolutemagnitudes,
                 lp_interval=lp_interval,
                 feh_interval=feh_interval,
                 Teffout=Teffout,
                 loggout=loggout,
                 gridtype=gridheader["gridtype"],
                 nameinplot=starid if plotconfig.nameinplot else False,
-                debug=outputoptions.debug,
-                developermode=outputoptions.developermode,
-                validationmode=outputoptions.validationmode,
                 color_by_likelihood=False,
             )
             filepaths.save_plot(fig, kind="kiel")

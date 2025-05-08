@@ -99,16 +99,13 @@ def kiel(
     star: core.Star,
     inferencesettings: core.InferenceSettings,
     plotconfig: core.PlotConfig,
-    absolutemagnitudes: core.AbsoluteMagnitudes,
+    outputoptions: core.OutputOptions,
     lp_interval,
     feh_interval,
     Teffout,
     loggout,
     gridtype,
     nameinplot=False,
-    debug=False,
-    developermode=False,
-    validationmode=False,
     color_by_likelihood=False,
 ):
     """
@@ -163,7 +160,7 @@ def kiel(
         Kiel diagram
     """
     # Inflate parameter ranges if requested
-    if developermode:
+    if outputoptions.developermode:
         print("\nACTIVATED EXPERIMENTAL FEATURE:")
         print(
             "Extending the selection ranges (from the default quantiles)",
@@ -172,43 +169,27 @@ def kiel(
         scalefactor = 0.3
         lp_interval[0] *= 1 - scalefactor
         lp_interval[1] *= 1 + scalefactor
-        if debug:
+        if outputoptions.debug:
             print(
                 f"DEBUG: Interval after inflation by {scalefactor * 100} pct. = {lp_interval}\n"
             )
 
     # Assign params
     kielplots = plotconfig.kielplots
-    fitparams = (
-        star.classicalparams.params
-        | star.globalseismicparams.params
-        | star.distanceparams.params
-        # set(star.seismicparams.params.keys())
-    )
-    toggle_freqs = True
-    filters = list(absolutemagnitudes["magnitudes"].keys())
+    fitparams = inferencesettings.fitparams
+    toggle_freqs = False
+    filters = []
 
-    # This is by design a "==" comparison to True, because it will otherwise
-    # fail, as the type is numpy.bool_ !
-    # TODO(Amalie) I think this can be done more smart
-    if not kielplots[0] == True:  # noqa: E712
-        toggle_freqs = False
-        new_filters = []
-        new_fitpars = {}
-        for par in kielplots:
-            if par == "freqs":
-                toggle_freqs = True
-            elif par in filters:
-                new_filters.append(par)
-            else:
-                new_fitpars[par] = fitparams[par].scaled
-        filters = new_filters
-        fitparams = new_fitpars
+    if inferencesettings.has_any_seismic_case:
+        toggle_freqs = True
+    if inferencesettings.has_distance_case:
+        assert star.absolutemagnitudes is not None
+        filters = list(star.absolutemagnitudes["magnitudes"].keys())
 
     # Save the tracks in selectedmodels with appropriate massini and FeH
     tracks = []
     constants = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
-    metal = "MeH" if "MeH" in fitparams.keys() else "FeH"
+    metal = "MeH" if "MeH" in fitparams else "FeH"
     for modelpath in selectedmodels:
         if "tracks" in gridtype.lower():
             trackvalue = Grid[modelpath]["massini"][0]
@@ -217,11 +198,11 @@ def kiel(
         if trackvalue >= lp_interval[0] and trackvalue <= lp_interval[1]:
             track_pass = True
             for param in constants:
-                if param in fitparams.keys():
-                    err = fitparams[param][1]
+                if param in fitparams:
+                    val, err = star.classicalparams.params[param]
                     param_interval = [
-                        fitparams[param][0] - err,
-                        fitparams[param][0] + err,
+                        val - err,
+                        val + err,
                     ]
                     trackvalue = Grid[modelpath + "/" + param][0]
                     if (
@@ -245,7 +226,7 @@ def kiel(
 
     # The highest likelihood is used to control the plot below. If desired, the
     # model with lowest chi^2 can be extracted and added to the plot
-    if validationmode:
+    if outputoptions.validationmode:
         minchi2_path, minchi2_ind = stats.lowest_chi2(selectedmodels)
         hlm_chi2, lcm_chi2 = stats.chi_for_plot(selectedmodels)
 
@@ -301,7 +282,9 @@ def kiel(
     logglim = [logglim_sub, logglim] if True in make_subplot else [logglim]
 
     # Get labels and colors for sorted params
-    keys = list(fitparams.keys()) + filters
+    keys = fitparams + filters
+    if toggle_freqs:
+        keys.remove("freqs")
     if "parallax" in keys:
         keys.remove("parallax")
     sorted_parameters = np.array(keys)[np.argsort(keys)]
@@ -354,7 +337,7 @@ def kiel(
                 continue
 
             # Plot as points for validation mode
-            if validationmode:
+            if outputoptions.validationmode:
                 ax.plot(
                     xs,
                     ys,
@@ -375,7 +358,7 @@ def kiel(
                 )
 
         # Plot the max likelihood and median model
-        if validationmode:
+        if outputoptions.validationmode:
             bfmmodlab = f"Highest likelihood model (chi2 = {hlm_chi2:1.4e})"
         else:
             bfmmodlab = "Best fit model"
@@ -393,7 +376,7 @@ def kiel(
         )
 
         # Add chi^2 model?
-        if validationmode:
+        if outputoptions.validationmode:
             ax.plot(
                 Grid[minchi2_path + "/Teff"][minchi2_ind],
                 Grid[minchi2_path + "/logg"][minchi2_ind],
@@ -410,9 +393,9 @@ def kiel(
             # Set background marking of Teff
             if param == "Teff":
                 ncol += 1
-                err = fitparams[param][1]
-                Tmin = np.ones(2) * fitparams[param][0] - err
-                Tmax = np.ones(2) * fitparams[param][0] + err
+                val, err = star.classicalparams.params[param]
+                Tmin = np.ones(2) * val - err
+                Tmax = np.ones(2) * val + err
                 ax.fill_betweenx(
                     glim,
                     Tmin,
@@ -426,9 +409,9 @@ def kiel(
             # Set background marking of logg
             elif param == "logg":
                 ncol += 1
-                err = fitparams[param][1]
-                gmin = np.ones(2) * fitparams[param][0] - err
-                gmax = np.ones(2) * fitparams[param][0] + err
+                val, err = star.classicalparams.params[param]
+                gmin = np.ones(2) * val - err
+                gmax = np.ones(2) * val + err
                 # xlim = ax.get_xlim()
                 ax.fill_between(
                     tlim,
@@ -447,20 +430,21 @@ def kiel(
                 ncol += 1
                 # Set up the parameter-limit
                 if param in star.globalseismicparams.params.keys():
-                    err = fitparams[param].scaled[1]
-                    parmin = fitparams[param].scaled[0] - err
-                    parmax = fitparams[param].scaled[0] + err
+                    val, err = star.globalseismicparams.get_scaled(param)
+                    parmin = val - err
+                    parmax = val + err
                 # If not regular fitparam, check if it is in filters
                 elif param in filters:
-                    errm = absolutemagnitudes["magnitudes"][param]["errm"]
-                    errp = absolutemagnitudes["magnitudes"][param]["errp"]
-                    med = absolutemagnitudes["magnitudes"][param]["median"]
+                    assert star.absolutemagnitudes is not None
+                    errm = star.absolutemagnitudes["magnitudes"][param]["errm"]
+                    errp = star.absolutemagnitudes["magnitudes"][param]["errp"]
+                    med = star.absolutemagnitudes["magnitudes"][param]["median"]
                     parmin = med - errm
                     parmax = med + errp
                 else:
-                    err = fitparams[param][1]
-                    parmin = fitparams[param][0] - err
-                    parmax = fitparams[param][0] + err
+                    val, err = star.classicalparams.params[param]
+                    parmin = val - err
+                    parmax = val + err
                 for track in tracks:
                     # For each track, check what indices is within
                     # the paramlimits
@@ -482,9 +466,10 @@ def kiel(
         if inferencesettings.has_frequencies and toggle_freqs:
             ncol += 1
             label = "Freq. constrain"
-            dnufrac = inferencesettings.dnufrac
             # TODO(Amalie) Why is this repeated here?
-            obskey, obs, _ = fio.read_freq(fitfreqs["freqfile"])
+            assert star.frequencies is not None
+            obskey = np.asarray([star.frequencies.l, star.frequencies.n])
+            obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
 
             for track in tracks:
                 libitem = Grid[track]
@@ -501,28 +486,28 @@ def kiel(
                     # As mod is ordered, [0, 0] is the lowest l=0 mode
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     cl0 = modl0[0, same_n]
-                    cl0 = cl0[0] if len(cl0 > 1) else cl0
-                    if not (
-                        (
-                            cl0
-                            >= (
-                                obs[0, 0]
-                                - max(
-                                    (
-                                        dnufrac
-                                        / 2
-                                        * star.globalseismicparams.params["dnufit"]
-                                    ),
-                                    (3 * obs[1, 0]),
-                                )
-                            )
-                        )
-                        and (
-                            (cl0 - obs[0, 0])
-                            <= (dnufrac * star.globalseismicparams.params["dnufit"])
-                        )
-                    ):
-                        index[ind] = False
+                    if cl0.size == 0:
+                        continue
+                    elif cl0.size > 1:
+                        cl0 = cl0[0]
+
+                    cl0 = cl0.item()
+                    anchordist = cl0 - obs[0, 0]
+                    dnutype = "dnufit"
+                    lower_threshold = min(
+                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
+                        / 2
+                        * star.globalseismicparams.get_scaled(dnutype)[0],
+                        3 * obs[1, 0],
+                    )
+                    upper_threshold = (
+                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
+                        * star.globalseismicparams.get_scaled(dnutype)[0]
+                    )
+
+                    # TODO(Amalie) This seems too restrictive as a default!
+                    if lower_threshold < anchordist <= upper_threshold:
+                        index[ind] = True
 
                 # Plot the region
                 if True in index:

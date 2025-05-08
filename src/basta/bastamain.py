@@ -181,6 +181,7 @@ def _bastamain(
         f"\n\nComputing likelihood of models in the grid ({trackcounter} {gridinfo['entryname']}) ..."
     )
     if inferencesettings.has_any_seismic_case:
+        assert star.frequencies is not None
         obskey = np.asarray([star.frequencies.l, star.frequencies.n])
         obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
 
@@ -357,6 +358,7 @@ def _bastamain(
 
                 # Fold with absolute magnitudes, if present
                 if inferencesettings.has_distance_case:
+                    assert star.absolutemagnitudes is not None
                     for f in star.absolutemagnitudes["magnitudes"].keys():
                         mags = star.absolutemagnitudes["magnitudes"][f]["prior"]
                         absmags = libitem[f][index]
@@ -491,7 +493,6 @@ def _bastamain(
         selectedmodels=selectedmodels,
         Grid=Grid,
         gridheader=gridheader,
-        absolutemagnitudes=star.absolutemagnitudes,
         star=star,
         filepaths=filepaths,
         runfiles=runfiles,
@@ -512,16 +513,16 @@ def _bastamain(
         plot_driver.plot_all_seismic(
             plotconfig,
             Grid=Grid,
-            obsfreqmeta=obsfreqmeta,
-            obsfreqdata=obsfreqdata,
+            # obsfreqmeta=obsfreqmeta,
+            # obsfreqdata=obsfreqdata,
             obskey=obskey,
             obs=obs,
-            obsintervals=obsintervals,
+            # obsintervals=obsintervals,
             selectedmodels=selectedmodels,
             path=maxPDF_path,
             ind=maxPDF_ind,
             plotfname=filepaths.plotfile_template,
-            nameinplot=inputparams["nameinplot"],
+            nameinplot=plotconfig.nameinplot,
             **addstats,
             debug=outputoptions.debug,
         )

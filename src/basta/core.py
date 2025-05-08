@@ -258,7 +258,7 @@ class EpsilonDifferences:
 class Star:
     starid: str
 
-    limits: dict[str, tuple[float, float]] | None = None
+    limits: dict[str, tuple[float, float]]
 
     classicalparams: ClassicalParameters
     globalseismicparams: GlobalSeismicParameters
