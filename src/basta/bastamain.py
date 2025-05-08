@@ -172,8 +172,6 @@ def _bastamain(
 
     # In some cases we need to store quantities computed at runtime
     # TODO(Amalie) Why do we need this? Is this the right logic?
-    if inferencesettings.fit_surfacecorrected_dnu:
-        dnusurfmodels = {}
     if inferencesettings.has_glitches:
         glitchmodels = {}
 
@@ -308,8 +306,6 @@ def _bastamain(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if inferencesettings.has_any_seismic_case:
-                    if inferencesettings.fit_surfacecorrected_dnu:
-                        dnusurf = np.zeros(index.sum())
                     if inferencesettings.glitchfit:
                         glitchpar = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
@@ -333,8 +329,6 @@ def _bastamain(
                         )
                         chi2[indd] += chi2_freq
 
-                        if inferencesettings.fit_surfacecorrected_dnu:
-                            dnusurf[indd] = addpars["dnusurf"]
                         if inferencesettings.glitchfit:
                             glitchpar[indd] = addpars["glitchparams"]
 
@@ -403,8 +397,6 @@ def _bastamain(
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, logPDFarr, chi2
                     )
-                if inferencesettings.fit_surfacecorrected_dnu:
-                    dnusurfmodels[group_name + name] = stats.Trackdnusurf(dnusurf)
                 if inferencesettings.has_glitches:
                     glitchmodels[group_name + name] = stats.Trackglitchpar(
                         glitchpar[:, 0],
@@ -501,17 +493,15 @@ def _bastamain(
         plotconfig=plotconfig,
     )
 
-    # Collect additional output for plotting and saving
-    addstats: dict[str, Any] = {}
-    if inferencesettings.fit_surfacecorrected_dnu:
-        addstats["dnusurf"] = dnusurfmodels
-    if inferencesettings.glitchfit:
-        addstats["glitchparams"] = glitchmodels
-
     # Make frequency-related plots
     if plotconfig.freqplots and inferencesettings.has_any_seismic_case:
         plot_driver.plot_all_seismic(
-            plotconfig,
+            inputstar=inputstar,
+            star=star,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
+            plotconfig=plotconfig,
+            filepaths=filepaths,
             Grid=Grid,
             # obsfreqmeta=obsfreqmeta,
             # obsfreqdata=obsfreqdata,
@@ -521,10 +511,7 @@ def _bastamain(
             selectedmodels=selectedmodels,
             path=maxPDF_path,
             ind=maxPDF_ind,
-            plotfname=filepaths.plotfile_template,
-            nameinplot=plotconfig.nameinplot,
-            **addstats,
-            debug=outputoptions.debug,
+            glitchparams=glitchmodels if inferencesettings.has_glitches else None,
         )
     else:
         print(

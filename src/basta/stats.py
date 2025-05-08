@@ -209,32 +209,30 @@ def chi2_astero(
     # Apply surface correction
     if star.frequencies.surfacecorrection is None:
         corjoin = join
+    elif star.frequencies.surfacecorrection.get("KBC08") is not None:
+        corjoin, _ = freq_fit.HK08(
+            joinkeys=joinkeys,
+            join=join,
+            nuref=star.globalseismicparams.get_scaled("numax")[0],
+            bcor=star.frequencies.surfacecorrection["KBC08"]["bexp"],
+        )
+    elif star.frequencies.surfacecorrection.get("two-term-BG14") is not None:
+        corjoin, _ = freq_fit.BG14(
+            joinkeys=joinkeys,
+            join=join,
+            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+        )
+    elif star.frequencies.surfacecorrection.get("cubic-term-BG14") is not None:
+        corjoin, _ = freq_fit.cubicBG14(
+            joinkeys=joinkeys,
+            join=join,
+            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+        )
     else:
-        surfacecorrection = list(star.frequencies.surfacecorrection.keys())[0]
-        if surfacecorrection == "KBC08":
-            corjoin, _ = freq_fit.HK08(
-                joinkeys=joinkeys,
-                join=join,
-                nuref=star.globalseismicparams.get_scaled("numax")[0],
-                bcor=star.frequencies.surfacecorrection[surfacecorrection]["bexp"],
-            )
-        elif surfacecorrection == "two-term-BG14":
-            corjoin, _ = freq_fit.BG14(
-                joinkeys=joinkeys,
-                join=join,
-                scalnu=star.globalseismicparams.get_scaled("numax")[0],
-            )
-        elif surfacecorrection == "cubic-term-BG14":
-            corjoin, _ = freq_fit.cubicBG14(
-                joinkeys=joinkeys,
-                join=join,
-                scalnu=star.globalseismicparams.get_scaled("numax")[0],
-            )
-        else:
-            print(
-                f'ERROR: surface correction must be either "None" or in {freqtypes.surfeffcorrs}'
-            )
-            return None
+        print(
+            f'ERROR: surface correction must be either "None" or in {freqtypes.surfeffcorrs}'
+        )
+        return None
 
     # Initialize chi2 value
     chi2rut = 0.0

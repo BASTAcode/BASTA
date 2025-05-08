@@ -5,6 +5,7 @@ Production of asteroseismic plots
 import os
 import typing
 from collections.abc import Iterable
+from pathlib import Path
 from typing import Any
 
 import h5py  # type: ignore[import]
@@ -47,22 +48,27 @@ splinemarkers = [".", "2", "1"]
 splinecolor = "0.7"
 
 
+@dataclass(kw_only=True, frozen=True)
+class EchellePlotBase:
+    selectedmodels: dict
+    Grid: h5py.File
+    obs: np.ndarray
+    mod: np.ndarray | None = None
+    modkey: np.ndarray | None = None
+    join: np.ndarray | None = None
+    joinkeys: np.ndarray | None = None
+    coeffs: np.ndarray | None = None
+    star: core.Star
+    inferencesettings: core.InferenceSettings
+    plotconfig: core.PlotConfig
+    outputoptions: core.OutputOptions
+
+
 def echelle(
-    selectedmodels: dict,
-    Grid: h5py.File,
-    obs: np.ndarray,
-    obskey: np.ndarray,
-    mod: np.ndarray | None = None,
-    modkey: np.ndarray | None = None,
-    dnu: float | None = None,
-    join: np.ndarray | None = None,
-    joinkeys: np.ndarray | None = None,
-    coeffs: np.ndarray | None = None,
-    scalnu: float | None = None,
-    freqcor: str = "BG14",
+    x: EchellePlotBase,
     pairmode: bool = False,
     duplicatemode: bool = False,
-    outputfilename: str | None = None,
+    outputfilename: Path | None = None,
 ) -> None:
     """
     Echelle diagram. It is possible to either make a single Echelle diagram
@@ -99,9 +105,6 @@ def echelle(
         Coefficients for the near-surface frequency correction specified
         in `freqcor`. If None, the frequencies on the plot will not
         be corrected.
-    scalnu : float or None
-        Value used to scale frequencies in frequencies correction.
-        `numax` is often used.
     freqcor : str {'None', 'HK08', 'BG14', 'cubicBG14'}
         Flag determining the frequency correction.
     pairmode : bool
@@ -113,15 +116,14 @@ def echelle(
     outputfilename : str or None
         Filename for saving the figure.
     """
+    selectedmodels = x.selectedmodels
+
     if pairmode:
         lw = 1
     else:
         lw = 0
 
-    if dnu is None:
-        print("Note: No deltanu specified, using dnufit for echelle diagram.")
-        maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
-        dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
+    dnu = star.globalseismicparams.get_original("dnufit")[0]
 
     if duplicatemode:
         modx = 1.0
@@ -130,40 +132,56 @@ def echelle(
         modx = dnu
         scalex = 1
 
-    obsls = np.unique(obskey[0, :]).astype(str)
+    obsls = np.unique(star.frequencies.l).astype(str)
 
-    if (mod is None) and (modkey is None):
+    if x.mod is None and x.modkey is None:
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
-        rawmod = Grid[maxPDF_path + "/osc"][maxPDF_ind]
-        rawmodkey = Grid[maxPDF_path + "/osckey"][maxPDF_ind]
+        rawmod = x.Grid[maxPDF_path + "/osc"][maxPDF_ind]
+        rawmodkey = x.Grid[maxPDF_path + "/osckey"][maxPDF_ind]
         mod = su.transform_obj_array(rawmod)
         modkey = su.transform_obj_array(rawmodkey)
         mod = mod[:, modkey[0, :] <= np.amax(obsls.astype(int))]
         modkey = modkey[:, modkey[0, :] <= np.amax(obsls)]
+    else:
+        assert x.mod is not None
+        assert x.modkey is not None
+        mod = x.mod
+        modkey = x.modkey
 
     assert mod is not None
     assert modkey is not None
     cormod = np.array(mod, copy=True)
 
+    coeffs = x.coeffs
     if coeffs is not None:
-        if freqcor == "HK08":
+        assert star.frequencies.surfacecorrection is not None
+        if star.frequencies.surfacecorrection.get("KBC08") is not None:
             corosc = freq_fit.apply_HK08(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
+                modkey=modkey,
+                mod=mod,
+                coeffs=coeffs,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
             )
-        elif freqcor == "BG14":
+        elif star.frequencies.surfacecorrection.get("two-term-BG14") is not None:
             corosc = freq_fit.apply_BG14(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
+                modkey=modkey,
+                mod=mod,
+                coeffs=coeffs,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
             )
-        elif freqcor == "cubicBG14":
+        elif star.frequencies.surfacecorrection.get("cubic-term-BG14") is not None:
             corosc = freq_fit.apply_cubicBG14(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
+                modkey=modkey,
+                mod=mod,
+                coeffs=coeffs,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
             )
         cormod[0, :] = corosc
 
     s = su.scale_by_inertia(modkey, cormod)
-    if join is not None:
-        assert joinkeys is not None
-        sjoin = su.scale_by_inertia(joinkeys[0:2], join[0:2])
+    if x.join is not None:
+        assert x.joinkeys is not None
+        sjoin = su.scale_by_inertia(x.joinkeys[0:2], x.join[0:2])
 
     fmod = {}
     fmod_all = {}
@@ -173,13 +191,14 @@ def echelle(
     eobs_all = {}
     for l in np.arange(np.amax(obsls.astype(int)) + 1):
         _, mod = su.get_givenl(l=l, osc=cormod, osckey=modkey)
-        _, lobs = su.get_givenl(l=l, osc=obs, osckey=obskey)
+        obskey = np.asarray([star.frequencies.l, star.frequencies.n])
+        _, lobs = su.get_givenl(l=l, osc=x.obs, osckey=obskey)
         fmod_all[str(l)] = mod[0, :] / scalex
         fobs_all[str(l)] = lobs[0, :] / scalex
         eobs_all[str(l)] = lobs[1, :] / scalex
-        if join is not None:
-            assert joinkeys is not None
-            _, ljoin = su.get_givenl(l=l, osc=join, osckey=joinkeys)
+        if x.join is not None:
+            assert x.joinkeys is not None
+            _, ljoin = su.get_givenl(l=l, osc=x.join, osckey=x.joinkeys)
             fmod[str(l)] = ljoin[0, :] / scalex
             fobs[str(l)] = ljoin[2, :] / scalex
             eobs[str(l)] = ljoin[3, :] / scalex
@@ -264,7 +283,7 @@ def echelle(
 
     # Plot the matched modes in negative and positive side
     linelimit = 0.75 * modx
-    if join is not None:
+    if x.join is not None:
         for l in obsls:
             if len(fmod[l]) > 0:
                 ax.scatter(
@@ -439,18 +458,18 @@ def echelle(
 
     if outputfilename is not None:
         plt.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
 def ratioplot(
-    obsfreqdata,
+    star: core.Star,
     joinkeys,
     join,
     modkey,
     mod,
     ratiotype,
-    outputfilename=None,
+    outputfilename: Path | None = None,
     threepoint=False,
     interp_ratios=True,
 ) -> None:
@@ -491,16 +510,14 @@ def ratioplot(
         to the frequencies of the observed ratios, in order to compare the
         sequences at the same frequencies.
     """
-    fig, ax = plt.subplots(1, 1)
 
-    obsratio = obsfreqdata[ratiotype]["data"]
     # Exit if there are no ratios to plot
-    if obsratio is None:
-        plt.close(fig)
+    if ratiotype not in star.ratios.ratios:
         return
 
-    obsratio_cov = obsfreqdata[ratiotype]["cov"]
-    obsratio_err = np.sqrt(np.diag(obsratio_cov))
+    obsratio = star.ratios.ratios[ratiotype].ratios
+    obsratio_invcov = star.ratios.ratios[ratiotype].inverse_covariance
+    obsratio_err = np.sqrt(1 / np.diag(obsratio_invcov))
 
     if interp_ratios:
         modratio = freq_fit.compute_ratioseqs(
@@ -511,6 +528,7 @@ def ratioplot(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
         )
 
+    fig, ax = plt.subplots(1, 1)
     handles: list[Any] = []
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
@@ -599,7 +617,7 @@ def ratioplot(
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
@@ -656,12 +674,12 @@ def confidence_ellipse(
 
 
 def glitchplot(
-    obsfreqdata,
-    sequence,
+    star: core.Star,
+    glitchtype,
     modelvalues,
     maxPath,
     maxInd,
-    outputfilename,
+    outputfilename: Path | None,
 ) -> None:
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
@@ -670,9 +688,9 @@ def glitchplot(
     }
 
     # Read in data
-    obsparams = obsfreqdata[sequence]["data"]
-    obs_cov = obsfreqdata[sequence]["cov"]
-    obs_err = np.sqrt(np.diag(obs_cov))
+    obsparams = star.glitches.glitches[glitchtype].glitches
+    obs_invcov = star.glitches.glitches[glitchtype].inverse_covariance
+    obs_err = np.sqrt(1 / np.diag(obs_invcov))
 
     # Start figure
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))
@@ -795,17 +813,18 @@ def glitchplot(
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
 def epsilon_difference_diagram(
+    *,
     mod,
     modkey,
     moddnu,
     sequence,
-    obsfreqdata,
-    outputfilename,
+    star: core.Star,
+    outputfilename: Path | None,
 ):
     """
     Full comparison figure of observed and best-fit model epsilon
@@ -838,9 +857,11 @@ def epsilon_difference_diagram(
 
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
 
-    obsepsdiff = obsfreqdata[sequence]["data"]
-    obsepsdiff_cov = obsfreqdata[sequence]["cov"]
-    obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
+    obsepsdiff = star.epsilondifferences.epsilondifferences[sequence].epsilondifferences
+    obsepsdiff_invcov = star.epsilondifferences.epsilondifferences[
+        sequence
+    ].inverse_covariance
+    obsepsdiff_err = np.sqrt(1 / np.diag(obsepsdiff_invcov))
 
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
     lindex = np.zeros(mod.shape[1], dtype=bool)
@@ -953,14 +974,14 @@ def epsilon_difference_diagram(
 
     fig.tight_layout()
     if outputfilename is not None:
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         fig.savefig(outputfilename)
         plt.close(fig)
         return None
     return fig
 
 
-def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
+def correlation_map(fittype, star, outputfilename: Path | None) -> None:
     """
     Routine for plotting a correlation map of the plotted ratios
 
@@ -981,26 +1002,30 @@ def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
     # Determine information for constructing labels
     if fittype in freqtypes.freqs:
         fmtstr = r"$\nu({:d}, {:d})$"
+        obskey = np.asarray([star.frequencies.l, star.frequencies.n])
         ln_zip: Iterable[tuple[Any, Any]] = zip(obskey[0, :], obskey[1, :])
 
     elif fittype in freqtypes.rtypes:
-        data = obsfreqdata[fittype]["data"]
-        if data is None:
+        if fittype not in star.ratios.ratios:
             return
+        data = star.ratios.ratios[fittype].ratios
+        invcov = star.ratios.ratios[fittype].inverse_covariance
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
     elif fittype in freqtypes.epsdiff:
-        data = obsfreqdata[fittype]["data"]
-        if data is None:
+        if fittype not in star.epsilondifferences.epsilondifferences:
             return
+        data = star.epsilondifferences.epsilondifferences[fittype].epsilondifferences
+        invcov = star.epsilondifferences.epsilondifferences[fittype].inverse_covariance
         fmtstr = r"$\delta\epsilon_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
     elif fittype in freqtypes.glitches:
-        data = obsfreqdata[fittype]["data"]
-        if data is None:
+        if fittype not in star.glitches.glitches:
             return
+        data = star.glitches.glitches[fittype].glitches
+        invcov = star.glitches.glitches[fittype].inverse_covariance
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         if fittype != "glitches":
             ln_zip = zip(data[2, :-3], data[3, :-3])
@@ -1024,9 +1049,8 @@ def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
             labs.append(glitchlabels[int(glitchtype)])
 
     # Compute correlations
-    cov = obsfreqdata[fittype]["cov"]
-    Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
-    cor = Dinv @ cov @ Dinv
+    Dinv = np.diag(np.sqrt(np.diag(invcov)))
+    cor = Dinv @ (1 / invcov) @ Dinv
 
     # Produce figure
     fig, ax = plt.subplots(1, 1, figsize=(7.3, 6))
@@ -1034,231 +1058,13 @@ def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
     plt.colorbar(im)
 
     # Beautify
-    ax.set_xticks(range(cov.shape[1]))
+    ax.set_xticks(range(invcov.shape[1]))
     ax.set_xticklabels(labs, rotation=90)
-    ax.set_yticks(range(cov.shape[1]))
+    ax.set_yticks(range(invcov.shape[1]))
     ax.set_yticklabels(labs)
     fig.tight_layout()
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
-
-
-###############
-# DEBUG PLOTS #
-###############
-
-
-def epsilon_difference_components_diagram(
-    mod,
-    modkey,
-    moddnu,
-    obs,
-    obskey,
-    dnudata,
-    obsfreqdata,
-    obsfreqmeta,
-    outputfilename,
-) -> None:
-    """
-    Full comparison figure of observed and best-fit model epsilon
-    differences, with individual epsilons and correlation map.
-
-    Parameters
-    ----------
-    mod : array
-        Array of frequency modes in best-fit model.
-    modkey : array
-        Array of mode identification of modes in the best-fit model.
-    moddnu : float
-        Average large frequency separation (dnufit) of best-fit model.
-    obs : array
-        Array of observed frequency modes.
-    obskey : array
-        Array of mode identification of observed frequency modes.
-    dnudata : float
-        Inputted average large frequency separation (dnu) of observations.
-    obsfreqdata : dict
-        Requested frequency-dependent data such as glitches, ratios, and
-        epsilon difference. It also contains the covariance matrix and its
-        inverse of the individual frequency modes.
-        The keys correspond to the science case, e.g. `r01a, `glitch`, or
-        `e012`.
-        Inside each case, you find the data (`data`), the covariance matrix
-        (`cov`), and its inverse (`covinv`).
-    obsfreqmeta : dict
-        The requested information about which frequency products to fit or
-        plot, unpacked for easier access later.
-    outputfilename : str
-        Name and path of outputfilename plotfile.
-    """
-
-    # Prepared labels and markers
-    delab = r"$\delta\epsilon^{%s}_{0%d}$"
-    elab = r"$\epsilon_{%d}$"
-
-    epsdifftype = obsfreqmeta["epsdiff"]["plot"][0]
-
-    obsepsdiff = obsfreqdata[epsdifftype]["data"]
-    obsepsdiff_cov = obsfreqdata[epsdifftype]["cov"]
-    obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
-
-    l_available = [int(ll) for ll in set(obsepsdiff[2])]
-    lindex = np.zeros(mod.shape[1], dtype=bool)
-
-    for ll in [0, *l_available]:
-        lindex |= modkey[0] == ll
-    mod = mod[:, lindex]
-    modkey = modkey[:, lindex]
-
-    modepsdiff = freq_fit.compute_epsilondiffseqs(
-        modkey,
-        mod,
-        moddnu,
-        epsdifftype,
-    )
-
-    # Recompute to determine if possible but extrapolated modes
-    edextrapol = freq_fit.compute_epsilondiffseqs(
-        obskey,
-        obs,
-        dnudata,
-        epsdifftype,
-    )
-    nu12 = edextrapol[1][edextrapol[2] > 0]
-    nu0 = obs[0][obskey[0] == 0]
-    expol = np.where(np.logical_or(nu12 < min(nu0), nu12 > max(nu0)))[0]
-
-    # Definition of figure
-    fig, ax = plt.subplots(2, 2, figsize=(8.47, 6), sharex="col", sharey="row")
-
-    # Epsilon differences
-    for ll in l_available:
-        indobs = obsepsdiff[2] == ll
-        indmod = modepsdiff[2] == ll
-
-        # Constrained model range
-        indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
-        indmod &= modepsdiff[1] < max(obsepsdiff[1]) + 3 * moddnu
-        spline = CubicSpline(modepsdiff[1][indmod], modepsdiff[0][indmod])
-        fnew = np.linspace(min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 1000)
-
-        # Raw model with spline
-        ax[0, 1].errorbar(
-            modepsdiff[1][indmod],
-            modepsdiff[0][indmod],
-            yerr=np.zeros(sum(indmod)),
-            marker=modmarkers["l" + str(ll)],
-            color=colors["l" + str(ll)],
-            markeredgewidth=0.5,
-            markeredgecolor="k",
-            zorder=3,
-            linestyle="",
-            label=delab % ("", ll),
-        )
-        ax[0, 1].plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
-
-        # Spline observed for separate plot
-        spline = CubicSpline(obsepsdiff[1][indobs], obsepsdiff[0][indobs])
-        fnew = np.linspace(min(obsepsdiff[1][indobs]), max(obsepsdiff[1][indobs]), 100)
-
-        # Observed with uncertainties and spline
-        ax[0, 0].errorbar(
-            obsepsdiff[1][indobs],
-            obsepsdiff[0][indobs],
-            yerr=obsepsdiff_err[indobs],
-            marker=modmarkers["l" + str(ll)],
-            color=colors["l" + str(ll)],
-            markeredgewidth=0.5,
-            markeredgecolor="k",
-            linestyle="",
-            zorder=3,
-        )
-        ax[0, 0].plot(fnew, spline(fnew), "-", color="0.7", zorder=-1)
-
-    # Potential extrapolated points
-    if len(expol):
-        for ll in set(edextrapol[2][expol].astype(int)):
-            ax[0, 0].plot(
-                edextrapol[1][expol][edextrapol[2][expol] == ll],
-                edextrapol[0][expol][edextrapol[2][expol] == ll],
-                marker=obsmarker,
-                lw=0,
-                alpha=0.5,
-                color=colors["l" + str(ll)],
-                label=rf"$\nu(\ell={ll})\,\notin\,\nu(\ell=0)$",
-            )
-        ax[0, 0].legend()
-
-    # Individual epsilons
-    for ll in [0, *l_available]:
-        # Extract observed quantities
-        indobs = obskey[0] == ll
-        fre = obs[0][indobs]
-        eps = fre / dnudata - obskey[1][indobs] - ll / 2
-        err = obs[1][indobs] / dnudata
-        intpol = CubicSpline(fre, eps)
-        fnew = np.linspace(min(fre), max(fre), 100)
-
-        # Plot observed w. spline
-        ax[1, 0].errorbar(
-            fre,
-            eps,
-            yerr=err,
-            linestyle=None,
-            fmt=modmarkers["l" + str(ll)],
-            color=colors["l" + str(ll)],
-            zorder=3,
-            label=elab % ll,
-        )
-        ax[1, 0].plot(
-            fnew,
-            intpol(fnew),
-            "-",
-            color=splinecolor,
-        )
-
-        # Extract model quantities
-        indmod = modkey[0] == ll
-        indmod &= mod[0] > min(obsepsdiff[1]) - 3 * moddnu
-        indmod &= mod[0] < max(obsepsdiff[1]) + 3 * moddnu
-        fre = mod[0][indmod]
-        eps = fre / moddnu - modkey[1][indmod] - ll / 2
-        err = mod[1][indmod] / moddnu
-        intpol = CubicSpline(fre, eps)
-        fnew = np.linspace(min(fre), max(fre), 1000)
-
-        # Plot model w. spline
-        ax[1, 1].errorbar(
-            fre,
-            eps,
-            yerr=err,
-            linestyle=None,
-            fmt=modmarkers["l" + str(ll)],
-            color=colors["l" + str(ll)],
-            zorder=3,
-            label=elab % ll,
-        )
-        ax[1, 1].plot(fnew, intpol(fnew), "-", color=splinecolor)
-
-    ax[0, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2, borderaxespad=0.0)
-    ax[1, 1].legend(fontsize=16, bbox_to_anchor=(1.02, 1), loc=2)
-
-    # Axes labels
-    ax[0, 0].set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
-    ax[1, 0].set_xlabel(r"Frequency ($\mu$Hz)")
-    ax[1, 0].set_ylabel(r"Epsilon $\epsilon_{\ell}$")
-    ax[1, 1].set_xlabel(r"Frequency ($\mu$Hz)")
-
-    # Titles
-    ax[0, 0].set_title(r"Observed", fontsize=18)
-    ax[0, 1].set_title(r"Model", fontsize=18)
-
-    fig.tight_layout()
-    # fig.subplots_adjust(wspace=0.2, hspace=0.4)
-
-    fig.savefig(outputfilename)
-    print("Saved figure to " + outputfilename)
-    plt.close(fig)
