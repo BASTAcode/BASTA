@@ -18,7 +18,7 @@ Individual frequencies
 
 
 def compute_dnu_wfit(obskey, obs, numax):
-    #TODO(Amalie) Rename and use
+    # TODO(Amalie) Rename and use
     """
     Compute large frequency separation weighted around numax, the same way as dnufit.
     Coefficients based on White et al. 2011.
@@ -264,8 +264,7 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
 
 def HK08(joinkeys, join, nuref, bcor):
     """
-    Kjeldsen frequency correction
-
+    #TODO(Amalie) Rename corrections
     Correcting stellar oscillation frequencies for near-surface effects
     following the approach in Hans Kjeldsen, Timothy R. Bedding, and Jørgen
     Christensen-Dalsgaard. "Correcting stellar oscillation frequencies for
@@ -295,7 +294,7 @@ def HK08(joinkeys, join, nuref, bcor):
         reference frequency used is numax of the observed star or numax of the
         Sun, but it shouldn't make a difference.
     bcor : float
-        The exponent in the Kjeldsen correction.
+        The exponent in the KBC08 correction.
 
     Returns
     -------
@@ -305,6 +304,7 @@ def HK08(joinkeys, join, nuref, bcor):
     coeffs : array
         Array containing the coefficients in the found correction.
     """
+
     # Unpacking for readability
     # If we do not have many modes but many mixed modes: only use l=0
     _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)

@@ -191,6 +191,7 @@ def chi2_astero(
     modkey = su.transform_obj_array(rawmodkey)
 
     # Determine which model modes correspond to observed modes
+    assert star.frequencies is not None
     obskey = np.asarray([star.frequencies.l, star.frequencies.n])
     obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
     joins = freq_fit.calc_join(

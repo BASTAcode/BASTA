@@ -127,9 +127,7 @@ def _bastamain(
     )
 
     util.print_fitparams(star=star, inferencesettings=inferencesettings)
-    util.print_seismic(
-        inferencesettings, inputstar=inputstar
-    )  # , obskey=obskey, obs=obs)
+    util.print_seismic(inferencesettings, inputstar=inputstar)
     util.print_distances(star, outputoptions)
     util.print_additional(star)
     util.print_weights(bayweights, gridheader["gridtype"])
@@ -147,12 +145,7 @@ def _bastamain(
     metallicities = util.list_metallicities(
         Grid, gridinfo=gridinfo, inferencesettings=inferencesettings
     )
-
-    if star.phase is not None:
-        if isinstance(star.phase, tuple):
-            iphases = [constants.phasemap.pmap[ip] for ip in star.phase]
-        else:
-            iphases = [constants.phasemap.pmap[star.phase]]
+    iphases = util.list_phases(star)
 
     group_names = util.compute_group_names(
         gridinfo=gridinfo, metallicities=metallicities
@@ -247,7 +240,6 @@ def _bastamain(
 
             # Check which models have l=0, lowest n within tolerance
             if inferencesettings.has_any_seismic_case:
-                indexf = np.zeros(len(index), dtype=bool)
                 for ind in np.where(index)[0]:
                     rawmod = libitem["osc"][ind]
                     rawmodkey = libitem["osckey"][ind]
@@ -266,21 +258,13 @@ def _bastamain(
                     cl0 = cl0.item()
                     anchordist = cl0 - obs[0, 0]
                     dnutype = "dnufit"
-                    lower_threshold = min(
-                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
-                        / 2
-                        * star.globalseismicparams.get_scaled(dnutype)[0],
-                        3 * obs[1, 0],
-                    )
-                    upper_threshold = (
-                        inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
-                        * star.globalseismicparams.get_scaled(dnutype)[0]
-                    )
+                    dnufrac = inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
+                    dnu = star.globalseismicparams.get_scaled(dnutype)[0]
+                    lower_threshold = -max(dnufrac / 2 * dnu, 3 * obs[1, 0])
+                    upper_threshold = dnufrac * dnu
 
                     # TODO(Amalie) This seems too restrictive as a default!
-                    if lower_threshold < anchordist <= upper_threshold:
-                        indexf[ind] = True
-                index &= indexf
+                    index &= lower_threshold < anchordist <= upper_threshold
 
             # TODO(Amalie) rewrite this to a function
             # If any models are within tolerances, calculate statistics

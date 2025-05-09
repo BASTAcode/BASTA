@@ -1199,16 +1199,16 @@ def get_limits(
     )
 
     dnufrac = priors.get("dnufrac")
-    dnufrac_limits = {}
+    dnufrac_limits: dict[str, tuple[float, float]] = {}
     if isinstance(dnufrac, core.PriorEntry):
         dnutype = "dnufit"
         if dnutype in params:
-            dnu_value, dnu_error = params[dnutype].scaled
+            dnu_value, dnu_error = inputstar.globalseismicparams.get_scaled(dnutype)
             frac = dnufrac.kwargs[dnutype]
             three_sigma = 3 * dnu_error
             delta = min(three_sigma, frac * dnu_value)
             dnufrac_limits: dict[str, tuple[float, float]] = {
-                dnutype: [max(0, dnu_value - delta), dnu_value + delta]
+                dnutype: (max(0.0, dnu_value - delta), dnu_value + delta)
             }
 
     all_dimensions = (
@@ -1382,3 +1382,12 @@ def setup_star(
         glitches=glitches,
         epsilondifferences=epsilondifferences,
     )
+
+
+def list_phases(star: core.Star) -> list[str]:
+    if star.phase is None:
+        return []
+    if isinstance(star.phase, tuple):
+        return [constants.phasemap.pmap[ip] for ip in star.phase]
+    else:
+        return [constants.phasemap.pmap[star.phase]]

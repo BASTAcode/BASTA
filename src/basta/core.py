@@ -128,6 +128,7 @@ class GlobalSeismicParameters:
         return self.params[key].scale
 
     def get_scalefactor(self, key: str) -> float:
+        assert self.scalefactors is not None
         return self.scalefactors[key]
 
     def get_scaled(self, key: str) -> tuple[float, float]:
