@@ -1,22 +1,19 @@
 """
-Fitting of frequencies and frequency-dependent properties.
+The BASTA seismic fitting module contains Python functions that compute products of combining frequencies.
 """
 
 import itertools
 
 import numpy as np
-from scipy.interpolate import CubicSpline
-from scipy.optimize import minimize
-from sklearn import linear_model
+from scipy.interpolate import CubicSpline  # type: ignore[import]
+from scipy.optimize import minimize  # type: ignore[import]
+from sklearn import linear_model  # type: ignore[import]
 
 from basta import utils_seismic as su
-
-"""
-Individual frequencies
-"""
+from basta import core
 
 
-def compute_dnu_wfit(obskey, obs, numax):
+def compute_dnufit(data: core.ObservedFrequencies, numax: float):
     """
     Compute large frequency separation weighted around numax, the same way as dnufit.
     Coefficients based on White et al. 2011.
@@ -40,7 +37,18 @@ def compute_dnu_wfit(obskey, obs, numax):
     """
 
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    yfitdnu = obs[0, obskey[0, :] == 0]
+    radial = data.of_angular_degree(0)
+    wfitdnu = np.exp(
+        -1.0
+        * np.power(data.frequencies - numax, 2)
+        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
+    )
+    fitcoef, fitcov = np.polyfit(
+        data.n, data.frequencies, 1, w=np.sqrt(wfitdnu), cov=True
+    )
+    dnu, dnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+    """
+    yfitdnu = data.of obs[0, obskey[0, :] == 0]
     xfitdnu = np.arange(0, len(yfitdnu))
     xfitdnu = obskey[1, obskey[0, :] == 0]
     wfitdnu = np.exp(
@@ -50,11 +58,15 @@ def compute_dnu_wfit(obskey, obs, numax):
     )
     fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
     dnu, dnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
+    """
 
     return dnu, dnu_err
 
 
-def make_intervals(osc, osckey, dnu=None):
+def make_intervals(
+    data: core.ObservedFrequencies | core.ModelFrequencies,
+    dnu: float | tuple[float, float] | None = None,
+):
     """
     This function computes the interval bins used in the frequency
     mapping in :func:`freqfit.calc_join()`.
@@ -76,13 +88,19 @@ def make_intervals(osc, osckey, dnu=None):
         Array containing the endpoints of the intervals used in the frequency
         fitting routine in :func:`freq_fit.calc_join``.
     """
-    # Get l=0 modes
+
+    radial = data.of_angular_degree(0)
+    fl0 = radial["frequency"]
+    """
     osckeyl0, oscl0 = su.get_givenl(l=0, osc=osc, osckey=osckey)
     fl0 = oscl0[0, :]
     nl0 = osckeyl0[1, :]
+    """
 
     if dnu is None:
         dnu = np.median(np.diff(fl0))
+    if isinstance(dnu, tuple):
+        dnu = dnu[0]
 
     # limit is a fugde factor that determines the size in frequency of a gap
     limit = 1.9
@@ -96,15 +114,15 @@ def make_intervals(osc, osckey, dnu=None):
         difffl0 = np.diff(fl0) > (limit * dnu)
 
     # Make the binning
-    intervals = np.arange(nl0[0] + 1) * -dnu + fl0[0]
+    intervals = np.arange(radial["n"][0] + 1) * -dnu + fl0[0]
     intervals = intervals[::-1]
     intervals = np.concatenate((intervals, fl0[1:-1]))
-    upper = np.arange(np.amax(osckey[1, :]) + 2 - len(intervals)) * dnu + fl0[-1]
+    upper = np.arange(np.amax(radial["n"]) + 2 - len(intervals)) * dnu + fl0[-1]
     intervals = np.concatenate((intervals, upper))
     return intervals
 
 
-def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
+def calc_join(star_modes: core.StarModes, model_modes: core.ModelFrequencies):
     """
     This functions maps the observed modes to the model modes.
 
@@ -150,23 +168,27 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
             Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
             join[i, 2] and uncertainty join[i, 3].
     """
-    # Move obsintervals out to optimize (as it is the same every time)
-    if obsintervals is None:
-        obsintervals = make_intervals(osc=obs, osckey=obskey, dnu=dnu)
-    modintervals = make_intervals(osc=mod, osckey=modkey)
+
+    obskey = np.asarray([star_modes.modes.l, star_modes.modes.n])
+    obs = np.asarray([star_modes.modes.frequencies, star_modes.modes.errors])
+    obsintervals = star_modes.obsintervals
+    assert obsintervals is not None
+    modintervals = make_intervals(data=model_modes)
 
     # Initialise
     join = []
     joinkeys = []
 
     # Count the number of observed and modelled modes in each bin
-    for l in [0, 1, 2]:
-        obskey_givenl, obs_givenl = su.get_givenl(l=l, osc=obs, osckey=obskey)
-        modkey_givenl, mod_givenl = su.get_givenl(l=l, osc=mod, osckey=modkey)
-        nobs = obskey_givenl[1, :]
-        nmod = modkey_givenl[1, :]
-        fobs, eobs = obs_givenl
-        fmod, emod = mod_givenl
+    for l in star_modes.modes.possible_angular_degrees:
+        obs_givenl = star_modes.modes.of_angular_degree(l)
+        model_givenl = model_modes.of_angular_degree(l)
+        nobs = obs_givenl["n"]
+        nmod = model_givenl["n"]
+        fobs = obs_givenl["frequency"]
+        eobs = obs_givenl["error"]
+        fmod = model_givenl["frequency"]
+        emod = model_givenl["inertia"]
 
         minlength = min(len(obsintervals), len(modintervals))
         for i in range(minlength - 1):
@@ -205,8 +227,10 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
                         # Here we check all subsets of maybe.
                         # First, find the proper offset
                         if osum == 1:
-                            offset = offsets[
-                                (np.abs(matched_l0s[2, :] - fmod[mfilter][0])).argmin()
+                            # The type:ignore is because the variable is defined in the l=0 iteration
+                            # and used in the l>0 iterations. TODO(Amalie) This should probably be rewritten.
+                            offset = offsets[  # type: ignore
+                                (np.abs(matched_l0s[2, :] - fmod[mfilter][0])).argmin()  # type: ignore
                             ]
                         else:
                             offset = 0
@@ -239,13 +263,16 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
         if l == 0:
             # Compute the offset due to the surface effect to use in the case
             # of mixed modes for the l=1 and l=2 matching.
-            same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
+            # same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
             matched_l0s = np.transpose(np.concatenate(join))
             # Compute offset
             # modmask = [mode in same_ns for mode in modkey_givenl[1, :]]
             # obsmask = [mode in same_ns for mode in obskey_givenl[1, :]]
             # offsets = mod_givenl[0, modmask] - obs_givenl[0, obsmask]
-            offsets = matched_l0s[0, :] - matched_l0s[2, :]
+            # Note that code linting might want to remove the following line (F841),
+            # but the line is needed since the 'offsets' variable is used in the
+            # l=1 and 2 cases in this for-loop.
+            offsets = matched_l0s[0, :] - matched_l0s[2, :]  # noqa: F841
     if len(join) != 0:
         joins = [
             np.transpose(np.concatenate(joinkeys)),
@@ -257,8 +284,7 @@ def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
 
 def HK08(joinkeys, join, nuref, bcor):
     """
-    Kjeldsen frequency correction
-
+    #TODO(Amalie) Rename corrections
     Correcting stellar oscillation frequencies for near-surface effects
     following the approach in Hans Kjeldsen, Timothy R. Bedding, and Jørgen
     Christensen-Dalsgaard. "Correcting stellar oscillation frequencies for
@@ -288,7 +314,7 @@ def HK08(joinkeys, join, nuref, bcor):
         reference frequency used is numax of the observed star or numax of the
         Sun, but it shouldn't make a difference.
     bcor : float
-        The exponent in the Kjeldsen correction.
+        The exponent in the KBC08 correction.
 
     Returns
     -------
@@ -298,6 +324,7 @@ def HK08(joinkeys, join, nuref, bcor):
     coeffs : array
         Array containing the coefficients in the found correction.
     """
+
     # Unpacking for readability
     # If we do not have many modes but many mixed modes: only use l=0
     _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
@@ -308,7 +335,6 @@ def HK08(joinkeys, join, nuref, bcor):
     f_model = join[0, :]
     e_model = join[1, :]
     f_obs = join[2, :]
-    e_obs = join[3, :]
 
     # Interpolate inertia to l=0 inertia at same frequency
     interp_inertia = np.interp(f_model, f_modell0, e_modell0)
