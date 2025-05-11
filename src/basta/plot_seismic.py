@@ -4,10 +4,10 @@ Production of asteroseismic plots
 
 import os
 
-import h5py
+import h5py  # type: ignore[import]
 import matplotlib as mpl
 import numpy as np
-from scipy.interpolate import CubicSpline, interp1d
+from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 
 from basta import freq_fit, stats
 from basta import utils_seismic as su
