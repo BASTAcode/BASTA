@@ -5,9 +5,9 @@ Interpolation for BASTA: Combined approach
 import os
 import sys
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
-from scipy import spatial
+from scipy import spatial  # type: ignore[import]
 from tqdm import tqdm
 
 from basta import interpolation_helpers as ih
@@ -325,8 +325,8 @@ def interpolate_combined(
             sections.append(ir)
 
         # Check of overlap from min and max
-        minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
-        if minmax[0] > minmax[1]:
+        minmax2 = [max(minmax[:, 0]), min(minmax[:, 1])]
+        if minmax2[0] > minmax2[1]:
             warstr = f"Warning: Track {newnum + tracknum} "
             warstr += f"aborted, no overlap in {along_var}."
             print(warstr)
@@ -337,9 +337,9 @@ def interpolate_combined(
         # Get base for new track, based on requested along resolution
         try:
             newbvar = ih.calc_along_points(
-                intbase, sections, minmax, point, envres, trackresolution["value"]
+                intbase, sections, minmax2, point, envres, trackresolution["value"]
             )
-        except:
+        except Exception:
             warstr = f"Choice of base parameter '{along_var:s}' resulted"
             warstr += " in an error when determining it's variance along the track."
             raise ValueError(warstr)
@@ -440,9 +440,9 @@ def interpolate_combined(
             for par, parval in zip(pars_sampled, point):
                 keypath = os.path.join(libname, par)
                 outfile[keypath] = np.ones(newbase.shape[0]) * parval
-            for par in const_vals:
+            for par, parval in const_vals.items():
                 keypath = os.path.join(libname, par)
-                outfile[keypath] = np.ones(newbase.shape[0]) * const_vals[par]
+                outfile[keypath] = np.ones(newbase.shape[0]) * parval
             for par in varied_vals:
                 keypath = os.path.join(libname, par)
                 vval = varied_vals[par][tracknum]
@@ -476,11 +476,11 @@ def interpolate_combined(
         except KeyboardInterrupt:
             print("Interpolation stopped manually. Goodbye!")
             sys.exit()
-        except:
+        except Exception:
             # If it fails, delete progress for the track, and just mark it as failed
             try:
                 del outfile[libname]
-            except:
+            except Exception:
                 pass
             success[tracknum] = False
             print("Error:", sys.exc_info()[1])
