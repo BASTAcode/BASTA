@@ -351,12 +351,25 @@ class parameters:
         if type(inputparams) is not list:
             inputparams = list(inputparams)
 
+        missing = []
         for par in inputparams:
             entry = [i for i in classParams if i[0] == par]
+            if not entry:
+                if par in [
+                    "parallax",
+                    "absorption",
+                    "EBV",
+                    "magnitudes",
+                ]:
+                    continue
+                missing.append(par)
+                continue
             paramsunits.append(entry[0][1])
             paramsplots.append(entry[0][2])
             paramsremarks.append(entry[0][3])
             paramscolors.append(entry[0][4])
+        if missing:
+            raise Exception(missing)
 
         return paramsunits, paramsplots, paramsremarks, paramscolors
 
