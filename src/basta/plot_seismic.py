@@ -4,6 +4,7 @@ Production of asteroseismic plots
 
 import os
 import typing
+from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -980,9 +981,7 @@ def epsilon_difference_diagram(
     return fig
 
 
-def correlation_map(
-    fittype, obsfreqdata, outputfilename: Path | None, obskey=None
-) -> None:
+def correlation_map(fittype, star, outputfilename: Path | None) -> None:
     """
     Routine for plotting a correlation map of the plotted ratios
 
@@ -1003,26 +1002,30 @@ def correlation_map(
     # Determine information for constructing labels
     if fittype in freqtypes.freqs:
         fmtstr = r"$\nu({:d}, {:d})$"
-        ln_zip = zip(obskey[0, :], obskey[1, :])
+        obskey = np.asarray([star.frequencies.l, star.frequencies.n])
+        ln_zip: Iterable[tuple[Any, Any]] = zip(obskey[0, :], obskey[1, :])
 
     elif fittype in freqtypes.rtypes:
-        data = obsfreqdata[fittype]["data"]
-        if data is None:
+        if fittype not in star.ratios:
             return
+        data = star.ratios[fittype].values
+        invcov = star.ratios[fittype].inverse_covariance
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
     elif fittype in freqtypes.epsdiff:
-        data = obsfreqdata[fittype]["data"]
-        if data is None:
+        if fittype not in star.epsilondifferences:
             return
+        data = star.epsilondifferences[fittype].values
+        invcov = star.epsilondifferences[fittype].inverse_covariance
         fmtstr = r"$\delta\epsilon_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
     elif fittype in freqtypes.glitches:
-        data = obsfreqdata[fittype]["data"]
-        if data is None:
+        if fittype not in star.glitches:
             return
+        data = star.glitches[fittype].values
+        invcov = star.glitches[fittype].inverse_covariance
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         if fittype != "glitches":
             ln_zip = zip(data[2, :-3], data[3, :-3])
@@ -1046,9 +1049,8 @@ def correlation_map(
             labs.append(glitchlabels[int(glitchtype)])
 
     # Compute correlations
-    cov = obsfreqdata[fittype]["cov"]
-    Dinv = np.diag(1 / np.sqrt(np.diag(cov)))
-    cor = Dinv @ cov @ Dinv
+    Dinv = np.diag(np.sqrt(np.diag(invcov)))
+    cor = Dinv @ (1 / invcov) @ Dinv
 
     # Produce figure
     fig, ax = plt.subplots(1, 1, figsize=(7.3, 6))
@@ -1056,9 +1058,9 @@ def correlation_map(
     plt.colorbar(im)
 
     # Beautify
-    ax.set_xticks(range(cov.shape[1]))
+    ax.set_xticks(range(invcov.shape[1]))
     ax.set_xticklabels(labs, rotation=90)
-    ax.set_yticks(range(cov.shape[1]))
+    ax.set_yticks(range(invcov.shape[1]))
     ax.set_yticklabels(labs)
     fig.tight_layout()
 
