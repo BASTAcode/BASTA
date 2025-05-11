@@ -267,15 +267,9 @@ class parameters:
             excludeparams = [excludeparams]
 
         for par in excludeparams:
-            if type(par) is not str:
-                print("Parameters should be strings!")
-                exit()
-
-            if par in parnames:
-                parnames.remove(par)
-            else:
-                print(f"Parameter {par} is not in params!")
-                exit()
+            assert isinstance(par, str), par
+            assert par in parnames, par
+            parnames.remove(par)
 
         return parnames
 
