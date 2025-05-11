@@ -2,9 +2,8 @@
 Collection of all constants used in BASTA
 """
 
-from dataclasses import dataclass  # Python 3.7+ !
-
 import numpy as np
+from dataclasses import dataclass
 
 
 @dataclass
@@ -253,7 +252,8 @@ class parameters:
 
     names = [i[0] for i in params]
 
-    def exclude_params(self):
+    @staticmethod
+    def exclude_params(excludeparams):
         """
         Takes a list of input parameters (or a
         single parameter) as strings and returns
@@ -263,10 +263,10 @@ class parameters:
         classParams = parameters.params
         parnames = [x for x, y, z, v, c in classParams]
 
-        if type(self) is not list:
-            self = [self]
+        if type(excludeparams) is not list:
+            excludeparams = [excludeparams]
 
-        for par in self:
+        for par in excludeparams:
             if type(par) is not str:
                 print("Parameters should be strings!")
                 exit()
@@ -279,7 +279,8 @@ class parameters:
 
         return parnames
 
-    def get_keys(self):
+    @staticmethod
+    def get_keys(inputparams):
         """
         Takes a list of input parameters (or a
         single parameter) as strings and returns
@@ -292,10 +293,10 @@ class parameters:
         paramscolors = []
         classParams = parameters.params
 
-        if type(self) is not list:
-            self = list(self)
+        if type(inputparams) is not list:
+            inputparams = list(inputparams)
 
-        for par in self:
+        for par in inputparams:
             entry = [i for i in classParams if i[0] == par]
             paramsunits.append(entry[0][1])
             paramsplots.append(entry[0][2])
@@ -553,7 +554,6 @@ class distanceranges:
     # 2MASS.max: https://old.ipac.caltech.edu/2mass/releases/sampler/index.html
     # 2MASS.min: Brightest star in 2mass All-Sky Release PSC is Betelgeuse,
     # https://old.ipac.caltech.edu/2mass/releases/allsky/doc/sec1_6b.html#satr1
-    # TODO!
     filters = {
         "Mj_2MASS": {"max": 16.5, "min": -2.99},
         "Mh_2MASS": {"max": 16.0, "min": -4.01},
