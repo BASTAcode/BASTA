@@ -22,6 +22,7 @@ class freqtypes:
     Different possibilities of fitting frequencies, for global access
     """
 
+    # TODO(Amalie) remove the overall dependency on this class from different places in the code
     rtypes = ["r010", "r02", "r01", "r10", "r012", "r102"]
     freqs = ["freqs"]
     glitches = ["glitches", "gr010", "gr02", "gr01", "gr10", "gr012", "gr102"]
@@ -33,6 +34,7 @@ class freqtypes:
     surfeffcorrs = ["HK08", "BG14", "cubicBG14"]
 
 
+# TODO(Amalie) I am not convinced that default values like nsamples and nsigma should be specified like this? Consider rearranging
 @dataclass
 class statdata:
     """
