@@ -638,3 +638,8 @@ class metallicityranges:
     values = {
         "metallicity": {"max": 0.50, "min": -4.0},
     }
+
+
+@dataclass
+class phasemap:
+    pmap = {"pre-ms": 1, "solar": 2, "rgb": 3, "flash": 4, "clump": 5, "agb": 6}
