@@ -3,6 +3,7 @@ Production of asteroseismic plots
 """
 
 import os
+from pathlib import Path
 
 import h5py  # type: ignore[import]
 import matplotlib as mpl
@@ -443,7 +444,7 @@ def ratioplot(
     modkey,
     mod,
     ratiotype,
-    outputfilename=None,
+    outputfilename: Path | None = None,
     threepoint=False,
     interp_ratios=True,
 ) -> None:
@@ -592,7 +593,7 @@ def ratioplot(
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
@@ -654,7 +655,7 @@ def glitchplot(
     modelvalues,
     maxPath,
     maxInd,
-    outputfilename,
+    outputfilename: Path | None,
 ) -> None:
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
@@ -788,7 +789,7 @@ def glitchplot(
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
@@ -798,7 +799,7 @@ def epsilon_difference_diagram(
     moddnu,
     sequence,
     obsfreqdata,
-    outputfilename,
+    outputfilename: Path | None,
 ):
     """
     Full comparison figure of observed and best-fit model epsilon
@@ -946,14 +947,16 @@ def epsilon_difference_diagram(
 
     fig.tight_layout()
     if outputfilename is not None:
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         fig.savefig(outputfilename)
         plt.close(fig)
         return None
     return fig
 
 
-def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
+def correlation_map(
+    fittype, obsfreqdata, outputfilename: Path | None, obskey=None
+) -> None:
     """
     Routine for plotting a correlation map of the plotted ratios
 
@@ -1035,7 +1038,7 @@ def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None) -> None:
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
