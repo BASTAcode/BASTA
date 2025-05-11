@@ -31,8 +31,6 @@ class freqtypes:
     defaultrtypes = ["r01"]
     defaultepstypes = ["e012"]
 
-    surfeffcorrs = ["HK08", "BG14", "cubicBG14"]
-
 
 # TODO(Amalie) I am not convinced that default values like nsamples and nsigma should be specified like this? Consider rearranging
 @dataclass
