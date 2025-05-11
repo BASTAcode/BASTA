@@ -6,15 +6,15 @@ import json
 import os
 import warnings
 from copy import deepcopy
-from io import IOBase
+from pathlib import Path
 from xml.dom import minidom
 from xml.etree import ElementTree as ET
 from xml.etree.ElementTree import Element, SubElement, tostring
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 
-from basta import freq_fit, glitch_fit, stats
+from basta import core, freq_fit, glitch_fit, stats
 from basta import utils_general as util
 from basta import utils_seismic as su
 from basta.constants import freqtypes
@@ -46,7 +46,7 @@ def _import_selectedmodels(data: dict) -> dict:
     return res
 
 
-def save_selectedmodels(fname: str, selectedmodels) -> None:
+def save_selectedmodels(fname: str | Path, selectedmodels) -> None:
     s = json.dumps(_export_selectedmodels(selectedmodels))
     with open(fname, "w") as fp:
         fp.write(s)
@@ -59,7 +59,9 @@ def load_selectedmodels(fname: str):
     return _import_selectedmodels(data)
 
 
-def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str) -> None:
+def write_star_to_errfile(
+    starid: str, runfiles: core.RunFiles, errormessage: str
+) -> None:
     """
     Write starid and error message to .err-file
 
@@ -67,21 +69,22 @@ def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str) -> 
     ----------
     starid : str
         Unique identifier for this target.
-    inputparams : dict
-        Dictionary of all controls and input.
     errormessage : str
         String explaining error which will be written to the .err-file
     """
-    errfile = inputparams.get("erroutput")
-
-    if isinstance(errfile, IOBase):
-        errfile.write(f"{starid}\t{errormessage}\n")
-    else:
-        with open(errfile, "a") as ef:
-            ef.write(f"{starid}\t{errormessage}\n")
+    if runfiles.erroroutput is None:
+        return
+    runfiles.erroroutput.write(f"{starid}\t{errormessage}\n")
 
 
-def no_models(starid: str, inputparams: dict, errormessage: str) -> None:
+def no_models(
+    starid: str,
+    filepaths: core.FilePaths,
+    runfiles: core.RunFiles,
+    outputoptions: core.OutputOptions,
+    distancefilters: list[str] | None,
+    errormessage: str,
+) -> None:
     """
     If no models are found in the grid, create an outputfile with nans (for consistency reasons).
 
@@ -91,16 +94,14 @@ def no_models(starid: str, inputparams: dict, errormessage: str) -> None:
     ----------
     starid : str
         Unique identifier for this target.
-    inputparams : dict
-        Dictionary of all controls and input.
     errormessage : str
         String explaining error which will be written to the .err-file
     """
 
     # Extract the output parameters
-    asciifile = inputparams.get("asciioutput")
-    asciifile_dist = inputparams.get("asciioutput_dist")
-    params = deepcopy(inputparams["asciiparams"])
+    asciifile = runfiles.summarytable
+    asciifile_dist = runfiles.distancesummarytable
+    params = deepcopy(outputoptions.asciiparams)
 
     # Init vectors and add the Star ID
     hout = []
@@ -111,14 +112,11 @@ def no_models(starid: str, inputparams: dict, errormessage: str) -> None:
     out.append(starid)
     hout_dist.append("starid")
     out_dist.append(starid)
-    uncert = inputparams.get("uncert")
+    uncert = outputoptions.uncert
 
     # The distance parameters
-    if "distance" in params:
-        distanceparams = inputparams["distanceparams"]
-        ms = list(distanceparams["filters"])
-
-        for m in ms:
+    if distancefilters is not None:
+        for m in distancefilters:
             hout_dist, out_dist = util.add_out(
                 hout_dist, out_dist, "distance_" + m, np.nan, np.nan, np.nan, uncert
             )
@@ -136,77 +134,41 @@ def no_models(starid: str, inputparams: dict, errormessage: str) -> None:
             hout_dist, out_dist, "EBV_", np.nan, np.nan, np.nan, uncert
         )
         hout, out = util.add_out(hout, out, "distance", np.nan, np.nan, np.nan, uncert)
-        params.remove("distance")
+        # params.remove("distance")
 
     # The normal parameters
     for param in params:
         hout, out = util.add_out(hout, out, param, np.nan, np.nan, np.nan, uncert)
 
     # Write to file
-    if asciifile is not False:
-        hline = b"# "
-        for i in range(len(hout)):
-            hline += hout[i].encode() + b" "
-
-        if isinstance(asciifile, IOBase):
-            asciifile.seek(0)
-            if b"#" not in asciifile.readline():
-                asciifile.write(hline + b"\n")
-            np.savetxt(
-                asciifile, np.asarray(out).reshape(1, len(out)), fmt="%s", delimiter=" "
-            )
-            print("Saved results to " + asciifile.name + ".")
-        elif asciifile is False:
-            pass
-        else:
-            np.savetxt(
-                asciifile,
-                np.asarray(out).reshape(1, len(out)),
-                fmt="%s",
-                header=hline,
-                delimiter=" ",
-            )
-            print("Saved results to " + asciifile + ".")
+    np.savetxt(
+        asciifile,
+        np.asarray(out).reshape(1, len(out)),
+        fmt="%s",
+        header=f"{' '.join(hout)} ",
+        delimiter=" ",
+    )
+    print(f"Saved results to {runfiles.summarytablepath}.")
 
     # Write to file
-    if asciifile_dist:
-        hline = b"# "
-        for i in range(len(hout_dist)):
-            hline += hout_dist[i].encode() + b" "
+    if asciifile_dist is not None:
+        np.savetxt(
+            asciifile_dist,
+            np.asarray(out_dist).reshape(1, len(out_dist)),
+            fmt="%s",
+            header=f"{' '.join(hout_dist)} ",
+            delimiter=" ",
+        )
+        print(
+            f"Saved distance results for different filters to {runfiles.distancesummarytablepath}."
+        )
 
-        if isinstance(asciifile_dist, IOBase):
-            asciifile_dist.seek(0)
-            if b"#" not in asciifile_dist.readline():
-                asciifile_dist.write(hline + b"\n")
-            np.savetxt(
-                asciifile_dist,
-                np.asarray(out_dist).reshape(1, len(out_dist)),
-                fmt="%s",
-                delimiter=" ",
-            )
-            print(
-                "Saved distance results for different filters to "
-                + asciifile_dist.name
-                + "."
-            )
-        else:
-            np.savetxt(
-                asciifile_dist,
-                np.asarray(out_dist).reshape(1, len(out_dist)),
-                fmt="%s",
-                header=hline,
-                delimiter=" ",
-            )
-            print(
-                "Saved  distance results for different filters to "
-                + asciifile_dist
-                + "."
-            )
-
-    write_star_to_errfile(starid, inputparams, errormessage)
+    write_star_to_errfile(starid, runfiles, errormessage)
 
 
-def read_freq_xml(filename: str) -> tuple[np.array, np.array, np.array, np.array]:
+def read_freq_xml(
+    filename: str,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
     """
     Read frequencies from an xml file
 
@@ -227,30 +189,39 @@ def read_freq_xml(filename: str) -> tuple[np.array, np.array, np.array, np.array
         Angular degree
     """
 
-    # Parse the XML file:
-    tree = ET.parse(filename)
-    root = tree.getroot()
+    frequencies = []
+    errors = []
+    orders = []
+    degrees = []
 
-    # Find a list of all the frequency ratios:
-    freq_modes = root.findall("mode")
+    for mode in ET.parse(filename).getroot().findall("mode"):
 
-    # Simply get the orders and frequency ratios as numpy arrays:
-    orders = np.array(
-        [mode.find("order").get("value") for mode in freq_modes], dtype=int
+        def _get_element_attrib(element: str, attrib: str) -> str:
+            e = mode.find(element)
+            if e is None:
+                error = f"mode has no XML element <{element}/>"
+                raise Exception(error)
+            v = e.get(attrib)
+            if v is None:
+                error = f"mode has no XML attribute <{element} {attrib}=.../>"
+                raise Exception(error)
+            return v
+
+        frequencies.append(float(_get_element_attrib("frequency", "value")))
+        errors.append(float(_get_element_attrib("frequency", "error")))
+        orders.append(int(_get_element_attrib("order", "value")))
+        degrees.append(int(_get_element_attrib("degree", "value")))
+    return (
+        np.asarray(frequencies),
+        np.asarray(errors),
+        np.asarray(orders),
+        np.asarray(degrees),
     )
-    degrees = np.array(
-        [mode.find("degree").get("value") for mode in freq_modes], dtype=int
-    )
-    errors = np.array(
-        [mode.find("frequency").get("error") for mode in freq_modes], dtype="float64"
-    )
-    frequencies = np.array(
-        [mode.find("frequency").get("value") for mode in freq_modes], dtype="float64"
-    )
-    return frequencies, errors, orders, degrees
 
 
-def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.array]:
+def _read_freq_cov_xml(
+    filename: str, obskey: np.ndarray
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Read frequency covariances from xml-file
 
@@ -280,15 +251,15 @@ def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.ar
     cov = np.zeros((len(obskey[0, :]), len(obskey[0, :])))
 
     # Loop over all modes to collect input
-    for i, mode1 in enumerate(freqs):
+    for _i, mode1 in enumerate(freqs):
         id1 = mode1.get("id")
         column = root.findall(f"frequency_corr[@id1='{id1}']")
         if not len(column):
-            errmsg = "Correlations in frequency fit requested, but not pr"
-            errmsg += "ovided! If not available, set 'correlations=False'."
-            raise KeyError(errmsg)
+            raise KeyError(
+                "Frequency fit correlations not provided - set correlations=False"
+            )
         # Loop over possible all modes again
-        for j, mode2 in enumerate(freqs):
+        for _j, mode2 in enumerate(freqs):
             id2 = mode2.get("id")
             # Loop to find matching entries in matrix
             for row in column:
@@ -298,11 +269,19 @@ def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.ar
                     n2 = int(mode2.find("order").get("value"))
                     l2 = int(mode2.find("degree").get("value"))
 
-                    i = np.where(np.logical_and(obskey[0, :] == l1, obskey[1, :] == n1))
-                    j = np.where(np.logical_and(obskey[0, :] == l2, obskey[1, :] == n2))
+                    ii = np.where(
+                        np.logical_and(obskey[0, :] == l1, obskey[1, :] == n1)
+                    )
+                    jj = np.where(
+                        np.logical_and(obskey[0, :] == l2, obskey[1, :] == n2)
+                    )
 
-                    corr[i, j] = corr[j, i] = row.find("correlation").get("value")
-                    cov[i, j] = cov[j, i] = row.find("covariance").get("value")
+                    correlation = row.find("correlation")
+                    assert correlation is not None
+                    covariance = row.find("covariance")
+                    assert covariance is not None
+                    corr[ii, jj] = corr[jj, ii] = correlation.get("value")
+                    cov[ii, jj] = cov[jj, ii] = covariance.get("value")
                     break
     return corr, cov
 
@@ -310,9 +289,9 @@ def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.ar
 def read_freq(
     filename: str,
     excludemodes: str | None = None,
-    onlyradial: bool = False,
+    onlyradial: bool | None = None,
     covarfre: bool = False,
-) -> tuple[np.array, np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     """
     Routine to extract the frequencies in the desired n-range, and the
     corresponding covariance matrix
@@ -346,29 +325,30 @@ def read_freq(
     f = np.asarray([])
     n = np.asarray([])
     e = np.asarray([])
-    l = np.asarray([])
+    ell = np.asarray([])
     for li in [0, 1, 2]:
         given_l = ldegree == li
         incrn = np.argsort(norder[given_l], kind="mergesort")
-        l = np.concatenate([l, ldegree[given_l][incrn]])
+        ell = np.concatenate([ell, ldegree[given_l][incrn]])
         n = np.concatenate([n, norder[given_l][incrn]])
         f = np.concatenate([f, frecu[given_l][incrn]])
         e = np.concatenate([e, errors[given_l][incrn]])
-    assert len(f) == len(n) == len(e) == len(l)
-    obskey = np.asarray([l, n], dtype=int)
+    assert len(f) == len(n) == len(e) == len(ell)
+    obskey = np.asarray([ell, n], dtype=int)
     obs = np.array([f, e])
 
     # Remove untrusted frequencies
     if excludemodes not in [None, "", "None", "none", "False", "false"]:
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
-            nottrustedobskey = np.genfromtxt(excludemodes, comments="#", encoding=None)
+            assert excludemodes is not None
+            nottrustedobskey = np.genfromtxt(excludemodes, comments="#")
         # If there is only one not-trusted mode, it misses a dimension
         if nottrustedobskey.size == 0:
             print("File for not-trusted frequencies was empty")
         else:
             if nottrustedobskey.shape == (2,):
-                nottrustedobskey = [nottrustedobskey]
+                nottrustedobskey = nottrustedobskey.reshape(1, 2)
             for l, n in nottrustedobskey:
                 nottrustedmask = (obskey[0] == l) & (obskey[1] == n)
                 print(
@@ -397,7 +377,7 @@ def read_freq(
 
 def _read_precomputed_glitches(
     filename: str, type: str = "glitches"
-) -> tuple[np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Read glitch parameters. If fitted together with ratios, these must be
     provided in this file as well, for covariance between them.
@@ -418,11 +398,12 @@ def _read_precomputed_glitches(
         Covariance matrix, for glitch parameters or glitch parameters
         and ratios
     """
+
     # Read datafile
     try:
         datfile = h5py.File(filename, "r")
-    except:
-        return NameError("Could not find f{filename}")
+    except Exception:
+        raise Exception(f"Could not find {filename}")
 
     # Read ratio type in file, and check that it matches requested fittype
     if type != "glitches":
@@ -440,11 +421,11 @@ def _read_precomputed_glitches(
 def _read_precomputed_ratios_xml(
     filename: str,
     ratiotype: str,
-    obskey: np.array,
-    obs: np.array,
+    obskey: np.ndarray,
+    obs: np.ndarray,
     excludemodes: str | None = None,
     correlations: bool = True,
-) -> tuple[np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Read the precomputed ratios and covariance matrix from xml-file.
 
@@ -506,7 +487,7 @@ def _read_precomputed_ratios_xml(
         mask = np.where(types == ratiotype)[0]
 
     # Pack into data structure
-    ratios = np.zeros((4, len(mask)))
+    ratios: np.ndarray = np.zeros((4, len(mask)))
     ratios[0, :] = ratval[mask]
     ratios[3, :] = orders[mask]
     ratios[2, :] = [int(r[1:]) for r in types[mask]]
@@ -532,7 +513,7 @@ def _read_precomputed_ratios_xml(
     return ratios, cov
 
 
-def _read_ratios_cov_xml(xmlroot, types: np.array, order: np.array) -> np.array:
+def _read_ratios_cov_xml(xmlroot, types: np.ndarray, order: np.ndarray) -> np.ndarray:
     """
     Read the precomputed covariance matrix of the read precomputed ratios.
 
@@ -572,13 +553,12 @@ def _read_ratios_cov_xml(xmlroot, types: np.array, order: np.array) -> np.array:
 
 
 def _make_obsfreqs(
-    obskey: np.array,
-    obs: np.array,
-    obscov: np.array,
-    allfits: list[str, ...],
-    freqplots: list[str, ...],
-    numax: float,
-    debug: bool = False,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    obscov: np.ndarray,
+    star: core.Star,
+    plotconfig: core.PlotConfig,
+    outputoptions: core.OutputOptions,
 ) -> tuple[dict, dict]:
     """
     Make a dictionary of frequency-dependent data
@@ -614,52 +594,23 @@ def _make_obsfreqs(
         The requested information about which frequency products to fit or
         plot, unpacked for easier access later.
     """
-    obsfreqdata = {}
-    obsfreqmeta = {}
+    obsfreqdata: dict = {}
+    obsfreqmeta: dict = {}
+    seismic = star.seismicparams
 
-    allfits = np.asarray(list(allfits))
-    allplots = np.asarray(list(freqplots))
-    fitratiotypes = []
-    plotratiotypes = []
-    fitglitchtypes = []
-    plotglitchtypes = []
-    fitepsdifftypes = []
-    plotepsdifftypes = []
-
-    getratios = False
-    getglitch = False
-    getepsdiff = False
-
+    # Compute inverse covariance matrix
     obscovinv = np.linalg.pinv(obscov, rcond=1e-8)
-    obsls = np.unique(obskey[0, :])
+    obsls = np.unique(obskey[0, :]).astype(str)  # TODO not loving this test
 
-    # Large frequency separation from individual frequencies
-    dnudata, dnudata_err = freq_fit.compute_dnu_wfit(obskey, obs, numax)
+    # Compute dnu
+    dnudata, dnudata_err = freq_fit.compute_dnufit(
+        obskey, obs, numax=star.globalseismicparams.get_scaled("numax")
+    )
 
-    for fit in allfits:
-        obsfreqdata[fit] = {}
-        # Look for ratios
-        if fit in freqtypes.rtypes:
-            getratios = True
-            fitratiotypes.append(fit)
-            if "ratios" not in obsfreqmeta.keys():
-                obsfreqmeta["ratios"] = {}
-        # Look for glitches
-        elif fit in freqtypes.glitches:
-            getglitch = True
-            fitglitchtypes.append(fit)
-            if "glitch" not in obsfreqmeta.keys():
-                obsfreqmeta["glitch"] = {}
-        # Look for epsdiff
-        elif fit in freqtypes.epsdiff:
-            getepsdiff = True
-            fitepsdifftypes.append(fit)
-            if "epsdiff" not in obsfreqmeta.keys():
-                obsfreqmeta["epsdiff"] = {}
-        elif fit not in freqtypes.freqs:
-            print(f"Fittype {fit} not recognised")
-            raise ValueError
+    def has_required_modes(fittype: str) -> bool:
+        return all(l in obsls for l in fittype if l.isdigit())
 
+    # TODO(Amalie) Is this necessairy?
     obsfreqdata["freqs"] = {
         "cov": obscov,
         "covinv": obscovinv,
@@ -667,100 +618,83 @@ def _make_obsfreqs(
         "dnudata_err": dnudata_err,
     }
 
-    # If all frequency plots enabled, turn on defaults
-    if len(freqplots) and freqplots[0] is True:
-        getratios = True
-        getepsdiff = True
+    if seismic.has_ratios:
+        assert seismic.ratios is not None
+        valid_fittypes = [f for f in seismic.ratios.fittypes if has_required_modes(f)]
+        # if not valid_fittypes:
+        #    raise ValueError("No valid modes found for fitting ratios.")
+        obsfreqmeta["ratios"] = {
+            "fit": valid_fittypes,
+            "plot": [],
+        }
 
-        plotratiotypes = list(set(freqtypes.defaultrtypes) | set(fitratiotypes))
-        plotepsdifftypes = list(set(freqtypes.defaultepstypes) | set(fitepsdifftypes))
+    if seismic.has_glitches:
+        assert seismic.glitches is not None
+        valid_fittypes = [f for f in seismic.glitches.fittypes if has_required_modes(f)]
+        # if not valid_fittypes:
+        #    raise ValueError("No valid modes found for fitting glitches.")
+        obsfreqmeta["glitch"] = {
+            "fit": valid_fittypes,
+            "plot": [],
+        }
 
-        # Only turn on glitches if they are fitted (expensive)
-        if getglitch:
-            plotglitchtypes = list(set(fitglitchtypes))
+    if seismic.has_epsilondifferences:
+        assert seismic.epsilondifferences is not None
+        valid_fittypes = [
+            f for f in seismic.epsilondifferences.fittypes if has_required_modes(f)
+        ]
+        # if not valid_fittypes:
+        #    raise ValueError("No valid modes found for fitting epsilon differences.")
+        obsfreqmeta["epsdiff"] = {
+            "fit": valid_fittypes,
+            "plot": [],
+        }
 
-    elif len(freqplots):
-        for plot in allplots:
-            # Look for ratios
-            if plot in ["ratios", *freqtypes.rtypes]:
-                getratios = True
-                if plot in [
-                    "ratios",
-                ]:
-                    for rtype in freqtypes.defaultrtypes:
-                        if rtype not in plotratiotypes:
-                            plotratiotypes.append(rtype)
-                elif plot not in plotratiotypes:
-                    plotratiotypes.append(plot)
-            # Look for glitches
-            if plot in freqtypes.glitches:
-                getglitch = True
-                if plot not in plotglitchtypes:
-                    plotglitchtypes.append(plot)
-            # Look for epsdiff
-            if plot in ["epsdiff", *freqtypes.epsdiff]:
-                getepsdiff = True
-                if plot in ["epsdiff"]:
-                    for etype in freqtypes.defaultepstypes:
-                        if etype not in plotepsdifftypes:
-                            plotepsdifftypes.append(etype)
-                elif plot not in plotepsdifftypes:
-                    plotepsdifftypes.append(plot)
+    for fittype in plotconfig.freqplots:
+        if fittype in freqtypes.rtypes:
+            if "ratios" not in obsfreqmeta:
+                obsfreqmeta["ratios"] = {"fit": [], "plot": []}
+            if has_required_modes(fittype):
+                obsfreqmeta["ratios"]["plot"].append(fittype)
+            elif debug:
+                print(f"*BASTA {fittype} cannot be plotted")
 
-    # Check that there is observational data available for fits and plots
-    if getratios or getepsdiff:
-        for fittype in set(fitratiotypes) | set(fitepsdifftypes) | set(fitglitchtypes):
-            if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
-                for l in fittype[1:]:
-                    if l not in obsls.astype(str):
-                        print(f"* No l={l} modes were found in the observations")
-                        print(f"* It is not possible to fit {fittype}")
-                        raise ValueError
-        for fittype in (
-            set(plotratiotypes) | set(plotepsdifftypes) | set(plotglitchtypes)
-        ):
-            if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
-                if debug:
-                    print(f"*BASTA {fittype} cannot be plotted")
-                if fittype in plotratiotypes:
-                    plotratiotypes.remove(fittype)
-                if fittype in plotepsdifftypes:
-                    plotepsdifftypes.remove(fittype)
-                if fittype in plotglitchtypes:
-                    plotglitchtypes.remove(fittype)
-        if getratios and ((len(fitratiotypes) == 0) & (len(plotratiotypes) == 0)):
-            getratios = False
-        if getepsdiff and ((len(fitepsdifftypes) == 0) & (len(plotepsdifftypes) == 0)):
-            getepsdiff = False
+        elif fittype in freqtypes.glitches:
+            if "glitch" not in obsfreqmeta:
+                obsfreqmeta["glitch"] = {"fit": [], "plot": []}
+            if has_required_modes(fittype):
+                obsfreqmeta["glitch"]["plot"].append(fittype)
+            elif debug:
+                print(f"*BASTA {fittype} cannot be plotted")
 
-    if getratios:
-        obsfreqmeta["ratios"] = {}
-        obsfreqmeta["ratios"]["fit"] = fitratiotypes
-        obsfreqmeta["ratios"]["plot"] = plotratiotypes
+        elif fittype in freqtypes.epsdiff:
+            if "epsdiff" not in obsfreqmeta:
+                obsfreqmeta["epsdiff"] = {"fit": [], "plot": []}
+            if has_required_modes(fittype):
+                obsfreqmeta["epsdiff"]["plot"].append(fittype)
+            elif debug:
+                print(f"*BASTA {fittype} cannot be plotted")
 
-    if getglitch:
-        obsfreqmeta["glitch"] = {}
-        obsfreqmeta["glitch"]["fit"] = fitglitchtypes
-        obsfreqmeta["glitch"]["plot"] = plotglitchtypes
-
-    if getepsdiff:
-        obsfreqmeta["epsdiff"] = {}
-        obsfreqmeta["epsdiff"]["fit"] = fitepsdifftypes
-        obsfreqmeta["epsdiff"]["plot"] = plotepsdifftypes
-
-    obsfreqmeta["getratios"] = getratios
-    obsfreqmeta["getglitch"] = getglitch
-    obsfreqmeta["getepsdiff"] = getepsdiff
+    # Final flags
+    obsfreqmeta["getratios"] = "ratios" in obsfreqmeta and (
+        obsfreqmeta["ratios"]["fit"] or obsfreqmeta["ratios"]["plot"]
+    )
+    obsfreqmeta["getglitch"] = "glitch" in obsfreqmeta and (
+        obsfreqmeta["glitch"]["fit"] or obsfreqmeta["glitch"]["plot"]
+    )
+    obsfreqmeta["getepsdiff"] = "epsdiff" in obsfreqmeta and (
+        obsfreqmeta["epsdiff"]["fit"] or obsfreqmeta["epsdiff"]["plot"]
+    )
 
     return obsfreqdata, obsfreqmeta
 
 
 def read_allseismic(
-    fitfreqs: dict,
-    freqplots: list,
-    verbose: bool = False,
-    debug: bool = False,
-) -> tuple[np.array, np.array, dict, dict]:
+    star: core.InputStar,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
+) -> tuple[np.ndarray, np.ndarray, dict, dict]:
     """
     Routine to all necesary data from individual frequencies for the
     desired fit
@@ -795,19 +729,12 @@ def read_allseismic(
         plot, unpacked for easier access later.
     """
 
-    if "freqs" in fitfreqs["fittypes"] and fitfreqs["correlations"]:
+    if star.seismicparams.has_frequencies:
         obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"],
-            excludemodes=fitfreqs["excludemodes"],
-            onlyradial=fitfreqs["onlyradial"],
-            covarfre=True,
-        )
-    else:
-        obskey, obs, obscov = read_freq(
-            fitfreqs["freqfile"],
-            excludemodes=fitfreqs["excludemodes"],
-            onlyradial=fitfreqs["onlyradial"],
-            covarfre=False,
+            freqfile=star.seismicparams.individualfrequencies.freqfile,
+            excludemodes=star.seismicparams.individualfrequencies.excludemodes,
+            onlyradial=star.seismicparams.individualfrequencies.onlyradial,
+            covarfre=star.seismicparams.individualfrequencies.correlations,
         )
 
     # Construct data and metadata dictionaries
@@ -815,10 +742,9 @@ def read_allseismic(
         obskey,
         obs,
         obscov,
-        fitfreqs["fittypes"],
-        freqplots,
-        numax=fitfreqs["numax"],
-        debug=debug,
+        inferencesettings.fitparams,
+        numax=star.globalseismicparams.get_scaled("numax"),
+        debug=outputoptions.debug,
     )
 
     # Add large frequency separation bias (default is 0)
@@ -844,10 +770,7 @@ def read_allseismic(
                     ratiotype,
                     obskey,
                     obs,
-                    ratiotype,
                     fitfreqs["excludemodes"],
-                    threepoint=fitfreqs["threepoint"],
-                    verbose=verbose,
                 )
                 obsfreqdata[ratiotype] = {}
                 obsfreqdata[ratiotype]["data"] = datos[0]
@@ -1074,7 +997,7 @@ def freqs_ascii_to_xml(
     # Main xml element
     main = Element("frequencies", {"kic": starid})
 
-    flags = SubElement(
+    SubElement(
         main,
         "flags",
         {
@@ -1275,7 +1198,7 @@ def freqs_ascii_to_xml(
 def _read_freq_ascii(
     filename: str,
     symmetric_errors: bool = True,
-) -> np.array:
+) -> np.ndarray:
     """
     Read individual frequencies from an ascii file
 
@@ -1295,7 +1218,7 @@ def _read_freq_ascii(
         and flag
     """
     cols = []
-    data = np.genfromtxt(filename, dtype=None, encoding=None, names=True)
+    data = np.genfromtxt(filename, dtype=None, names=True)
 
     rdict = {
         "frequency": {
@@ -1370,6 +1293,7 @@ def _read_freq_ascii(
         },
     }
 
+    assert data.dtype.names is not None
     for colname in data.dtype.names:
         param = [p for p in rdict if colname.lower() in rdict[p]["recognisednames"]]
         if not param:
@@ -1394,15 +1318,12 @@ def _read_freq_ascii(
             "BASTA is looking for asymmetric frequency uncertainties, but did not find them"
         )
 
-    freqs = np.genfromtxt(
-        filename,
-        dtype=cols,
-        encoding=None,
-    )
+    freqs = np.genfromtxt(filename, dtype=cols)
 
     if not np.any(["order" in col[0] for col in cols]):
         print("BASTA did not find column with radial orders, they will be generated")
 
+        assert data.dtype.names is not None
         freqcol = [
             col
             for col in data.dtype.names
@@ -1425,7 +1346,7 @@ def _read_freq_ascii(
     return freqs
 
 
-def _read_freq_cov_ascii(filename: str) -> np.array:
+def _read_freq_cov_ascii(filename: str) -> np.ndarray:
     """
     Read covariance and correlations for individual frequencies from an
     ascii file
@@ -1451,12 +1372,11 @@ def _read_freq_cov_ascii(filename: str) -> np.array:
             ("covariance", "float"),
             ("correlation", "float"),
         ],
-        encoding=None,
     )
     return cov
 
 
-def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.array:
+def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.ndarray:
     """
     Read frequency ratios from an ascii file
 
@@ -1485,7 +1405,6 @@ def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.array
                 ("value", "float"),
                 ("error", "float"),
             ],
-            encoding=None,
         )
     else:
         ratios = np.genfromtxt(
@@ -1498,12 +1417,11 @@ def _read_ratios_ascii(filename: str, symmetric_errors: bool = True) -> np.array
                 ("error_plus", "float"),
                 ("error_minus", "float"),
             ],
-            encoding=None,
         )
     return ratios
 
 
-def _read_ratios_cov_ascii(filename: str) -> np.array:
+def _read_ratios_cov_ascii(filename: str) -> np.ndarray:
     """
     Read covariance and correlations for frequency ratios from an
     ascii file
@@ -1529,6 +1447,5 @@ def _read_ratios_cov_ascii(filename: str) -> np.array:
             ("covariance", "float"),
             ("correlation", "float"),
         ],
-        encoding=None,
     )
     return cov
