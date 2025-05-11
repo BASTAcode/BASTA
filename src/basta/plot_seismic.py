@@ -18,6 +18,7 @@ from basta import core, freq_fit, stats
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
+from basta.utils_general import compute_matrix_inverse
 
 # Set the style of all plots
 mpl.use("Agg")
@@ -677,13 +678,15 @@ def confidence_ellipse(
 
 
 def glitchplot(
-    obsfreqdata,
-    sequence,
+    star: core.Star,
+    glitchtype,
     modelvalues,
     maxPath,
     maxInd,
     outputfilename: Path | None,
 ) -> None:
+    if star.glitches is None or glitchtype not in star.glitches:
+        return
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
         8: r"$\Delta_{\mathrm{He}}$ (s)",
@@ -691,9 +694,9 @@ def glitchplot(
     }
 
     # Read in data
-    obsparams = obsfreqdata[sequence]["data"]
-    obs_cov = obsfreqdata[sequence]["cov"]
-    obs_err = np.sqrt(np.diag(obs_cov))
+    obsparams = star.glitches[glitchtype].values
+    obs_invcov = star.glitches[glitchtype].inverse_covariance
+    obs_err = np.sqrt(1 / np.diag(obs_invcov))
 
     # Start figure
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))
@@ -731,6 +734,7 @@ def glitchplot(
         zorder=2,
         label="Best fit",
     )
+    obs_cov = compute_matrix_inverse(obs_invcov)
     confidence_ellipse(
         obsparams[0, obsparams[2, :] == 7.0],
         obs_err[obsparams[2, :] == 7.0],
