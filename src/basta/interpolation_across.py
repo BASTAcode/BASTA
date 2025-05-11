@@ -6,9 +6,9 @@ import copy
 import os
 import sys
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
-from scipy import spatial
+from scipy import spatial  # type: ignore[import]
 from tqdm import tqdm
 
 from basta import interpolation_helpers as ih
@@ -82,7 +82,7 @@ def _calc_cartesian_points(
     tri,
     outbasename,
     debug=False,
-):
+) -> None:
     """
     Determine the new points for tracks in the base parameters, for either Cartesian
     or Sobol sampling. For Sobol, it determines a new Sobol sampling which satisfy an
@@ -120,12 +120,12 @@ def _calc_cartesian_points(
     """
 
     # Stores arrays of points to be added and all points
-    newbase = None
+    newbase: np.ndarray | None = None
     wholebase = copy.deepcopy(base)
 
     # For each interpolation parameter, add the desired number of points
     for i, (_par, res) in enumerate(baseparams.items()):
-        newpoints = None
+        newpoints: np.ndarray | None = None
         # Unique values of the parameter
         uniq = np.unique(wholebase[:, i])
         # New spacing in parameter
@@ -134,13 +134,13 @@ def _calc_cartesian_points(
         for j in range(res):
             points = wholebase.copy()
             points[:, i] += diff * (j + 1)
-            if type(newpoints) != np.ndarray:
+            if newpoints is None:
                 newpoints = points
             else:
                 newpoints = np.vstack((newpoints, points))
         # Update the arrays
         wholebase = np.vstack((wholebase, newpoints))
-        if type(newbase) != np.ndarray:
+        if newbase is None:
             newbase = newpoints
         else:
             newbase = np.vstack((newbase, newpoints))
@@ -468,8 +468,8 @@ def interpolate_across(
             ir += len(bvar)
             sections.append(ir)
 
-        minmax = [max(minmax[:, 0]), min(minmax[:, 1])]
-        if minmax[0] > minmax[1]:
+        minmax2 = [max(minmax[:, 0]), min(minmax[:, 1])]
+        if minmax2[0] > minmax2[1]:
             warstr = f"Warning: Interpolating {modestr} {newnum + tracknum} "
             warstr += f"was aborted due to no overlap in {along_var}"
             warstr += f" of the enveloping {modestr}!"
@@ -480,8 +480,8 @@ def interpolate_across(
 
         # Get base for new track, mimicing enveloping tracks
         try:
-            newbvar = ih.calc_along_points(intbase, sections, minmax, point)
-        except:
+            newbvar = ih.calc_along_points(intbase, sections, minmax2, point)
+        except Exception:
             warstr = f"Choice of base parameter '{along_var:s}' resulted"
             warstr += " in an error when determining it's variance along the track."
             raise ValueError(warstr)
@@ -570,7 +570,7 @@ def interpolate_across(
                 keypath = os.path.join(libname, par)
                 try:
                     outfile[keypath]
-                except:
+                except Exception:
                     outfile[keypath] = np.ones(len(newbase[:, -1])) * parval
             for par in const_vars:
                 keypath = os.path.join(libname, par)
@@ -578,7 +578,7 @@ def interpolate_across(
                     continue
                 try:
                     outfile[keypath]
-                except:
+                except Exception:
                     outfile[keypath] = np.ones(len(newbase[:, -1])) * const_vars[par]
 
             # Bayesian weight along track
@@ -628,7 +628,7 @@ def interpolate_across(
                             plotpath,
                         )
                         print(f"Plotted debug Kiel for {modestr} {debugnum}")
-                    except:
+                    except Exception:
                         print(f"Debug plotting failed for {modestr} {debugnum}")
 
         except KeyboardInterrupt:
@@ -638,8 +638,8 @@ def interpolate_across(
             # If it fails, delete progress for the track, and just mark it as failed
             try:
                 del outfile[libname]
-            except:
-                None
+            except Exception:
+                pass
             success[tracknum] = False
             print("Error:", sys.exc_info()[1])
             outfile[os.path.join(libname, "IntStatus")] = -1
