@@ -825,11 +825,12 @@ def glitchplot(
 
 
 def epsilon_difference_diagram(
+    *,
     mod,
     modkey,
     moddnu,
     sequence,
-    obsfreqdata,
+    star: core.Star,
     outputfilename: Path | None,
 ):
     """
@@ -861,11 +862,13 @@ def epsilon_difference_diagram(
         Name and path of outputfilename plotfile.
     """
 
+    if star.epsilondifferences is None or sequence not in star.epsilondifferences:
+        return
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
 
-    obsepsdiff = obsfreqdata[sequence]["data"]
-    obsepsdiff_cov = obsfreqdata[sequence]["cov"]
-    obsepsdiff_err = np.sqrt(np.diag(obsepsdiff_cov))
+    obsepsdiff = star.epsilondifferences[sequence].values
+    obsepsdiff_invcov = star.epsilondifferences[sequence].inverse_covariance
+    obsepsdiff_err = np.sqrt(1 / np.diag(obsepsdiff_invcov))
 
     l_available = [int(ll) for ll in set(obsepsdiff[2])]
     lindex = np.zeros(mod.shape[1], dtype=bool)
@@ -954,7 +957,8 @@ def epsilon_difference_diagram(
             )
 
     # To get the right order of entries in the legend
-    h, l = [], []
+    h: list[Any] = []
+    l: list[Any] = []
     for i in range(3):
         h.extend(handles[i::3])
         l.extend(legends[i::3])
@@ -969,7 +973,8 @@ def epsilon_difference_diagram(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        legend_handle: Any = lgnd.legend_handles[i]
+        legend_handle._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(r"Epsilon difference $\delta\epsilon_{0\ell}$")
