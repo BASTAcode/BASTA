@@ -2,19 +2,16 @@
 Calculation and generation of output, and driver for producing plots
 """
 
-import copy
 import os
 from copy import deepcopy
-from io import IOBase
 
 import matplotlib as mpl
 import numpy as np
 
 import basta.fileio as fio
-from basta import plot_corner, plot_kiel, stats
+from basta import core, plot_corner, plot_kiel, stats
 from basta import utils_general as util
 from basta.constants import parameters, statdata
-from basta.constants import sydsun as sydc
 from basta.distances import get_absorption, get_EBV_along_LOS
 from basta.downloader import get_basta_dir
 from basta.utils_distances import compute_distance_from_mag
@@ -34,12 +31,13 @@ def compute_posterior(
     starid,
     selectedmodels,
     Grid,
-    inputparams,
-    outfilename,
-    gridtype,
-    debug=False,
-    developermode=False,
-    validationmode=False,
+    gridheader: util.GridHeader,
+    star: core.Star,
+    filepaths: core.FilePaths,
+    runfiles: core.RunFiles,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
     compareinputoutput=False,
 ) -> None:
     """
@@ -55,8 +53,6 @@ def compute_posterior(
         The already loaded grid, containing the tracks/isochrones.
     inputparams : dict
         Dict containing input from xml-file.
-    outfilename : str
-        Name of directory of where to put plots outputted if debug is True.
     gridtype : str
         Type of the grid (as read from the grid in bastamain) containing either 'tracks'
         or 'isochrones'.
@@ -68,31 +64,36 @@ def compute_posterior(
         If True, assume a validation run with changed behaviour
     """
     # Load setings
-    asciifile = inputparams.get("asciioutput")
-    asciifile_dist = inputparams.get("asciioutput_dist")
-    centroid = inputparams["centroid"]
-    uncert = inputparams["uncert"]
-    plottype = inputparams["plotfmt"]
+    asciifile = runfiles.summarytable
+    asciifile_dist = runfiles.distancesummarytable
+    centroid = outputoptions.centroid
+    uncert = outputoptions.uncert
 
+    # TODO(Amalie) Do we need this?
     # Lists of params (copy to avoid problems when running multiple stars)
-    outparams = deepcopy(inputparams["asciiparams"])
-    cornerplots = deepcopy(inputparams["cornerplots"])
+    outparams = deepcopy(outputoptions.asciiparams)
+    cornerplots = deepcopy(plotconfig.cornerplots)
     params = util.unique_unsort(outparams + cornerplots)
 
     # List of params for plotting
-    kielplots = inputparams["kielplots"]
-    fitparams = inputparams["fitparams"]
-    fitpar_kiel = copy.deepcopy(fitparams)
+    kielplots = plotconfig.kielplots
+    fitparams = (
+        star.classicalparams.params
+        | star.globalseismicparams.params
+        | star.distanceparams.params
+        # set(star.seismicparams.params.keys())
+    )
 
+    # TODO(Amalie) can this be simplified?
     # Initialise strings for printing
     hout = []
     out = []
     hout.append("starid")
-    out.append(starid)
+    out.append(star.starid)
     hout_dist = []
     out_dist = []
     hout_dist.append("starid")
-    out_dist.append(starid)
+    out_dist.append(star.starid)
 
     # Generate PDF values
     logy = np.concatenate([ts.logPDF for ts in selectedmodels.values()])
@@ -109,7 +110,7 @@ def compute_posterior(
     p = np.exp(lk - np.log(np.sum(np.exp(lk))))
     sampled_indices = np.random.choice(np.arange(len(p)), p=p, size=nsamples)
 
-    if debug:
+    if outputoptions.debug:
         cs = np.concatenate([ts.chi2 for ts in selectedmodels.values()])
         ws = np.exp(logy + 0.5 * cs[nonzeroprop])
         ws /= np.sum(ws)
@@ -119,6 +120,7 @@ def compute_posterior(
         wsampled_indices = np.random.choice(np.arange(len(ws)), p=ws, size=nsamples)
 
     # Corner plot kwargs
+    # TODO(Amalie) This should be part of plotconfig or something similar
     ckwargs = {
         "show_titles": True,
         "quantiles": statdata.quantiles,
@@ -126,31 +128,34 @@ def compute_posterior(
         "smooth1d": "kde",
         "title_kwargs": {"fontsize": 10},
         "plot_datapoints": False,
-        "uncert": uncert,
+        "uncert": outputoptions.uncert,
     }
 
+    # TODO(Amalie) This can be simplified
     # Compute distance posterior
     if "distance" in params:
-        distanceparams = inputparams["distanceparams"]
-        ms = list(distanceparams["filters"])
+        distanceparams = star.distanceparams
+        ms = distanceparams.magnitudes.keys()
         d_samples = np.zeros((nsamples, 2 * (len(ms) + 1)))
         LOS_EBV = get_EBV_along_LOS(distanceparams)
         if "distance" in cornerplots:
             plotout = np.zeros(3 * (2 * (len(ms) + 1)))
         j = 0
         dinterp, EBVinterp = [], []
-        for idm, m in enumerate(ms):
+        for idm, filt in enumerate(distanceparams.magnitudes.keys()):
             m_all = np.random.normal(
-                distanceparams["m"][m], distanceparams["m_err"][m], noofind
+                distanceparams.magnitudes[filt][0],
+                distanceparams.magnitudes[filt][1],
+                noofind,
             )
-            M_all = util.get_parameter_values(m, Grid, selectedmodels, noofind)
+            M_all = util.get_parameter_values(filt, Grid, selectedmodels, noofind)
             A_all = np.zeros(noofind)
 
             # Compute distances and extinction iteratively
             d_all = compute_distance_from_mag(m_all, M_all, A_all)
             for i in range(3):
                 EBV_all = LOS_EBV(d_all)
-                A_all = get_absorption(EBV_all, fitparams, m)
+                A_all = get_absorption(EBV_all, fitparams, filt)
                 d_all = compute_distance_from_mag(m_all, M_all, A_all)
 
             # Create posteriors from weighted histograms
@@ -179,12 +184,12 @@ def compute_posterior(
             if idm == 0:
                 print("-----------------------------------------------------")
             util.printparam(
-                "d(" + m + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
+                "d(" + filt + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
             )
             util.printparam(
-                "A(" + m + ")", Acen, Astdm, Astdp, uncert=uncert, centroid=centroid
+                "A(" + filt + ")", Acen, Astdm, Astdp, uncert=uncert, centroid=centroid
             )
-            if "distance" in cornerplots and uncert == "quantiles":
+            if "distance" in cornerplots and outputoptions.uncert == "quantiles":
                 plotout[6 * idm : 6 * idm + 3] = [xcen, xstdp - xcen, xcen - xstdm]
                 plotout[6 * idm + 3 : 6 * idm + 6] = [Acen, Astdp - Acen, Acen - Astdm]
             elif "distance" in cornerplots:
@@ -192,13 +197,13 @@ def compute_posterior(
                 plotout[6 * idm + 3 : 6 * idm + 6] = [Acen, Astdm, Astdm]
 
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "distance_" + m, xcen, xstdm, xstdp, uncert
+                hout_dist, out_dist, "distance_" + filt, xcen, xstdm, xstdp, uncert
             )
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "A_" + m, Acen, Astdm, Astdp, uncert
+                hout_dist, out_dist, "A_" + filt, Acen, Astdm, Astdp, uncert
             )
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "M_" + m, Mcen, Mstdm, Mstdp, uncert
+                hout_dist, out_dist, "M_" + filt, Mcen, Mstdm, Mstdp, uncert
             )
 
             d_samples[:, j] = d_all[nonzeroprop][sampled_indices]
@@ -217,10 +222,10 @@ def compute_posterior(
         if np.nansum(dposterior) == 0 or np.nansum(EBVposterior) == 0:
             derrmessage = (
                 "Joint distance posterior could not be computed as the "
-                + "distances derived for each magnitude are too different."
+                "distances derived for each magnitude are too different."
             )
             print(derrmessage)
-            fio.write_star_to_errfile(starid, inputparams, derrmessage)
+            fio.write_star_to_errfile(starid, runfiles, derrmessage)
             if "distance" in outparams:
                 hout_dist, out_dist = util.add_out(
                     hout_dist,
@@ -283,18 +288,16 @@ def compute_posterior(
             # Create plots
             if "distance" in cornerplots:
                 clabels = []
-                for m in ms:
-                    clabels.append("d(" + m + ")")
-                    clabels.append("A(" + m + ")")
+                for filt in distanceparams.magnitudes.keys():
+                    clabels.append("d(" + filt + ")")
+                    clabels.append("A(" + filt + ")")
                 clabels = [*clabels, "d(joint)", "E(B-V)(joint)"]
                 try:
-                    plot_corner.corner(
+                    cornerfig = plot_corner.corner(
                         d_samples, labels=clabels, plotout=plotout, **ckwargs
                     )
-                    cornerfile = outfilename + "_distance_corner." + plottype
-                    plt.savefig(cornerfile)
+                    filepaths.save_plot(cornerfig, kind="distance_corner")
                     plt.close()
-                    print(f"\nSaved distance corner plot to {cornerfile}.\n")
                 except Exception as error:
                     print(f"\nDistance corner plot failed with the error:{error}\n")
 
@@ -329,38 +332,40 @@ def compute_posterior(
 
     # Allocate arrays
     samples = np.zeros((nsamples, len(cornerplots)))
-    if debug:
+    if outputoptions.debug:
         lsamples = np.zeros((nsamples, len(cornerplots)))
         wsamples = np.zeros((nsamples, len(cornerplots)))
+
+    # TODO(Amalie) make fillvalue in constants
     plotin = np.ones(2 * len(cornerplots)) * -9999
     plotout = np.zeros(3 * len(cornerplots))
-    dnu_scales = inputparams.get("dnu_scales", {})
+
+    fitparams_scaled = {}
+
     for numpar, param in enumerate(params):
         # Generate list of x values
         x = util.get_parameter_values(param, Grid, selectedmodels, noofind)
 
-        # Scale back to muHz before output/plot
-        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            x *= inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
+        # Scale back to µHz before output/plot
+        if param.startswith("dnu") or param.startswith("numax"):
+            scale = star.globalseismicparams.get_scalefactor(param)
+            x /= scale
             if param in fitparams:
-                fitparams[param] = (
-                    np.asarray(fitparams[param])
-                    * inputparams.get("dnusun", sydc.SUNdnu)
-                    / dnu_rescal
-                )
+                fitparams_scaled[param] = star.globalseismicparams.get_original(param)
+        """
+        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
+            scale = star.globalseismicparams.get_scale(param)
 
         elif param.startswith("numax"):
-            x *= inputparams.get("numsun", sydc.SUNnumax)
+            x *= inferencesettings.solarvalues["numax"]
             if param in fitparams:
-                fitparams[param] = np.asarray(fitparams[param]) * inputparams.get(
-                    "numsun", sydc.SUNnumax
-                )
+                fitparams_scaled[param] = fitparams[param].original
         elif param in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            x /= dnu_rescal
+            scale = star.globalseismicparams.get_scale(param)
+            x /= scale
             if param in fitparams:
-                fitparams[param] = np.asarray(fitparams[param]) / dnu_rescal
+                fitparams_scaled[param] = fitparams[param].original
+        """
 
         # Compute quantiles (using np.quantile is ~50 times faster than quantile_1D)
         xcen, xstdm, xstdp = stats.calc_key_stats(
@@ -374,11 +379,11 @@ def compute_posterior(
 
         if param in cornerplots:
             idx = cornerplots.index(param)
-            if param in fitparams:
-                xin, stdin = fitparams[param]
+            if param in fitparams_scaled:
+                xin, stdin = fitparams_scaled[param]
                 plotin[2 * idx : 2 * idx + 2] = [xin, stdin]
             samples[:, idx] = x[nonzeroprop][sampled_indices]
-            if debug:
+            if outputoptions.debug:
                 lsamples[:, idx] = x[nonzeroprop][lsampled_indices]
                 wsamples[:, idx] = x[nonzeroprop][wsampled_indices]
             if uncert == "quantiles":
@@ -390,77 +395,51 @@ def compute_posterior(
             hout, out = util.add_out(hout, out, param, xcen, xstdm, xstdp, uncert)
 
     # Create header for ascii file and save it
-    if asciifile is not False:
-        hline = b"# "
-        for i in range(len(hout)):
-            hline += hout[i].encode() + b" "
-        if isinstance(asciifile, IOBase):
-            asciifile.seek(0)
-            if b"#" not in asciifile.readline():
-                asciifile.write(hline + b"\n")
-            np.savetxt(
-                asciifile, np.asarray(out).reshape(1, len(out)), fmt="%s", delimiter=" "
-            )
-            print("\nSaved results to " + asciifile.name + ".")
-        elif asciifile is False:
-            pass
-        else:
-            np.savetxt(
-                asciifile,
-                np.asarray(out).reshape(1, len(out)),
-                fmt="%s",
-                header=hline,
-                delimiter=" ",
-            )
-            print("Saved results to " + asciifile + ".")
+    if asciifile:
+        asciifile.seek(0)
+        if b"#" not in asciifile.readline():
+            asciifile.write(f"# {' '.join(hout)} \n".encode())
+        np.savetxt(
+            asciifile, np.asarray(out).reshape(1, len(out)), fmt="%s", delimiter=" "
+        )
+        print(f"\nSaved results to {runfiles.summarytablepath}.")
 
-    if asciifile_dist:
-        if len(hout_dist) > 0:
-            hline = b"# "
-            for i in range(len(hout_dist)):
-                hline += hout_dist[i].encode() + b" "
-            if isinstance(asciifile_dist, IOBase):
-                asciifile_dist.seek(0)
-                if b"#" not in asciifile_dist.readline():
-                    asciifile_dist.write(hline + b"\n")
-                np.savetxt(
-                    asciifile_dist,
-                    np.asarray(out_dist).reshape(1, len(out_dist)),
-                    fmt="%s",
-                    delimiter=" ",
-                )
-                if "distance" in outparams:
-                    print(
-                        f"Saved distance results for different filters to {asciifile_dist.name}."
-                    )
-            elif asciifile_dist is False:
-                pass
-            else:
-                np.savetxt(
-                    asciifile_dist,
-                    np.asarray(out_dist).reshape(1, len(out_dist)),
-                    fmt="%s",
-                    header=hline,
-                    delimiter=" ",
-                )
-                if "distance" in outparams:
-                    print(
-                        f"Saved distance results for different filters to {asciifile_dist}."
-                    )
+    if asciifile_dist and "distance" in outparams:
+        asciifile_dist.seek(0)
+        if b"#" not in asciifile_dist.readline():
+            asciifile_dist.write(f"# {' '.join(hout_dist)} \n".encode())
+        np.savetxt(
+            asciifile_dist,
+            np.asarray(out_dist).reshape(1, len(out_dist)),
+            fmt="%s",
+            delimiter=" ",
+        )
+        print(
+            f"Saved distance results for different filters to {runfiles.distancesummarytablepath}."
+        )
 
     # Compare input to output and produce a comparison plot
-    if compareinputoutput | developermode:
+    if compareinputoutput | outputoptions.developermode:
         comparewarn = util.compare_output_to_input(
-            starid, inputparams, hout, out, hout_dist, out_dist, uncert=uncert
+            star=star,
+            absolutemagnitudes=star.absolutemagnitudes,
+            runfiles=runfiles,
+            hout=hout,
+            out=out,
+            hout_dist=hout_dist,
+            out_dist=out_dist,
+            uncert=uncert,
         )
         if comparewarn:
             print(
                 "DEBUG: The input values of the fitting parameters "
-                + "disagree with the outputted values."
+                "disagree with the outputted values."
             )
             if not len(kielplots):
                 print("DEBUG: make Kiel diagram due to warning")
-                library_param = "massini" if "tracks" in gridtype.lower() else "age"
+                library_param = (
+                    "massini" if "tracks" in gridheader["gridtype"].lower() else "age"
+                )
                 x = util.get_parameter_values(
                     library_param, Grid, selectedmodels, noofind
                 )
@@ -487,88 +466,82 @@ def compute_posterior(
                     fig = plot_kiel.kiel(
                         Grid=Grid,
                         selectedmodels=selectedmodels,
-                        fitparams=fitpar_kiel,
-                        inputparams=inputparams,
+                        star=star,
+                        plotconfig=plotconfig,
                         lp_interval=lp_interval,
                         feh_interval=feh_interval,
                         Teffout=Teffout,
                         loggout=loggout,
-                        gridtype=gridtype,
-                        nameinplot=starid if inputparams["nameinplot"] else False,
-                        debug=debug,
-                        developermode=developermode,
-                        validationmode=validationmode,
+                        gridtype=gridheader["gridtype"],
+                        nameinplot=starid if plotconfig.nameinplot else False,
+                        debug=outputoptions.debug,
+                        developermode=outputoptions.developermode,
+                        validationmode=outputoptions.validationmode,
                     )
-                    kielfile = outfilename + "_warn_kiel." + plottype
-                    fig.savefig(kielfile)
+                    filepaths.save_plot(fig, kind="warn_kiel")
                     plt.close()
-                    print("Saved warning Kiel diagram to " + kielfile + ".")
                 except Exception as error:
                     print("Warning Kiel diagram failed with the error:", error)
 
     # Create corner plot
     if len(cornerplots):
         try:
-            plot_corner.corner(
+            cornerfig = plot_corner.corner(
                 samples,
                 labels=parameters.get_keys(cornerplots)[1],
                 truth_color=parameters.get_keys(cornerplots)[3],
                 plotin=plotin,
                 plotout=plotout,
-                nameinplot=starid if inputparams["nameinplot"] else False,
+                nameinplot=starid if plotconfig.nameinplot else False,
                 **ckwargs,
             )
-            cornerfile = outfilename + "_corner." + plottype
-            plt.savefig(cornerfile)
+            filepaths.save_plot(cornerfig, kind="corner")
             plt.close()
-            print("Saved corner plot to " + cornerfile + ".")
         except Exception as error:
             print("Corner plot failed with the error:", error)
-        if debug:
+        if outputoptions.debug:
             try:
-                plot_corner.corner(
+                cornerfig = plot_corner.corner(
                     lsamples,
                     labels=parameters.get_keys(cornerplots)[1],
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
-                    nameinplot=starid if inputparams["nameinplot"] else False,
+                    nameinplot=starid if plotconfig.nameinplot else False,
                     **ckwargs,
                 )
-                cornerfile = outfilename + "_DEBUG_likelihood_corner." + plottype
-                plt.savefig(cornerfile)
+                filepaths.save_plot(cornerfig, kind="likelihood_corner")
                 plt.close()
-                print("Saved likelihood corner plot to " + cornerfile + ".")
             except Exception as error:
                 print("Likelihood corner plot failed with the error:", error)
             try:
-                plot_corner.corner(
+                cornerfig = plot_corner.corner(
                     wsamples,
                     labels=parameters.get_keys(cornerplots)[1],
                     truth_color=parameters.get_keys(cornerplots)[3],
                     plotin=plotin,
                     plotout=plotout,
-                    nameinplot=starid if inputparams["nameinplot"] else False,
+                    nameinplot=starid if plotconfig.nameinplot else False,
                     **ckwargs,
                 )
-                cornerfile = outfilename + "_DEBUG_prior_corner." + plottype
-                plt.savefig(cornerfile)
+                filepaths.save_plot(fig, kind="prior_corner")
                 plt.close()
-                print("Saved prior corner plot to " + cornerfile + ".")
             except Exception as error:
                 print("Prior corner plot failed with the error:", error)
 
     # Create Kiel diagram
     if len(kielplots):
         # Find quantiles of massini/age and FeH to determine what tracks to plot
-        library_param = "massini" if "tracks" in gridtype.lower() else "age"
+        library_param = (
+            "massini" if "tracks" in gridheader["gridtype"].lower() else "age"
+        )
         x = util.get_parameter_values(library_param, Grid, selectedmodels, noofind)
         lp_interval = np.quantile(
             x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
         )
 
         # Use correct metallicity (only important for alpha enhancement)
-        metalname = "MeH" if "MeH" in fitparams else "FeH"
+        metalname = "MeH" if "MeH" in fitparams_scaled else "FeH"
         x = util.get_parameter_values(metalname, Grid, selectedmodels, noofind)
         feh_interval = np.quantile(
             x[nonzeroprop][sampled_indices], statdata.quantiles[1:]
@@ -584,28 +557,25 @@ def compute_posterior(
             fig = plot_kiel.kiel(
                 Grid=Grid,
                 selectedmodels=selectedmodels,
-                fitparams=fitpar_kiel,
-                inputparams=inputparams,
+                star=star,
+                inferencesettings=inferencesettings,
+                outputoptions=outputoptions,
+                plotconfig=plotconfig,
                 lp_interval=lp_interval,
                 feh_interval=feh_interval,
                 Teffout=Teffout,
                 loggout=loggout,
-                gridtype=gridtype,
-                nameinplot=starid if inputparams["nameinplot"] else False,
-                debug=debug,
-                developermode=developermode,
-                validationmode=validationmode,
+                gridtype=gridheader["gridtype"],
+                nameinplot=starid if plotconfig.nameinplot else False,
                 color_by_likelihood=False,
             )
-            kielfile = outfilename + "_kiel." + plottype
-            fig.savefig(kielfile)
+            filepaths.save_plot(fig, kind="kiel")
             plt.close()
-            print("Saved Kiel diagram to " + kielfile + ".")
         except Exception as error:
             print("Kiel diagram failed with the error:", error)
             raise
 
-    if debug and len(inputparams["magnitudes"]) > 0:
+    if outputoptions.debug and len(star.distanceparams.magnitudes.keys()) > 0:
         print("Make normalised distribution plot of terms in PDF computation")
         mins = []
         bayw = np.concatenate([ts.bayw for ts in selectedmodels.values()])
@@ -684,7 +654,5 @@ def compute_posterior(
             ]
             fig.legend(handles, labels, loc="upper center", ncol=5)
 
-            distfile = outfilename + "_DEBUG_dist" + param + "." + plottype
-            fig.savefig(distfile)
+            filepaths.save_plot(fig, kind="dist")
             plt.close()
-            print("Saved distribution plot to " + distfile + ".")
