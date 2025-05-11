@@ -2,26 +2,24 @@
 Main module for running BASTA analysis
 """
 
-import os
 import gc
+import os
 import sys
 import time
-from copy import deepcopy
 
 import h5py
-import numpy as np
-from tqdm import tqdm
-
-from basta import freq_fit, stats, process_output, priors, distances, plot_driver
-from basta import utils_seismic as su
-from basta import utils_general as util
-from basta.__about__ import __version__
-from basta import fileio as fio
-from basta.constants import freqtypes
 
 # Import matplotlib after other plotting modules for proper setup
 # --> Here in main it is only used for clean-up
 import matplotlib.pyplot as plt
+import numpy as np
+from tqdm import tqdm
+
+from basta import fileio as fio
+from basta import plot_driver, priors, process_output, stats
+from basta import utils_general as util
+from basta import utils_seismic as su
+from basta.constants import freqtypes
 
 
 # Custom exception
@@ -42,7 +40,7 @@ def BASTA(
     verbose: bool = False,
     developermode: bool = False,
     validationmode: bool = False,
-):
+) -> None:
     """
     The BAyesian STellar Algorithm (BASTA).
     (c) 2025, The BASTA Team
@@ -270,9 +268,7 @@ def BASTA(
 
             # Check for diffusion
             if "dif" in inputparams:
-                if int(round(libitem["dif"][0])) != int(
-                    round(float(inputparams["dif"]))
-                ):
+                if round(libitem["dif"][0]) != round(float(inputparams["dif"])):
                     continue
 
             # Check if mass or age is in limits to efficiently skip
@@ -481,19 +477,18 @@ def BASTA(
                         glitchpar[:, 1],
                         glitchpar[:, 2],
                     )
-            else:
-                if debug and verbose:
-                    print(
-                        f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDF)}"
-                    )
+            elif debug and verbose:
+                print(
+                    f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDF)}"
+                )
         # End loop over isochrones/tracks
         #######################################################################
     # End loop over metals
     ###########################################################################
     pbar.close()
     print(
-        f"Done! Computed the likelihood of {str(noofind)} models,",
-        f"found {str(noofposind)} models with non-zero likelihood!\n",
+        f"Done! Computed the likelihood of {noofind!s} models,",
+        f"found {noofposind!s} models with non-zero likelihood!\n",
     )
     if gridcut:
         print(

@@ -7,8 +7,9 @@ import time
 from io import IOBase
 
 import numpy as np
-from basta.__about__ import __version__
+
 from basta import distances
+from basta.__about__ import __version__
 from basta.constants import freqtypes
 
 
@@ -67,12 +68,12 @@ def print_bastaheader(
     prt_center("BASTA", llen)
     prt_center("The BAyesian STellar Algorithm", llen)
     print()
-    prt_center("Version {0}".format(__version__), llen)
+    prt_center(f"Version {__version__}", llen)
     print()
     prt_center("(c) 2024, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
     print(llen * "=")
-    print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
+    print("\nRun started on {} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
     if developermode:
         print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
     print(f"Random numbers initialised with seed: {seed} .")
@@ -80,10 +81,12 @@ def print_bastaheader(
 
 def check_gridtype(
     gridtype: str,
-    allowed_gridtype: list[str] = ["tracks", "isochrones"],
+    allowed_gridtype: list[str] = None,
     gridid: str | bool = False,
 ) -> tuple[str, str, None | int]:
     # Check type of grid (isochrones/tracks) and set default grid path
+    if allowed_gridtype is None:
+        allowed_gridtype = ["tracks", "isochrones"]
     gridtype = gridtype.lower()
     if "tracks" in gridtype:
         entryname = "tracks"
@@ -346,7 +349,7 @@ def print_priors(limits: dict, usepriors: list[str]) -> None:
     print(f"* Additional priors (IMF): {', '.join(usepriors)}")
 
 
-class Logger(object):
+class Logger:
     """
     Class used to redefine stdout to terminal and an output file.
 
@@ -357,15 +360,15 @@ class Logger(object):
     """
 
     # Credit: http://stackoverflow.com/a/14906787
-    def __init__(self, outfilename):
+    def __init__(self, outfilename) -> None:
         self.terminal = sys.stdout
         self.log = open(outfilename + ".log", "a")
 
-    def write(self, message):
+    def write(self, message) -> None:
         self.terminal.write(message)
         self.log.write(message)
 
-    def flush(self):
+    def flush(self) -> None:
         # this flush method is needed for python 3 compatibility.
         # this handles the flush command by doing nothing.
         # you might want to specify some extra behavior here.
@@ -523,15 +526,15 @@ def compare_output_to_input(
                 sigmas.append(sigma)
 
     if comparewarn:
-        print("A >%s sigma difference was found between input and output of" % sigmacut)
+        print(f"A >{sigmacut} sigma difference was found between input and output of")
         print(ps)
         print("with sigma differences of")
         print(sigmas)
         if isinstance(warnfile, IOBase):
-            warnfile.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+            warnfile.write(f"{starid}\t{ps}\t{sigmas}\n")
         else:
             with open(warnfile, "a") as wf:
-                wf.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+                wf.write(f"{starid}\t{ps}\t{sigmas}\n")
 
     return comparewarn
 
@@ -597,8 +600,8 @@ def normfactor(alphas, ms):
             * (1 / ms[3]) ** alphas[3]
         )
         return ks
-    else:
-        print("Mistake in normfactor")
+    print("Mistake in normfactor")
+    return None
 
 
 def get_parameter_values(parameter, Grid, selectedmodels, noofind):
@@ -633,7 +636,9 @@ def get_parameter_values(parameter, Grid, selectedmodels, noofind):
     return x_all
 
 
-def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"):
+def printparam(
+    param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"
+) -> None:
     """
     Pretty-print of output parameter to log and console.
 
@@ -657,16 +662,16 @@ def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median")
     None
     """
     # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
-    print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
+    print(f"{centroid:9}  {param:13} :  {xmed:12.6f}")
     if uncert == "quantiles":
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
+        print("{:9}  {:13} :  {:12.6f}".format("err_plus", param, xstdp - xmed))
+        print("{:9}  {:13} :  {:12.6f}".format("err_minus", param, xmed - xstdm))
     else:
-        print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
+        print("{:9}  {:13} :  {:12.6f}".format("stdev", param, xstdm))
     print("-----------------------------------------------------")
 
 
-def strtobool(val):
+def strtobool(val) -> int:
     """
     Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'.
@@ -682,7 +687,6 @@ def strtobool(val):
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
         return 1
-    elif val in ("n", "no", "f", "false", "off", "0"):
+    if val in ("n", "no", "f", "false", "off", "0"):
         return 0
-    else:
-        raise ValueError("invalid truth value %r" % (val,))
+    raise ValueError(f"invalid truth value {val!r}")

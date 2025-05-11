@@ -4,27 +4,24 @@ Parallax fitting and computation of distances
 
 import os
 import warnings
-import collections
-from bisect import bisect_left
-from typing import Callable
+from collections.abc import Callable
 
 import h5py
+import matplotlib as mpl
 import numpy as np
 import scipy.stats
-from scipy.interpolate import interp1d
 from astropy.coordinates import SkyCoord
-from healpy import ang2pix
-from dustmaps.sfd import SFDQuery
-from dustmaps.bayestar import BayestarWebQuery
 from astropy.utils.exceptions import AstropyWarning
+from dustmaps.bayestar import BayestarWebQuery
+from dustmaps.sfd import SFDQuery
+from healpy import ang2pix
+from scipy.interpolate import interp1d
 
-import basta.utils_distances as udist
 import basta.constants as cnsts
-import basta.stats as stats
+import basta.utils_distances as udist
+from basta import stats
 
-import matplotlib
-
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 # Don't print Astropy warnings (catch error caused by mock'ing astropy in Sphinx)
@@ -120,7 +117,10 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
         print("WARNING: Coordinates outside dust map boundaries!")
         print("Default to Schegel 1998 dust map")
         sfd = SFDQuery()
-        EBV_along_LOS = lambda x: np.full_like(x, sfd(c))
+
+        def EBV_along_LOS(x):
+            return np.full_like(x, sfd(c))
+
         return EBV_along_LOS
 
     Egr_med, Egr_err = [], []
@@ -303,10 +303,10 @@ def add_absolute_magnitudes(
     # See Bailer-Jones 2015, Eq 19
     coeffs = [1 / L, -2, plxobs / (plxobs_err**2), -1 / (plxobs_err**2)]
     roots = np.roots(coeffs)
-    if np.sum((np.isreal(roots))) == 1:
+    if np.sum(np.isreal(roots)) == 1:
         (mode,) = np.real(roots[np.isreal(roots)])
     else:
-        assert np.sum((np.isreal(roots))) == 3
+        assert np.sum(np.isreal(roots)) == 3
         if plxobs >= 0:
             mode = np.amin(np.real(roots[np.isreal(roots)]))
         else:
@@ -393,8 +393,8 @@ def add_absolute_magnitudes(
         if debug:
             plt.figure()
             plt.hist(absms, bins=150, weights=labsms)
-            plt.xlabel("Abs %s" % filt)
-            plt.savefig(debug_dirpath + "_DEBUG_absms_%s.png" % filt)
+            plt.xlabel(f"Abs {filt}")
+            plt.savefig(debug_dirpath + f"_DEBUG_absms_{filt}.png")
             plt.close()
 
         absms_qs = stats.quantile_1D(absms, labsms, cnsts.statdata.quantiles)

@@ -3,23 +3,22 @@ Production of asteroseismic plots
 """
 
 import os
-import h5py
+from pathlib import Path
+
+import h5py  # type: ignore[import]
+import matplotlib as mpl
 import numpy as np
-import matplotlib
-import typing
+from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 
-from scipy.interpolate import interp1d, CubicSpline
-
+from basta import freq_fit, stats
 from basta import utils_seismic as su
-from basta import stats, freq_fit
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
-import matplotlib.patches as patches
-import matplotlib.transforms as transforms
+from matplotlib import patches, transforms
 
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
@@ -51,12 +50,12 @@ def echelle(
     Grid: h5py.File,
     obs: np.ndarray,
     obskey: np.ndarray,
-    mod: typing.Optional[np.ndarray] = None,
-    modkey: typing.Optional[np.ndarray] = None,
+    mod: np.ndarray | None = None,
+    modkey: np.ndarray | None = None,
     dnu: float = None,
-    join: typing.Optional[np.ndarray] = None,
-    joinkeys: typing.Optional[np.ndarray] | bool = False,
-    coeffs: typing.Optional[np.ndarray] | None = None,
+    join: np.ndarray | None = None,
+    joinkeys: np.ndarray | None | bool = False,
+    coeffs: np.ndarray | None = None,
     scalnu: float | None = None,
     freqcor: str = "BG14",
     pairmode: bool = False,
@@ -419,8 +418,7 @@ def echelle(
         ax.set_xlim([-1, 1])
         aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
         aax.set_xlabel(
-            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
-            % dnu
+            rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
         )
         aax.set_ylabel(r"Frequency ($\mu$Hz)")
         ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
@@ -428,8 +426,7 @@ def echelle(
         ax.set_xlim([0, modx])
         aax.set_ylim(ax.set_ylim()[0] / dnu, ax.set_ylim()[1] / dnu)
         ax.set_xlabel(
-            r"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =$%s $\mu$Hz)"
-            % dnu
+            rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
         )
         ax.set_ylabel(r"Frequency ($\mu$Hz)")
         aax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
@@ -447,10 +444,10 @@ def ratioplot(
     modkey,
     mod,
     ratiotype,
-    outputfilename=None,
+    outputfilename: Path | None = None,
     threepoint=False,
     interp_ratios=True,
-):
+) -> None:
     """
     Plot frequency ratios.
 
@@ -512,7 +509,7 @@ def ratioplot(
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
-        rtname = "r{:02d}".format(int(rtype))
+        rtname = f"r{int(rtype):02d}"
         modp = ax.scatter(
             modratio[1, modmask],
             modratio[0, modmask],
@@ -520,7 +517,7 @@ def ratioplot(
             color=colors[rtname],
             edgecolors="k",
             zorder=3,
-            label=r"Best fit ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Best fit ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             modratio[1, modmask],
@@ -541,7 +538,7 @@ def ratioplot(
             mew=0.5,
             linestyle="None",
             zorder=3,
-            label=r"Measured ($r_{{{:02d}}}$)".format(int(rtype)),
+            label=rf"Measured ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             obsratio[1, obsmask],
@@ -570,7 +567,7 @@ def ratioplot(
                 alpha=0.7,
                 lw=0,
                 zorder=5,
-                label=r"$r_{{{:02d}}}(\nu^{{\mathrm{{obs}}}})$".format(int(rtype)),
+                label=rf"$r_{{{int(rtype):02d}}}(\nu^{{\mathrm{{obs}}}})$",
             )
             handles.extend([modp, intp, obsp])
         else:
@@ -596,7 +593,7 @@ def ratioplot(
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
@@ -658,8 +655,8 @@ def glitchplot(
     modelvalues,
     maxPath,
     maxInd,
-    outputfilename,
-):
+    outputfilename: Path | None,
+) -> None:
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
         8: r"$\Delta_{\mathrm{He}}$ (s)",
@@ -676,7 +673,7 @@ def glitchplot(
     fig.delaxes(ax[0, 1])
 
     # Loop over each track to plot
-    for path, trackparams in modelvalues.items():
+    for trackparams in modelvalues.values():
         AHe = trackparams.AHe
         dHe = trackparams.dHe[AHe > 1e-14]
         tauHe = trackparams.tauHe[AHe > 1e-14]
@@ -792,7 +789,7 @@ def glitchplot(
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
@@ -802,7 +799,7 @@ def epsilon_difference_diagram(
     moddnu,
     sequence,
     obsfreqdata,
-    outputfilename,
+    outputfilename: Path | None,
 ):
     """
     Full comparison figure of observed and best-fit model epsilon
@@ -950,14 +947,16 @@ def epsilon_difference_diagram(
 
     fig.tight_layout()
     if outputfilename is not None:
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         fig.savefig(outputfilename)
         plt.close(fig)
-    else:
-        return fig
+        return None
+    return fig
 
 
-def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None):
+def correlation_map(
+    fittype, obsfreqdata, outputfilename: Path | None, obskey=None
+) -> None:
     """
     Routine for plotting a correlation map of the plotted ratios
 
@@ -1039,7 +1038,7 @@ def correlation_map(fittype, obsfreqdata, outputfilename, obskey=None):
 
     if outputfilename is not None:
         fig.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
@@ -1058,7 +1057,7 @@ def epsilon_difference_components_diagram(
     obsfreqdata,
     obsfreqmeta,
     outputfilename,
-):
+) -> None:
     """
     Full comparison figure of observed and best-fit model epsilon
     differences, with individual epsilons and correlation map.
@@ -1185,7 +1184,7 @@ def epsilon_difference_components_diagram(
                 lw=0,
                 alpha=0.5,
                 color=colors["l" + str(ll)],
-                label=r"$\nu(\ell={0})\,\notin\,\nu(\ell=0)$".format(ll),
+                label=rf"$\nu(\ell={ll})\,\notin\,\nu(\ell=0)$",
             )
         ax[0, 0].legend()
 

@@ -2,20 +2,21 @@
 Auxiliary functions for file operations
 """
 
-import os
 import json
-import h5py
+import os
 import warnings
-import numpy as np
-from io import IOBase
 from copy import deepcopy
-from xml.etree import ElementTree
-from xml.etree.ElementTree import Element, SubElement, tostring
+from io import IOBase
 from xml.dom import minidom
+from xml.etree import ElementTree as ET
+from xml.etree.ElementTree import Element, SubElement, tostring
 
-from basta import stats, freq_fit, glitch_fit
-from basta import utils_seismic as su
+import h5py
+import numpy as np
+
+from basta import freq_fit, glitch_fit, stats
 from basta import utils_general as util
+from basta import utils_seismic as su
 from basta.constants import freqtypes
 
 
@@ -45,7 +46,7 @@ def _import_selectedmodels(data: dict) -> dict:
     return res
 
 
-def save_selectedmodels(fname: str, selectedmodels):
+def save_selectedmodels(fname: str, selectedmodels) -> None:
     s = json.dumps(_export_selectedmodels(selectedmodels))
     with open(fname, "w") as fp:
         fp.write(s)
@@ -58,7 +59,7 @@ def load_selectedmodels(fname: str):
     return _import_selectedmodels(data)
 
 
-def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str):
+def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str) -> None:
     """
     Write starid and error message to .err-file
 
@@ -74,13 +75,13 @@ def write_star_to_errfile(starid: str, inputparams: dict, errormessage: str):
     errfile = inputparams.get("erroutput")
 
     if isinstance(errfile, IOBase):
-        errfile.write("{}\t{}\n".format(starid, errormessage))
+        errfile.write(f"{starid}\t{errormessage}\n")
     else:
         with open(errfile, "a") as ef:
-            ef.write("{}\t{}\n".format(starid, errormessage))
+            ef.write(f"{starid}\t{errormessage}\n")
 
 
-def no_models(starid: str, inputparams: dict, errormessage: str):
+def no_models(starid: str, inputparams: dict, errormessage: str) -> None:
     """
     If no models are found in the grid, create an outputfile with nans (for consistency reasons).
 
@@ -145,7 +146,7 @@ def no_models(starid: str, inputparams: dict, errormessage: str):
     if asciifile is not False:
         hline = b"# "
         for i in range(len(hout)):
-            hline += hout[i].encode() + " ".encode()
+            hline += hout[i].encode() + b" "
 
         if isinstance(asciifile, IOBase):
             asciifile.seek(0)
@@ -171,7 +172,7 @@ def no_models(starid: str, inputparams: dict, errormessage: str):
     if asciifile_dist:
         hline = b"# "
         for i in range(len(hout_dist)):
-            hline += hout_dist[i].encode() + " ".encode()
+            hline += hout_dist[i].encode() + b" "
 
         if isinstance(asciifile_dist, IOBase):
             asciifile_dist.seek(0)
@@ -227,7 +228,7 @@ def read_freq_xml(filename: str) -> tuple[np.array, np.array, np.array, np.array
     """
 
     # Parse the XML file:
-    tree = ElementTree.parse(filename)
+    tree = ET.parse(filename)
     root = tree.getroot()
 
     # Find a list of all the frequency ratios:
@@ -268,7 +269,7 @@ def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.ar
         Covariance matrix of frequencies
     """
     # Parse the XML file:
-    tree = ElementTree.parse(filename)
+    tree = ET.parse(filename)
     root = tree.getroot()
 
     # Find a list of all the frequency ratios:
@@ -281,7 +282,7 @@ def _read_freq_cov_xml(filename: str, obskey: np.array) -> tuple[np.array, np.ar
     # Loop over all modes to collect input
     for i, mode1 in enumerate(freqs):
         id1 = mode1.get("id")
-        column = root.findall("frequency_corr[@id1='%s']" % id1)
+        column = root.findall(f"frequency_corr[@id1='{id1}']")
         if not len(column):
             errmsg = "Correlations in frequency fit requested, but not pr"
             errmsg += "ovided! If not available, set 'correlations=False'."
@@ -477,13 +478,13 @@ def _read_precomputed_ratios_xml(
         Covariance matrix matching the ratios.
     """
     # Print warning to user
-    if excludemodes != None:
+    if excludemodes is not None:
         wstr = "Warning: Removing precomputed ratios based on "
         wstr += "not-trusted-file is not yet supported!"
         print(wstr)
 
     # Read in xml tree/root
-    tree = ElementTree.parse(filename)
+    tree = ET.parse(filename)
     root = tree.getroot()
 
     # Get all ratios available in xml
@@ -643,19 +644,19 @@ def _make_obsfreqs(
         if fit in freqtypes.rtypes:
             getratios = True
             fitratiotypes.append(fit)
-            if not "ratios" in obsfreqmeta.keys():
+            if "ratios" not in obsfreqmeta.keys():
                 obsfreqmeta["ratios"] = {}
         # Look for glitches
         elif fit in freqtypes.glitches:
             getglitch = True
             fitglitchtypes.append(fit)
-            if not "glitch" in obsfreqmeta.keys():
+            if "glitch" not in obsfreqmeta.keys():
                 obsfreqmeta["glitch"] = {}
         # Look for epsdiff
         elif fit in freqtypes.epsdiff:
             getepsdiff = True
             fitepsdifftypes.append(fit)
-            if not "epsdiff" in obsfreqmeta.keys():
+            if "epsdiff" not in obsfreqmeta.keys():
                 obsfreqmeta["epsdiff"] = {}
         elif fit not in freqtypes.freqs:
             print(f"Fittype {fit} not recognised")
@@ -669,7 +670,7 @@ def _make_obsfreqs(
     }
 
     # If all frequency plots enabled, turn on defaults
-    if len(freqplots) and freqplots[0] == True:
+    if len(freqplots) and freqplots[0] is True:
         getratios = True
         getepsdiff = True
 
@@ -691,9 +692,8 @@ def _make_obsfreqs(
                     for rtype in freqtypes.defaultrtypes:
                         if rtype not in plotratiotypes:
                             plotratiotypes.append(rtype)
-                else:
-                    if plot not in plotratiotypes:
-                        plotratiotypes.append(plot)
+                elif plot not in plotratiotypes:
+                    plotratiotypes.append(plot)
             # Look for glitches
             if plot in freqtypes.glitches:
                 getglitch = True
@@ -706,16 +706,15 @@ def _make_obsfreqs(
                     for etype in freqtypes.defaultepstypes:
                         if etype not in plotepsdifftypes:
                             plotepsdifftypes.append(etype)
-                else:
-                    if plot not in plotepsdifftypes:
-                        plotepsdifftypes.append(plot)
+                elif plot not in plotepsdifftypes:
+                    plotepsdifftypes.append(plot)
 
     # Check that there is observational data available for fits and plots
     if getratios or getepsdiff:
         for fittype in set(fitratiotypes) | set(fitepsdifftypes) | set(fitglitchtypes):
             if not all(x in obsls.astype(str) for x in fittype if x.isdigit()):
                 for l in fittype[1:]:
-                    if not l in obsls.astype(str):
+                    if l not in obsls.astype(str):
                         print(f"* No l={l} modes were found in the observations")
                         print(f"* It is not possible to fit {fittype}")
                         raise ValueError
@@ -978,7 +977,7 @@ def freqs_ascii_to_xml(
     symmetric_errors: bool = True,
     check_radial_orders: bool = False,
     verbose: bool = True,
-):
+) -> None:
     """
     Creates frequency xml-file based on ascii-files.
 
@@ -1059,9 +1058,8 @@ def freqs_ascii_to_xml(
         freqs["order"] += ncorrection
         if verbose:
             print("The proposed correction has been implemented.\n")
-    else:
-        if verbose:
-            print("No correction made.\n")
+    elif verbose:
+        print("No correction made.\n")
 
     # Look for ratios and their covariances, read if available
     if os.path.exists(ratiosfile):
@@ -1385,19 +1383,16 @@ def _read_freq_ascii(
 
     sym = np.any([col[0] == "error" for col in cols])
     asym = all(
-        [
-            item in col[0]
-            for col in cols
-            for item in rdict["error_plus"]["recognisednames"]
-        ]
+        item in col[0]
+        for col in cols
+        for item in rdict["error_plus"]["recognisednames"]
     )
     if not sym ^ asym:
         if sym | asym:
             raise ValueError(
                 "BASTA found too many uncertainties, please specify which to use."
             )
-        else:
-            raise ValueError("BASTA is missing frequency uncertainties.")
+        raise ValueError("BASTA is missing frequency uncertainties.")
     if not symmetric_errors and not asym:
         raise ValueError(
             "BASTA is looking for asymmetric frequency uncertainties, but did not find them"

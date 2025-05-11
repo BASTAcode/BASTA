@@ -3,19 +3,19 @@ Production of Kiel diagrams
 """
 
 import os
-import numpy as np
-import matplotlib
-import matplotlib.collections
 
-from basta import stats
+import matplotlib as mpl
+import numpy as np
+
 from basta import fileio as fio
-from basta import utils_seismic as su
+from basta import stats
 from basta import utils_general as gu
+from basta import utils_seismic as su
 from basta.constants import parameters
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
@@ -172,20 +172,18 @@ def kiel(
         lp_interval[1] *= 1 + scalefactor
         if debug:
             print(
-                "DEBUG: Interval after inflation by {0} pct. = {1}\n".format(
-                    scalefactor * 100, lp_interval
-                )
+                f"DEBUG: Interval after inflation by {scalefactor * 100} pct. = {lp_interval}\n"
             )
 
     # Assign params
     kielplots = inputparams.get("kielplots")
     fitfreqs = inputparams.get("fitfreqs", False)
     toggle_freqs = True
-    filters = [f for f in inputparams["magnitudes"]]
+    filters = list(inputparams["magnitudes"])
 
     # This is by design a "==" comparison to True, because it will otherwise
     # fail, as the type is numpy.bool_ !
-    if not kielplots[0] == True:
+    if kielplots[0] is not True:
         toggle_freqs = False
         new_filters = []
         new_fitpars = {}
@@ -338,7 +336,7 @@ def kiel(
                 # Make segments to colorcode
                 points = np.transpose([xs, ys]).reshape(-1, 1, 2)
                 segments = np.concatenate([points[:-1], points[1:]], axis=1)
-                lc = matplotlib.collections.LineCollection(segments, cmap="gray_r")
+                lc = mpl.collections.LineCollection(segments, cmap="gray_r")
                 lc.set_array(logpdf)
                 lc.set_linewidth(1)
                 ax.add_collection(lc)
@@ -367,7 +365,7 @@ def kiel(
 
         # Plot the max likelihood and median model
         if validationmode:
-            bfmmodlab = "Highest likelihood model (chi2 = {0:1.4e})".format(hlm_chi2)
+            bfmmodlab = f"Highest likelihood model (chi2 = {hlm_chi2:1.4e})"
         else:
             bfmmodlab = "Best fit model"
         ax.plot(
@@ -391,7 +389,7 @@ def kiel(
                 "p",
                 color="k",
                 markersize=15,
-                label="Lowest chi^2 model (chi2 = {0:1.4e})".format(lcm_chi2),
+                label=f"Lowest chi^2 model (chi2 = {lcm_chi2:1.4e})",
             )
 
         # Plot parameter intervals of fitparams
@@ -531,7 +529,7 @@ def kiel(
         if len(metal_list) <= 5:
             metal_str = ", ".join([str(x) for x in list(metal_list)])
         else:
-            metal_str = "{:.3f},...,{:.3f}".format(min(metal_list), max(metal_list))
+            metal_str = f"{min(metal_list):.3f},...,{max(metal_list):.3f}"
 
         _, mlabel, _, _ = parameters.get_keys([metal])
         text = mlabel[0] + ": " + metal_str
