@@ -301,7 +301,7 @@ def generate_xml(
         freqelement = SubElement(default, "freqparams")
         for param in freqparams:
             # The following are handled in create_xmltag
-            if param in ["excludemodes", "nottrustedfile", "onlyradial", "onlyls"]:
+            if param in ["excludemodes", "nottrustedfile", "onlyradial"]:
                 continue
             SubElement(freqelement, param, {"value": str(freqparams[param])})
 

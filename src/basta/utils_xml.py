@@ -123,13 +123,6 @@ def create_xmltag(
         if "onlyradial" in freqparams:
             if freqparams["onlyradial"] in [True, "True", "true"]:
                 SubElement(star, "onlyradial", {"value": "True"})
-        if "onlyls" in freqparams:
-            assert all(isinstance(x, int) for x in freqparams["onlyls"])
-            SubElement(
-                star,
-                "onlyls",
-                {"value": ",".join(map(str, freqparams["onlyls"]))},
-            )
 
         # Always add dnu and numax for frequency fitting
         if not nuset["dnu"]:
