@@ -35,9 +35,9 @@ def generate_xml(
     overwriteparams: dict | None = None,
     freqparams: dict | None = None,
     glitchparams: dict | None = None,
-    filters: tuple[str, ...] | None = None,
+    filters: list[str] | tuple[str, ...] | None = None,
     dustframe: str | None = None,
-    cornerplots: tuple[str, ...] | bool = False,
+    cornerplots: str | list[str] | tuple[str, ...] | None = None,
     kielplots: tuple[str, ...] | bool = False,
     freqplots: bool = False,
     optionaloutputs: bool = True,
@@ -151,9 +151,7 @@ def generate_xml(
         Inputted delimiter if asciifile uses a special delimiter not easily
         recognised by numpy.genfromtxt
     """
-    inp = np.genfromtxt(
-        asciifile, dtype=None, names=params, encoding=None, delimiter=delimiter
-    )
+    inp = np.genfromtxt(asciifile, dtype=None, names=params, delimiter=delimiter)
     if inp.ndim == 0:
         inp = inp.reshape(1, -1)[0]
 
@@ -264,8 +262,7 @@ def generate_xml(
     if isinstance(fitparams, str):
         fitparams = [fitparams]
     for param in fitparams:
-        paramdic = {}
-        SubElement(fitelement, param, paramdic)
+        SubElement(fitelement, param, {})
 
     # Add subelement priors to <default> (if any priors are included)
     if priors:
@@ -291,7 +288,7 @@ def generate_xml(
     if overwriteparams:
         globalelement = SubElement(default, "overwriteparams")
         for param in overwriteparams:
-            paramdic = {}
+            paramdic: dict[str, str] = {}
             if param == "phase":
                 paramdic["value"] = overwriteparams[param]
             else:
@@ -315,8 +312,11 @@ def generate_xml(
             SubElement(glitchelement, param, {"value": str(glitchparams[param])})
 
     # We need to check these before handling distance input
-    if isinstance(cornerplots, str | bool) and len(cornerplots):
+    if not cornerplots:
+        cornerplots = []
+    elif isinstance(cornerplots, str):
         cornerplots = [str(cornerplots)]
+    assert isinstance(cornerplots, list | tuple)
     if isinstance(outparams, str | bool) and len(outparams):
         outparams = [str(outparams)]
 
@@ -330,7 +330,7 @@ def generate_xml(
         if isinstance(filters, str):
             filters = (filters,)
 
-        if len(filters) == 0:
+        if filters is None or len(filters) == 0:
             raise ValueError("No filters were given for parallax/distance fitting")
 
         # Add to <default>
@@ -342,7 +342,7 @@ def generate_xml(
 
         # Add coordinate system to the individual targets
         if dustframe == "galactic":
-            distparams = ("lat", "lon")
+            distparams: tuple[str, ...] = ("lat", "lon")
         elif dustframe in ["icrs"]:
             distparams = ("RA", "DEC")
         else:
@@ -354,9 +354,9 @@ def generate_xml(
             distparams += ("EBV",)
 
         # Add magnitudes to list of parameters
-        starparams = fitparams + filters
+        starparams = [*fitparams, *filters]
     else:
-        starparams = fitparams
+        starparams = [*fitparams]
         distparams = ()
 
     # Add subelement <cornerplots> to <default>
