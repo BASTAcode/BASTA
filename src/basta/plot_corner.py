@@ -20,8 +20,8 @@ import matplotlib.colors as mc
 import numpy as np
 from matplotlib.colors import LinearSegmentedColormap, colorConverter
 from matplotlib.ticker import MaxNLocator, NullLocator, ScalarFormatter
-from scipy.ndimage import gaussian_filter
-from scipy.stats import gaussian_kde
+from scipy.ndimage import gaussian_filter  # type: ignore[import]
+from scipy.stats import gaussian_kde  # type: ignore[import]
 
 mpl.use("Agg")
 import matplotlib.pyplot as plt
@@ -477,7 +477,7 @@ def hist2d(
     contourf_kwargs=None,
     data_kwargs=None,
     **kwargs,
-) -> None:
+):
     """
     Plot a 2-D histogram of samples.
 
@@ -669,6 +669,7 @@ def hist2d(
         ax.set_xlim(prange[0])
     if not np.all(y == y[0]):
         ax.set_ylim(prange[1])
+    return ax
 
 
 def lighten_color(color, amount=0.5):
@@ -683,7 +684,7 @@ def lighten_color(color, amount=0.5):
     """
     try:
         c = mc.cnames[color]
-    except:
+    except Exception:
         c = color
 
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
