@@ -5,10 +5,10 @@ Interpolation for BASTA: Helper routines
 import os
 import warnings
 
-import bottleneck as bn
+import bottleneck as bn  # type: ignore[import]
 import numpy as np
-from scipy import interpolate
-from scipy.stats import qmc
+from scipy import interpolate  # type: ignore[import]
+from scipy.stats import qmc  # type: ignore[import]
 from tqdm import tqdm
 
 
@@ -352,7 +352,7 @@ def interpolate_frequencies(
     triangulation,
     newvec,
     freqlims=None,
-):
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """
     Perform interpolation in individual oscillation frequencies in a reduced track.
 
@@ -403,7 +403,7 @@ def interpolate_frequencies(
     """
 
     available_lvalues = [0, 1, 2]
-    along = type(triangulation) == np.ndarray
+    along = isinstance(triangulation, np.ndarray)
     #
     # *** BLOCK 1: Determine and allocate matrix sizes ***
     #
@@ -453,8 +453,10 @@ def interpolate_frequencies(
     # iterations).
 
     for modid in range(Ntrack):
-        osc = fullosc[modid]
-        osckey = fullosckey[modid]
+        osc: np.ndarray | None = fullosc[modid]
+        osckey: np.ndarray | None = fullosckey[modid]
+        assert osc is not None
+        assert osckey is not None
         for ll in available_lvalues:
             nmin, _ = nranges[ll]
             lmask = osckey[0, :] == ll
@@ -551,10 +553,12 @@ def interpolate_frequencies(
     # frequency limits), it will produce an empty array instead, and is
     # thus skipped over in the fit.
 
-    osclist, osckeylist = [], []
+    osclist: list[np.ndarray] = []
+    osckeylist: list[np.ndarray] = []
 
     for modid in range(Nnew):
-        osc, osckey = None, None
+        osc = None
+        osckey = None
         for ll in available_lvalues:
             matrix = newfreqs[ll]
             nmin, _ = nranges[ll]
@@ -570,14 +574,17 @@ def interpolate_frequencies(
             keys[1][:] = np.arange(matrix.shape[1]) + nmin
 
             # Create or stack list
-            if type(osc) != np.ndarray:
+            if osc is None:
                 osc = fres
                 osckey = keys
             else:
+                assert osckey is not None
                 osc = np.hstack((osc, fres))
                 osckey = np.hstack((osckey, keys))
 
         # Remove nan modes
+        assert osc is not None
+        assert osckey is not None
         nanmask = np.isnan(osc[0][:])
         osc = osc[:, ~nanmask]
         osckey = osckey[:, ~nanmask]
@@ -706,14 +713,14 @@ def recalculate_param_weights(outfile, basepath) -> None:
     headvars = outfile["header/active_weights"][()]
 
     # Collect the relevant tracks/isochrones
-    mask = []
+    masks = []
     names = []
     for _nogroup, (gname, group) in enumerate(outfile[basepath].items()):
         # Determine which tracks are actually present
         for name, libitem in group.items():
-            mask.append(libitem["IntStatus"][()])
+            masks.append(libitem["IntStatus"][()])
             names.append(os.path.join(gname, name))
-    mask = np.where(np.array(mask) >= 0)[0]
+    mask = np.where(np.array(masks) >= 0)[0]
     active = np.asarray(names)[mask]
 
     # For each parameter, collect values, recalculate weights, and replace old weight
@@ -730,7 +737,7 @@ def recalculate_param_weights(outfile, basepath) -> None:
             weight_path = os.path.join(basepath, name, key + "_weight")
             try:
                 outfile[weight_path]
-            except:
+            except Exception:
                 outfile[weight_path] = weights[i]
             else:
                 del outfile[weight_path]
@@ -829,7 +836,7 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False) -
         weight_path = os.path.join(basepath, name, "volume_weight")
         try:
             outfile[weight_path] = weights[i]
-        except:
+        except Exception:
             del outfile[weight_path]
             outfile[weight_path] = weights[i]
 
