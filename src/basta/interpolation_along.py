@@ -3,9 +3,8 @@ Interpolation for BASTA: Along a track
 """
 
 import os
-import time
 
-import h5py
+import h5py  # type: ignore[import]
 import matplotlib.pyplot as plt
 import numpy as np
 from tqdm import tqdm
@@ -168,17 +167,6 @@ def interpolate_along(
         grid_is_intpol = True
 
     if debug:
-        # Initialize logging to file (duplicate stdout)
-        logdir = "intpollogs"
-        if not os.path.exists(logdir):
-            os.mkdir(logdir)
-        logfile = open(
-            os.path.join(
-                logdir, "intpol_{}.txt".format(time.strftime("%Y%m%dT%H%M%S"))
-            ),
-            "w",
-        )
-
         # Initialise diagnostic plot(s) and print info
         plt.close("all")
         fig1, ax1 = plt.subplots()  # Full grid (Kiel)
