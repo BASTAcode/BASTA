@@ -3,7 +3,6 @@ import multiprocessing as mp
 import os
 from contextlib import contextmanager
 from subprocess import run
-
 import numpy as np
 
 from basta.xml_run import run_xml
@@ -11,7 +10,14 @@ from basta.xml_run import run_xml
 
 @contextmanager
 def cd(newdir: str):
-    """Change directory"""
+    """
+    Context manager for changing the current working directory.
+
+    Parameters
+    ----------
+    newdir : str
+        Target directory to switch to.
+    """
     prevdir = os.getcwd()
     os.chdir(os.path.expanduser(newdir))
     try:
@@ -24,104 +30,75 @@ def _process_xmldir(
     rundir: str, nproc: int = 4, seed: int | None = None, debug: bool = False
 ) -> None:
     """
-    Run BASTA on all files in a given directory. Multi-threaded version.
+    Run BASTA on all XML files in the specified directory using multiprocessing.
 
     Parameters
     ----------
     rundir : str
-        Path to fully prepared validation run directory
+        Path to the directory containing XML files.
 
     nproc : int, optional
-        Number of cpus to use in the multiprocessing
-
-    debug : bool, optional
-        Add --debug option for BASTA
+        Number of processes to use (default is 4).
 
     seed : int, optional
-        Initialise using a specific seed for BASTA
+        Random seed for deterministic behavior.
 
-    Returns
-    -------
-    None
-
+    debug : bool, optional
+        If True, adds the '--debug' flag to BASTA runs.
     """
     print(f"~~~~~~ RUNNING BASTA ON {rundir} WITH {nproc} THREADS NOW ~~~~~~\n")
     with cd(rundir):
-        # Construct list of XML files in the directory and then process them in parallel
+        xml_files = [f for f in os.listdir(".") if f.endswith(".xml")]
+
         bastatasks = []
-        for filename in next(os.walk("."))[2]:
-            if filename.endswith(".xml"):
-                cmd = ["BASTArun", filename]
-                if debug:
-                    cmd.append("--debug")
-                if seed:
-                    cmd.append("--seed")
-                    cmd.append(str(seed))
-                bastatasks.append((cmd,))
+        for filename in xml_files:
+            cmd = ["BASTArun", filename]
+            if debug:
+                cmd.append("--debug")
+            if seed:
+                cmd.extend(["--seed", str(seed)])
+            bastatasks.append((cmd,))
+
         with mp.Pool(processes=nproc) as pool:
             pool.starmap(run, bastatasks)
     print("\n~~~~~~ DONE! ~~~~~~\n")
 
 
 def main() -> None:
-    """Main"""
-    # Setup argument parser
-    helptext = "BASTA -- Run the BAyesian STellar Algorithm"
-    parser = argparse.ArgumentParser(description=helptext)
-
-    # Add positional argument (name of inputfile)
+    """
+    Run BASTA on a single XML input file via command-line arguments.
+    """
+    parser = argparse.ArgumentParser(
+        description="BASTA -- Run the BAyesian STellar Algorithm"
+    )
     parser.add_argument("inputfile", help="The XML input file to run")
-
-    # Add optional argument: Debugging output
+    parser.add_argument("--debug", action="store_true", help="Enable debugging output")
     parser.add_argument(
-        "--debug", action="store_true", help="Additional output for debugging."
+        "--verbose", action="store_true", help="Verbose mode for detailed output"
     )
-
-    # Add optional argument: Extra text output for debugging
     parser.add_argument(
-        "--verbose",
-        action="store_true",
-        help="Print additional text output. A lot! Combine with the debug flag.",
+        "--developermode", action="store_true", help="Enable developer/test features"
     )
-
-    # Add optional argument: Experimental features
-    parser.add_argument(
-        "--developermode", action="store_true", help="Enable experimental features."
-    )
-
-    # Add optional argument: Validation mode
     parser.add_argument(
         "--validation",
         action="store_true",
-        help="DO NOT USE unless making validation runs.",
+        help="Run in validation mode (for internal use)",
     )
-
-    # Add optional argument: Set random seed
     parser.add_argument(
-        "-s",
-        "--seed",
-        type=int,
-        help="Set random seed to ensure deterministic behavior for debugging",
+        "-s", "--seed", type=int, help="Random seed for reproducibility"
     )
 
-    # Parse the arguments
     args = parser.parse_args()
 
-    # Set the random seed if given
-    if args.seed is not None:
-        seed = args.seed
-    else:
-        seed = np.random.randint(5000)
-
+    seed = args.seed if args.seed is not None else np.random.randint(5000)
     np.random.seed(seed)
 
-    # Flag the user if running in validation mode
     if args.validation:
-        print("\n*** Running in VALIDATION MODE ", end="")
+        print("\n*** Running in VALIDATION MODE ***\n")
 
     # Call BASTA
     run_xml(
-        vars(args)["inputfile"],
+        args.inputfile,
         seed=seed,
         debug=args.debug,
         verbose=args.verbose,
@@ -132,38 +109,26 @@ def main() -> None:
 
 def multi() -> None:
     """
-    Run BASTA on multiple input files
+    Run BASTA on multiple XML input files in a directory.
+    Supports multiprocessing and optional debug/seed configuration.
     """
-    # Initialise parser and gather arguments
-    parser = argparse.ArgumentParser(description=("Run BASTA on multiple input files."))
+    parser = argparse.ArgumentParser(description="Run BASTA on multiple input files.")
+    parser.add_argument("xmlpath", help="Path to the directory containing XML files.")
     parser.add_argument(
-        "xmlpath", help=("Path to the directory with xml files to process.")
+        "--parallel", type=int, help="Number of parallel processes to use."
     )
+    parser.add_argument("--debug", action="store_true", help="Enable debugging output")
     parser.add_argument(
-        "--parallel",
-        help="Specify number of threads used in multiprocessing."
-        " If not set, will use max available on system.",
-        type=int,
+        "-s", "--seed", type=int, help="Random seed for reproducibility"
     )
-    parser.add_argument(
-        "--debug", action="store_true", help="Additional output for debugging."
-    )
-    parser.add_argument(
-        "-s",
-        "--seed",
-        type=int,
-        help="Set random seed to ensure deterministic behavior for debugging",
-    )
+
     args = parser.parse_args()
 
-    if args.parallel:
-        numthread = args.parallel
-    else:
-        numthread = os.cpu_count()
+    num_threads = args.parallel if args.parallel else os.cpu_count()
 
     _process_xmldir(
         rundir=os.path.abspath(args.xmlpath),
-        nproc=numthread,
+        nproc=num_threads,
         seed=args.seed,
         debug=args.debug,
     )
