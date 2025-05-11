@@ -3,14 +3,17 @@ Production of asteroseismic plots
 """
 
 import os
+import typing
+from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 import h5py  # type: ignore[import]
 import matplotlib as mpl
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 
-from basta import freq_fit, stats
+from basta import core, freq_fit, stats
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
@@ -45,22 +48,27 @@ splinemarkers = [".", "2", "1"]
 splinecolor = "0.7"
 
 
+@dataclass(kw_only=True, frozen=True)
+class EchellePlotBase:
+    selectedmodels: dict
+    Grid: h5py.File
+    obs: np.ndarray
+    mod: np.ndarray | None = None
+    modkey: np.ndarray | None = None
+    join: np.ndarray | None = None
+    joinkeys: np.ndarray | None = None
+    coeffs: np.ndarray | None = None
+    star: core.Star
+    inferencesettings: core.InferenceSettings
+    plotconfig: core.PlotConfig
+    outputoptions: core.OutputOptions
+
+
 def echelle(
-    selectedmodels: dict,
-    Grid: h5py.File,
-    obs: np.ndarray,
-    obskey: np.ndarray,
-    mod: np.ndarray | None = None,
-    modkey: np.ndarray | None = None,
-    dnu: float = None,
-    join: np.ndarray | None = None,
-    joinkeys: np.ndarray | None | bool = False,
-    coeffs: np.ndarray | None = None,
-    scalnu: float | None = None,
-    freqcor: str = "BG14",
+    x: EchellePlotBase,
     pairmode: bool = False,
     duplicatemode: bool = False,
-    outputfilename: str | None = None,
+    outputfilename: Path | None = None,
 ) -> None:
     """
     Echelle diagram. It is possible to either make a single Echelle diagram
@@ -97,9 +105,6 @@ def echelle(
         Coefficients for the near-surface frequency correction specified
         in `freqcor`. If None, the frequencies on the plot will not
         be corrected.
-    scalnu : float or None
-        Value used to scale frequencies in frequencies correction.
-        `numax` is often used.
     freqcor : str {'None', 'HK08', 'BG14', 'cubicBG14'}
         Flag determining the frequency correction.
     pairmode : bool
@@ -111,54 +116,74 @@ def echelle(
     outputfilename : str or None
         Filename for saving the figure.
     """
+    selectedmodels = x.selectedmodels
+
     if pairmode:
         lw = 1
     else:
         lw = 0
 
-    if dnu is None:
-        print("Note: No deltanu specified, using dnufit for echelle diagram.")
-        maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
-        dnu = Grid[maxPDF_path + "/dnufit"][maxPDF_ind]
+    star = x.star
+    dnu = star.globalseismicparams.get_original("dnufit")[0]
 
     if duplicatemode:
-        modx = 1
+        modx = 1.0
         scalex = dnu
     else:
         modx = dnu
         scalex = 1
 
-    obsls = np.unique(obskey[0, :]).astype(str)
+    assert star.frequencies is not None
+    obsls = np.unique(star.frequencies.l).astype(str)
 
-    if (mod is None) and (modkey is None):
+    if x.mod is None and x.modkey is None:
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
-        rawmod = Grid[maxPDF_path + "/osc"][maxPDF_ind]
-        rawmodkey = Grid[maxPDF_path + "/osckey"][maxPDF_ind]
+        rawmod = x.Grid[maxPDF_path + "/osc"][maxPDF_ind]
+        rawmodkey = x.Grid[maxPDF_path + "/osckey"][maxPDF_ind]
         mod = su.transform_obj_array(rawmod)
         modkey = su.transform_obj_array(rawmodkey)
         mod = mod[:, modkey[0, :] <= np.amax(obsls.astype(int))]
         modkey = modkey[:, modkey[0, :] <= np.amax(obsls)]
+    else:
+        assert x.mod is not None
+        assert x.modkey is not None
+        mod = x.mod
+        modkey = x.modkey
 
-    cormod = np.copy(mod)
+    assert mod is not None
+    assert modkey is not None
+    cormod = np.array(mod, copy=True)
 
+    coeffs = x.coeffs
     if coeffs is not None:
-        if freqcor == "HK08":
+        assert star.frequencies.surfacecorrection is not None
+        if star.frequencies.surfacecorrection.get("KBC08") is not None:
             corosc = freq_fit.apply_HK08(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
+                modkey=modkey,
+                mod=mod,
+                coeffs=coeffs,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
             )
-        elif freqcor == "BG14":
+        elif star.frequencies.surfacecorrection.get("two-term-BG14") is not None:
             corosc = freq_fit.apply_BG14(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
+                modkey=modkey,
+                mod=mod,
+                coeffs=coeffs,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
             )
-        elif freqcor == "cubicBG14":
+        elif star.frequencies.surfacecorrection.get("cubic-term-BG14") is not None:
             corosc = freq_fit.apply_cubicBG14(
-                modkey=modkey, mod=mod, coeffs=coeffs, scalnu=scalnu
+                modkey=modkey,
+                mod=mod,
+                coeffs=coeffs,
+                scalnu=star.globalseismicparams.get_scaled("numax")[0],
             )
         cormod[0, :] = corosc
 
     s = su.scale_by_inertia(modkey, cormod)
-    if join is not None:
-        sjoin = su.scale_by_inertia(joinkeys[0:2], join[0:2])
+    if x.join is not None:
+        assert x.joinkeys is not None
+        sjoin = su.scale_by_inertia(x.joinkeys[0:2], x.join[0:2])
 
     fmod = {}
     fmod_all = {}
@@ -168,12 +193,14 @@ def echelle(
     eobs_all = {}
     for l in np.arange(np.amax(obsls.astype(int)) + 1):
         _, mod = su.get_givenl(l=l, osc=cormod, osckey=modkey)
-        _, lobs = su.get_givenl(l=l, osc=obs, osckey=obskey)
+        obskey = np.asarray([star.frequencies.l, star.frequencies.n])
+        _, lobs = su.get_givenl(l=l, osc=x.obs, osckey=obskey)
         fmod_all[str(l)] = mod[0, :] / scalex
         fobs_all[str(l)] = lobs[0, :] / scalex
         eobs_all[str(l)] = lobs[1, :] / scalex
-        if join is not None:
-            _, ljoin = su.get_givenl(l=l, osc=join, osckey=joinkeys)
+        if x.join is not None:
+            assert x.joinkeys is not None
+            _, ljoin = su.get_givenl(l=l, osc=x.join, osckey=x.joinkeys)
             fmod[str(l)] = ljoin[0, :] / scalex
             fobs[str(l)] = ljoin[2, :] / scalex
             eobs[str(l)] = ljoin[3, :] / scalex
@@ -258,7 +285,7 @@ def echelle(
 
     # Plot the matched modes in negative and positive side
     linelimit = 0.75 * modx
-    if join is not None:
+    if x.join is not None:
         for l in obsls:
             if len(fmod[l]) > 0:
                 ax.scatter(
@@ -412,10 +439,10 @@ def echelle(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     if duplicatemode:
-        ax.set_xlim([-1, 1])
+        ax.set_xlim((-1, 1))
         aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
         aax.set_xlabel(
             rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
@@ -423,7 +450,7 @@ def echelle(
         aax.set_ylabel(r"Frequency ($\mu$Hz)")
         ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
     else:
-        ax.set_xlim([0, modx])
+        ax.set_xlim((0, modx))
         aax.set_ylim(ax.set_ylim()[0] / dnu, ax.set_ylim()[1] / dnu)
         ax.set_xlabel(
             rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
@@ -433,7 +460,7 @@ def echelle(
 
     if outputfilename is not None:
         plt.savefig(outputfilename, bbox_inches="tight")
-        print("Saved figure to " + outputfilename)
+        print(f"Saved figure to {outputfilename}")
         plt.close(fig)
 
 
