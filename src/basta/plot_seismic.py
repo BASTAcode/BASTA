@@ -465,7 +465,7 @@ def echelle(
 
 
 def ratioplot(
-    obsfreqdata,
+    star: core.Star,
     joinkeys,
     join,
     modkey,
@@ -512,16 +512,14 @@ def ratioplot(
         to the frequencies of the observed ratios, in order to compare the
         sequences at the same frequencies.
     """
-    fig, ax = plt.subplots(1, 1)
 
-    obsratio = obsfreqdata[ratiotype]["data"]
     # Exit if there are no ratios to plot
-    if obsratio is None:
-        plt.close(fig)
+    if star.ratios is None or ratiotype not in star.ratios:
         return
 
-    obsratio_cov = obsfreqdata[ratiotype]["cov"]
-    obsratio_err = np.sqrt(np.diag(obsratio_cov))
+    obsratio = star.ratios[ratiotype].values
+    obsratio_invcov = star.ratios[ratiotype].inverse_covariance
+    obsratio_err = np.sqrt(1 / np.diag(obsratio_invcov))
 
     if interp_ratios:
         modratio = freq_fit.compute_ratioseqs(
@@ -532,7 +530,8 @@ def ratioplot(
             joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
         )
 
-    handles = []
+    fig, ax = plt.subplots(1, 1)
+    handles: list[Any] = []
     for rtype in set(obsratio[2, :]):
         obsmask = obsratio[2, :] == rtype
         modmask = modratio[2, :] == rtype
@@ -611,7 +610,7 @@ def ratioplot(
         borderaxespad=0.0,
     )
     for i in range(len(lgnd.legend_handles)):
-        lgnd.legend_handles[i]._sizes = [50]
+        typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
     ax.set_ylabel(f"Frequency ratio ({ratiotype})")
