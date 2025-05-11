@@ -100,10 +100,10 @@ def main() -> None:
     run_xml(
         args.inputfile,
         seed=seed,
-        debug=args.debug,
+        flag_debug=args.debug,
         verbose=args.verbose,
-        developermode=args.developermode,
-        validationmode=args.validation,
+        flag_developermode=args.developermode,
+        flag_validationmode=args.validation,
     )
 
 

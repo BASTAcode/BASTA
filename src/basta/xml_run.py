@@ -3,64 +3,84 @@ Running BASTA from XML files. Main wrapper!
 """
 
 import copy
-import gc
 import os
-import sys
 import traceback
+from io import BufferedIOBase
+from typing import Any, Literal, TypedDict, overload
 from xml.etree import ElementTree as ET
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 
-from basta.bastamain import BASTA, LibraryError
+from basta import core, constants, imfs
+from basta.bastamain import BASTA
 from basta.constants import freqtypes, parameters
 from basta.constants import sydsun as sydc
+from basta.errors import LibraryError
 from basta.fileio import no_models, read_freq_xml, write_star_to_errfile
 from basta.interpolation_driver import perform_interpolation
 from basta.utils_general import strtobool, unique_unsort
 from basta.utils_xml import ascii_to_xml
 
 
-def _find_get(root, path, value, *default):
+@overload
+def _find_get(root: ET.Element, path: str, value: str) -> str: ...
+@overload
+def _find_get(root: ET.Element, path: str, value: str, default: str) -> str: ...
+@overload
+def _find_get(root: ET.Element, path: str, value: str, default: None) -> str | None: ...
+@overload
+def _find_get(
+    root: ET.Element, path: str, value: str, default: float
+) -> str | float | int: ...
+
+
+def _find_get(
+    root: ET.Element,
+    path: str,
+    value: str,
+    default: str | float | None = "no-default",
+) -> str | float | int | None:
     """
     Error catching of things required to be set in xml. Gives useful
-    errormessage instead of stuff like "AttributeError: 'NoneType' object
-    has no attribute 'get'"
+    error messages instead of AttributeError.
 
     Parameters
     ----------
     root : Element
-        Element in xml-tree to find parameter in
+        Element in XML tree to find parameter in.
     path : str
-        What path in the xml-tree the wanted value should be at
+        Path in the XML tree where the wanted value should be.
     value : str
-        Name of the value to be extracted, e.g. "value", "path", "error"
-    default : str, int, None, bool
-        Default to return if not set
+        Name of the value to be extracted, e.g., "value", "path", "error".
+    default : str | int | float
+        Default value to return if not set.
 
     Returns
     -------
     val : str
-        Extracted value upon location in xml
+        Extracted value from the XML.
     """
-    # Protect against calls like
-    # _find_get(root, path, value, 0, "foo", 42, None, True, [1, 2])
-    assert len(default) <= 1
     tag = path.split("/")[-1]
-    place = root.find(path)
-    if place is None:
-        if default:
-            return default[0]
+    element = root.find(path)
+
+    if element is None:
+        if default != "no-default":
+            return default
         raise KeyError(f"Missing tag '{tag}' in input!")
-    val = place.get(value)
+
+    val = element.get(value)
     if val is None:
-        if default:
-            return default[0]
-        raise ValueError(f"Missing '{value}' in tag '{tag}'!")
+        if default != "no-default":
+            return default
+        raise ValueError(f"Missing attribute '{value}' in tag '{tag}'!")
+
     return val
 
 
-def _centroid_and_uncert(root, inputparams):
+def _define_centroid_and_uncertainties(
+    root: ET.Element, inputparams: dict[str, Any]
+) -> dict[str, Any]:
     """
     Extract the centroid and uncertainty definitions for the fit. These need to
     apply default values if not set, therefore this check exists.
@@ -75,36 +95,47 @@ def _centroid_and_uncert(root, inputparams):
     Returns
     -------
     inputparams : dict
-        Dictionary of inputparameters for BASTA extracted from the xml
+        Updated dictionary of input parameters
     """
     try:
-        inputparams["centroid"] = root.find("default/centroid").get("value").lower()
-        if inputparams["centroid"] not in ["median", "mean"]:
-            raise KeyError(
-                "Centroid must be either 'median' or 'mean', "
-                + "currently set to '{:s}'".format(inputparams["centroid"])
+        centroid_element = root.find("default/centroid")
+        if centroid_element is not None:
+            inputparams["centroid"] = centroid_element.get("value", "").lower()
+        else:
+            inputparams["centroid"] = "median"
+        if inputparams["centroid"] not in {"median", "mean"}:
+            raise ValueError(
+                f"Centroid must be either 'median' or 'mean', but got '{inputparams['centroid']}'"
             )
-    except AttributeError:
+    except (AttributeError, ValueError) as e:
         inputparams["centroid"] = "median"
+        print(f"Warning: {e}")
+
     try:
-        inputparams["uncert"] = root.find("default/uncert").get("value").lower()
-        if inputparams["uncert"] not in ["quantiles", "std"]:
-            raise KeyError(
-                "Unceartainty must be either 'quantiles' or 'std', "
-                + "currently set to '{:s}'".format(inputparams["uncert"])
+        uncert_element = root.find("default/uncert")
+        if uncert_element is not None:
+            inputparams["uncert"] = uncert_element.get("value", "").lower()
+        else:
+            inputparams["uncert"] = "quantiles"
+        if inputparams["uncert"] not in {"quantiles", "std"}:
+            raise ValueError(
+                f"Uncertainty must be either 'quantiles' or 'std', but got '{inputparams['uncert']}'"
             )
-    except AttributeError:
+    except (AttributeError, ValueError) as e:
         inputparams["uncert"] = "quantiles"
+        print(f"Warning: {e}")
+
     return inputparams
 
 
 def _get_true_or_list(
-    params: list, deflist: list | None = None, check: bool = True
-) -> list:
+    params: list[ET.Element],
+    deflist: list[str] | None = None,
+    check: bool = True,
+) -> list[str] | list[bool]:
     """
-    Several input lists can simply be set to true, in order to follow default
-    behaviour, while inputting parameters changes the behaviour to the user
-    specified. This function extracts the input of that.
+    Handles input lists that may be set to True to follow a default behavior or
+    specified parameters for custom behavior.
 
     Parameters
     ----------
@@ -114,38 +145,44 @@ def _get_true_or_list(
         List to copy, if input in params is simply True
     check : bool
         Whether to check the entrances in the list with available parameters in
-        BASTA, defined in basta.constants.parameters
+        BASTA, defined in `basta.constants.parameters`
 
     Returns
     -------
     extract : list
-        List depending on the input. The 'False' case is an empty list, for
-        simplification of later code. The 'True' case is '[True]'.
+        - Returns an empty list if `params` is empty or 'False'.
+        - Returns `[True]` if `params` is 'True' and `deflist` is `None`.
+        - Returns `deflist` if `params` is 'True' and `deflist` exists.
+        - Otherwise, extracts the tags from `params`.
+
+    Notes
+    -----
+    - If `check` is True, filters the extracted list based on available parameters.
     """
-    # This is not pretty, but reduces the amount of repeated code
-    if len(params) == 0:
-        extract = []
-    elif len(params) == 1:
-        if params[0].tag.lower() == "true" and (deflist is None):
-            extract = [True]
-        elif params[0].tag.lower() == "true":
-            extract = list(deflist)
-        elif params[0].tag.lower() != "false":
-            extract = [params[0].tag]
-        else:
-            extract = []
-    else:
-        extract = []
-        for par in params:
-            extract.append(par.tag)
+    if not params:
+        return []
+
+    first_tag = params[0].tag.lower()
+
+    if len(params) == 1:
+        if first_tag == "true":
+            if deflist is None:
+                return [True]
+            deflist[:]
+        if first_tag == "false":
+            return []
+        return [first_tag]
+
+    extract = [par.tag for par in params]
+
     if check and deflist is not None:
-        checklist = ["distance", "parallax", *parameters.names]
-        mask = [True if par in checklist else False for par in extract]
-        extract = list(np.asarray(extract)[mask])
+        checklist = {"distance", "parallax", *parameters.names}
+        extract = [par for par in extract if par in checklist]
+
     return extract
 
 
-def _get_freq_minmax(star, freqpath):
+def _get_freq_minmax(star: ET.Element, freqpath: str) -> tuple[float, float]:
     """
     Extract the frequency interval of the star, using dnu as an
     estimation of the extension of the boundaries.
@@ -164,15 +201,86 @@ def _get_freq_minmax(star, freqpath):
     fmax : float
         Maximum frequency value
     """
-    freqfile = os.path.join(freqpath, star.get("starid") + ".xml")
+    starid = star.get("starid", "unknowntarget")
+    freqfile = os.path.join(freqpath, f"{starid}.xml")
+
+    if not os.path.exists(freqfile):
+        raise FileNotFoundError(f"Frequency file not found: {freqfile}")
+
     f, _, _, _ = read_freq_xml(freqfile)
-    dnu = float(star.find("dnu").get("value"))
-    fmin = f.min() - 2.0 * dnu
-    fmax = f.max() + 2.0 * dnu
+
+    dnu_element = star.find("dnu")
+    if dnu_element is None or dnu_element.get("value") is None:
+        raise ValueError(
+            f"Missing 'dnu' value for star {star.get('starid', 'unknown')}."
+        )
+
+    dnu_value = dnu_element.get("value")
+    if dnu_value is None:
+        raise ValueError(f"Missing 'dnu' value: {dnu_element.get('value')}")
+    try:
+        dnu = float(dnu_value)
+    except ValueError:
+        raise ValueError(f"Invalid 'dnu' value: {dnu_element.get('value')}")
+
+    fmin = np.amin(f) - 2.0 * dnu
+    fmax = np.amax(f) + 2.0 * dnu
+
     return fmin, fmax
 
 
-def _get_intpol(root, gridfile, freqpath=None):
+class _IntpolTrackresolution(TypedDict):
+    param: str
+    value: float
+    baseparam: str
+
+
+class IntpolTrackresolution(_IntpolTrackresolution, total=False):
+    retrace: bool
+
+
+class _IntpolGridresolution(TypedDict):
+    age: int
+    massini: int
+    FeHini: int
+    MeHini: int
+    yini: int
+    alphaMLT: int
+    ove: int
+    alphaFe: int
+    gcut: int
+    eta: int
+    scale: float
+    baseparam: str
+    extend: Literal[0, 1]
+
+
+class IntpolGridresolution(_IntpolGridresolution, total=False):
+    retrace: bool
+
+
+class IntpolName(TypedDict):
+    # TODO(Amalie): maybe need assert not None?
+    value: str | None
+
+
+class IntpolMethod(TypedDict):
+    # TODO(Amalie): maybe need assert not None?
+    case: str | None
+    # TODO(Amalie): maybe need assert not None?
+    construction: str | None
+    retrace: Literal[0, 1]
+
+
+class Intpol(TypedDict, total=False):
+    limits: dict[str, list[float]]
+    trackresolution: IntpolTrackresolution
+    gridresolution: IntpolGridresolution
+    name: IntpolName
+    method: IntpolMethod
+
+
+def _get_intpol(root: ET.Element, gridfile, freqpath=None):
     """
     Extract interpolation settings.
 
@@ -193,10 +301,10 @@ def _get_intpol(root, gridfile, freqpath=None):
         stars if interpolation construction is 'encompass'.
     """
     # Read input
-    intpol = {}
+    intpol: Intpol = {}
     for param in root.findall("default/interpolation/"):
         if param.tag.lower() == "limits":
-            limits = {}
+            limits: dict[str, list[float]] = {}
             for par in param:
                 limits[par.tag] = [
                     float(par.attrib.get("min", -np.inf)),
@@ -206,13 +314,13 @@ def _get_intpol(root, gridfile, freqpath=None):
                 ]
             intpol["limits"] = limits
         elif param.tag.lower() == "trackresolution":
-            intpol[param.tag.lower()] = {
+            intpol["trackresolution"] = {
                 "param": param.attrib.get("param", "freq"),
-                "value": float(param.attrib.get("value")),
+                "value": float(param.attrib["value"]),
                 "baseparam": param.attrib.get("baseparam", "default"),
             }
         elif param.tag.lower() == "gridresolution":
-            intpol[param.tag.lower()] = {
+            intpol["gridresolution"] = {
                 "age": int(param.attrib.get("age", 0.0)),
                 "massini": int(param.attrib.get("massini", 0.0)),
                 "FeHini": int(param.attrib.get("FeHini", 0.0)),
@@ -228,12 +336,15 @@ def _get_intpol(root, gridfile, freqpath=None):
                 "extend": strtobool(param.attrib.get("extend", "False")),
             }
         elif param.tag.lower() == "name":
-            intpol[param.tag.lower()] = {
+            intpol["name"] = {
+                # TODO(Amalie): assert value is not None?
                 "value": param.attrib.get("value"),
             }
         elif param.tag.lower() == "method":
-            intpol[param.tag.lower()] = {
+            intpol["method"] = {
+                # TODO(Amalie): assert value is not None?
                 "case": param.attrib.get("case"),
+                # TODO(Amalie): assert value is not None?
                 "construction": param.attrib.get("construction"),
                 "retrace": strtobool(param.attrib.get("retrace", "False")),
             }
@@ -278,26 +389,27 @@ def _get_intpol(root, gridfile, freqpath=None):
     limerrmsg += "but missing for given star(s)."
     if construct == "encompass":
         limits = {}
-        for param in intpol["limits"]:
-            gparam = "dnu" if "dnu" in param else param
-            minval, maxval, abstol, nsigma = intpol["limits"][param]
+        for limit in intpol["limits"]:
+            gparam = "dnu" if "dnu" in limit else limit
+            minval, maxval, abstol, nsigma = intpol["limits"][limit]
             if abstol != np.inf or nsigma != np.inf:
                 try:
-                    vals = [
-                        float(star.find(gparam).get("value"))
-                        for star in root.findall("star")
-                    ]
+                    vals: list[float] = []
+                    for star in root.findall("star"):
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        vals.append(float(star_gparam.attrib["value"]))
 
-                except:
+                except Exception:
                     raise ValueError(limerrmsg.format(gparam))
                 try:
-                    err = max(
-                        [
-                            float(star.find(gparam).get("error"))
-                            for star in root.findall("star")
-                        ]
-                    )
-                except:
+                    errs: list[float] = []
+                    for star in root.findall("star"):
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        errs.append(float(star_gparam.attrib["error"]))
+                    err = max(errs)
+                except Exception:
                     err = 0
 
                 if err and err * nsigma < abstol / 2.0:
@@ -305,7 +417,7 @@ def _get_intpol(root, gridfile, freqpath=None):
                 minval = max(minval, min(vals) - abstol / 2.0)
                 maxval = min(maxval, max(vals) + abstol / 2.0)
             if minval != -np.inf or maxval != np.inf:
-                limits[param] = [minval, maxval]
+                limits[limit] = [minval, maxval]
         if freqpath:
             mins = [f[0] for _, f in freqminmax.items()]
             maxs = [f[1] for _, f in freqminmax.items()]
@@ -337,18 +449,22 @@ def _get_intpol(root, gridfile, freqpath=None):
         if construct == "encompass":
             intpolstar["limits"] = limits
         else:
-            for param in intpolstar["limits"]:
-                gparam = "dnu" if "dnu" in param else param
-                minval, maxval, abstol, nsigma = intpolstar["limits"][param]
+            for limit in intpolstar["limits"]:
+                gparam = "dnu" if "dnu" in limit else limit
+                minval, maxval, abstol, nsigma = intpolstar["limits"][limit]
                 # If abstol or nsigma defined, find the min and max from all of the stars
                 if abstol != np.inf or nsigma != np.inf:
                     try:
-                        val = float(star.find(gparam).get("value"))
-                    except:
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        val = float(star_gparam.attrib["value"])
+                    except Exception:
                         raise ValueError(limerrmsg.format(gparam))
                     try:
-                        err = float(star.find(gparam).get("error"))
-                    except:
+                        star_gparam = star.find(gparam)
+                        assert star_gparam is not None
+                        err = float(star_gparam.attrib["error"])
+                    except Exception:
                         err = 0
 
                     if err and err * nsigma < abstol / 2.0:
@@ -356,7 +472,7 @@ def _get_intpol(root, gridfile, freqpath=None):
                     minval = max(minval, val - abstol / 2.0)
                     maxval = min(maxval, val + abstol / 2.0)
                 if minval != -np.inf or maxval != np.inf:
-                    intpolstar["limits"][param] = [minval, maxval]
+                    intpolstar["limits"][limit] = [minval, maxval]
             if freqpath:
                 intpolstar["limits"]["freqs"] = freqminmax[starid]
 
@@ -365,37 +481,65 @@ def _get_intpol(root, gridfile, freqpath=None):
     return allintpol
 
 
-def _read_glitch_controls(fitfreqs: dict) -> dict:
+def _read_glitch_controls(fitfreqs: dict[str, Any]) -> dict[str, Any]:
     """
-    If glitches have been pre-computed, read the options used, to
-    be used for model computation.
+    Reads precomputed glitch options to be used for model computation.
 
     Parameters
     ----------
     fitfreqs : dict
-        Frequency fitting options to write options to
+        Frequency fitting options to write options to, expected to contain "glitchfile"
 
     Returns
     -------
     fitfreqs : dict
         Updated frequency fitting options dictionary
+
+    Raises
+    ------
+    KeyError:
+        If the required "glitchfile" key is missing in `fitfreqs`.
+    FileNotFoundError:
+        If the glitch file does not exist.
+    KeyError:
+        If the required dataset keys are missing in the HDF5 file.
     """
+    if "glitchfile" not in fitfreqs:
+        raise KeyError("Missing 'glitchfile' key in fitfreqs dictionary.")
 
-    # Translation dict of options
-    translate = {"FQ": "Freq", "SD": "SecDif"}
-    # Read file
-    gfile = h5py.File(fitfreqs["glitchfile"])
+    try:
+        with h5py.File(fitfreqs["glitchfile"], "r") as gfile:
+            # Translation dictionary of options
+            translate = {"FQ": "Freq", "SD": "SecDif"}
 
-    # Read/translate the options
-    fitfreqs["glitchmethod"] = translate[gfile["header/method"][()].decode("UTF-8")]
-    fitfreqs["npoly_params"] = gfile["header/npoly_params"][()]
-    fitfreqs["nderiv"] = gfile["header/nderiv"][()]
-    fitfreqs["tol_grad"] = gfile["header/tol_grad"][()]
-    fitfreqs["regu_param"] = gfile["header/regu_param"][()]
-    fitfreqs["nguesses"] = gfile["header/n_guess"][()]
+            # Check if required keys exist
+            required_keys = [
+                "header/method",
+                "header/npoly_params",
+                "header/nderiv",
+                "header/tol_grad",
+                "header/regu_param",
+                "header/n_guess",
+            ]
 
-    # Release file
-    gfile.close()
+            for key in required_keys:
+                if key not in gfile:
+                    raise KeyError(f"Missing key in glitch file: {key}")
+
+            # Read and translate the options
+            method_key = gfile["header/method"][()].decode("UTF-8")
+            fitfreqs["glitchmethod"] = translate.get(method_key, method_key)
+            fitfreqs["npoly_params"] = gfile["header/npoly_params"][()]
+            fitfreqs["nderiv"] = gfile["header/nderiv"][()]
+            fitfreqs["tol_grad"] = gfile["header/tol_grad"][()]
+            fitfreqs["regu_param"] = gfile["header/regu_param"][()]
+            fitfreqs["nguesses"] = gfile["header/n_guess"][()]
+
+    except FileNotFoundError:
+        raise FileNotFoundError(f"Glitch file not found: {fitfreqs['glitchfile']}")
+    except KeyError as e:
+        raise KeyError(f"Key error while reading glitch file: {e}")
+
     return fitfreqs
 
 
@@ -403,38 +547,38 @@ def _read_glitch_controls(fitfreqs: dict) -> dict:
 # MAIN ROUTINE
 #####################
 def run_xml(
-    xmlfile,
-    seed=None,
-    debug=False,
-    verbose=False,
-    developermode=False,
-    validationmode=False,
+    xmlfile: str,
+    seed: int,
+    verbose: bool = False,
+    flag_debug: bool = False,
+    flag_developermode: bool = False,
+    flag_validationmode: bool = False,
 ) -> None:
     """
-    Runs BASTA using an xml file as input. This is how you should run BASTA!
+    Parses an XML input file, extracts parameters, and prepares inputs for BASTA.
 
     Parameters
     ----------
     xmlfile : str
-        Absolute path to the xml file
+        Absolute path to the xml input file
     seed : int, optional
-        The set seed of randomness
-    debug : bool, optional
-        Activate additional output for debugging (for developers)
+        Seed value for reproducibility.
     verbose : bool, optional
-        Activate a lot (!) of additional output (for developers)
-    developermode : bool, optional
-        Activate experimental features (for developers)
-    validationmode : bool, optional
-        Activate validation mode features (for validation purposes only)
+        Activate a lot (!) of additional output
+    flag_debug : bool, optional
+        Activate additional output for debugging
+    flag_developermode : bool, optional
+        Activate experimental features
+    flag_validationmode : bool, optional
+        Activate validation mode features
     """
+    if not os.path.isfile(xmlfile):
+        raise FileNotFoundError(f"Error: Input file '{xmlfile}' not found!")
 
-    # Get path and change dir
-    if not os.path.exists(xmlfile):
-        raise FileNotFoundError("Input file not found!")
+    xmlpath = os.path.dirname(xmlfile)
+    xmlname = os.path.basename(xmlfile)
+
     oldpath = os.getcwd()
-    xmlpath = "/".join(xmlfile.split("/")[:-1])
-    xmlname = xmlfile.split("/")[-1]
     if xmlpath:
         os.chdir(xmlpath)
 
@@ -442,204 +586,219 @@ def run_xml(
     tree = ET.parse(xmlname)
     root = tree.getroot()
 
-    # Prepare dict and lists for collection
-    inputparams = {}
-    defaultfit = {}
-    overwriteparams = {}
-    fitparams = []
-    fitfreqs = {"active": False}
-    fitdist = False
-    stdout = sys.stdout
+    # Initialize parameters
+    # TODO(Amalie): remove inputparams or use a more precise type
+    inputparams: dict[str, Any] = {
+        "inputfile": xmlname,
+        "output": _find_get(root, "default/output", "path"),
+        "plotfmt": _find_get(root, "default/plotfmt", "value", "png"),
+        "nameinplot": strtobool(
+            _find_get(root, "default/nameinplot", "value", "False")
+        ),
+        "dnusun": float(
+            _find_get(root, "default/solardnu", "value", default=sydc.SUNdnu)
+        ),
+        "numsun": float(
+            _find_get(root, "default/solarnumax", "value", default=sydc.SUNnumax)
+        ),
+        "solarmodel": _find_get(root, "default/solarmodel", "value", ""),
+    }
 
-    # IO parameters
+    # Retrieve grid path
     grid = _find_get(root, "default/library", "path")
-    inputparams["inputfile"] = xmlname
-    inputparams["output"] = _find_get(root, "default/output", "path")
 
-    # Solar reference parameters
-    inputparams["dnusun"] = float(
-        _find_get(root, "default/solardnu", "value", sydc.SUNdnu)
-    )
-    inputparams["numsun"] = float(
-        _find_get(root, "default/solarnumax", "value", sydc.SUNnumax)
-    )
-    inputparams["solarmodel"] = _find_get(root, "default/solarmodel", "value", "")
-
-    # Format of outputted plots, default png for speed, pdf for vector art
-    inputparams["plotfmt"] = _find_get(root, "default/plotfmt", "value", "png")
-
-    # Switch to include star identifier in plots, not just in filename, False is default
-    inputparams["nameinplot"] = strtobool(
-        _find_get(root, "default/nameinplot", "value", "False")
-    )
-
-    # Path for science-cases in isochrones, only active for that case
+    # Handle BASTI-specific parameters
     bastiparams = root.find("default/basti")
     if bastiparams:
-        ove = float(_find_get(root, "default/basti/ove", "value"))
-        dif = float(_find_get(root, "default/basti/dif", "value"))
-        eta = float(_find_get(root, "default/basti/eta", "value"))
-        alphaFe = float(_find_get(root, "default/basti/alphaFe", "value"))
-        gridid = (ove, dif, eta, alphaFe)
+        gridid = (
+            float(_find_get(root, "default/basti/ove", "value")),
+            float(_find_get(root, "default/basti/dif", "value")),
+            float(_find_get(root, "default/basti/eta", "value")),
+            float(_find_get(root, "default/basti/alphaFe", "value")),
+        )
     else:
         gridid = None
 
-    # Type of reported values for centroid and reported uncertainties
-    inputparams = _centroid_and_uncert(root, inputparams)
+    # Handle centroid and uncertainty settings
+    inputparams = _define_centroid_and_uncertainties(root, inputparams)
+    centroid = inputparams["centroid"]
+    uncert = inputparams["uncert"]
+
+    # Restore original working directory
+    os.chdir(oldpath)
 
     # Check for frequency fitting and activate
-    if any(x.tag in freqtypes.alltypes for x in root.findall("default/fitparams/")):
-        fitfreqs["active"] = True
-        fitfreqs["fittypes"] = []
+    fitparams = [param.tag for param in root.findall("default/fitparams/")]
 
-    # Extract and classify fitparameters
-    for param in root.findall("default/fitparams/"):
-        if param.tag in freqtypes.alltypes:
-            fitfreqs["fittypes"].append(param.tag)
-        if param.tag == "parallax":
-            fitdist = True
-        fitparams.append(param.tag)
+    # TODO(Amalie): remove fitfreqs or use a more precise type
+    fitfreqs: dict[str, Any] = {}
+    fitfreqs["active"] = any(param in freqtypes.alltypes for param in fitparams)
+    fitfreqs["fittypes"] = [param for param in fitparams if param in freqtypes.alltypes]
+    fitdist = "parallax" in fitparams  # If parallax is included, fit for distance
 
     # Get global parameters
+    overwriteparams: dict[str, tuple[float, float]] = {}
+    overwritephasedif: dict[str, str] = {}
     for param in root.findall("default/overwriteparams/"):
         if param.tag in {"phase", "dif"}:
-            overwriteparams[param.tag] = param.get("value")
+            overwritephasedif[param.tag] = param.attrib["value"]
         else:
             overwriteparams[param.tag] = (
-                float(param.get("value")),
-                float(param.get("error")),
+                float(param.attrib["value"]),
+                float(param.attrib["error"]),
             )
 
-    # List of parameters for plots and out, follows fitparams if true
-    outparams = _get_true_or_list(root.findall("default/outparams/"), fitparams)
-    cornerplots = _get_true_or_list(root.findall("default/cornerplots/"), fitparams)
-    kielplots = _get_true_or_list(root.findall("default/kielplots/"))
-    freqplots = _get_true_or_list(root.findall("default/freqplots/"), check=False)
-    inputparams["asciiparams"] = unique_unsort(outparams)
-    inputparams["cornerplots"] = unique_unsort(cornerplots)
-    inputparams["kielplots"] = unique_unsort(kielplots)
-    inputparams["freqplots"] = freqplots
+    # Extract plotting parameters, defaulting to fitparams if "True"
+    asciiparams = unique_unsort(
+        _get_true_or_list(root.findall("default/outparams/"), fitparams)
+    )
+    inputparams.update(
+        {
+            "asciiparams": asciiparams,
+            "cornerplots": unique_unsort(
+                _get_true_or_list(root.findall("default/cornerplots/"), fitparams)
+            ),
+            "kielplots": unique_unsort(
+                _get_true_or_list(root.findall("default/kielplots/"))
+            ),
+            "freqplots": _get_true_or_list(
+                root.findall("default/freqplots/"), check=False
+            ),
+        }
+    )
 
-    # Check if distance output is requested
-    if "distance" in [*cornerplots, *outparams]:
+    # Check if distance output is required
+    if "distance" in inputparams["cornerplots"] or "distance" in asciiparams:
         fitdist = True
 
     # Extract parameters for frequency fitting
     if fitfreqs["active"]:
-        fitfreqs["freqpath"] = _find_get(root, "default/freqparams/freqpath", "value")
-        fitfreqs["fcor"] = _find_get(
-            root, "default/freqparams/fcor", "value", "cubicBG14"
-        )
-        if fitfreqs["fcor"] == "HK08":
-            fitfreqs["bexp"] = float(
-                _find_get(root, "default/freqparams/bexp", "value")
-            )
-        else:
-            fitfreqs["bexp"] = None
-        fitfreqs["correlations"] = strtobool(
-            _find_get(root, "default/freqparams/correlations", "value", "False")
-        )
-        fitfreqs["nrealizations"] = int(
-            _find_get(root, "default/freqparams/nrealizations", "value", 10000)
-        )
-        fitfreqs["threepoint"] = strtobool(
-            _find_get(root, "default/freqparams/threepoint", "value", "False")
-        )
-        fitfreqs["readratios"] = strtobool(
-            _find_get(root, "default/freqparams/readratios", "value", "False")
-        )
-        fitfreqs["dnufrac"] = float(
-            _find_get(root, "default/freqparams/dnufrac", "value", 0.15)
-        )
-        fitfreqs["dnufit_in_ratios"] = strtobool(
-            _find_get(root, "default/freqparams/dnufit_in_ratios", "value", "False")
-        )
-        fitfreqs["interp_ratios"] = strtobool(
-            _find_get(root, "default/freqparams/interp_ratios", "value", "True")
-        )
-        fitfreqs["nsorting"] = strtobool(
-            _find_get(root, "default/freqparams/nsorting", "value", "True")
-        )
-        fitfreqs["dnuprior"] = strtobool(
-            _find_get(root, "default/freqparams/dnuprior", "value", "True")
-        )
-        fitfreqs["dnubias"] = float(
-            _find_get(root, "default/freqparams/dnubias", "value", 0)
+        fitfreqs.update(
+            {
+                "freqpath": _find_get(root, "default/freqparams/freqpath", "value"),
+                "fcor": _find_get(
+                    root, "default/freqparams/fcor", "value", "cubicBG14"
+                ),
+                "bexp": (
+                    float(_find_get(root, "default/freqparams/bexp", "value"))
+                    if _find_get(root, "default/freqparams/fcor", "value", "cubicBG14")
+                    == "HK08"
+                    else None
+                ),
+                "correlations": strtobool(
+                    _find_get(root, "default/freqparams/correlations", "value", "False")
+                ),
+                "nrealizations": int(
+                    _find_get(root, "default/freqparams/nrealizations", "value", 10000)
+                ),
+                "threepoint": strtobool(
+                    _find_get(root, "default/freqparams/threepoint", "value", "False")
+                ),
+                "readratios": strtobool(
+                    _find_get(root, "default/freqparams/readratios", "value", "False")
+                ),
+                "dnufrac": float(
+                    _find_get(root, "default/freqparams/dnufrac", "value", 0.15)
+                ),
+                "dnufit_in_ratios": strtobool(
+                    _find_get(
+                        root, "default/freqparams/dnufit_in_ratios", "value", "False"
+                    )
+                ),
+                "interp_ratios": strtobool(
+                    _find_get(root, "default/freqparams/interp_ratios", "value", "True")
+                ),
+                "nsorting": strtobool(
+                    _find_get(root, "default/freqparams/nsorting", "value", "True")
+                ),
+                "dnuprior": strtobool(
+                    _find_get(root, "default/freqparams/dnuprior", "value", "True")
+                ),
+                "dnubias": float(
+                    _find_get(root, "default/freqparams/dnubias", "value", 0)
+                ),
+            }
         )
 
         # Read seismic weight quantities
-        dof = _find_get(root, "default/freqparams/dof", "value", None)
-        N = _find_get(root, "default/freqparams/N", "value", None)
         allowed_sweights = ["1/N", "1/1", "1/N-dof"]
         seisw = _find_get(root, "default/freqparams/seismicweight", "value", "1/N")
         if seisw not in allowed_sweights:
-            errmsg = "Tag 'seismicweight' defined as '{0}', but must be either '{1}'!"
-            raise KeyError(errmsg.format(seisw, ", ".join(allowed_sweights)))
-
-        # Fill weight related things into one dict  to not spam other routines with
-        # redundant input
-        fitfreqs["seismicweights"] = {"weight": seisw, "dof": dof, "N": N}
+            raise KeyError(
+                f"Tag 'seismicweight' defined as '{seisw}', but must be one of {allowed_sweights}!"
+            )
+        fitfreqs["seismicweights"] = {
+            "weight": seisw,
+            "dof": _find_get(root, "default/freqparams/dof", "value", None),
+            "N": _find_get(root, "default/freqparams/N", "value", None),
+        }
 
         # Detect glitch fitting activation
-        if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
-            fitfreqs["glitchfit"] = True
+        fitfreqs["glitchfit"] = any(
+            x in freqtypes.glitches for x in fitfreqs["fittypes"]
+        )
+        if fitfreqs["glitchfit"]:
             fitfreqs["readglitchfile"] = strtobool(
                 _find_get(root, "default/freqparams/readglitchfile", "value", "False")
             )
             if not fitfreqs["readglitchfile"]:
-                fitfreqs["glitchmethod"] = _find_get(
-                    root, "default/grparams/method", "value", "Freq"
+                fitfreqs.update(
+                    {
+                        "glitchmethod": _find_get(
+                            root, "default/grparams/method", "value", "Freq"
+                        ),
+                        "npoly_params": int(
+                            _find_get(root, "default/grparams/npoly_params", "value", 5)
+                        ),
+                        "nderiv": int(
+                            _find_get(root, "default/grparams/nderiv", "value", 3)
+                        ),
+                        "tol_grad": float(
+                            _find_get(root, "default/grparams/tol_grad", "value", 1e-3)
+                        ),
+                        "regu_param": float(
+                            _find_get(root, "default/grparams/regu_param", "value", 7)
+                        ),
+                        "nguesses": int(
+                            _find_get(root, "default/grparams/nguesses", "value", 200)
+                        ),
+                    }
                 )
-                fitfreqs["npoly_params"] = int(
-                    _find_get(root, "default/grparams/npoly_params", "value", 5)
-                )
-                fitfreqs["nderiv"] = int(
-                    _find_get(root, "default/grparams/nderiv", "value", 3)
-                )
-                fitfreqs["tol_grad"] = float(
-                    _find_get(root, "default/grparams/tol_grad", "value", 1e-3)
-                )
-                fitfreqs["regu_param"] = float(
-                    _find_get(root, "default/grparams/regu_param", "value", 7)
-                )
-                fitfreqs["nguesses"] = int(
-                    _find_get(root, "default/grparams/nguesses", "value", 200)
-                )
-        else:
-            fitfreqs["glitchfit"] = False
 
-    # Get bayesian weights
-    # --> If not provided by the user, assume them to be active
+    # Get bayesian weights (default: True)
     usebayw = strtobool(_find_get(root, "default/bayesianweights", "value", "True"))
 
-    # Get optional output files
-    optoutput = root.findall("default/optionaloutputfiles/")
-    useoptoutput = []
-    for param in optoutput:
-        if param.tag == "True":
-            useoptoutput = True
-        elif param.tag == "False":
-            useoptoutput = False
-        elif param.tag == "":
-            useoptoutput = False
-        else:
-            useoptoutput.append(param.tag)
+    # Extract optional output files
+    optoutput = [
+        param.tag for param in root.findall("default/optionaloutputfiles/") if param.tag
+    ]
+    useoptoutput = bool(optoutput)
 
     # Get priors
-    limits = {}
-    usepriors = []
+    priors: dict[str, Any] = {}
+    imf: str | None = None
     for param in root.findall("default/priors/"):
         if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
-            limits[param.tag] = [
+            priors[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
                 float(param.attrib.get("abstol", np.inf)),
                 float(param.attrib.get("sigmacut", np.inf)),
             ]
-        elif param.tag == "IMF":
-            usepriors.append("salpeter1955")
+        elif param.tag in [
+            "IMF",
+            "salpeter1955",
+            "millerscalo1979",
+            "kennicutt1994",
+            "scalo1998",
+            "kroupa2001",
+            "baldryglazebrook2003",
+            "chabrier2003",
+        ]:
+            assert imf is None
+            imf = param.tag
         else:
-            usepriors.append(param.tag)
+            raise ValueError
 
     # Get interpolation if requested (and if available!), otherwise empty dictionary
     if root.find("default/interpolation"):
@@ -652,289 +811,495 @@ def run_xml(
 
     # Path to ascii output file
     asciifile = _find_get(root, "default/outputfile", "value", "results.ascii")
-    asciifilepath = inputparams["output"] + asciifile
-    asciifile_dist = asciifilepath.split(".ascii")[0] + "_distance" + ".ascii"
-
-    # Path to error file
-    errfile = asciifile.rsplit(".", 1)[0] + ".err"
-    errfilepath = inputparams["output"] + errfile
-
-    # Path to warning file
-    warnfile = asciifile.rsplit(".", 1)[0] + ".warn"
-    warnfilepath = inputparams["output"] + warnfile
+    basepath = os.path.join(inputparams["output"], asciifile.rsplit(".", 1)[0])
+    output_paths = {
+        "ascii": basepath + ".ascii",
+        "xml": basepath + ".xml",
+        "ascii_distance": basepath + "_distance.ascii",
+        "error": basepath + ".err",
+        "warning": basepath + ".warn",
+    }
+    distancefilters = (
+        [f.tag for f in root.findall("default/distanceInput/filters/")]
+        if fitdist
+        else None
+    )
+    outputoptions = core.OutputOptions(
+        asciiparams=asciiparams,
+        uncert=uncert,
+        centroid=centroid,
+        optionaloutputs=useoptoutput,
+        debug=flag_debug,
+        verbose=verbose,
+        developermode=flag_developermode,
+        validationmode=flag_validationmode,
+    )
 
     # Make sure the output path exists
-    if not os.path.exists(inputparams["output"]):
-        os.makedirs(inputparams["output"])
+    os.makedirs(inputparams["output"], exist_ok=True)
 
     # First, delete any existing file, then open file for appending
     # --> This is essential when running on multiple stars
     with (
-        open(asciifilepath, "wb"),
-        open(asciifilepath, "ab+") as fout,
-        open(errfilepath, "w"),
-        open(errfilepath, "a+") as ferr,
-        open(warnfilepath, "w"),
-        open(warnfilepath, "a+") as fwarn,
+        open(output_paths["ascii"], "wb"),
+        open(output_paths["error"], "w"),
+        open(output_paths["warning"], "w"),
     ):
-        inputparams["asciioutput"] = fout
-        inputparams["erroutput"] = ferr
-        inputparams["warnoutput"] = fwarn
+        with (
+            open(output_paths["ascii"], "ab+") as fout,
+            open(output_paths["error"], "a+") as ferr,
+            open(output_paths["warning"], "a+") as fwarn,
+        ):
+            inputparams.update(
+                {"asciioutput": fout, "erroutput": ferr, "warnoutput": fwarn}
+            )
 
-        # Clear the distance-file if necessary
-        # --> Required because this file is not part of the with-statement
-        if os.path.exists(asciifile_dist):
-            tmp_dist = open(asciifile_dist, "wb+")
-            tmp_dist.close()
+            # Ensure distance file is cleared
+            if os.path.exists(output_paths["ascii_distance"]):
+                open(output_paths["ascii_distance"], "wb").close()
 
-        # Loop over stars
-        for star in root.findall("star"):
-            starid = star.get("starid")
-            starfitparams = {}
-            skipstar = False
+            if fitdist:
+                fout_dist: BufferedIOBase | None = open(
+                    output_paths["ascii_distance"], "ab+"
+                )
+            else:
+                fout_dist = None
+            runfiles = core.RunFiles(
+                runbasepath=basepath,
+                summarytable=fout,
+                summarytablepath=output_paths["ascii"],
+                distancesummarytable=fout_dist,
+                distancesummarytablepath=output_paths["ascii_distance"],
+                warnoutput=fwarn,
+                erroroutput=ferr,
+            )
 
-            # In case of interpolation, one needs to redefine this per star
-            gridfile = grid
+            # Loop over stars
+            for star in root.findall("star"):
+                starid = star.get("starid")
+                assert starid is not None
+                assert isinstance(starid, str)
+                starfitparams: dict[str, core.Fitparam] = {}
+                skipstar = False
+                gridfile = grid
 
-            # Get fitparameters for the given star
-            for param in fitparams:
-                # Entry of parameter for the star
-                if "dnu" in param:
-                    kid = star.find("dnu")
-                else:
-                    kid = star.find(param)
+                filepaths = core.FilePaths(
+                    starid=starid,
+                    outputdir=inputparams["output"],
+                    inputfile=inputparams["inputfile"],
+                    plotfmt=inputparams["plotfmt"],
+                )
 
-                # Skip reading for special fitting keys, dealt with later
-                if param in [*overwriteparams, *freqtypes.alltypes]:
-                    continue
+                # Get fitparameters for the given star
+                for param in fitparams:
+                    kid = star.find("dnu") if "dnu" in param else star.find(param)
 
-                # Handle the special phase tag behaviour
-                if param == "phase":
-                    if kid.get("value") is None:
-                        if "phase" in inputparams:
-                            inputparams.pop("phase")
-                    elif "," in kid.get("value"):
-                        inputparams["phase"] = tuple(kid.get("value").split(","))
-                    else:
-                        inputparams["phase"] = kid.get("value")
+                    if param in [
+                        *overwriteparams,
+                        *overwritephasedif,
+                        *freqtypes.alltypes,
+                    ]:
+                        continue  # Skip special fitting keys, handled later
 
-                # Handle the special diffusion tag behaviour
-                elif param == "dif":
-                    if kid.get("value") is None:
-                        if "dif" in inputparams:
-                            inputparams.pop("dif")
-                    else:
-                        inputparams["dif"] = kid.get("value")
+                    val = kid.get("value") if kid is not None else None
+                    err = kid.get("error") if kid is not None else None
 
-                # Handle general parameters
-                elif kid.get("value") is not None:
-                    starfitparams[param] = [
-                        float(kid.get("value")),
-                        float(kid.get("error")),
-                    ]
-
-                # Skip the current star, as it is missing input for param
-                else:
-                    skipstar = True
-                    msg = "Fitparameter '{0}' not provided for"
-                    msg += " star {1} and will be skipped"
-                    no_models(starid, inputparams, msg.format(param, starid))
-                    print(msg.format(param, starid))
-                    break
-
-            # Check if any overwriting of fitparameter is requested
-            for param in overwriteparams:
-                if param in fitparams:
-                    # Special phase and diffusion behaviour
-                    if param in {"phase", "dif"}:
-                        val = overwriteparams[param]
-                        if "," in val:
+                    # Handle the special phase tag behaviour
+                    if param in ["phase", "dif"]:
+                        if val is None:
+                            inputparams.pop(param, None)
+                        elif "," in val:
                             inputparams[param] = tuple(val.split(","))
                         else:
                             inputparams[param] = val
+                    elif val is not None:
+                        assert err is not None
+                        starfitparams[param] = (
+                            float(val),
+                            float(err),
+                        )
                     else:
-                        gparams = overwriteparams[param]
-                        starfitparams[param] = (float(gparams[0]), float(gparams[1]))
+                        skipstar = True
+                        msg = f"Fitparameter '{param}' not provided for star {starid} and will be skipped"
+                        no_models(
+                            starid,
+                            filepaths,
+                            runfiles,
+                            outputoptions,
+                            distancefilters,
+                            msg,
+                        )
+                        print(msg)
+                        break
 
-            # Collect by-star frequency fit information
-            if fitfreqs["active"]:
-                # Input files
-                fitfreqs["freqfile"] = os.path.join(
-                    fitfreqs["freqpath"], starid + ".xml"
-                )
-                if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"]:
-                    fitfreqs["glitchfile"] = os.path.join(
-                        fitfreqs["freqpath"], starid + ".hdf5"
+                # Check if any overwriting of fitparameter is requested
+                for param, gparams in overwriteparams.items():
+                    if param in fitparams:
+                        inputparams[param] = (float(gparams[0]), float(gparams[1]))
+
+                for param, phasedifparam in overwritephasedif.items():
+                    if param in fitparams:
+                        if "," in phasedifparam:
+                            inputparams[param] = tuple(
+                                map(float, phasedifparam.split(","))
+                            )
+                        else:
+                            inputparams[param] = float(phasedifparam), float(
+                                phasedifparam
+                            )
+
+                # Collect by-star frequency fit information
+                if fitfreqs["active"]:
+                    fitfreqs.update(
+                        {
+                            "freqfile": os.path.join(
+                                fitfreqs["freqpath"], f"{starid}.xml"
+                            ),
+                            "glitchfile": (
+                                os.path.join(fitfreqs["freqpath"], f"{starid}.hdf5")
+                                if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"]
+                                else None
+                            ),
+                            "dnufit": float(_find_get(star, "dnu", "value")),
+                            "numax": float(_find_get(star, "numax", "value")),
+                            "dnufit_err": float(
+                                _find_get(star, "dnu", "error", default="nan")
+                            ),
+                        }
                     )
+                    for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
+                        fp_element = star.find(fp)
+                        if fp_element is not None:
+                            fitfreqs[fp] = fp_element.get("value")
+                        else:
+                            fitfreqs[fp] = None
+                    inputparams["fitfreqs"] = fitfreqs
                 else:
-                    fitfreqs["glhfile"] = None
-                for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
-                    try:
-                        fitfreqs[fp] = star.find(fp).get("value")
-                    except AttributeError:
-                        fitfreqs[fp] = None
+                    inputparams["fitfreqs"] = {
+                        "active": False,
+                        "fittypes": [],
+                        "freqpath": "",
+                        "freqfile": "",
+                        "dnufit": -9999,
+                        "dnufit_err": -9999,
+                        "numax": -9999,
+                        "fcor": "",
+                        "seismicweights": {},
+                        "bexp": None,
+                        "correlations": False,
+                        "nrealizations": 10000,
+                        "threepoint": False,
+                        "readratios": False,
+                        "dnufrac": 0.15,
+                        "dnufit_in_ratios": False,
+                        "interp_ratios": True,
+                        "nsorting": True,
+                        "dnuprior": True,
+                        "dnubias": 0.0,
+                        "glitchfit": False,
+                        "glitchfile": None,
+                        "nottrustedfile": None,
+                        "excludemodes": None,
+                        "onlyradial": None,
+                    }
 
-                # dnufit for prior, numax for scaling
-                fitfreqs["dnufit"] = float(_find_get(star, "dnu", "value"))
-                fitfreqs["numax"] = float(_find_get(star, "numax", "value"))
+                # Add fitparams and limits
+                # inputparams["fitparams"] = starfitparams
+                inputparams["magnitudes"] = {}
+                inputparams["limits"] = {}
+                for param, (minval, maxval, abstol, nsigma) in priors.items():
+                    if param in starfitparams:
+                        val, err = starfitparams[param]
+                        abstol = max(abstol, 2 * err * nsigma)
+                        minval, maxval = max(minval, val - abstol / 2), min(
+                            maxval, val + abstol / 2
+                        )
+                    if minval != -np.inf or maxval != np.inf:
+                        inputparams["limits"][param] = [minval, maxval]
+
+                # Add parallax and other distance parameters to dictionary
+                if fitdist:
+                    assert distancefilters is not None
+                    # TODO(Amalie): add precise type for this in core
+                    distanceparams: dict[str, Any] = {
+                        "parallax": (
+                            [
+                                float(_find_get(star, "parallax", "value")),
+                                float(_find_get(star, "parallax", "error")),
+                            ]
+                            if "parallax" in fitparams
+                            else None
+                        ),
+                        "dustframe": _find_get(
+                            root, "default/distanceInput/dustframe", "value"
+                        ),
+                        "filters": distancefilters,
+                        "m": {},
+                        "m_err": {},
+                    }
+
+                    for coord in ["lon", "lat", "RA", "DEC"]:
+                        fc = star.find(coord)
+                        if fc is not None:
+                            distanceparams[coord] = float(fc.attrib["value"])
+
+                    # Load extinction or use dustmap
+                    EBV = star.find("EBV")
+                    if EBV is not None:
+                        distanceparams["EBV"] = [0, float(EBV.attrib["value"]), 0]
+                    else:
+                        distanceparams["EBV"] = []
+
+                    # Find available filters and load corresponding magnitudes
+                    for f in distanceparams["filters"]:
+                        try:
+                            star_f = star.find(f)
+                            assert star_f is not None
+                            distanceparams["m"][f] = float(star_f.attrib["value"])
+                            distanceparams["m_err"][f] = float(star_f.attrib["error"])
+                        except Exception:
+                            print("WARNING: Could not find values for " + f)
+
+                    inputparams["distanceparams"] = distanceparams
+                else:
+                    inputparams["distanceparams"] = {
+                        "parallax": [],
+                        "dustframe": "",
+                        "filters": [],
+                        "m": {},
+                        "m_err": {},
+                        "RA": -9999,
+                        "DEC": -9999,
+                        "EBV": [],
+                    }
+
+                # Seperate treatment of distance output file
+                if "distance" in inputparams["asciiparams"]:
+                    with open(output_paths["ascii_distance"], "ab+") as fout_dist:
+                        inputparams["asciioutput_dist"] = fout_dist
+
+                # Skip star if it was marked as broken earlier
+                if skipstar:
+                    continue
+
+                # Perform interpolation routine if requested
                 try:
-                    fitfreqs["dnufit_err"] = float(_find_get(star, "dnu", "error"))
-                except ValueError:
-                    pass
-
-            # Add to inputparams
-            inputparams["fitfreqs"] = fitfreqs
-
-            # Add parameters to inputparams
-            inputparams["fitparams"] = starfitparams
-            inputparams["magnitudes"] = {}
-
-            # Add limits to inputparams
-            inputparams["limits"] = {}
-            for param in limits:
-                minval, maxval, abstol, nsigma = limits[param]
-                # Decide which limits to use if both min/max and abstol is specified
-                if param in inputparams["fitparams"]:
-                    val, error = inputparams["fitparams"][param]
-                    if error * nsigma < abstol / 2.0:
-                        abstol = 2 * error * nsigma
-                    minval = max(minval, val - abstol / 2.0)
-                    maxval = min(maxval, val + abstol / 2.0)
-                if minval != -np.inf or maxval != np.inf:
-                    inputparams["limits"][param] = [minval, maxval]
-
-            # Add parallax and other distance parameters to dictionary
-            if fitdist:
-                distanceparams = {}
-
-                # Fitting parallax? Storing in distparams for info
-                if "parallax" in fitparams:
-                    distanceparams["parallax"] = [
-                        float(_find_get(star, "parallax", "value")),
-                        float(_find_get(star, "parallax", "error")),
-                    ]
-
-                # Handle coordinate values
-                for coord in ["lon", "lat", "RA", "DEC"]:
-                    fc = star.find(coord)
-                    if fc is not None:
-                        distanceparams[coord] = float(fc.get("value"))
-
-                # Load extinction or use dustmap
-                EBV = star.find("EBV")
-                if EBV is not None:
-                    val = float(EBV.get("value"))
-                    distanceparams["EBV"] = [0, val, 0]
-
-                distanceparams["dustframe"] = _find_get(
-                    root, "default/distanceInput/dustframe", "value"
-                )
-
-                # Find available filters and load corresponding magnitudes
-                distanceparams["filters"] = []
-                distanceparams["m"] = {}
-                distanceparams["m_err"] = {}
-                for f in root.findall("default/distanceInput/filters/"):
-                    distanceparams["filters"].append(f.tag)
-                for f in distanceparams["filters"]:
-                    try:
-                        distanceparams["m"][f] = float(star.find(f).get("value"))
-                        distanceparams["m_err"][f] = float(star.find(f).get("error"))
-                    except Exception:
-                        print("WARNING: Could not find values for " + f)
-
-                # Store in inputparams
-                inputparams["distanceparams"] = distanceparams
-
-            # Seperate treatment of distance output file
-            if "distance" in inputparams["asciiparams"]:
-                fout_dist = open(asciifile_dist, "ab+")
-                inputparams["asciioutput_dist"] = fout_dist
-
-            # Check if star has been broken along the way
-            if skipstar:
-                continue
-
-            # Call interpolation routine
-            try:
-                if starid in allintpol:
-                    gridfile = perform_interpolation(
-                        gridfile,
-                        gridid,
-                        allintpol[starid],
-                        inputparams,
-                        debug=debug,
+                    if starid in allintpol:
+                        gridfile = perform_interpolation(
+                            gridfile,
+                            gridid,
+                            allintpol[starid],
+                            inputparams,
+                            debug=flag_debug,
+                        )
+                except KeyboardInterrupt:
+                    print("BASTA interpolation stopped manually. Goodbye!")
+                    traceback.print_exc()
+                    return
+                except ValueError as e:
+                    print("\nBASTA interpolation stopped due to a value error!\n")
+                    traceback.print_exc()
+                    write_star_to_errfile(starid, runfiles, f"Interpolation Error: {e}")
+                    continue
+                except Exception as e:
+                    error_msg = f"BASTA interpolation failed for star {starid}: {e}"
+                    print(error_msg)
+                    print(traceback.format_exc())
+                    no_models(
+                        starid,
+                        filepaths,
+                        runfiles,
+                        outputoptions,
+                        distancefilters,
+                        f"Unhandled Error: {e}",
                     )
-            except KeyboardInterrupt:
-                print("BASTA interpolation stopped manually. Goodbye!")
-                traceback.print_exc()
-                return
-            except ValueError as e:
-                print("\nBASTA interpolation stopped due to a value error!\n")
-                traceback.print_exc()
-                write_star_to_errfile(
-                    starid,
-                    inputparams,
-                    f"Interpolation {e.__class__.__name__}: {e}",
-                )
-                continue
-            except Exception as e:
-                print(f"BASTA interpolation failed for star {starid} with the error:")
-                print(traceback.format_exc())
-                no_models(
-                    starid,
-                    inputparams,
-                    f"Unhandled {e.__class__.__name__}: {e}",
+
+                # Call BASTA itself!
+                distparams = core.DistanceParameters(
+                    magnitudes={
+                        f: (m, m_err)
+                        for f, m, m_err in zip(
+                            inputparams["distanceparams"]["filters"],
+                            inputparams["distanceparams"]["m"].values(),
+                            inputparams["distanceparams"]["m_err"].values(),
+                        )
+                    },
+                    coordinates={
+                        "frame": inputparams["distanceparams"]["dustframe"],
+                        "RA": inputparams["distanceparams"]["RA"],
+                        "DEC": inputparams["distanceparams"]["DEC"],
+                    },
+                    params={
+                        "parallax": inputparams["distanceparams"]["parallax"],
+                    },
+                    EBV=inputparams["distanceparams"]["EBV"],
                 )
 
-            # Call BASTA itself!
-            try:
-                BASTA(
+                prefixes = ("dnu", "numax")
+                classicalparams = core.ClassicalParameters(
+                    params={
+                        k: v
+                        for k, v in starfitparams.items()
+                        if not k.startswith(prefixes)
+                        and k
+                        not in [
+                            "parallax",
+                        ]
+                    }
+                )
+                numaxdnuparams = {
+                    k: core.ScaledValueError(original=v, scale=1.0)
+                    for k, v in starfitparams.items()
+                    if k.startswith(prefixes)
+                }
+                if not numaxdnuparams:
+                    numaxdnuparams = {
+                        "dnufit": core.ScaledValueError(
+                            original=(fitfreqs["dnufit"], fitfreqs["dnufit_err"]),
+                            scale=1.0,
+                        ),
+                        "numax": core.ScaledValueError(
+                            original=(fitfreqs["numax"], 0.05 * fitfreqs["numax"]),
+                            scale=1.0,
+                        ),
+                    }
+                globalseismicparams = core.GlobalSeismicParameters(
+                    params=numaxdnuparams,
+                )
+
+                if inputparams["fitfreqs"]["fcor"] == "":
+                    surfacecorrection = None
+                else:
+                    surfcor = constants.SeismicfitAliases.scalias[
+                        inputparams["fitfreqs"]["fcor"].lower()
+                    ]
+                    surfacecorrection = {
+                        surfcor: (
+                            {"bexp": inputparams["fitfreqs"]["bexp"]}
+                            if surfcor == "KBC08"
+                            else {}
+                        )
+                    }
+                star = core.InputStar(
                     starid=starid,
-                    gridfile=gridfile,
-                    inputparams=inputparams,
-                    gridid=gridid,
-                    usebayw=usebayw,
-                    usepriors=usepriors,
-                    optionaloutputs=useoptoutput,
+                    classicalparams=classicalparams,
+                    globalseismicparams=globalseismicparams,
+                    distanceparams=distparams,
+                    freqpath=inputparams["fitfreqs"]["freqpath"],
+                    freqfile=inputparams["fitfreqs"]["freqfile"],
+                    surfacecorrection=surfacecorrection,
+                    correlations=inputparams["fitfreqs"]["correlations"],
+                    nottrustedfile=inputparams["fitfreqs"]["nottrustedfile"],
+                    excludemodes=inputparams["fitfreqs"]["excludemodes"],
+                    onlyradial=inputparams["fitfreqs"]["onlyradial"],
+                    readratios=inputparams["fitfreqs"]["readratios"],
+                    threepoint=inputparams["fitfreqs"]["threepoint"],
+                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
+                    nrealizations=inputparams["fitfreqs"]["nrealizations"],
+                    glitchfile=inputparams["fitfreqs"]["glitchfile"],
+                    nsorting=inputparams["fitfreqs"]["nsorting"],
+                    dnubias=inputparams["fitfreqs"]["dnubias"],
+                )
+                boxpriors: dict[str, core.PriorEntry] = {}
+                for param in root.findall("default/priors/"):
+                    param_name = param.tag
+                    kwargs = {}
+
+                    # Only include these if they are present
+                    for key in ["min", "max", "abstol", "sigmacut"]:
+                        if key in param.attrib:
+                            kwargs[key] = float(param.attrib[key])
+                    if param_name == "IMF":
+                        param_name = "salpeter1955"
+                    if param_name in imfs.PRIOR_FUNCTIONS:
+                        continue
+                    boxpriors[param_name] = core.PriorEntry(
+                        kwargs=kwargs if kwargs else {}
+                    )
+                # Add dnufrac to priors
+                if inputparams["fitfreqs"]["dnufrac"] is not None:
+                    boxpriors["dnufrac"] = core.PriorEntry(
+                        kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
+                    )
+                inferencesettings = core.InferenceSettings(
+                    fitparams=fitparams,
                     seed=seed,
-                    debug=debug,
-                    verbose=verbose,
-                    developermode=developermode,
-                    validationmode=validationmode,
+                    gridfile=gridfile,
+                    gridid=gridid,
+                    solarmodel=inputparams["solarmodel"],
+                    solarvalues={
+                        "numax": inputparams["numsun"],
+                        "dnu": inputparams["dnusun"],
+                    },
+                    usebayw=bool(usebayw),
+                    boxpriors=boxpriors,
+                    imf=imf,
+                    fit_surfacecorrected_dnu=inputparams["fitfreqs"][
+                        "dnufit_in_ratios"
+                    ],
+                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
+                    dnuprior=inputparams["fitfreqs"]["dnuprior"],
+                    seismicweights=inputparams["fitfreqs"]["seismicweights"],
                 )
-            except KeyboardInterrupt:
-                print("BASTA stopped manually. Goodbye!")
-                traceback.print_exc()
-                return
-            except LibraryError:
-                print("BASTA stopped due to a library error!")
-                return
-            except Exception as e:
-                print(f"BASTA failed for star {starid} with the error:")
-                print(traceback.format_exc())
-                no_models(
-                    starid,
-                    inputparams,
-                    f"Unhandled {e.__class__.__name__}: {e}",
+                plotconfig = core.PlotConfig(
+                    nameinplot=inputparams["nameinplot"],
+                    kielplots=inputparams["kielplots"],
+                    cornerplots=inputparams["cornerplots"],
+                    freqplots=inputparams["freqplots"],
                 )
+                try:
+                    BASTA(
+                        star=star,
+                        inferencesettings=inferencesettings,
+                        filepaths=filepaths,
+                        runfiles=runfiles,
+                        outputoptions=outputoptions,
+                        plotconfig=plotconfig,
+                    )
+                #                     BASTA(
+                #                         starid=starid,
+                #                         gridfile=gridfile,
+                #                         inputparams=inputparams,
+                #                         gridid=gridid,
+                #                         usebayw=usebayw,
+                #                         usepriors=usepriors,
+                #                         optionaloutputs=useoptoutput,
+                #                         seed=seed,
+                #                         debug=flag_debug,
+                #                         verbose=verbose,
+                #                         developermode=flag_developermode,
+                #                         validationmode=flag_validationmode,
+                #                     )
+                except KeyboardInterrupt:
+                    print("BASTA stopped manually. Goodbye!")
+                    traceback.print_exc()
+                    return
+                except LibraryError:
+                    print("BASTA stopped due to a library error!")
+                    return
+                except Exception as e:
+                    error_msg = f"BASTA failed for star {starid} due to: {e}"
+                    print(error_msg)
+                    print(traceback.format_exc())
+                    no_models(
+                        starid,
+                        filepaths,
+                        runfiles,
+                        outputoptions,
+                        distancefilters,
+                        f"Unhandled Error: {e}",
+                    )
 
-            # Make sure to write to file, and clear memory
-            if "distance" in inputparams["asciiparams"]:
-                fout_dist.flush()
-            sys.stdout = stdout
-            fout.flush()
-            ferr.flush()
-            fwarn.flush()
-            gc.collect()
+                fout.flush()
+                ferr.flush()
+                fwarn.flush()
+                if fout_dist is not None:
+                    fout_dist.flush()
 
-    # Create XML output from results.ascii
-    xmlfilepath = asciifilepath.rsplit(".", 1)[0] + ".xml"
-    ascii_to_xml(asciifilepath, xmlfilepath, uncert=inputparams["uncert"])
-
-    # If the distance file was opened, close it again
-    if "distance" in inputparams["asciiparams"]:
-        fout_dist.close()
+    ascii_to_xml(
+        output_paths["ascii"], output_paths["xml"], uncert=outputoptions.uncert
+    )
 
     # Reset path and return
-    os.chdir(oldpath)
+    if os.getcwd() != oldpath:
+        os.chdir(oldpath)
