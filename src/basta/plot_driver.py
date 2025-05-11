@@ -377,21 +377,3 @@ def plot_all_seismic(
                         f"\nEpsilon difference correlation map for {epsseq} sequence failed with the error:",
                         e,
                     )
-
-    if obsfreqmeta["getepsdiff"] and debug:
-        if len(obsfreqmeta["epsdiff"]["plot"]) > 0:
-            try:
-                plot_seismic.epsilon_difference_components_diagram(
-                    mod=maxmod,
-                    modkey=maxmodkey,
-                    moddnu=maxmoddnu,
-                    obs=obs,
-                    obskey=obskey,
-                    dnudata=obsfreqdata["freqs"]["dnudata"],
-                    obsfreqdata=obsfreqdata,
-                    obsfreqmeta=obsfreqmeta,
-                    outputfilename=plotfname.format("DEBUG_epsdiff_components"),
-                )
-            except Exception as e:
-                print("\nEpsilon difference compoenent plot failed with the error:", e)
-    return
