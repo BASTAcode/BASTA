@@ -6,7 +6,7 @@ import os
 import sys
 import time
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 
 from basta import interpolation_across as iac
@@ -62,14 +62,16 @@ def _redundancy_print(case, intpol) -> None:
         Dictionary of all interpolation input.
     """
 
-    red = False
+    red: list[str] | None = None
     if case == "along" and "gridresolution" in intpol:
         red = ["Grid", "along"]
     elif case == "across" and "trackresolution" in intpol:
         red = ["Track", "across"]
-    prtstr = "Warning: {0}resolution is set for {1} interpolation but is ignored."
     if red:
-        print(prtstr.format(red[0], red[1]))
+        print(
+            f"Warning: {red[0]}resolution is set for {red[1]} "
+            "interpolation but is ignored."
+        )
 
 
 def _unpack_intpol(intpol, dnusun, basepath):
@@ -153,7 +155,7 @@ def _unpack_intpol(intpol, dnusun, basepath):
             )
             raise
 
-    # TODO: While no Cartesian formulation of isochrone interpolation
+    # TODO(Mark): While no Cartesian formulation of isochrone interpolation
     if gridres is not None and ("grid" not in basepath and "scale" not in gridres):
         prtstr = "\nERROR! Isochrones can currently not be interpolated across with"
         prtstr += " a Cartesian, please specify 'scale' for Sobol interpolation!"
@@ -382,7 +384,7 @@ def _interpolate_grid(
             for key in outfile[libname].keys():
                 keypath = os.path.join(libname, key)
                 vec = outfile[keypath][()]
-                if type(vec) != np.ndarray:
+                if not isinstance(vec, np.ndarray):
                     continue
                 # If osc or osckey, transform to 2D index array
                 if len(vec.shape) > 1:
@@ -449,7 +451,6 @@ def perform_interpolation(
         intime = Grid["header/interpolation_time"][()]
     except KeyError:
         Grid.close()
-        grid_is_intpol = False
     else:
         print(
             "WARNING! The use of interpolation was requested. However,",
