@@ -160,9 +160,11 @@ def _bastamain(
     noofskips = [0, 0]
 
     # In some cases we need to store quantities computed at runtime
-    # TODO(Amalie) Why do we need this? Is this the right logic?
+    quantities_at_runtime = {}
     if inferencesettings.has_glitches:
-        glitchmodels = {}
+        quantities_computed_at_runtime["glitches"] = {}
+    if inferencesettings.fit_surfacecorrected_dnu:
+        quantities_computed_at_runtime["surfacecorrected_dnu"] = {}
 
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
@@ -215,30 +217,46 @@ def _bastamain(
 
             # Check which models have l=0, lowest n within tolerance
             if inferencesettings.has_any_seismic_case:
+                assert star.modes is not None
                 for ind in np.where(index)[0]:
-                    rawmod = libitem["osc"][ind]
-                    rawmodkey = libitem["osckey"][ind]
-                    mod = su.transform_obj_array(rawmod)
-                    modkey = su.transform_obj_array(rawmodkey)
-                    modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
+                    model_modes = core.make_model_modes_from_ln_freqinertia(
+                        libitem["osckey"][ind], libitem["osc"][ind]
+                    )
+                    radial_model_modes = model_modes.of_angular_degree(0)
+                    lowest_obs_radial = (
+                        star.modes.modes.lowest_observed_radial_frequency
+                    )
+                    same_n = radial_model_modes.n == lowest_obs_radial.n[0]
+                    if np.sum(same_n) < 1:
+                        continue
+                    model_equivalent = radial_model_modes[same_n]
+                    # rawmod = libitem["osc"][ind]
+                    # rawmodkey = libitem["osckey"][ind]
+                    # mod = su.transform_obj_array(rawmod)
+                    # modkey = su.transform_obj_array(rawmodkey)
+                    # modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
                     # As mod is ordered (stacked in increasing n and l),
                     # then [0, 0] is the lowest l=0 mode
-                    same_n = modkeyl0[1, :] == obskey[1, 0]
-                    cl0 = modl0[0, same_n]
-                    if cl0.size == 0:
-                        continue
-                    elif cl0.size > 1:
-                        cl0 = cl0[0]
+                    # same_n = modkeyl0[1, :] == obskey[1, 0]
+                    # cl0 = modl0[0, same_n]
+                    # if cl0.size == 0:
+                    #    continue
+                    # elif cl0.size > 1:
+                    #    cl0 = cl0[0]
 
-                    cl0 = cl0.item()
-                    anchordist = cl0 - obs[0, 0]
+                    # cl0 = cl0.item()
+                    anchordist = (
+                        lowest_obs_radial.frequencies - model_equivalent.frequencies
+                    )
                     dnutype = "dnufit"
+                    # TODO(Amalie) these quantitites could be computed outside loop
                     dnufrac = inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
                     dnu = star.globalseismicparams.get_scaled(dnutype)[0]
-                    lower_threshold = -max(dnufrac / 2 * dnu, 3 * obs[1, 0])
+                    lower_threshold = -max(
+                        dnufrac / 2 * dnu, 3 * lowest_observed_radial_frequency.errors
+                    )
                     upper_threshold = dnufrac * dnu
 
-                    # TODO(Amalie) This seems too restrictive as a default!
                     index &= lower_threshold < anchordist <= upper_threshold
 
             # TODO(Amalie) rewrite this to a function
@@ -279,7 +297,13 @@ def _bastamain(
                         chi2[indd] += chi2_freq
 
                         if inferencesettings.glitchfit:
-                            glitchpar[indd] = addpars["glitchparams"]
+                            quantities_computed_at_runtime["glitches"][indd] = addpars[
+                                "glitchparams"
+                            ]
+                        if inferencesettings.fit_surfacecorrected_dnu:
+                            quantities_computed_at_runtime["surfacecorrected_dnu"][
+                                indd
+                            ] = addpars["dnusurf"]
 
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
@@ -454,6 +478,8 @@ def _bastamain(
         print(
             "Did not get any frequency file input, skipping ratios and echelle plots."
         )
+
+    # TODO(Amalie) Write quantities_computed_at_runtime to json file
 
     # Save dictionary with full statistics
     if outputoptions.optionaloutputs:
