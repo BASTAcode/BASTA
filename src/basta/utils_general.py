@@ -1248,3 +1248,14 @@ def list_phases(star: core.Star) -> list[int]:
         return [constants.phasemap.pmap[ip] for ip in star.phase]
     else:
         return [constants.phasemap.pmap[star.phase]]
+
+
+def should_skip_due_to_diffusion(libitem, star: core.Star):
+    """
+    Check if the current track should be skipped based on given diffusion.
+    """
+    if any(np.isin(["dif", "diffusion"], list(star.classicalparams.params.keys()))):
+        lib_dif = int(round(libitem["dif"][0]))
+        star_dif = int(round(float(star.classicalparams.params["dif"][0])))
+        return lib_dif != star_dif
+    return False

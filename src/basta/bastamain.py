@@ -194,14 +194,8 @@ def _bastamain(
                 if libitem["IntStatus"][()] < 0:
                     continue
 
-            # TODO(Amalie) This would be easier to read if it was a prior? function? handled earlier?
-            if any(
-                np.isin(["dif", "diffusion"], list(star.classicalparams.params.keys()))
-            ):
-                if int(round(libitem["dif"][0])) != int(
-                    round(float(star.classicalparams.params["dif"][0]))
-                ):
-                    continue
+            if util.should_skip_due_to_diffusion(libitem=libitem, star=star):
+                continue
 
             index = np.ones(len(libitem["age"][:]), dtype=bool)
 
@@ -215,49 +209,51 @@ def _bastamain(
                 phaseindex = np.isin(libitem["phase"][:], iphases)
                 index &= phaseindex
 
-            # Check which models have l=0, lowest n within tolerance
             if inferencesettings.has_any_seismic_case:
                 assert star.modes is not None
-                for ind in np.where(index)[0]:
-                    model_modes = core.make_model_modes_from_ln_freqinertia(
-                        libitem["osckey"][ind], libitem["osc"][ind]
-                    )
-                    radial_model_modes = model_modes.of_angular_degree(0)
-                    lowest_obs_radial = (
-                        star.modes.modes.lowest_observed_radial_frequency
-                    )
-                    same_n = radial_model_modes.n == lowest_obs_radial.n[0]
-                    if np.sum(same_n) < 1:
-                        continue
-                    model_equivalent = radial_model_modes[same_n]
-                    # rawmod = libitem["osc"][ind]
-                    # rawmodkey = libitem["osckey"][ind]
-                    # mod = su.transform_obj_array(rawmod)
-                    # modkey = su.transform_obj_array(rawmodkey)
-                    # modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
-                    # As mod is ordered (stacked in increasing n and l),
-                    # then [0, 0] is the lowest l=0 mode
-                    # same_n = modkeyl0[1, :] == obskey[1, 0]
-                    # cl0 = modl0[0, same_n]
-                    # if cl0.size == 0:
-                    #    continue
-                    # elif cl0.size > 1:
-                    #    cl0 = cl0[0]
+                if inferencesettings.boxpriors.get("anchormodecut"):
+                    # Check which models have l=0, lowest n within tolerance
+                    for ind in np.where(index)[0]:
+                        model_modes = core.make_model_modes_from_ln_freqinertia(
+                            libitem["osckey"][ind], libitem["osc"][ind]
+                        )
+                        radial_model_modes = model_modes.of_angular_degree(0)
+                        lowest_obs_radial = (
+                            star.modes.modes.lowest_observed_radial_frequency
+                        )
+                        same_n = radial_model_modes.n == lowest_obs_radial.n[0]
+                        if np.sum(same_n) < 1:
+                            continue
+                        model_equivalent = radial_model_modes[same_n]
+                        # rawmod = libitem["osc"][ind]
+                        # rawmodkey = libitem["osckey"][ind]
+                        # mod = su.transform_obj_array(rawmod)
+                        # modkey = su.transform_obj_array(rawmodkey)
+                        # modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
+                        # As mod is ordered (stacked in increasing n and l),
+                        # then [0, 0] is the lowest l=0 mode
+                        # same_n = modkeyl0[1, :] == obskey[1, 0]
+                        # cl0 = modl0[0, same_n]
+                        # if cl0.size == 0:
+                        #    continue
+                        # elif cl0.size > 1:
+                        #    cl0 = cl0[0]
 
-                    # cl0 = cl0.item()
-                    anchordist = (
-                        lowest_obs_radial.frequencies - model_equivalent.frequencies
-                    )
-                    dnutype = "dnufit"
-                    # TODO(Amalie) these quantitites could be computed outside loop
-                    dnufrac = inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
-                    dnu = star.globalseismicparams.get_scaled(dnutype)[0]
-                    lower_threshold = -max(
-                        dnufrac / 2 * dnu, 3 * lowest_observed_radial_frequency.errors
-                    )
-                    upper_threshold = dnufrac * dnu
+                        # cl0 = cl0.item()
+                        anchordist = (
+                            lowest_obs_radial.frequencies - model_equivalent.frequencies
+                        )
+                        dnutype = "dnufit"
+                        # TODO(Amalie) these quantitites could be computed outside loop
+                        dnufrac = inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
+                        dnu = star.globalseismicparams.get_scaled(dnutype)[0]
+                        lower_threshold = -max(
+                            dnufrac / 2 * dnu,
+                            3 * lowest_observed_radial_frequency.errors,
+                        )
+                        upper_threshold = dnufrac * dnu
 
-                    index &= lower_threshold < anchordist <= upper_threshold
+                        index &= lower_threshold < anchordist <= upper_threshold
 
             # TODO(Amalie) rewrite this to a function
             # If any models are within tolerances, calculate statistics

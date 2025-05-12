@@ -81,6 +81,15 @@ def get_dnufrac_limits(
     return dnufrac_limits
 
 
+def get_anchormodecut(
+    priors: dict[str, core.PriorEntry],
+    inputstar: core.InputStar,
+    dnutype: str = "dnufit",
+) -> dict[str, tuple[float, float]]:
+    # anchormodecut
+    pass
+
+
 def get_limits(
     inputstar: core.InputStar,
     inferencesettings: core.InferenceSettings,
