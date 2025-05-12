@@ -63,6 +63,24 @@ def gridlimits(
     )
 
 
+def get_dnufrac_limits(
+    priors: dict[str, core.PriorEntry],
+    inputstar: core.InputStar,
+    dnutype: str = "dnufit",
+) -> dict[str, tuple[float, float]]:
+    dnufrac = priors.get("dnufrac")
+
+    dnufrac_limits: dict[str, tuple[float, float]] = {}
+    if isinstance(dnufrac, core.PriorEntry):
+        if dnutype in inputstar.globalseismicparams.params:
+            dnu_value, dnu_error = inputstar.globalseismicparams.get_scaled(dnutype)
+            frac = dnufrac.kwargs[dnutype]
+            three_sigma = 3 * dnu_error
+            delta = min(three_sigma, frac * dnu_value)
+            dnufrac_limits = {dnutype: (max(0.0, dnu_value - delta), dnu_value + delta)}
+    return dnufrac_limits
+
+
 def get_limits(
     inputstar: core.InputStar,
     inferencesettings: core.InferenceSettings,
@@ -96,16 +114,7 @@ def get_limits(
         gridcut if isinstance(gridcut, dict) else {}
     )
 
-    dnufrac = priors.get("dnufrac")
-    dnufrac_limits: dict[str, tuple[float, float]] = {}
-    if isinstance(dnufrac, core.PriorEntry):
-        dnutype = "dnufit"
-        if dnutype in params:
-            dnu_value, dnu_error = inputstar.globalseismicparams.get_scaled(dnutype)
-            frac = dnufrac.kwargs[dnutype]
-            three_sigma = 3 * dnu_error
-            delta = min(three_sigma, frac * dnu_value)
-            dnufrac_limits = {dnutype: (max(0.0, dnu_value - delta), dnu_value + delta)}
+    dnufrac_limits = get_dnufrac_limits(priors=priors, inputstar=inputstar)
 
     all_dimensions = (
         set(priors.keys())
