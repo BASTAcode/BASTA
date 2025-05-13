@@ -5,15 +5,11 @@ Interpolation for BASTA: Helper routines
 import os
 import warnings
 
+import bottleneck as bn  # type: ignore[import]
 import numpy as np
-import bottleneck as bn
+from scipy import interpolate  # type: ignore[import]
+from scipy.stats import qmc  # type: ignore[import]
 from tqdm import tqdm
-from scipy import interpolate
-from scipy.stats import qmc
-import matplotlib.pyplot as plt
-from matplotlib.backends.backend_pdf import PdfPages
-
-from basta import utils_seismic as su
 
 
 # ======================================================================================
@@ -175,7 +171,7 @@ def get_selectedmodels(grid, basepath, limits, cut=True, show_progress=True):
     # estimate the progress.
     if show_progress:
         trackcount = 0
-        for _, tracks in grid[basepath].items():
+        for tracks in grid[basepath].values():
             trackcount += len(tracks.items())
         pbar = tqdm(total=trackcount, desc="--> Transversing grid", ascii=True)
 
@@ -329,7 +325,7 @@ def calc_along_points(intbase, sections, minmax, point, envres=None, resvalue=No
     if resvalue and N < Nres:
         N = Nres
     elif resvalue:
-        print("Warning: Reduced resolution from {0} to {1}".format(N, Nres))
+        print(f"Warning: Reduced resolution from {N} to {Nres}")
         N = Nres
 
     # Making new interpolation base
@@ -356,7 +352,7 @@ def interpolate_frequencies(
     triangulation,
     newvec,
     freqlims=None,
-):
+) -> tuple[list[np.ndarray], list[np.ndarray]]:
     """
     Perform interpolation in individual oscillation frequencies in a reduced track.
 
@@ -407,7 +403,7 @@ def interpolate_frequencies(
     """
 
     available_lvalues = [0, 1, 2]
-    along = type(triangulation) == np.ndarray
+    along = isinstance(triangulation, np.ndarray)
     #
     # *** BLOCK 1: Determine and allocate matrix sizes ***
     #
@@ -457,8 +453,10 @@ def interpolate_frequencies(
     # iterations).
 
     for modid in range(Ntrack):
-        osc = fullosc[modid]
-        osckey = fullosckey[modid]
+        osc: np.ndarray | None = fullosc[modid]
+        osckey: np.ndarray | None = fullosckey[modid]
+        assert osc is not None
+        assert osckey is not None
         for ll in available_lvalues:
             nmin, _ = nranges[ll]
             lmask = osckey[0, :] == ll
@@ -555,10 +553,12 @@ def interpolate_frequencies(
     # frequency limits), it will produce an empty array instead, and is
     # thus skipped over in the fit.
 
-    osclist, osckeylist = [], []
+    osclist: list[np.ndarray] = []
+    osckeylist: list[np.ndarray] = []
 
     for modid in range(Nnew):
-        osc, osckey = None, None
+        osc = None
+        osckey = None
         for ll in available_lvalues:
             matrix = newfreqs[ll]
             nmin, _ = nranges[ll]
@@ -574,14 +574,17 @@ def interpolate_frequencies(
             keys[1][:] = np.arange(matrix.shape[1]) + nmin
 
             # Create or stack list
-            if type(osc) != np.ndarray:
+            if osc is None:
                 osc = fres
                 osckey = keys
             else:
+                assert osckey is not None
                 osc = np.hstack((osc, fres))
                 osckey = np.hstack((osckey, keys))
 
         # Remove nan modes
+        assert osc is not None
+        assert osckey is not None
         nanmask = np.isnan(osc[0][:])
         osc = osc[:, ~nanmask]
         osckey = osckey[:, ~nanmask]
@@ -595,7 +598,7 @@ def interpolate_frequencies(
 # ======================================================================================
 # Management of header and weights
 # ======================================================================================
-def update_header(outfile, basepath, headvars):
+def update_header(outfile, basepath, headvars) -> None:
     """
     Rewrites the header with the information from the new tracks.
 
@@ -627,7 +630,7 @@ def update_header(outfile, basepath, headvars):
             headpath = os.path.join("header", basepath, var)
         if var not in ["tracks", "isochs"]:
             values = np.zeros(ltracks)
-            for _, group in outfile[basepath].items():
+            for group in outfile[basepath].values():
                 for n, (_, libitem) in enumerate(group.items()):
                     if libitem["IntStatus"][()] >= 0:
                         values[n] = libitem[var][0]
@@ -638,7 +641,7 @@ def update_header(outfile, basepath, headvars):
             outfile[headpath] = [b"Interpolated"] * ltracks
 
 
-def write_header(grid, outfile, basepath):
+def write_header(grid, outfile, basepath) -> None:
     """
     Write the header of the new grid. Basically copies the old header.
 
@@ -666,7 +669,7 @@ def write_header(grid, outfile, basepath):
             outfile[os.path.join("header", key)] = grid[os.path.join("header", key)][()]
 
     # Treat isochrones with a path-dependent header
-    if not "grid" in basepath:
+    if "grid" not in basepath:
         isochhead = os.path.join("header", basepath)
         for key in grid[isochhead].keys():
             outfile[os.path.join(isochhead, key)] = grid[os.path.join(isochhead, key)][
@@ -678,7 +681,6 @@ def write_header(grid, outfile, basepath):
         grid["solar_models"]
     except KeyError:
         print("\nNote: No solar model to add!")
-        pass
     else:
         for topkey in grid["solar_models"].keys():
             for key in grid[os.path.join("solar_models", topkey)].keys():
@@ -686,7 +688,7 @@ def write_header(grid, outfile, basepath):
                 outfile[keystr] = grid[keystr][()]
 
 
-def recalculate_param_weights(outfile, basepath):
+def recalculate_param_weights(outfile, basepath) -> None:
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
@@ -711,14 +713,14 @@ def recalculate_param_weights(outfile, basepath):
     headvars = outfile["header/active_weights"][()]
 
     # Collect the relevant tracks/isochrones
-    mask = []
+    masks = []
     names = []
-    for nogroup, (gname, group) in enumerate(outfile[basepath].items()):
+    for _nogroup, (gname, group) in enumerate(outfile[basepath].items()):
         # Determine which tracks are actually present
         for name, libitem in group.items():
-            mask.append(libitem["IntStatus"][()])
+            masks.append(libitem["IntStatus"][()])
             names.append(os.path.join(gname, name))
-    mask = np.where(np.array(mask) >= 0)[0]
+    mask = np.where(np.array(masks) >= 0)[0]
     active = np.asarray(names)[mask]
 
     # For each parameter, collect values, recalculate weights, and replace old weight
@@ -735,14 +737,14 @@ def recalculate_param_weights(outfile, basepath):
             weight_path = os.path.join(basepath, name, key + "_weight")
             try:
                 outfile[weight_path]
-            except:
+            except Exception:
                 outfile[weight_path] = weights[i]
             else:
                 del outfile[weight_path]
                 outfile[weight_path] = weights[i]
 
 
-def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False):
+def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False) -> None:
     """
     Recalculates the weights of the tracks/isochrones, for the new grid.
     Tracks not transferred from old grid has IntStatus = -1.
@@ -834,7 +836,7 @@ def recalculate_weights(outfile, basepath, sobnums, extend=False, debug=False):
         weight_path = os.path.join(basepath, name, "volume_weight")
         try:
             outfile[weight_path] = weights[i]
-        except:
+        except Exception:
             del outfile[weight_path]
             outfile[weight_path] = weights[i]
 
@@ -867,7 +869,7 @@ def lowest_l0(grid, basepath, track, selmod):
         Lowest n of mode present in all models
     """
     keypath = os.path.join(basepath, track, "osckey")
-    min_n_l0 = np.zeros((sum(selmod)))
+    min_n_l0 = np.zeros(sum(selmod))
     for i, osckey in enumerate(grid[keypath][()][selmod]):
         min_n_l0[i] = min(osckey[1][osckey[0] == 0])
     maxofmin = max(min_n_l0)
@@ -895,7 +897,7 @@ def get_l0_freqs(track, selmod, N):
     """
     allkeys = track["osckey"][()][selmod]
     alloscs = track["osc"][()][selmod]
-    freqs = np.zeros((sum(selmod)))
+    freqs = np.zeros(sum(selmod))
     for i, (key, osc) in enumerate(zip(allkeys, alloscs)):
         ind = np.where(key[1][key[0] == 0] == N)[0]
         freqs[i] = osc[0][key[0] == 0][ind]

@@ -2,30 +2,32 @@
 Auxiliary functions for glitch fitting
 """
 
+from typing import TypedDict
+
 import numpy as np
 
 from basta import freq_fit
 from basta import utils_seismic as su
 
 try:
-    from basta.sd import sd
-    from basta.icov_sd import icov_sd
-    from basta.glitch_fq import fit_fq
-    from basta.glitch_sd import fit_sd
+    from basta.glitch_fq import fit_fq  # type: ignore[import]
+    from basta.glitch_sd import fit_sd  # type: ignore[import]
+    from basta.icov_sd import icov_sd  # type: ignore[import]
+    from basta.sd import sd  # type: ignore[import]
 
     GLITCH_AVAIL = True
-except:
+except ImportError:
     GLITCH_AVAIL = False
 
 
 def compute_observed_glitches(
-    osckey: np.array,
-    osc: np.array,
+    osckey: np.ndarray,
+    osc: np.ndarray,
     sequence: str,
     dnu: float,
     fitfreqs: dict,
     debug=False,
-) -> tuple[np.array, np.array]:
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Routine to compute glitch parameters (and ratios) with full covariance
     matrix using MC sampling.
@@ -76,15 +78,22 @@ def compute_observed_glitches(
     return glitchseq, glitchseq_cov
 
 
+class AcDepths(TypedDict):
+    tauHe: float
+    dtauHe: float
+    tauCZ: float
+    dtauCZ: float
+
+
 def compute_glitchseqs(
-    osckey: np.array,
-    osc: np.array,
+    osckey: np.ndarray,
+    osc: np.ndarray,
     sequence: str,
     dnu: float,
     fitfreqs: dict,
-    ac_depths: bool = False,
+    ac_depths: AcDepths | None = None,
     debug: bool = False,
-) -> np.array:
+) -> np.ndarray:
     """
     Routine to compute glitch parameters of given frequencies, based
     on the given method options.
@@ -115,8 +124,7 @@ def compute_glitchseqs(
     # Check compilation of external FORTRAN routines
     if not GLITCH_AVAIL:
         raise ModuleNotFoundError(
-            "Unable to import glitch modules, check "
-            + "installation guide for compilation of these!"
+            "Unable to import glitch modules, see installation guide for compiling them"
         )
 
     # Setup array, make similar to ratios
@@ -125,7 +133,7 @@ def compute_glitchseqs(
     # Acoustic radius and acoustic depths of the glitches
     acousticRadius = 5.0e5 / dnu
     # If not inputted, use standard assumptions:
-    if not ac_depths:
+    if ac_depths is None:
         ac_depths = {
             "tauHe": 0.17 * acousticRadius + 18.0,
             "dtauHe": 0.05 * acousticRadius,
@@ -200,15 +208,14 @@ def compute_glitchseqs(
     # If only glitches, return these
     if sequence == "glitches":
         return glitchseq
-    else:
-        # Compute ratio sequence
-        ratios = freq_fit.compute_ratioseqs(
-            osckey, osc, sequence[1:], fitfreqs["threepoint"]
-        )
+    # Compute ratio sequence
+    ratios = freq_fit.compute_ratioseqs(
+        osckey, osc, sequence[1:], fitfreqs["threepoint"]
+    )
 
-        # Stack arrays and return full sequence
-        glitchseq = np.hstack((ratios, glitchseq))
-        return glitchseq
+    # Stack arrays and return full sequence
+    glitchseq = np.hstack((ratios, glitchseq))
+    return glitchseq
 
 
 def _average_amplitudes(param, fmin, fmax, dnu=None, method="Freq"):

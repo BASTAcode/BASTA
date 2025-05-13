@@ -3,14 +3,15 @@ Production of interpolation plots
 """
 
 import os
-import numpy as np
+
 import matplotlib.pyplot as plt
+import numpy as np
 
-import basta.utils_general as gu
 import basta.constants as bc
+import basta.utils_general as gu
 
 
-def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
+def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename="") -> bool:
     """
     Plots the new vs. old base of across interpolation, as long as dim(base) > 1,
     and produces a corner plot for dim(base) > 2.
@@ -45,7 +46,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
     if outbasename == "":
         return False
 
-    _, parlab, _, _ = bc.parameters.get_keys([par for par in baseparams])
+    _, parlab, _, _ = bc.parameters.get_keys(list(baseparams))
     if sobol >= 10.0:
         alpha = 0.2
     elif sobol <= 2.0:
@@ -57,7 +58,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
     numstr = "Old tracks: {:d}\nNew tracks: {:d}"
     numstr = numstr.format(base.shape[0], newbase.shape[0])
     if sobol:
-        numstr = "Scale: {:.1f}\n".format(sobol) + numstr
+        numstr = f"Scale: {sobol:.1f}\n" + numstr
     # Size of figure, stolen from basta/corner.py
     K = len(baseparams) - 1
     factor = 2.0 if K > 1 else 3.0
@@ -79,7 +80,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
         for i in range(j, K + 1):
             if j == i:
                 continue
-            elif K == 1:
+            if K == 1:
                 ax = axes
                 ax.triplot(base[:, j], base[:, i], tri.simplices, zorder=1)
             else:
@@ -167,7 +168,7 @@ def base_corner(baseparams, base, newbase, tri, sobol=1.0, outbasename=""):
 
 def across_debug(
     grid, outfile, basepath, basevar, inttrack, envtracks, selmods, outname
-):
+) -> None:
     """
     If run with the --debug option, this produces a plot for each interpolated
     track, comparing the interpolated track to the enveloping tracks.

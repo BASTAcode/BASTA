@@ -2,28 +2,50 @@
 Key statistics functions
 """
 
-import os
-import copy
 import math
-import collections
+import os
+from dataclasses import dataclass
+from typing import Any, NamedTuple
 
 import numpy as np
-from scipy.interpolate import interp1d, CubicSpline
-from scipy.ndimage.filters import gaussian_filter1d
+from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
+from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
-from basta import freq_fit, glitch_fit
+from basta import core, freq_fit, glitch_fit, surfacecorrections
 from basta import utils_seismic as su
-from basta.constants import sydsun as sydc
 from basta.constants import freqtypes, statdata
 
-# Define named tuple used in selectedmodels
-Trackstats = collections.namedtuple("Trackstats", "index logPDF chi2")
-priorlogPDF = collections.namedtuple("Trackstats", "index logPDF chi2 bayw magw IMFw")
-Trackdnusurf = collections.namedtuple("Trackdnusurf", "dnusurf")
-Trackglitchpar = collections.namedtuple("Trackglitchpar", "AHe dHe tauHe")
+
+@dataclass(frozen=True)
+class Trackstats:
+    index: np.ndarray
+    logPDF: np.ndarray
+    chi2: np.ndarray
+
+    @property
+    def bayw(self) -> float:
+        raise Exception("attempt to use bayw when not debugging")
+
+    @property
+    def magw(self) -> float:
+        raise Exception("attempt to use magw when not debugging")
+
+    @property
+    def IMFw(self) -> float:
+        raise Exception("attempt to use IMFw when not debugging")
 
 
-def _hist_bin_fd(x: np.array) -> float:
+@dataclass(frozen=True)
+class priorlogPDF:
+    index: np.ndarray
+    logPDF: np.ndarray
+    chi2: np.ndarray
+    bayw: float
+    magw: float
+    IMFw: float
+
+
+def _hist_bin_fd(x: np.ndarray) -> float:
     """
     The Freedman-Diaconis histogram bin estimator.
 
@@ -88,14 +110,10 @@ def _weight(N: int, seisw: dict) -> int:
 
 
 def chi2_astero(
-    obskey,
-    obs,
-    obsfreqmeta,
-    obsfreqdata,
-    obsintervals,
     libitem,
     ind,
-    fitfreqs,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
     warnings=True,
     shapewarn=0,
     debug=False,
@@ -151,144 +169,132 @@ def chi2_astero(
     """
 
     # Additional parameters calculated during fitting
-    addpars = {"dnusurf": None, "glitchparams": None}
+    addpars = {"surfacecorrected_dnu": None, "glitchparams": None}
 
     # Unpack model frequencies
-    rawmod = libitem["osc"][ind]
-    rawmodkey = libitem["osckey"][ind]
-    mod = su.transform_obj_array(rawmod)
-    modkey = su.transform_obj_array(rawmodkey)
+    model_modes = core.make_model_modes_from_ln_freqinertia(
+        libitem["osckey"][ind], libitem["osc"][ind]
+    )
 
     # Determine which model modes correspond to observed modes
-    joins = freq_fit.calc_join(
-        mod=mod, modkey=modkey, obs=obs, obskey=obskey, obsintervals=obsintervals
-    )
-    if joins is None:
+    assert star.modes is not None
+    joinedmodes = freq_fit.calc_join(star.modes, model_modes)
+    if joinedmodes is None:
         chi2rut = np.inf
         return chi2rut, warnings, shapewarn, 0
-    else:
-        joinkeys, join = joins
-        nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
-    if fitfreqs["fcor"] == "None":
-        corjoin = join
-    elif fitfreqs["fcor"] == "HK08":
-        corjoin, _ = freq_fit.HK08(
-            joinkeys=joinkeys,
-            join=join,
-            nuref=fitfreqs["numax"],
-            bcor=fitfreqs["bexp"],
-        )
-    elif fitfreqs["fcor"] == "BG14":
-        corjoin, _ = freq_fit.BG14(
-            joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
-        )
-    elif fitfreqs["fcor"] == "cubicBG14":
-        corjoin, _ = freq_fit.cubicBG14(
-            joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
-        )
-    else:
-        print(f'ERROR: fcor must be either "None" or in {freqtypes.surfeffcorrs}')
-        return
+    corrected_joinedmodes, _ = surfacecorrections.apply_surfacecorrection(
+        joinedmodes=joinedmodes, star=star
+    )
 
     # Initialize chi2 value
     chi2rut = 0.0
 
-    if any(x in freqtypes.freqs for x in fitfreqs["fittypes"]):
+    if inferencesettings.has_frequencies:
         # The frequency correction moved up before the ratios fitting!
         # --> If fitting frequencies, just add the already calculated things
-        x = corjoin[0, :] - corjoin[2, :]
-        w = _weight(len(corjoin[0, :]), fitfreqs["seismicweights"])
-        covinv = obsfreqdata["freqs"]["covinv"]
-        if x.shape[0] == covinv.shape[0]:
-            chi2rut += (x.T.dot(covinv).dot(x)) / w
+        nmodes = len(corrected_joinedmodes.model_frequencies)
+        x = (
+            corrected_joinedmodes.model_frequencies
+            - corrected_joinedmodes.observed_frequencies
+        )
+        w = _weight(nmodes, star.modes.seismicweights)
+        if x.shape[0] == star.modes.inverse_covariance.shape[0]:
+            chi2rut += (x.T.dot(star.modes.inverse_covariance).dot(x)) / w
         else:
             shapewarn = 1
             chi2rut = np.inf
 
         if ~np.isfinite(chi2rut):
             chi2rut = np.inf
-            if debug and verbose:
+            if outputoptions.debug and outputoptions.verbose:
                 print("DEBUG: Computed non-finite chi2, setting chi2 to inf")
         elif chi2rut < 0:
             chi2rut = np.inf
-            if debug and verbose:
+            if outputoptions.debug and outputoptions.verbose:
                 print("DEBUG: chi2 less than zero, setting chi2 to inf")
 
     # Add large frequency separation term (using corrected frequencies!)
     # --> Equivalent to 'dnufit', but using the frequencies *after*
     #     applying the surface correction.
     # --> Compared to the observed value, which is 'dnudata'.
-    if fitfreqs["dnufit_in_ratios"]:
+    if inferencesettings.fit_surfacecorrected_dnu:
         # Read observed dnu
-        dnudata = obsfreqdata["freqs"]["dnudata"]
-        dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
+        dnudata, dnudata_err = star.globalseismicparams.get_scaled("dnufit")
 
         # Compute surface corrected dnu
-        dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
+        surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
+            modes=joinedmodes, numax=star.globalseismicparams.get_scaled("numax")[0]
+        )
 
-        chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+        chi2rut += ((dnudata - surfacecorrected_dnu) / dnudata_err) ** 2
 
+    # TODO(Amalie) Fix ratios
     # Add the chi-square terms for ratios
-    if any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
+    if inferencesettings.has_ratios:
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
             return chi2rut, warnings, shapewarn, 0
 
         # Add frequency ratios terms
-        ratiotype = obsfreqmeta["ratios"]["fit"][0]
-
-        # Interpolate model ratios to observed frequencies
-        if fitfreqs["interp_ratios"]:
-            # Get all available model ratios
-            broadratio = freq_fit.compute_ratioseqs(
-                modkey,
-                mod,
-                ratiotype,
-                threepoint=fitfreqs["threepoint"],
-            )
-            modratio = copy.deepcopy(obsfreqdata[ratiotype]["data"])
-
-            # Seperate and interpolate within the separate r01, r10 and r02 sequences
-            for rtype in set(modratio[2, :]):
-                obsmask = modratio[2, :] == rtype
-                modmask = broadratio[2, :] == rtype
-                # Check we have the range to interpolate
-                if (
-                    modratio[1, obsmask][0] < broadratio[1, modmask][0]
-                    or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
-                ):
-                    chi2rut = np.inf
-                    shapewarn = 2
-                    return chi2rut, warnings, shapewarn, 0
-                intfunc = interp1d(
-                    broadratio[1, modmask], broadratio[0, modmask], kind="linear"
+        for ratiotype in star.inferencesettings.fitparams:
+            if ratiotype not in constants.freqtypes.rtypes:
+                continue
+            # Interpolate model ratios to observed frequencies
+            if fitfreqs["interp_ratios"]:
+                # Get all available model ratios
+                broadratio = freq_fit.compute_ratioseqs(
+                    modkey,
+                    mod,
+                    ratiotype,
+                    threepoint=fitfreqs["threepoint"],
                 )
-                modratio[0, obsmask] = intfunc(modratio[1, obsmask])
+                # modratio = star.ratios[ratiotype].values.copy()
 
-        else:
-            modratio = freq_fit.compute_ratioseqs(
-                joinkeys, join, ratiotype, threepoint=fitfreqs["threepoint"]
-            )
+                star.ratios[ratiotype]
+                # Seperate and interpolate within the separate r01, r10 and r02 sequences
+                for rtype in set(modratio[2, :]):
+                    obsmask = modratio[2, :] == rtype
+                    modmask = broadratio[2, :] == rtype
+                    # Check we have the range to interpolate
+                    if (
+                        modratio[1, obsmask][0] < broadratio[1, modmask][0]
+                        or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
+                    ):
+                        chi2rut = np.inf
+                        shapewarn = 2
+                        return chi2rut, warnings, shapewarn, 0
+                    intfunc = interp1d(
+                        broadratio[1, modmask], broadratio[0, modmask], kind="linear"
+                    )
+                    modratio[0, obsmask] = intfunc(modratio[1, obsmask])
 
-        # Calculate chi square with chosen asteroseismic weight
-        x = obsfreqdata[ratiotype]["data"][0, :] - modratio[0, :]
-        w = _weight(len(x), fitfreqs["seismicweights"])
-        covinv = obsfreqdata[ratiotype]["covinv"]
-        if x.shape[0] == covinv.shape[0]:
-            chi2rut += (x.T.dot(covinv).dot(x)) / w
-        else:
-            shapewarn = 1
-            chi2rut = np.inf
+            else:
+                modratio = freq_fit.compute_ratioseqs(
+                    joinkeys, join, ratiotype, threepoint=fitfreqs["threepoint"]
+                )
+
+            # Calculate chi square with chosen asteroseismic weight
+            x = star.ratios[ratiotype].values
+            obsfreqdata[ratiotype]["data"][0, :] - modratio[0, :]
+            w = _weight(len(x), fitfreqs["seismicweights"])
+            covinv = obsfreqdata[ratiotype]["covinv"]
+            if x.shape[0] == covinv.shape[0]:
+                chi2rut += (x.T.dot(covinv).dot(x)) / w
+            else:
+                shapewarn = 1
+                chi2rut = np.inf
 
     # Add contribution from glitches
-    if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+    if inferencesettings.has_glitches:
         # Obtain glitch sequence to be fitted
         glitchtype = obsfreqmeta["glitch"]["fit"][0]
         # Compute surface corrected dnu, if not already computed
-        if not fitfreqs["dnufit_in_ratios"]:
-            dnusurf, _ = freq_fit.compute_dnu_wfit(joinkeys, corjoin, fitfreqs["numax"])
+        if inferencesettings.fit_surfacecorrected_dnu:
+            surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
+                joinkeys, corjoin, star.globalseismicparams.get_scaled("numax")
+            )
 
         # Assign acoustic depts for glitch search
         ac_depths = {
@@ -305,13 +311,13 @@ def chi2_astero(
                 joinkeys,
                 join,
                 glitchtype,
-                dnusurf,
+                surfacecorrected_dnu,
                 fitfreqs,
                 ac_depths,
                 debug,
             )
             # Construct output array
-            modglitches = copy.deepcopy(obsfreqdata[glitchtype]["data"])
+            modglitches = obsfreqdata[glitchtype]["data"].copy()
             modglitches[0, -3:] = broadglitches[0, -3:]
 
             # Separate and interpolate within the separate r01, r10 and r02 sequences
@@ -340,7 +346,7 @@ def chi2_astero(
                 joinkeys,
                 join,
                 glitchtype,
-                dnusurf,
+                surfacecorrected_dnu,
                 fitfreqs,
                 ac_depths,
                 debug,
@@ -359,7 +365,7 @@ def chi2_astero(
         # Store the determined glitch parameters for outputting
         addpars["glitchparams"] = modglitches[0, -3:]
 
-    if any([x in freqtypes.epsdiff for x in fitfreqs["fittypes"]]):
+    if inferencesettings.has_epsilondifferences:
         epsdifftype = list(set(fitfreqs["fittypes"]).intersection(freqtypes.epsdiff))[0]
         obsepsdiff = obsfreqdata[epsdifftype]["data"]
         # Purge model freqs of unused modes
@@ -413,9 +419,9 @@ def chi2_astero(
         elif ~np.isfinite(chi2rut) or chi2rut < 0:
             chi2rut = np.inf
 
-    # Store dnusurf for output
-    if fitfreqs["dnufit_in_ratios"]:
-        addpars["dnusurf"] = dnusurf
+    # Store surfacecorrected_dnu for output
+    if inferencesettings.fit_surfacecorrected_dnu:
+        addpars["surfacecorrected_dnu"] = surfacecorrected_dnu
 
     return chi2rut, warnings, shapewarn, addpars
 
@@ -485,19 +491,24 @@ def chi_for_plot(selectedmodels):
     # Get highest likelihood model (HLM)
     maxPDF = -np.inf
     minchi2 = np.inf
-    for _, trackstats in selectedmodels.items():
+    for trackstats in selectedmodels.values():
         i = np.argmax(trackstats.logPDF)
         j = np.argmin(trackstats.chi2)
         if trackstats.logPDF[i] > maxPDF:
             maxPDF = trackstats.logPDF[i]
             maxPDFchi2 = trackstats.chi2[i]
-        if trackstats.chi2[j] < minchi2:
-            minchi2 = trackstats.chi2[j]
+        minchi2 = min(minchi2, trackstats.chi2[j])
 
     return maxPDFchi2, minchi2
 
 
-def get_highest_likelihood(Grid, selectedmodels, inputparams):
+def get_highest_likelihood(
+    Grid,
+    selectedmodels,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
     """
     Find highest likelihood model and print info.
 
@@ -524,40 +535,37 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
         "* Weighted, non-normalized log-probability:",
         np.max(selectedmodels[maxPDF_path].logPDF),
     )
-    print("* Grid-index: {0}[{1}], with parameters:".format(maxPDF_path, maxPDF_ind))
+    print(f"* Grid-index: {maxPDF_path}[{maxPDF_ind}], with parameters:")
 
     # Print name if it exists
     if "name" in Grid[maxPDF_path]:
         print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
 
     # Print parameters
-    outparams = inputparams["asciiparams"]
-    dnu_scales = inputparams.get("dnu_scales", {})
+    outparams = outputoptions.asciiparams
     for param in outparams:
         if param == "distance":
             continue
         paramval = Grid[os.path.join(maxPDF_path, param)][maxPDF_ind]
 
         # Handle the scaled asteroseismic parameters
-        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
-        elif param.startswith("numax"):
-            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
-        elif param in ["dnufit", "dnufitMos12"]:
-            scaleval = paramval / dnu_scales.get(param, 1.00)
-        else:
-            scaleval = None
-
-        if scaleval:
+        if param.startswith("dnu") or param.startswith("numax"):
+            scale = star.globalseismicparams.get_scalefactor(param)
+            scaleval = paramval / scale
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
-        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
     return maxPDF_path, maxPDF_ind
 
 
-def get_lowest_chi2(Grid, selectedmodels, inputparams):
+def get_lowest_chi2(
+    Grid,
+    selectedmodels,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
     """
     Find model with lowest chi2 value and print info.
 
@@ -580,36 +588,27 @@ def get_lowest_chi2(Grid, selectedmodels, inputparams):
     print("\nLowest chi2 model:")
     minchi2_path, minchi2_ind = lowest_chi2(selectedmodels)
     print("* chi2:", np.min(selectedmodels[minchi2_path].chi2))
-    print("* Grid-index: {0}[{1}], with parameters:".format(minchi2_path, minchi2_ind))
+    print(f"* Grid-index: {minchi2_path}[{minchi2_ind}], with parameters:")
 
     # Print name if it exists
     if "name" in Grid[minchi2_path]:
         print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
 
     # Print parameters
-    outparams = inputparams["asciiparams"]
-    dnu_scales = inputparams.get("dnu_scales", {})
+    outparams = outputoptions.asciiparams
     for param in outparams:
         if param == "distance":
             continue
         paramval = Grid[os.path.join(minchi2_path, param)][minchi2_ind]
 
         # Handle the scaled asteroseismic parameters
-        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            dnu_rescal = dnu_scales.get(param, 1.00)
-            scaleval = paramval * inputparams.get("dnusun", sydc.SUNdnu) / dnu_rescal
-        elif param.startswith("numax"):
-            scaleval = paramval * inputparams.get("numsun", sydc.SUNnumax)
-        elif param in ["dnufit", "dnufitMos12"]:
-            scaleval = paramval / dnu_scales.get(param, 1.00)
-        else:
-            scaleval = None
-
-        if scaleval:
+        if param.startswith("dnu") or param.startswith("numax"):
+            scale = star.globalseismicparams.get_scalefactor(param)
+            scaleval = paramval / scale
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
-        print("  - {0:10}: {1:12.6f} {2}".format(param, paramval, scaleprt))
+        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
 
     return minchi2_path, minchi2_ind
 
@@ -734,13 +733,13 @@ def calc_key_stats(x, centroid, uncert, weights=None):
     xp = None
 
     # Handling af all different combinations of input
-    if uncert == "quantiles" and not type(weights) == type(None):
+    if uncert == "quantiles" and weights is not None:
         xcen, xm, xp = quantile_1D(x, weights, statdata.quantiles)
     elif uncert == "quantiles":
         xcen, xm, xp = np.quantile(x, statdata.quantiles)
     else:
         xm = np.std(x)
-    if centroid == "mean" and not type(weights) == type(None):
+    if centroid == "mean" and weights is not None:
         xcen = np.average(x, weights=weights)
     elif centroid == "mean":
         xcen = np.mean(x)

@@ -2,25 +2,27 @@
 Utility functions for the distance calculation and parallax fitting
 """
 
-import numpy as np
-import matplotlib
+from pathlib import Path
 
-matplotlib.use("Agg")
+import matplotlib as mpl
+import numpy as np
+
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 
-def compute_absmag(m: float, dist: float, A: float) -> float:
+def compute_absmag(m: np.ndarray, dist: np.ndarray, A: np.ndarray) -> np.ndarray:
     """
     Use distance moduli to compute the absolute magnitudes
     from distances, apparent magnitudes m, and absorption A.
 
     Parameters
     ----------
-    m : float
+    m : np.ndarray
         Apparent magnitude
-    dist : float
+    dist : np.ndarray
         Distances in parsec
-    A : float
+    A : np.ndarray
         Absorption
 
     Returns
@@ -31,7 +33,9 @@ def compute_absmag(m: float, dist: float, A: float) -> float:
     return m - 5 * np.log10(dist / 10) - A
 
 
-def compute_distance_from_mag(m: float, M: float, A: float) -> float:
+def compute_distance_from_mag(
+    m: np.ndarray, M: np.ndarray, A: np.ndarray
+) -> np.ndarray:
     """
     Compute distance from magnitudes.
 
@@ -72,7 +76,7 @@ def EDSD(libitem: str | None = None, index: int | None = None) -> float:
     return k
 
 
-def loggaussian(x: np.array, mu: float, sigma: float) -> np.array:
+def loggaussian(x: np.ndarray, mu: float, sigma: float) -> np.ndarray:
     """
     Compute the log of a gaussian.
 
@@ -95,13 +99,13 @@ def loggaussian(x: np.array, mu: float, sigma: float) -> np.array:
 
 
 def compute_distlikelihoods(
-    r: np.array,
+    r: np.ndarray,
     plxobs: float,
     plxobs_err: float,
     L: float | None = None,
-    debug_dirpath: str = "",
+    debug_dirpath: Path | str = "",
     debug: bool = False,
-) -> np.array:
+) -> np.ndarray:
     """
     Compute the likelihood as the product between a gaussian of the parallax
     and the exponentially decreasing volume density prior.
@@ -136,7 +140,7 @@ def compute_distlikelihoods(
         plt.plot(r, np.exp(lls), "-")
         plt.xlabel("Distance (pc)")
         plt.ylabel("log PDF")
-        plt.savefig(debug_dirpath + "_DEBUG_distance_lls.png")
+        plt.savefig(f"{debug_dirpath}_DEBUG_distance_lls.png")
         plt.close()
 
     # Convert from PDF to probability
@@ -148,7 +152,7 @@ def compute_distlikelihoods(
     return lls
 
 
-def compute_mslikelihoods(ms: np.array, mobs: float, mobs_err: float) -> np.array:
+def compute_mslikelihoods(ms: np.ndarray, mobs: float, mobs_err: float) -> np.ndarray:
     """
     Treat the magnitudes as Gausiians given the observed values and return their likelihoods
 
