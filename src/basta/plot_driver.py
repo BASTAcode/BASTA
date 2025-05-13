@@ -1,6 +1,8 @@
 import numpy as np
 
-from basta import core, freq_fit, plot_seismic
+from typing import Any
+
+from basta import core, freq_fit, plot_seismic, stats, surfacecorrections
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 
@@ -14,61 +16,33 @@ def plot_all_seismic(
     plotconfig: core.PlotConfig,
     filepaths: core.FilePaths,
     Grid,
-    # obsfreqmeta,
-    # obsfreqdata,
-    selectedmodels,
-    path,
-    ind,
-    glitchparams=None,
+    selectedmodels: dict[str, stats.priorlogPDF | stats.Trackstats],
+    path: str,
+    ind: int,
+    quantities_at_runtime: dict[str, Any] | None = None,
 ) -> None:
     """
     Driver for producing all seismic related plots
 
     Parameters
     ----------
-    freqplots : list
-        Plots to be produced
     Grid : hdf5 file
         Stellar models, as tracks or isochrones
-    obsfreqmeta : dict
-        The requested information about which frequency products to fit or
-        plot, unpacked for easier access later.
-    obsfreqdata : dict
-        Requested frequency-dependent data such as glitches, ratios, and
-        epsilon difference. It also contains the covariance matrix and its
-        inverse of the individual frequency modes.
-        The keys correspond to the science case, e.g. `r01`, `glitch`, or
-        `e012`.
-        Inside each case, you find the data (`data`), the covariance matrix
-        (`cov`), and its inverse (`covinv`).
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obs : array
-        Individual frequencies and uncertainties.
-    obsintervals : array
-        Array containing the endpoints of the intervals used in the frequency
-        fitting routine in :func:'freq_fit.calc_join'.
     selectedmodels : dict
         Contains information on all models with a non-zero likelihood.
     path : str
         Path to the highest likelihood track/isocohrone in the grid
     ind : int
         Index of the highest likelihood model in the track
-    plotfname : str
-        Output plotname format
-    nameinplot : bool
-        Whether to include star identifier in the plots itself
-    debug : bool
-        Whether to produce debugging output
 
     """
 
     freqplots = plotconfig.freqplots
+
     assert star.modes is not None
-    obs = np.asarray([star.modes.modes.frequencies, star.modes.modes.errors])
-    obsintervals = star.modes.obsintervals
+
     allfplots = freqplots[0] == True  # noqa: E712
-    if any(x == "allechelle" for x in freqplots):
+    if "allechelle" in freqplots:
         freqplots += ["dupechelle", "echelle", "pairechelle"]
     if any(x in freqtypes.rtypes for x in freqplots):
         freqplots += ["ratios"]
@@ -77,8 +51,7 @@ def plot_all_seismic(
         rawmaxmodkey = Grid[path + "/osckey"][ind]
         model_modes = core.make_model_modes_from_ln_freqinertia(rawmaxmodkey, rawmaxmod)
         assert star.modes is not None
-        maxjoins = freq_fit.calc_join(star.modes, model_modes)
-        maxjoinkeys, maxjoin = maxjoins
+        joinedmodes = freq_fit.calc_join(star.modes, model_modes)
         maxmoddnu = Grid[path + "/dnufit"][ind]
     except Exception as e:
         print("\nFrequency plots initialisation failed with the error:", e)
@@ -90,11 +63,8 @@ def plot_all_seismic(
     x = plot_seismic.EchellePlotBase(
         selectedmodels=selectedmodels,
         Grid=Grid,
-        obs=obs,
-        mod=maxmod,
-        modkey=maxmodkey,
-        join=maxjoin,
-        joinkeys=maxjoinkeys,
+        model_modes=model_modes,
+        joinedmodes=joinedmodes,
         star=star,
         inferencesettings=inferencesettings,
         plotconfig=plotconfig,
@@ -133,45 +103,24 @@ def plot_all_seismic(
         except Exception as e:
             print("\nUncorrected dupechelle failed with the error:", e)
 
-    if star.modes.surfacecorrection is None:
-        corjoin = maxjoin
-        coeffs = np.array([1])
-    elif star.modes.surfacecorrection.get("KBC08") is not None:
-        corjoin, coeffs = freq_fit.HK08(
-            joinkeys=maxjoinkeys,
-            join=maxjoin,
-            nuref=star.globalseismicparams.get_scaled("numax")[0],
-            bcor=star.modes.surfacecorrection["KBC08"]["bexp"],
-        )
-    elif star.modes.surfacecorrection.get("two-term-BG14") is not None:
-        corjoin, coeffs = freq_fit.BG14(
-            joinkeys=maxjoinkeys,
-            join=maxjoin,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
-        )
-    elif star.modes.surfacecorrection.get("cubic-term-BG14") is not None:
-        corjoin, coeffs = freq_fit.cubicBG14(
-            joinkeys=maxjoinkeys,
-            join=maxjoin,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
-        )
-
-    print("Surface correction coefficient(s):", *coeffs)
+    corrected_joinmodes, coeffs = surfacecorrections.apply_surfacecorrection(
+        joinedmodes=joinedmodes, star=star
+    )
+    if coeffs is not None:
+        print("Surface correction coefficient(s):", *coeffs)
 
     x = plot_seismic.EchellePlotBase(
         selectedmodels=selectedmodels,
         Grid=Grid,
-        obs=obs,
-        mod=maxmod,
-        modkey=maxmodkey,
-        join=corjoin,
-        joinkeys=maxjoinkeys,
+        model_modes=model_modes,
+        joinedmodes=joinedmodes,
         coeffs=coeffs,
         star=star,
         inferencesettings=inferencesettings,
         plotconfig=plotconfig,
         outputoptions=outputoptions,
     )
+
     if allfplots or "echelle" in freqplots:
         try:
             plot_seismic.echelle(
@@ -222,10 +171,8 @@ def plot_all_seismic(
             ratnamestr = f"ratios_{ratiotype}"
             plot_seismic.ratioplot(
                 star,
-                maxjoinkeys,
-                maxjoin,
-                maxmodkey,
-                maxmod,
+                joinedmodes,
+                model_modes,
                 ratiotype,
                 outputfilename=filepaths.plotfile(ratnamestr),
                 threepoint=inputstar.threepoint,
@@ -258,7 +205,7 @@ def plot_all_seismic(
             plot_seismic.glitchplot(
                 star,
                 glitchseq,
-                glitchparams,
+                quantities_at_runtime["glitches"],
                 maxPath=path,
                 maxInd=np.argmax(selectedmodels[path].logPDF),
                 outputfilename=filepaths.plotfile(glitchnamestr),
@@ -283,10 +230,8 @@ def plot_all_seismic(
             try:
                 plot_seismic.ratioplot(
                     star,
-                    maxjoinkeys,
-                    maxjoin,
-                    maxmodkey,
-                    maxmod,
+                    joinedmodes,
+                    model_modes,
                     ratiotype,
                     outputfilename=filepaths.plotfile(ratnamestr),
                     threepoint=inputstar.threepoint,
@@ -316,8 +261,7 @@ def plot_all_seismic(
         try:
             epsnamestr = f"epsdiff_{epsseq}"
             plot_seismic.epsilon_difference_diagram(
-                mod=maxmod,
-                modkey=maxmodkey,
+                model_modes=model_modes,
                 moddnu=maxmoddnu,
                 sequence=epsseq,
                 star=star,

@@ -488,7 +488,7 @@ def apply_surfacecorrection_coefficients(
     coeffs: np.ndarray | None,
     star: core.Star,
     modes: core.ModelFrequencies | core.JoinedModes,
-) -> np.ndarray | core.ModelFrequencies | core.JoinedModes:
+) -> core.ModelFrequencies | core.JoinedModes:
     """
     Apply a specified surface effect correction to the mode frequencies given the coefficients for the specified type of surface effect correction.
 

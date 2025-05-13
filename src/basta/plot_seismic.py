@@ -75,37 +75,6 @@ def echelle(
 
     Parameters
     ----------
-    selectedmodels : dict
-        Contains information on all models with a non-zero likelihood.
-    Grid : hdf5 object
-        The already loaded grid, containing the tracks/isochrones.
-    obs : array or None
-        Array of observed modes.
-    obskey : array or None
-        Array of mode identification observed modes.
-    mod : array or None
-        Array of modes in a given model.
-        If None, `mod` will be found from the most likely model in
-        `selectedmodels`.
-    modkey : array or None
-        Array of mode identification of modes from the model.
-        If None, `modkey` will be found from the most likely model in
-        `selectedmodels`.
-    dnu : float or None
-        The large frequency separation. If None, `dnufit` will be used.
-    join : array or None
-        Array containing the matched observed and modelled modes.
-        If None, this information is not added to the plot.
-    joinkeys : array or None
-        Array containing the mode identification of the matched observed
-        and modelled modes.
-        If None, this information is not added to the plot.
-    coeffs : array or None
-        Coefficients for the near-surface frequency correction specified
-        in `freqcor`. If None, the frequencies on the plot will not
-        be corrected.
-    freqcor : str {'None', 'HK08', 'BG14', 'cubicBG14'}
-        Flag determining the frequency correction.
     pairmode : bool
         Flag determining whether to link matched observed and modelled
         frequencies.
@@ -143,16 +112,16 @@ def echelle(
     else:
         model_modes = x.model_modes
 
-    corrected_frequencies = surfacecorrections.apply_surfacecorrection_coefficients(
-        coeffs=x.coeffs, star=star, model_modes=model_modes
+    corrected_model_modes = surfacecorrections.apply_surfacecorrection_coefficients(
+        coeffs=x.coeffs, star=star, modes=model_modes
     )
-    corrected_data = model_modes.data.copy()
-    corrected_data["frequency"] = corrected_frequencies
-    cormod = core.ModelFrequencies(data=corrected_data)
+    print(f"{corrected_model_modes=}")
 
-    s = su.scale_by_inertia(modes=model_modes)
+    s = su.scale_by_inertia(modes=corrected_model_modes)
+    print(f"{s=}")
     if joinedmodes is not None:
         sjoin = su.scale_by_inertia(modes=joinedmodes)
+        print(f"{sjoin=}")
         assert sjoin is not None
 
     fmod = {}
@@ -162,6 +131,7 @@ def echelle(
     eobs = {}
     eobs_all = {}
     obsls = star.modes.modes.possible_angular_degrees.astype(str)
+    print(obsls)
 
     for l in obsls:
         mod_givenl = model_modes.of_angular_degree(int(l))
@@ -450,30 +420,6 @@ def ratioplot(
 
     Parameters
     ----------
-    obsfreqdata : dict
-        Requested frequency-dependent data such as glitches, ratios, and
-        epsilon difference. It also contains the covariance matrix and its
-        inverse of the individual frequency modes.
-        The keys correspond to the science case, e.g. `r01a, `glitch`, or
-        `e012`.
-        Inside each case, you find the data (`data`), the covariance matrix
-        (`cov`), and its inverse (`covinv`).
-    joinkeys : array
-        Array containing the mode identification of the matched observed
-        and modelled modes.
-    join : array
-        Array containing the matched observed and modelled modes.
-    modkey : array
-        Array containing the mode identification of the modelled modes.
-    mod : array
-        Array containing the modelled modes.
-    ratiotype : str
-        Key for the ratio sequence to be plotted (e.g. `r01`, `r02`, `r012`)
-    outputfilename : str or None, optional
-        Filename for saving the plot.
-    nonewfig : bool, optional
-        If True, this creates a new canvas. Otherwise, the plot is added
-        to the existing canvas.
     threepoint : bool
         If True, use three point definition of r01 and r10 ratios instead
         of default five point definition.

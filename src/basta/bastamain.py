@@ -436,10 +436,8 @@ def _bastamain(
             selectedmodels=selectedmodels,
             path=maxPDF_path,
             ind=maxPDF_ind,
-            glitchparams=(
-                quantities_at_runtime["glitches"]
-                if inferencesettings.has_glitches
-                else None
+            quantities_at_runtime=(
+                quantities_at_runtime if inferencesettings.has_glitches else None
             ),
         )
     else:
