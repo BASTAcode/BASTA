@@ -138,8 +138,8 @@ def echelle(
         fmod_all[l] = mod_givenl["frequency"] / scalex
         fobs_all[l] = obs_givenl["frequency"] / scalex
         eobs_all[l] = obs_givenl["error"] / scalex
-        if joinedmodes is not None:
-            ljoin = corrected_joinedmodes.of_angular_degree(l)
+        if corrected_joinedmodes is not None:
+            ljoin = corrected_joinedmodes.of_angular_degree(int(l))
             fmod[l] = ljoin["model_frequency"] / scalex
             fobs[l] = ljoin["observed_frequency"] / scalex
             eobs[l] = ljoin["error"] / scalex
@@ -200,8 +200,7 @@ def echelle(
                 alpha=0.5,
             )
 
-    for l in np.arange(np.amax(obsls.astype(int)) + 1):
-        l = str(l)
+    for l in obsls:
         ax.scatter(
             fmod_all[l] % modx,
             fmod_all[l],
@@ -224,7 +223,7 @@ def echelle(
 
     # Plot the matched modes in negative and positive side
     linelimit = 0.75 * modx
-    if joinedmodes is not None:
+    if corrected_joinedmodes is not None:
         for l in obsls:
             if len(fmod[l]) > 0:
                 ax.scatter(
@@ -236,7 +235,7 @@ def echelle(
                     linewidths=1,
                     edgecolors="k",
                     zorder=3,
-                    label=f"Best fit $\\ell={l}$",
+                    label=rf"Best fit $\\ell={l}$",
                 )
                 if duplicatemode:
                     ax.scatter(
@@ -257,7 +256,7 @@ def echelle(
                     mfc=colors["l" + l],
                     ecolor=colors["l" + l],
                     zorder=1,
-                    label=f"Measured $\\ell={l}$",
+                    label=rf"Measured $\\ell={l}$",
                 )
                 if duplicatemode:
                     ax.errorbar(
@@ -287,21 +286,21 @@ def echelle(
                             ax.plot(
                                 (fm[i] % modx - modx, fo[i] % modx),
                                 (fm[i], fo[i]),
-                                c=colors["l" + str(l)],
+                                c=colors["l" + l],
                                 alpha=0.7,
                                 zorder=10,
                             )
                             ax.plot(
                                 (fm[i] % modx, modx),
                                 (fm[i], fm[i] + a * (modx - fm[i] % modx)),
-                                c=colors["l" + str(l)],
+                                c=colors["l" + l],
                                 alpha=0.7,
                                 zorder=10,
                             )
                             ax.plot(
                                 (x0, fo[i] % modx - modx),
                                 (fm[i] + a * (modx - fm[i] % modx), fo[i]),
-                                c=colors["l" + str(l)],
+                                c=colors["l" + l],
                                 alpha=0.7,
                                 zorder=10,
                             )
@@ -318,21 +317,21 @@ def echelle(
                             ax.plot(
                                 (fo[i] % modx - modx, fm[i] % modx),
                                 (fo[i], fm[i]),
-                                c=colors["l" + str(l)],
+                                c=colors["l" + l],
                                 alpha=0.7,
                                 zorder=10,
                             )
                             ax.plot(
                                 (fo[i] % modx, modx),
                                 (fo[i], fo[i] + a * (modx - fo[i] % modx)),
-                                c=colors["l" + str(l)],
+                                c=colors["l" + l],
                                 alpha=0.7,
                                 zorder=10,
                             )
                             ax.plot(
                                 (x0, fm[i] % modx - modx),
                                 (fo[i] + a * (modx - fo[i] % modx), fm[i]),
-                                c=colors["l" + str(l)],
+                                c=colors["l" + l],
                                 alpha=0.7,
                                 zorder=10,
                             )
@@ -340,7 +339,7 @@ def echelle(
                             ax.plot(
                                 (fm[i] % modx, fo[i] % modx),
                                 (fm[i], fo[i]),
-                                c=colors["l" + str(l)],
+                                c=colors["l" + l],
                                 alpha=0.7,
                                 zorder=10,
                                 lw=lw,
@@ -349,7 +348,7 @@ def echelle(
                                 ax.plot(
                                     (fm[i] % modx - modx, fo[i] % modx - modx),
                                     (fm[i], fo[i]),
-                                    c=colors["l" + str(l)],
+                                    c=colors["l" + l],
                                     alpha=0.7,
                                     zorder=10,
                                     lw=lw,
