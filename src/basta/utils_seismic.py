@@ -330,7 +330,9 @@ def check_epsilon_of_freqs(freqs, starid, dnu, quiet=False):
     return 0
 
 
-def scale_by_inertia(osckey, osc):
+def scale_by_inertia(
+    modes: core.ModelFrequencies | core.JoinedModes,
+) -> list[np.ndarray]:
     """
     This function outputs the scaled sizes of the modes scaled inversly by the
     normalized inertia of the mode.
@@ -350,19 +352,20 @@ def scale_by_inertia(osckey, osc):
         The arrays contain the sizes of the modes scaled by inertia.
     """
     s = []
-    el0min = np.min(osc[1, :])
-    _, oscl0 = get_givenl(l=0, osckey=osckey, osc=osc)
-    _, oscl1 = get_givenl(l=1, osckey=osckey, osc=osc)
-    _, oscl2 = get_givenl(l=2, osckey=osckey, osc=osc)
+    el0min = np.amin(modes.inertias)
+
+    oscl0 = modes.of_angular_degree(0)
+    oscl1 = modes.of_angular_degree(1)
+    oscl2 = modes.of_angular_degree(2)
 
     if len(oscl0) != 0:
-        s0 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl0[1, :]]
+        s0 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl0["inertia"]]
         s.append(np.asarray(s0))
     if len(oscl1) != 0:
-        s1 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl1[1, :]]
+        s1 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl1["inertia"]]
         s.append(np.asarray(s1))
     if len(oscl2) != 0:
-        s2 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl2[1, :]]
+        s2 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl2["inertia"]]
         s.append(np.asarray(s2))
     return s
 

@@ -122,7 +122,7 @@ def make_intervals(
     return intervals
 
 
-def resolve_matches(
+def _resolve_matches(
     f_mod: np.ndarray,
     e_mod: np.ndarray,
     n_mod: np.ndarray,
@@ -197,6 +197,7 @@ def resolve_matches(
             # offset = 0.0
             # if l > 0 and l0_offsets is not None and len(mod_freqs) > 0:
             #    offset = l0_offsets[np.argmin(np.abs(mod_freqs[0] - (mod_freqs - l0_offsets)))]
+            assert l0_offsets is not None
             offset_diffs = np.abs((mod_freqs[0] - l0_offsets) - f_obs[obs_mask][0])
             offset = l0_offsets[np.argmin(offset_diffs)]
 
@@ -266,7 +267,7 @@ def _match_l(
             # So if that is the case, move on to the next model
             return None
 
-        mod_selected, matched = resolve_matches(
+        mod_selected, matched = _resolve_matches(
             f_mod,
             e_mod,
             n_mod,
@@ -368,10 +369,26 @@ def calc_join(star_modes: core.StarModes, model_modes: core.ModelFrequencies):
         join.append(l_join)
 
     if join:
-        return [
-            np.concatenate(joinkeys).T,
-            np.concatenate(join).T,
-        ]
+        data = np.zeros(
+            len(joinkeys[0]),
+            dtype=[
+                ("l", int),
+                ("n", int),
+                ("observed_frequency", float),
+                ("error", float),
+                ("model_frequency", float),
+                ("inertia", float),
+            ],
+        )
+        data["l"] = joinkeys[0]
+        data["n"] = joinkeys[1]
+        data["model_frequency"] = join[0]
+        data["inertia"] = join[1]
+        data["observed_frequency"] = join[2]
+        data["error"] = join[3]
+
+        joinednmodes = core.JoinedModes(data=data)
+        return joinednmodes
     return None
 
 

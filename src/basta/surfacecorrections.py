@@ -18,7 +18,7 @@ def register_surfacecorrection(fn):
 
 
 @register_surfacecorrection
-def KBC08(joinkeys, join, nuref, bcor):
+def KBC08(joinedmodes: core.JoinedModes, nuref: float, bcor: float):
     """
     Correcting stellar oscillation frequencies for near-surface effects
     following the approach in Hans Kjeldsen, Timothy R. Bedding, and Jørgen
@@ -430,6 +430,35 @@ def apply_two_term_BG14(modkey, mod, coeffs, scalnu):
 
 
 def apply_surfacecorrection(
+    joinedmodes: core.JoinedModes,
+    star: core.Star,
+) -> tuple[np.ndarray.np.ndarray]:
+    assert star.modes is not None
+    if star.modes.surfacecorrection is None:
+        return joinedmodes, None
+
+    assert star.modes.surfacecorrection in SURFACECORRECTIONS
+
+    if star.modes.surfacecorrection.get("KBC08") is not None:
+        corjoin, coeffs = KBC08(
+            joinedmodes=joinedmodes,
+            nuref=star.globalseismicparams.get_scaled("numax")[0],
+            bcor=star.modes.surfacecorrection["KBC08"]["bexp"],
+        )
+    elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
+        corjoin, coeffs = two_term_BG14(
+            joinedmodes=joinedmodes,
+            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+        )
+    elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
+        corjoin, coeffs = cubic_term_BG14(
+            joinedmodes=joinedmodes,
+            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+        )
+    return corjoin, coeffs
+
+
+def apply_surfacecorrection_coefficients(
     coeffs: np.ndarray | None, star: core.Star, model_modes: core.ModelFrequencies
 ) -> np.ndarray:
     assert star.modes is not None

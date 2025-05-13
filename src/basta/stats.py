@@ -178,39 +178,15 @@ def chi2_astero(
 
     # Determine which model modes correspond to observed modes
     assert star.modes is not None
-    joins = freq_fit.calc_join(star.modes, model_modes)
-    if joins is None:
+    joinedmodes = freq_fit.calc_join(star.modes, model_modes)
+    if joinedmodes is None:
         chi2rut = np.inf
         return chi2rut, warnings, shapewarn, 0
-    joinkeys, join = joins
 
     # Apply surface correction
-    if star.modes.surfacecorrection is None:
-        corjoin = join
-    elif star.modes.surfacecorrection.get("KBC08") is not None:
-        corjoin, _ = surfacecorrections.KBC08(
-            joinkeys=joinkeys,
-            join=join,
-            nuref=star.globalseismicparams.get_scaled("numax")[0],
-            bcor=star.modes.surfacecorrection["KBC08"]["bexp"],
-        )
-    elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
-        corjoin, _ = surfacecorrections.two_term_BG14(
-            joinkeys=joinkeys,
-            join=join,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
-        )
-    elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
-        corjoin, _ = surfacecorrections.cubic_term_BG14(
-            joinkeys=joinkeys,
-            join=join,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
-        )
-    else:
-        print(
-            f'ERROR: surface correction must be either "None" or in {surfacecorrections.SURFACECORRECTIONS}'
-        )
-        return None
+    corjoin, _ = surfacecorrections.apply_surfacecorrection(
+        joinkeys=joinkeys, join=join, star=star
+    )
 
     # Initialize chi2 value
     chi2rut = 0.0

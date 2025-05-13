@@ -315,6 +315,38 @@ def _pack_structuredarray(
     return data
 
 
+@dataclass(frozen=True)
+class JoinedModes:
+    data: np.ndarray
+
+    @property
+    def l(self) -> np.ndarray:
+        return self.data["l"]
+
+    @property
+    def n(self) -> np.ndarray:
+        return self.data["n"]
+
+    @property
+    def observed_frequencies(self) -> np.ndarray:
+        return self.data["observed_frequency"]
+
+    @property
+    def observed_error(self) -> np.ndarray:
+        return self.data["error"]
+
+    @property
+    def model_frequencies(self) -> np.ndarray:
+        return self.data["model_frequency"]
+
+    @property
+    def inertias(self) -> np.ndarray:
+        return self.data["inertia"]
+
+    def of_angular_degree(self, given_l: int) -> np.ndarray:
+        return self.data[self.l == given_l]
+
+
 @dataclass(kw_only=True)
 class StarModes:
     modes: ObservedFrequencies

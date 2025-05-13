@@ -14,7 +14,7 @@ import matplotlib as mpl
 import numpy as np
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 
-from basta import core, freq_fit, stats
+from basta import core, freq_fit, stats, surfacecorrections
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 from basta.downloader import get_basta_dir
@@ -54,11 +54,8 @@ splinecolor = "0.7"
 class EchellePlotBase:
     selectedmodels: dict
     Grid: h5py.File
-    obs: np.ndarray
-    mod: np.ndarray | None = None
-    modkey: np.ndarray | None = None
-    join: np.ndarray | None = None
-    joinkeys: np.ndarray | None = None
+    model_modes: core.ModelFrequencies
+    joinedmodes: core.JoinedModes | None = None
     coeffs: np.ndarray | None = None
     star: core.Star
     inferencesettings: core.InferenceSettings
@@ -119,14 +116,16 @@ def echelle(
         Filename for saving the figure.
     """
     selectedmodels = x.selectedmodels
+    star = x.star
+    dnu = star.globalseismicparams.get_original("dnufit")[0]
+    joinedmodes = x.joinedmodes
+    if star.modes is None:
+        return
 
     if pairmode:
         lw = 1
     else:
         lw = 0
-
-    star = x.star
-    dnu = star.globalseismicparams.get_original("dnufit")[0]
 
     if duplicatemode:
         modx = 1.0
@@ -135,57 +134,27 @@ def echelle(
         modx = dnu
         scalex = 1
 
-    assert star.modes is not None
-    obsls = np.unique(star.modes.modes.l).astype(str)
-
-    if x.mod is None and x.modkey is None:
+    if x.model_modes is None:
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
-        rawmod = x.Grid[maxPDF_path + "/osc"][maxPDF_ind]
-        rawmodkey = x.Grid[maxPDF_path + "/osckey"][maxPDF_ind]
-        mod = su.transform_obj_array(rawmod)
-        modkey = su.transform_obj_array(rawmodkey)
-        mod = mod[:, modkey[0, :] <= np.amax(obsls.astype(int))]
-        modkey = modkey[:, modkey[0, :] <= np.amax(obsls)]
+        model_modes = core.make_model_modes_from_ln_freqinertia(
+            x.Grid[maxPDF_path + "/osckey"][maxPDF_ind],
+            x.Grid[maxPDF_path + "/osc"][maxPDF_ind],
+        )
     else:
-        assert x.mod is not None
-        assert x.modkey is not None
-        mod = x.mod
-        modkey = x.modkey
-
-    assert mod is not None
-    assert modkey is not None
-    cormod = np.array(mod, copy=True)
+        model_modes = x.model_modes
 
     coeffs = x.coeffs
-    if coeffs is not None:
-        assert star.modes.surfacecorrection is not None
-        if star.modes.surfacecorrection.get("KBC08") is not None:
-            corosc = freq_fit.apply_HK08(
-                modkey=modkey,
-                mod=mod,
-                coeffs=coeffs,
-                scalnu=star.globalseismicparams.get_scaled("numax")[0],
-            )
-        elif star.modes.surfacecorrection.get("two-term-BG14") is not None:
-            corosc = freq_fit.apply_BG14(
-                modkey=modkey,
-                mod=mod,
-                coeffs=coeffs,
-                scalnu=star.globalseismicparams.get_scaled("numax")[0],
-            )
-        elif star.modes.surfacecorrection.get("cubic-term-BG14") is not None:
-            corosc = freq_fit.apply_cubicBG14(
-                modkey=modkey,
-                mod=mod,
-                coeffs=coeffs,
-                scalnu=star.globalseismicparams.get_scaled("numax")[0],
-            )
-        cormod[0, :] = corosc
+    corrected_frequencies = surfacecorrections.apply_surfacecorrection_coefficients(
+        coeffs=coeffs, star=star, model_modes=model_modes
+    )
+    corrected_data = model_modes.data.copy()
+    corrected_data["frequency"] = corrected_frequencies
+    cormod = core.ModelFrequencies(data=corrected_data)
 
-    s = su.scale_by_inertia(modkey, cormod)
-    if x.join is not None:
-        assert x.joinkeys is not None
-        sjoin = su.scale_by_inertia(x.joinkeys[0:2], x.join[0:2])
+    s = su.scale_by_inertia(modes=model_modes)
+    if joinedmodes is not None:
+        sjoin = su.scale_by_inertia(modes=joinedmodes)
+        assert sjoin is not None
 
     fmod = {}
     fmod_all = {}
@@ -193,19 +162,19 @@ def echelle(
     fobs_all = {}
     eobs = {}
     eobs_all = {}
-    for l in np.arange(np.amax(obsls.astype(int)) + 1):
-        _, mod = su.get_givenl(l=l, osc=cormod, osckey=modkey)
-        obskey = np.asarray([star.modes.modes.l, star.modes.modes.n])
-        _, lobs = su.get_givenl(l=l, osc=x.obs, osckey=obskey)
-        fmod_all[str(l)] = mod[0, :] / scalex
-        fobs_all[str(l)] = lobs[0, :] / scalex
-        eobs_all[str(l)] = lobs[1, :] / scalex
-        if x.join is not None:
-            assert x.joinkeys is not None
-            _, ljoin = su.get_givenl(l=l, osc=x.join, osckey=x.joinkeys)
-            fmod[str(l)] = ljoin[0, :] / scalex
-            fobs[str(l)] = ljoin[2, :] / scalex
-            eobs[str(l)] = ljoin[3, :] / scalex
+    obsls = star.modes.modes.possible_angular_degrees.astype(str)
+
+    for l in obsls:
+        mod_givenl = model_modes.of_angular_degree(int(l))
+        obs_givenl = star.modes.modes.of_angular_degree(int(l))
+        fmod_all[l] = mod_givenl["frequency"] / scalex
+        fobs_all[l] = obs_givenl["frequency"] / scalex
+        eobs_all[l] = obs_givenl["error"] / scalex
+        if joinedmodes is not None:
+            ljoin = joinedmodes.of_angular_degree(l)
+            fmod[l] = ljoin["model_frequency"] / scalex
+            fobs[l] = ljoin["observed_frequency"] / scalex
+            eobs[l] = ljoin["error"] / scalex
 
     # Create plot
     fig, ax1 = plt.subplots()
@@ -287,7 +256,7 @@ def echelle(
 
     # Plot the matched modes in negative and positive side
     linelimit = 0.75 * modx
-    if x.join is not None:
+    if joinedmodes is not None:
         for l in obsls:
             if len(fmod[l]) > 0:
                 ax.scatter(
