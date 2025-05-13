@@ -1221,6 +1221,13 @@ def run_xml(
                     boxpriors["dnufrac"] = core.PriorEntry(
                         kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
                     )
+                # Add the constraint on the anchormode
+                if inputparams["fitfreqs"]["dnufrac"] is not None:
+                    pass
+                    # boxpriors["anchormode"] = core.PriorEntry(
+                    #    kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
+                    # )
+
                 inferencesettings = core.InferenceSettings(
                     fitparams=fitparams,
                     seed=seed,
@@ -1237,7 +1244,6 @@ def run_xml(
                     fit_surfacecorrected_dnu=inputparams["fitfreqs"][
                         "dnufit_in_ratios"
                     ],
-                    glitchfit=inputparams["fitfreqs"]["glitchfit"],
                     dnuprior=inputparams["fitfreqs"]["dnuprior"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
                 )

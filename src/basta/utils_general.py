@@ -559,7 +559,7 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
     constrained = sorted(
         (lim, k, v)
         for lim, entry in boxpriors.items()
-        if lim not in ["gridcut", "dnufrac"] and entry.kwargs
+        if lim not in ["gridcut", "dnufrac", "anchormode"] and entry.kwargs
         for k, v in entry.kwargs.items()
     )
 
@@ -964,8 +964,7 @@ def compute_matrix_inverse(covariance: np.ndarray) -> np.ndarray:
     return covinv
 
 
-# TODO Maybe change "frequencies" -> "modes" in function name?
-def get_frequencies_and_intervals(
+def get_modes(
     fit_plot_params: list[str],
     inputstar: core.InputStar,
     globalseismicparams: core.GlobalSeismicParameters,
@@ -973,38 +972,38 @@ def get_frequencies_and_intervals(
     obs: np.ndarray,
     obscov: np.ndarray,
     inferencesettings: core.InferenceSettings,
-) -> tuple[core.StarModes, np.ndarray] | tuple[None, None]:
+) -> core.StarModes | None:
     if not any(
         x in [*constants.freqtypes.freqs, *constants.freqtypes.rtypes]
         for x in inferencesettings.fitparams
     ):
-        return None, None
+        return None
 
     # TODO this function should not use obskey,obs
-    modes = core.make_star_modes_from_l_n_freq_error(
+    modedata = core.make_star_modes_from_l_n_freq_error(
         obskey[0], obskey[1], obs[0], obs[1]
     )
     if "dnufit" in globalseismicparams.params:
         dnu = globalseismicparams.get_scaled("dnufit")[0]
     elif "numax" in globalseismicparams.params:
         dnu = freq_fit.compute_dnufit(
-            data=modes, numax=globalseismicparams.get_scaled("numax")[0]
+            data=modedata, numax=globalseismicparams.get_scaled("numax")[0]
         )
     else:
         raise ValueError("Missing dnu")
-    obsintervals = freq_fit.make_intervals(data=modes, dnu=dnu)
+    obsintervals = freq_fit.make_intervals(data=modedata, dnu=dnu)
 
     covinv = compute_inverse_covariancematrix(covariance=obscov, inputstar=inputstar)
 
-    frequencies = core.StarModes(
-        modes=modes,
+    modes = core.StarModes(
+        modes=modedata,
         surfacecorrection=inputstar.surfacecorrection,
         obsintervals=obsintervals,
         correlations=inputstar.correlations,
         seismicweights=inferencesettings.seismicweights,
         inverse_covariance=covinv,
     )
-    return frequencies, obsintervals
+    return modes
 
 
 def get_ratios(
@@ -1163,7 +1162,7 @@ def setup_star(
 
     add_bias_to_dnuerror(globalseismicparams, inputstar)
 
-    frequencies = ratios = glitches = epsilondifferences = None
+    modes = ratios = glitches = epsilondifferences = None
     absolutemagnitudes = distancelimits = None
 
     if inferencesettings.has_any_seismic_case:
@@ -1177,7 +1176,7 @@ def setup_star(
             np.asarray(inferencesettings.fitparams + plotconfig.freqplots)
         )
 
-        modes, obsintervals = get_frequencies_and_intervals(
+        modes = get_modes(
             fit_plot_params=fit_plot_params,
             inputstar=inputstar,
             globalseismicparams=globalseismicparams,
@@ -1225,6 +1224,7 @@ def setup_star(
         inputstar=inputstar,
         inferencesettings=inferencesettings,
         distancelimits=distancelimits,
+        modes=modes,
     )
 
     return core.Star(
@@ -1259,3 +1259,57 @@ def should_skip_due_to_diffusion(libitem, star: core.Star):
         star_dif = int(round(float(star.classicalparams.params["dif"][0])))
         return lib_dif != star_dif
     return False
+
+
+def gridlimits(
+    grid: h5py.File,
+    gridheader: GridHeader,
+    gridinfo: GridInfo,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+) -> None:
+    """
+    Refactor of grid cut section
+
+    Check if any specified limit in prior is in header, and can be used to
+    skip computation of models, in order to speed up computation
+    """
+    limits = list(inferencesettings.boxpriors.keys())
+
+    gridcut = {}
+
+    # Determine header path
+    if "tracks" in gridheader["gridtype"]:
+        headerpath = "header/"
+    elif "isochrones" in gridheader["gridtype"]:
+        headerpath = f"header/{gridinfo['defaultpath']}"
+        if "FeHini" in limits:
+            print("Warning: Dropping prior in FeHini, redundant for isochrones!")
+            inferencesettings.boxpriors.pop("FeHini")
+    else:
+        headerpath = None
+
+    if headerpath:
+        header_keys = grid[headerpath].keys()
+
+        # Extract gridcut params
+        gridcut_keys = set(header_keys) & set(limits)
+        gridcut = {key: limits.pop(key) for key in gridcut_keys}
+
+        if gridcut:
+            print("\nCutting in grid based on sampling parameters ('gridcut'):")
+            for cutpar, cutval in gridcut.items():
+                if cutpar != "dif":
+                    print(f"* {cutpar}: {cutval}")
+
+            # Special handling for diffusion switch
+            if "dif" in gridcut:
+                # Expecting value like [-inf, 0.5] or [0.5, inf]
+                switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
+                print(
+                    f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
+                )
+    inferencesettings.boxpriors["gridcut"] = core.PriorEntry(
+        kwargs={"gridcut": gridcut},
+        limits=None,
+    )

@@ -100,7 +100,7 @@ def _bastamain(
     bayweights, dweight = util.read_bayesianweights(
         Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
     )
-    utils_priors.gridlimits(
+    util.gridlimits(
         grid=Grid,
         gridheader=gridheader,
         gridinfo=gridinfo,
@@ -202,7 +202,7 @@ def _bastamain(
             for param in star.limits:
                 if param in ["frequencies"]:
                     continue
-                index &= libitem[param][:] >= star.limits[param][0]
+                index &= star.limits[param][0] <= libitem[param][:]
                 index &= libitem[param][:] <= star.limits[param][1]
             if np.sum(index) < 1:
                 continue
@@ -210,10 +210,11 @@ def _bastamain(
             if star.phase is not None:
                 phaseindex = np.isin(libitem["phase"][:], iphases)
                 index &= phaseindex
+            if np.sum(index) < 1:
+                continue
 
             if inferencesettings.has_any_seismic_case:
-                assert star.modes is not None
-                if "frequencies" in star.limits:
+                if star.limits["frequencies"] is not None:
                     # Check which models have l=0, lowest n within tolerance
                     for ind in np.where(index)[0]:
                         model_modes = core.make_model_modes_from_ln_freqinertia(
@@ -223,7 +224,7 @@ def _bastamain(
                         lowest_obs_radial = (
                             star.modes.modes.lowest_observed_radial_frequency
                         )
-                        same_n = radial_model_modes["n"] == lowest_obs_radial["n"][0]
+                        same_n = radial_model_modes["n"] == lowest_obs_radial["n"]
                         if np.sum(same_n) < 1:
                             continue
                         model_equivalent = radial_model_modes[same_n]

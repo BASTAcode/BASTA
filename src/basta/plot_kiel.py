@@ -466,9 +466,9 @@ def kiel(
             ncol += 1
             label = "Freq. constrain"
             # TODO(Amalie) Why is this repeated here?
-            assert star.frequencies is not None
-            obskey = np.asarray([star.frequencies.l, star.frequencies.n])
-            obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
+            assert star.modes is not None
+            obskey = np.asarray([star.modes.l, star.modes.n])
+            obs = np.asarray([star.modes.frequencies, star.modes.errors])
 
             for track in tracks:
                 libitem = Grid[track]

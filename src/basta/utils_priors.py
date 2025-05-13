@@ -4,63 +4,10 @@ This BASTA module handles functions related to priors.
 
 import h5py  # type: ignore[import]
 import numpy as np
+from typing import Optional
 
 from basta import core
 from basta import utils_general as util
-
-
-def gridlimits(
-    grid: h5py.File,
-    gridheader: util.GridHeader,
-    gridinfo: util.GridInfo,
-    inferencesettings: core.InferenceSettings,
-    outputoptions: core.OutputOptions,
-) -> None:
-    """
-    Refactor of grid cut section
-
-    Check if any specified limit in prior is in header, and can be used to
-    skip computation of models, in order to speed up computation
-    """
-    limits = list(inferencesettings.boxpriors.keys())
-
-    gridcut = {}
-
-    # Determine header path
-    if "tracks" in gridheader["gridtype"]:
-        headerpath = "header/"
-    elif "isochrones" in gridheader["gridtype"]:
-        headerpath = f"header/{gridinfo['defaultpath']}"
-        if "FeHini" in limits:
-            print("Warning: Dropping prior in FeHini, redundant for isochrones!")
-            inferencesettings.boxpriors.pop("FeHini")
-    else:
-        headerpath = None
-
-    if headerpath:
-        header_keys = grid[headerpath].keys()
-
-        # Extract gridcut params
-        gridcut_keys = set(header_keys) & set(limits)
-        gridcut = {key: limits.pop(key) for key in gridcut_keys}
-
-        if gridcut:
-            print("\nCutting in grid based on sampling parameters ('gridcut'):")
-            for cutpar, cutval in gridcut.items():
-                if cutpar != "dif":
-                    print(f"* {cutpar}: {cutval}")
-
-            # Special handling for diffusion switch
-            if "dif" in gridcut:
-                # Expecting value like [-inf, 0.5] or [0.5, inf]
-                switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
-                print(
-                    f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
-                )
-    inferencesettings.boxpriors["gridcut"] = core.PriorEntry(
-        kwargs={"gridcut": gridcut},
-        limits=None,
-    )
 
 
 def get_dnufrac_limits(
@@ -82,32 +29,35 @@ def get_dnufrac_limits(
 
 
 def get_anchormodecut(
-    inputstar: core.InputStar,
+    modes: core.StarModes | None,
+    globalseismicparams: core.GlobalSeismicParameters,
     inferencesettings: core.InferenceSettings,
     dnutype: str = "dnufit",
-) -> dict[str, tuple[float, float]]:
+    priorkey: str = "anchormode",
+) -> Optional[tuple[float, float]]:
     """
-    This function computes the constraint in frequency for the model equivalent of the chosen anchor mode.
+    This function computes the frequency constraint for the anchor mode in a stellar model.
 
     The anchor mode can either be:
     - the lowest observed radial mode
     - the observed radial mode just shy of numax
     """
-    anchormodecut_limits: dict[str, tuple[float, float]] = {}
-    if inferencesettings.has_any_seismic_case:
-        if isinstance(
-            inferencesettings.boxpriors.get("anchormodecut"), core.PriorEntry
-        ):
-            # TODO(Amalie) make it easy to choose the anchor point nearest numax
-            anchor_mode = star.modes.modes.lowest_observed_radial_frequency
-            dnufrac = inferencesettings.boxpriors["anchormodecut"].kwargs[dnutype]
-            dnu = inputstar.globalseismicparams.get_scaled(dnutype)[0]
-            lower_threshold = -max(
-                dnufrac / 2 * dnu,
-                3 * lowest_observed_radial_frequency.errors,
-            )
-            upper_threshold = dnufrac * dnu
+    if not (inferencesettings.has_any_seismic_case and modes):
+        return None
 
+    prior_entry = inferencesettings.boxpriors.get(priorkey)
+    if not isinstance(prior_entry, core.PriorEntry):
+        return None
+
+    # TODO(Amalie) make it easy to choose the anchor point nearest numax
+    anchor_mode = modes.modes.lowest_observed_radial_frequency
+    dnufrac = inferencesettings.boxpriors[priorkey].kwargs[dnutype]
+    dnu = globalseismicparams.get_scaled(dnutype)[0]
+    lower_threshold = -max(
+        dnufrac / 2 * dnu,
+        3 * anchor_mode["error"],
+    )
+    upper_threshold = dnufrac * dnu
     return lower_threshold, upper_threshold
 
 
@@ -115,6 +65,7 @@ def get_limits(
     inputstar: core.InputStar,
     inferencesettings: core.InferenceSettings,
     distancelimits: dict[str, tuple[float, float]] | None = None,
+    modes: core.StarModes | None = None,
 ) -> dict[str, tuple[float, float]]:
     """
     This function computes the bounds specified as boxpriors by the user or the range of the grid.
@@ -139,10 +90,12 @@ def get_limits(
     }
 
     # Unpack special cases
-    anchormodecut = get_anchormodecut(
-        inputstar=inputstar, inferencesettings=inferencesettings
-    )
-    if anchormodecut:
+    if modes is not None and inferencesettings.has_any_seismic_case:
+        anchormodecut = get_anchormodecut(
+            modes=modes,
+            globalseismicparams=inputstar.globalseismicparams,
+            inferencesettings=inferencesettings,
+        )
         limits["frequencies"] = anchormodecut
 
     gridcut = priors.get("gridcut")
@@ -162,7 +115,7 @@ def get_limits(
         if dimension in [
             "gridcut",
             "dnufrac",
-            "anchormodecut",
+            "anchormode",
         ]:
             continue  # as we are processing its contents instead.
 

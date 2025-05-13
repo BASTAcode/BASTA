@@ -64,9 +64,9 @@ def plot_all_seismic(
     """
 
     freqplots = plotconfig.freqplots
-    assert star.frequencies is not None
-    obs = np.asarray([star.frequencies.frequencies, star.frequencies.errors])
-    obsintervals = star.frequencies.obsintervals
+    assert star.modes is not None
+    obs = np.asarray([star.modes.frequencies, star.modes.errors])
+    obsintervals = star.modes.obsintervals
     allfplots = freqplots[0] == True  # noqa: E712
     if any(x == "allechelle" for x in freqplots):
         freqplots += ["dupechelle", "echelle", "pairechelle"]
@@ -133,23 +133,23 @@ def plot_all_seismic(
         except Exception as e:
             print("\nUncorrected dupechelle failed with the error:", e)
 
-    if star.frequencies.surfacecorrection is None:
+    if star.modes.surfacecorrection is None:
         corjoin = maxjoin
         coeffs = np.array([1])
-    elif star.frequencies.surfacecorrection.get("KBC08") is not None:
+    elif star.modes.surfacecorrection.get("KBC08") is not None:
         corjoin, coeffs = freq_fit.HK08(
             joinkeys=maxjoinkeys,
             join=maxjoin,
             nuref=star.globalseismicparams.get_scaled("numax")[0],
-            bcor=star.frequencies.surfacecorrection["KBC08"]["bexp"],
+            bcor=star.modes.surfacecorrection["KBC08"]["bexp"],
         )
-    elif star.frequencies.surfacecorrection.get("two-term-BG14") is not None:
+    elif star.modes.surfacecorrection.get("two-term-BG14") is not None:
         corjoin, coeffs = freq_fit.BG14(
             joinkeys=maxjoinkeys,
             join=maxjoin,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
-    elif star.frequencies.surfacecorrection.get("cubic-term-BG14") is not None:
+    elif star.modes.surfacecorrection.get("cubic-term-BG14") is not None:
         corjoin, coeffs = freq_fit.cubicBG14(
             joinkeys=maxjoinkeys,
             join=maxjoin,
