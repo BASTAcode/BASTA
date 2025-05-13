@@ -6,8 +6,6 @@ import itertools
 
 import numpy as np
 from scipy.interpolate import CubicSpline  # type: ignore[import]
-from scipy.optimize import minimize  # type: ignore[import]
-from sklearn import linear_model  # type: ignore[import]
 
 from basta import utils_seismic as su
 from basta import core

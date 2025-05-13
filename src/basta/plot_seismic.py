@@ -143,9 +143,8 @@ def echelle(
     else:
         model_modes = x.model_modes
 
-    coeffs = x.coeffs
     corrected_frequencies = surfacecorrections.apply_surfacecorrection_coefficients(
-        coeffs=coeffs, star=star, model_modes=model_modes
+        coeffs=x.coeffs, star=star, model_modes=model_modes
     )
     corrected_data = model_modes.data.copy()
     corrected_data["frequency"] = corrected_frequencies
