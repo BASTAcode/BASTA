@@ -425,3 +425,39 @@ def apply_two_term_BG14(modkey, mod, coeffs, scalnu):
         corosc.append(mod[0, lmask] + df)
     corosc = np.asarray(np.concatenate(corosc))
     return corosc
+
+
+def apply_surfacecorrection(
+    coeffs: np.ndarray | None, star: core.Star, model_modes: core.ModelFrequencies
+) -> np.ndarray:
+    assert star.modes is not None
+    if star.modes.surfacecorrection is None:
+        return model_modes
+    if coeffs is None:
+        return model_modes
+
+    assert star.modes.surfacecorrection in SURFACECORRECTIONS
+
+    if star.modes.surfacecorrection.get("KBC08") is not None:
+        corosc = apply_KBC08(
+            modkey=modkey,
+            mod=mod,
+            coeffs=coeffs,
+            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+        )
+    elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
+        corosc = apply_two_term_BG14(
+            modkey=modkey,
+            mod=mod,
+            coeffs=coeffs,
+            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+        )
+    elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
+        corosc = apply_cubic_term_BG14(
+            modkey=modkey,
+            mod=mod,
+            coeffs=coeffs,
+            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+        )
+    cormod[0, :] = corosc
+    return cormod
