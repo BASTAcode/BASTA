@@ -4,8 +4,10 @@ This module contains the possible surface effect corrections that can be specifi
 
 import h5py  # type: ignore[import]
 import numpy as np
+from scipy.optimize import minimize  # type: ignore[import]
 
 from basta import core
+
 
 SURFACECORRECTIONS = {}
 
