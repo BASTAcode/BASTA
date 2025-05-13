@@ -5,6 +5,7 @@ This module contains the possible surface effect corrections that can be specifi
 import h5py  # type: ignore[import]
 import numpy as np
 from scipy.optimize import minimize  # type: ignore[import]
+from sklearn import linear_model  # type: ignore[import]
 
 from basta import core
 
@@ -17,8 +18,28 @@ def register_surfacecorrection(fn):
     return fn
 
 
+def _update_modes(
+    corrected_frequencies: np.ndarray, modes: core.JoinedModes | core.ModelFrequencies
+):
+    corrected_data = modes.data.copy()
+    if isinstance(modes, core.JoinedModes):
+        corrected_data["model_frequency"] = corrected_frequencies
+        return core.JoinedModes(data=corrected_data)
+    else:
+        corrected_data["frequency"] = corrected_frequencies
+        return core.ModelFrequencies(data=corrected_data)
+
+
+def _l1(params, data, labels):
+    prediction = np.dot(data, params.reshape(-1, 1))
+    dist = prediction - labels
+    return (np.abs(dist)).sum()
+
+
 @register_surfacecorrection
-def KBC08(joinedmodes: core.JoinedModes, nuref: float, bcor: float):
+def KBC08(
+    joinedmodes: core.JoinedModes, nuref: float, bcor: float
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Correcting stellar oscillation frequencies for near-surface effects
     following the approach in Hans Kjeldsen, Timothy R. Bedding, and Jørgen
@@ -32,22 +53,11 @@ def KBC08(joinedmodes: core.JoinedModes, nuref: float, bcor: float):
 
     Parameters
     ----------
-    joinkeys : int array
-        Array containing the mapping of model mode to the observed mode.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-        is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-    join : array
-        Array containing the model frequency, model inertia, observed
-        frequency, uncertainty in observed frequency for a pair of mapped
-        modes.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-        join[i, 0], inertia join[i, 1].
-        Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-        join[i, 2] and uncertainty join[i, 3].
+    joinedmodes : ModelFrequencies or JoinedModes
+        Mode data containing frequencies and inertias.
     nuref : float
-        The reference frequency used in the Kjeldsen correction. Normally the
-        reference frequency used is numax of the observed star or numax of the
-        Sun, but it shouldn't make a difference.
+        The reference frequency used in the KBC08 correction.
+        Typically, this is the numax of the observed star.
     bcor : float
         The exponent in the KBC08 correction.
 
@@ -61,15 +71,14 @@ def KBC08(joinedmodes: core.JoinedModes, nuref: float, bcor: float):
     """
 
     # Unpacking for readability
-    # If we do not have many modes but many mixed modes: only use l=0
-    _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-    f_modell0 = joinl0[0, :]
-    e_modell0 = joinl0[1, :]
-    f_obsl0 = joinl0[2, :]
+    joinl0 = joinedmodes.of_angular_degree(0)
+    f_modell0 = joinl0["model_frequency"]
+    e_modell0 = joinl0["inertia"]
+    f_obsl0 = joinl0["observed_frequency"]
 
-    f_model = join[0, :]
-    e_model = join[1, :]
-    f_obs = join[2, :]
+    f_model = joinedmodes.model_frequencies
+    e_model = joinedmodes.inertias
+    f_obs = joinedmodes.observed_frequencies
 
     # Interpolate inertia to l=0 inertia at same frequency
     interp_inertia = np.interp(f_model, f_modell0, e_modell0)
@@ -87,24 +96,30 @@ def KBC08(joinedmodes: core.JoinedModes, nuref: float, bcor: float):
         * (np.mean(f_obs) - rpar * np.mean(f_model))
         / np.sum(((f_obs / nuref) ** bcor) / q_nl)
     )
-    coeffs = [rpar, acor, bcor]
+    coeffs = np.asarray([rpar, acor, bcor])
 
     # Apply the frequency correction
-    corosc = apply_KBC08(modkey=joinkeys, mod=join, coeffs=coeffs, scalnu=nuref)
-    corjoin = np.copy(join)
-    corjoin[0, :] = np.asarray(corosc)
+    corrected_frequencies = apply_KBC08(modes=joinedmodes, coeffs=coeffs, scalnu=nuref)
+    assert corrected_frequencies is not None
+    corrected_joinedmodes = _update_modes(
+        corrected_frequencies=corrected_frequencies, modes=joinedmodes
+    )
 
-    return corjoin, coeffs
+    return corrected_joinedmodes, coeffs
 
 
 @register_surfacecorrection
-def cubic_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
+def cubic_term_BG14(
+    joinedmodes: core.JoinedModes,
+    scalnu: float,
+    method: str = "l1",
+    flag_useonlyradial: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Ball & Gizon frequency correction
 
     Correcting stellar oscillation frequencies for near-surface effects.
-    This routine follows the approach from
-    Warrick H. Ball and Laurent Gizon.
+    This routine follows the approach from Warrick H. Ball and Laurent Gizon.
     "A new correction of stellar oscillation frequencies for near-surface effects."
     Astronomy & Astrophysics 568 (2014): A123.
 
@@ -116,49 +131,35 @@ def cubic_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
 
     Parameters
     ----------
-    joinkeys : int array
-        Array containing the mapping of model mode to the observed mode.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-        is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-    join : array
-        Array containing the model frequency, model inertia, observed
-        frequency, uncertainty in observed frequency for a pair of mapped
-        modes.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-        join[i, 0], inertia join[i, 1].
-        Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-        join[i, 2] and uncertainty join[i, 3].
+    joinedmodes : ModelFrequencies or JoinedModes
+        Mode data containing frequencies and inertias.
     scalnu : float
         A scaling frequency used purely to non-dimensionalize the frequencies.
     method : string, optional
         The name of the fitting method used.
-        It can be 'ransac' (default), 'l1', or 'l2'.
-    onlyl0 : bool
+        It can be 'l1' (default), 'ransac', or 'l2'.
+    flag_useonlyradial : bool
         Flag that if True only computes the correction based on the l=0 modes.
         This can be usefull if not many modes have been observed.
 
     Returns
     -------
-    cormod : array
-        Array containing the corrected model frequencies and the unchanged
-        mode inertias in the same format as the osc-arrays.
-    coeffs : array
-        Array containing the coefficients a and b to the found correction.
+    corrected_frequencies : np.ndarray
+        Corrected mode frequencies
+    coeffs: np.ndarray
+        Coefficients for the computed surface effect correction
     """
-    # Unpacking for readability
-    # If we do not have many modes but many mixed modes: only use l=0
-    if onlyl0:
-        _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-
-        f_model = joinl0[0, :]
-        f_inertia = joinl0[1, :]
-        f_obs = joinl0[2, :]
-        f_unc = joinl0[3, :]
+    if flag_useonlyradial:
+        joinl0 = joinedmodes.of_angular_degree(0)
+        f_model = joinl0["model_frequency"]
+        f_inertia = joinl0["inertia"]
+        f_obs = joinl0["observed_frequency"]
+        f_unc = joinl0["error"]
     else:
-        f_model = join[0, :]
-        f_inertia = join[1, :]
-        f_obs = join[2, :]
-        f_unc = join[3, :]
+        f_model = joinedmodes.model_frequencies
+        f_inertia = joinedmodes.inertias
+        f_obs = joinedmodes.observed_frequencies
+        f_unc = joinedmodes.observed_error
 
     # Initialize vector y and matrix X
     nmodes = len(f_obs)
@@ -170,16 +171,8 @@ def cubic_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
     matX[:, 0] = np.power((f_model / scalnu), 3) / (f_inertia * f_unc)
 
     # Try for the l1-norm minimization
-    def l1(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (np.abs(dist)).sum()
 
-    def l2(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (dist**2).sum()
-
+    assert method in ["ransac", "l1", "l2"]
     if method == "ransac":
         np.random.seed(5)
         lr = linear_model.LinearRegression(fit_intercept=False)
@@ -189,7 +182,7 @@ def cubic_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
         coeffs = np.asarray([coeffs[0][0]])
     elif method == "l1":
         initial_params = np.zeros(1)
-        res = minimize(l1, initial_params, method="Nelder-Mead", args=(matX, y))
+        res = minimize(_l1, initial_params, method="Nelder-Mead", args=(matX, y))
         coeffs = res.x
         coeffs = np.asarray([coeffs[0]])
     elif method == "l2":
@@ -202,17 +195,23 @@ def cubic_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
         coeffs = np.array([l2res[0][0]])
 
     # Apply the frequency correction
-    corjoin = np.copy(join)
-    corosc = apply_cubic_term_BG14(
-        modkey=joinkeys, mod=join, coeffs=coeffs, scalnu=scalnu
+    corrected_frequencies = apply_cubic_term_BG14(
+        modes=joinedmodes, coeffs=coeffs, scalnu=scalnu
     )
-    corjoin[0, :] = corosc
+    corrected_joinedmodes = _update_modes(
+        corrected_frequencies=corrected_frequencies, modes=joinedmodes
+    )
 
-    return corjoin, coeffs
+    return corrected_joinedmodes, coeffs
 
 
 @register_surfacecorrection
-def two_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
+def two_term_BG14(
+    joinedmodes: core.JoinedModes,
+    scalnu: float,
+    method: str = "l1",
+    flag_useonlyradial=False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Ball & Gizon frequency correction
 
@@ -227,49 +226,35 @@ def two_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
 
     Parameters
     ----------
-    joinkeys : int array
-        Array containing the mapping of model mode to the observed mode.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-        is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-    join : array
-        Array containing the model frequency, model inertia, observed
-        frequency, uncertainty in observed frequency for a pair of mapped
-        modes.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-        join[i, 0], inertia join[i, 1].
-        Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-        join[i, 2] and uncertainty join[i, 3].
+    joinedmodes : ModelFrequencies or JoinedModes
+        Mode data containing frequencies and inertias.
     scalnu : float
         A scaling frequency used purely to non-dimensionalize the frequencies.
     method : string, optional
         The name of the fitting method used.
-        It can be 'ransac' (default), 'l1', or 'l2'.
-    onlyl0 : bool
+        It can be 'l1' (default), 'ransac', or 'l2'.
+    flag_useonlyradial : bool
         Flag that if True only computes the correction based on the l=0 modes.
         This can be usefull if not many modes have been observed.
 
     Returns
     -------
-    cormod : array
-        Array containing the corrected model frequencies and the unchanged
-        mode inertias in the same format as the osc-arrays.
-    coeffs : array
-        Array containing the coefficients a and b to the found correction.
+    corrected_frequencies : np.ndarray
+        Corrected mode frequencies
+    coeffs: np.ndarray
+        Coefficients for the computed surface effect correction
     """
-    # Unpacking for readability
-    # If we do not have many modes but many mixed modes: only use l=0
-    if onlyl0:
-        _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-
-        f_model = joinl0[0, :]
-        f_inertia = joinl0[1, :]
-        f_obs = joinl0[2, :]
-        f_unc = joinl0[3, :]
+    if flag_useonlyradial:
+        joinl0 = joinedmodes.of_angular_degree(0)
+        f_model = joinl0["model_frequency"]
+        f_inertia = joinl0["inertia"]
+        f_obs = joinl0["observed_frequency"]
+        f_unc = joinl0["error"]
     else:
-        f_model = join[0, :]
-        f_inertia = join[1, :]
-        f_obs = join[2, :]
-        f_unc = join[3, :]
+        f_model = joinedmodes.model_frequencies
+        f_inertia = joinedmodes.inertias
+        f_obs = joinedmodes.observed_frequencies
+        f_unc = joinedmodes.observed_error
 
     # Initialize vector y and matrix X
     nmodes = len(f_obs)
@@ -281,17 +266,7 @@ def two_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
     matX[:, 0] = np.power((f_model / scalnu), -1) / (f_inertia * f_unc)
     matX[:, 1] = np.power((f_model / scalnu), 3) / (f_inertia * f_unc)
 
-    # Try for the l1-norm minimization
-    def l1(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (np.abs(dist)).sum()
-
-    def l2(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (dist**2).sum()
-
+    assert method in ["ransac", "l1", "l2"]
     if method == "ransac":
         np.random.seed(5)
         lr = linear_model.LinearRegression(fit_intercept=False)
@@ -301,7 +276,7 @@ def two_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
         coeffs = np.asarray([coeffs[0][0], coeffs[1][0]])
     elif method == "l1":
         initial_params = np.zeros(2)
-        res = minimize(l1, initial_params, method="Nelder-Mead", args=(matX, y))
+        res = minimize(_l1, initial_params, method="Nelder-Mead", args=(matX, y))
         coeffs = res.x
         coeffs = np.asarray([coeffs[0], coeffs[1]])
     elif method == "l2":
@@ -314,125 +289,174 @@ def two_term_BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
         coeffs = np.array([l2res[0][0], l2res[1][0]])
 
     # Apply the frequency correction
-    corjoin = np.copy(join)
-    corosc = apply_two_term_BG14(
-        modkey=joinkeys, mod=join, coeffs=coeffs, scalnu=scalnu
+    corrected_frequencies = apply_two_term_BG14(
+        modes=joinedmodes, coeffs=coeffs, scalnu=scalnu
     )
-    corjoin[0, :] = corosc
+    corrected_joinedmodes = _update_modes(
+        corrected_frequencies=corrected_frequencies, modes=joinedmodes
+    )
 
-    return corjoin, coeffs
+    return corrected_joinedmodes, coeffs
 
 
-def apply_KBC08(modkey, mod, coeffs, scalnu):
+def apply_KBC08(
+    modes: core.ModelFrequencies | core.JoinedModes, coeffs: np.ndarray, scalnu: float
+) -> np.ndarray | None:
     """
-    Applies the KBC08 frequency correction to frequency for a given set
-    of coefficients
+    Applies the KBC08 frequency correction to the mode frequencies.
 
     Parameters
     ----------
-    modkey : array
-        Array containing the angular degrees and radial orders of mod.
-    mod : array
-        Array containing the modes in the model.
-    coeffs : list
-        List containing [rpar, acor, bcor] used in the KBC08 correction.
+    modes : ModelFrequencies or JoinedModes
+        Mode data containing frequencies and inertias.
+    coeffs : ndarray
+        Coefficients for the power-law model. Expected: [a, b, c]
+        - a: normalization
+        - b: Q scaling coefficient
+        - c: power-law exponent
     scalnu : float
         A scaling frequency used purely to non-dimensionalize the frequencies.
 
     Returns
     -------
-    corosc : array
-        Array containing the corrected model frequencies.
+    np.ndarray
+        Corrected frequencies.
     """
-    # Unpack
-    f_model = mod[0, :]
-    e_model = mod[1, :]
-
-    modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
-    f_modell0 = modl0[0, :]
-    e_modell0 = modl0[1, :]
+    if isinstance(modes, core.ModelFrequencies):
+        model_frequencies = modes.frequencies
+        model_inertia = modes.inertias
+        radial_modes = modes.of_angular_degree(0)
+        radial_model_frequencies = radial_modes["frequency"]
+        radial_model_inertias = radial_modes["inertia"]
+    elif isinstance(modes, core.JoinedModes):
+        model_frequencies = modes.model_frequencies
+        model_inertia = modes.inertias
+        radial_modes = modes.of_angular_degree(0)
+        radial_model_frequencies = radial_modes["model_frequency"]
+        radial_model_inertias = radial_modes["inertia"]
+    else:
+        raise TypeError("Unsupported mode type")
 
     # Interpolate inertia to l=0 inertia at same frequency
-    interp_inertia = np.interp(f_model, f_modell0, e_modell0)
+    interp_inertia = np.interp(
+        model_frequencies, radial_model_frequencies, radial_model_inertias
+    )
 
     # Calculate Q's
-    q_nl = e_model / interp_inertia
+    q_nl = model_inertia / interp_inertia
 
-    corosc = (f_model / coeffs[0]) + (coeffs[1] / (coeffs[0] * q_nl)) * (
-        (f_model / scalnu) ** coeffs[2]
-    )
-    return corosc
+    corrected_frequencies = (model_frequencies / coeffs[0]) + (
+        coeffs[1] / (coeffs[0] * q_nl)
+    ) * np.power(model_frequencies / scalnu, coeffs[2])
+    return corrected_frequencies
 
 
-def apply_cubic_term_BG14(modkey, mod, coeffs, scalnu):
+def apply_cubic_term_BG14(
+    modes: core.ModelFrequencies | core.JoinedModes, coeffs: np.ndarray, scalnu: float
+) -> np.ndarray:
     """
-    Applies the BG14 cubic frequency correction to frequency for a given set
-    of coefficients
+    Applies the BG14 cubic frequency correction to mode frequencies.
 
     Parameters
     ----------
-    modkey : array
-        Array containing the angular degrees and radial orders of mod.
-    mod : array
-        Array containing the modes in the model.
-    coeffs : list
-        List containing the two coefficients used in the BG14 correction.
+    modes : ModelFrequencies or JoinedModes
+        Mode data containing frequencies and inertias.
+    coeffs : ndarray
+        Correction coefficients. Expected: [a, b], corresponding to inverse and cubic terms.
     scalnu : float
-        A scaling frequency used purely to non-dimensionalize the frequencies.
+        Scaling factor used purely to non-dimensionalize the frequencies.
 
     Returns
     -------
-    corosc : array
-        Array containing the corrected model frequencies.
+    np.ndarray
+        Corrected frequencies.
     """
-    corosc = []
-    # The correction is applied to all model modes with non-zero inertia
-    for l in [0, 1, 2]:
-        lmask = modkey[0, :] == l
-        df = (coeffs[0] * np.power((mod[0, lmask] / scalnu), 3)) / (mod[1, lmask])
-        corosc.append(mod[0, lmask] + df)
-    corosc = np.asarray(np.concatenate(corosc))
-    return corosc
+    if isinstance(modes, core.ModelFrequencies):
+        model_frequencies = modes.frequencies
+        model_inertia = modes.inertias
+    elif isinstance(modes, core.JoinedModes):
+        model_frequencies = modes.model_frequencies
+        model_inertia = modes.inertias
+    else:
+        raise TypeError("Unsupported mode type")
+
+    corrected_freqs: list[np.ndarray] = []
+
+    # TODO(Amalie) pi-modes only
+    for l in np.unique(modes.l):
+        modes_givenl = modes.of_angular_degree(l)
+        if len(modes_givenl) < 1:
+            continue
+
+        freq = modes_givenl["frequency"]
+        inertia = modes_givenl["inertia"]
+        df = (coeffs[0] * np.power(freq / scalnu, 3)) / inertia
+        corrected_freqs.append(freq + df)
+
+    if not corrected_freqs:
+        return np.array([])
+
+    return np.concatenate(corrected_freqs)
 
 
-def apply_two_term_BG14(modkey, mod, coeffs, scalnu):
+def apply_two_term_BG14(
+    modes: core.ModelFrequencies | core.JoinedModes, coeffs: np.ndarray, scalnu: float
+) -> np.ndarray:
     """
-    Applies the BG14 frequency correction to frequency for a given set
-    of coefficients
+    Applies the BG14 two-term frequency correction to mode frequency.
 
     Parameters
     ----------
-    modkey : array
-        Array containing the angular degrees and radial orders of mod.
-    mod : array
-        Array containing the modes in the model.
-    coeffs : list
-        List containing the two coefficients used in the BG14 correction.
+    modes : ModelFrequencies or JoinedModes
+        Mode data containing frequencies and inertias.
+    coeffs : ndarray
+        Correction coefficients. Expected: [a, b], corresponding to inverse and cubic terms.
     scalnu : float
-        A scaling frequency used purely to non-dimensionalize the frequencies.
+        Scaling factor used purely to non-dimensionalize the frequencies.
 
     Returns
     -------
-    corosc : array
-        Array containing the corrected model frequencies.
+    np.ndarray
+        Corrected frequencies.
     """
-    corosc = []
-    # The correction is applied to all model modes with non-zero inertia
-    for l in [0, 1, 2]:
-        lmask = modkey[0, :] == l
+    if isinstance(modes, core.ModelFrequencies):
+        model_frequencies = modes.frequencies
+        model_inertia = modes.inertias
+    elif isinstance(modes, core.JoinedModes):
+        model_frequencies = modes.model_frequencies
+        model_inertia = modes.inertias
+    else:
+        raise TypeError("Unsupported mode type")
+
+    corrected_freqs: list[np.ndarray] = []
+
+    # TODO(Amalie) pi-modes only
+    for l in np.unique(modes.l):
+        modes_givenl = modes.of_angular_degree(l)
+        if len(modes_givenl) < 1:
+            continue
+        freq = modes_givenl["frequency"]
+        inertia = modes_givenl["inertia"]
+
         df = (
-            coeffs[0] * np.power((mod[0, lmask] / scalnu), -1)
-            + coeffs[1] * np.power((mod[0, lmask] / scalnu), 3)
-        ) / (mod[1, lmask])
-        corosc.append(mod[0, lmask] + df)
-    corosc = np.asarray(np.concatenate(corosc))
-    return corosc
+            coeffs[0] * np.power(freq / scalnu, -1)
+            + coeffs[1] * np.power(freq / scalnu, 3)
+        ) / inertia
+
+        corrected_freqs.append(freq + df)
+    if not corrected_freqs:
+        return np.array([])
+
+    return np.concatenate(corrected_freqs)
 
 
 def apply_surfacecorrection(
     joinedmodes: core.JoinedModes,
     star: core.Star,
-) -> tuple[np.ndarray.np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray] | tuple[core.JoinedModes, None]:
+    """
+    Compute a specified surfacecorrection for the mode frequencies
+    """
     assert star.modes is not None
     if star.modes.surfacecorrection is None:
         return joinedmodes, None
@@ -440,55 +464,62 @@ def apply_surfacecorrection(
     assert star.modes.surfacecorrection in SURFACECORRECTIONS
 
     if star.modes.surfacecorrection.get("KBC08") is not None:
-        corjoin, coeffs = KBC08(
+        corrected_joinedmodes, coeffs = KBC08(
             joinedmodes=joinedmodes,
             nuref=star.globalseismicparams.get_scaled("numax")[0],
             bcor=star.modes.surfacecorrection["KBC08"]["bexp"],
         )
     elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
-        corjoin, coeffs = two_term_BG14(
+        corrected_joinedmodes, coeffs = two_term_BG14(
             joinedmodes=joinedmodes,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
     elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
-        corjoin, coeffs = cubic_term_BG14(
+        corrected_joinedmodes, coeffs = cubic_term_BG14(
             joinedmodes=joinedmodes,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
-    return corjoin, coeffs
+    return corrected_joinedmodes, coeffs
 
 
 def apply_surfacecorrection_coefficients(
-    coeffs: np.ndarray | None, star: core.Star, model_modes: core.ModelFrequencies
-) -> np.ndarray:
+    coeffs: np.ndarray | None,
+    star: core.Star,
+    modes: core.ModelFrequencies | core.JoinedModes,
+) -> np.ndarray | core.ModelFrequencies | core.JoinedModes:
+    """
+    Apply a specified surface effect correction to the mode frequencies given the coefficients for the specified type of surface effect correction.
+
+    """
     assert star.modes is not None
     if star.modes.surfacecorrection is None:
-        return model_modes
+        return modes
     if coeffs is None:
-        return model_modes
+        return modes
 
     assert star.modes.surfacecorrection in SURFACECORRECTIONS
 
     if star.modes.surfacecorrection.get("KBC08") is not None:
-        corosc = apply_KBC08(
-            modkey=modkey,
-            mod=mod,
+        corrected_frequencies = apply_KBC08(
+            modes=modes,
             coeffs=coeffs,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
     elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
-        corosc = apply_two_term_BG14(
-            modkey=modkey,
-            mod=mod,
+        corrected_frequencies = apply_two_term_BG14(
+            modes=modes,
             coeffs=coeffs,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
     elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
-        corosc = apply_cubic_term_BG14(
-            modkey=modkey,
-            mod=mod,
+        corrected_frequencies = apply_cubic_term_BG14(
+            modes=modes,
             coeffs=coeffs,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
-    cormod[0, :] = corosc
-    return cormod
+
+    assert corrected_frequencies is not None
+    corrected_modes = _update_modes(
+        corrected_frequencies=corrected_frequencies, modes=modes
+    )
+    return corrected_modes
