@@ -122,33 +122,186 @@ def make_intervals(
     return intervals
 
 
+def resolve_matches(
+    f_mod: np.ndarray,
+    e_mod: np.ndarray,
+    n_mod: np.ndarray,
+    f_obs: np.ndarray,
+    e_obs: np.ndarray,
+    n_obs: np.ndarray,
+    mod_mask: np.ndarray,
+    obs_mask: np.ndarray,
+    n_obs_in_bin: int,
+    l: int,
+    l0_offsets: np.ndarray | None,
+) -> tuple[np.ndarray, dict[str, np.ndarray]] | tuple[None, None]:
+    """
+    Match the observed modes to their model equivalent for a given l
+
+    Parameters
+    ----------
+    f_mod : np.ndarray
+        Model frequencies.
+    e_mod : np.ndarray
+        Model inertias.
+    n_mod : np.ndarray
+        Model radial orders.
+    f_obs : np.ndarray
+        Observed frequencies.
+    e_obs : np.ndarray
+        Observed frequency uncertainties.
+    n_obs : np.ndarray
+        Observed radial orders.
+    mod_mask : np.ndarray
+        Boolean mask for model modes in the current frequency bin.
+    obs_mask : np.ndarray
+        Boolean mask for observed modes in the current frequency bin.
+    n_obs_in_bin : int
+        Number of observed modes in the current bin.
+    l : int
+        Angular degree of the modes.
+    l0_offsets : np.ndarray | None
+        Frequency offsets computed from l=0 modes to assist matching.
+    """
+    mod_freqs = f_mod[mod_mask]
+    mod_inertias = e_mod[mod_mask]
+    mod_indices = np.where(mod_mask)[0]
+
+    if len(mod_freqs) == n_obs_in_bin:
+        selected = mod_indices
+    else:
+        # Look at the inertia at k=n_obs_in_bin+1
+        sorted_inertias = np.sort(mod_inertias)
+        ke = sorted_inertias[n_obs_in_bin]
+        # Divide the modes into three area: sure, maybe & discard
+        # This is done by arbitarily choosing that
+        # everything with inertias below ke/10 should be matched,
+        # everything with inertias higher than 10*ke are not,
+        # and a subset of the in-between is selected based on the
+        # the distance in frequency space.
+        low_cutoff = ke / 10
+        high_cutoff = max(
+            ke + (ke - sorted_inertias[0]) / (n_obs_in_bin + 1), sorted_inertias[0] * 10
+        )
+
+        sure_mask = (e_mod < low_cutoff) & mod_mask
+        maybe_mask = (e_mod < high_cutoff) & (~sure_mask) & mod_mask
+
+        sure_indices = np.where(sure_mask)[0]
+        maybe_indices = np.where(maybe_mask)[0]
+
+        if len(sure_indices) == n_obs_in_bin:
+            selected = sure_indices
+        else:
+            # TODO(Amalie) Double check offset
+            # offset = 0.0
+            # if l > 0 and l0_offsets is not None and len(mod_freqs) > 0:
+            #    offset = l0_offsets[np.argmin(np.abs(mod_freqs[0] - (mod_freqs - l0_offsets)))]
+            offset_diffs = np.abs((mod_freqs[0] - l0_offsets) - f_obs[obs_mask][0])
+            offset = l0_offsets[np.argmin(offset_diffs)]
+
+            best_match = None
+            min_chi2 = np.inf
+            # Here we check all subsets of maybe.
+            for subset in itertools.combinations(
+                maybe_indices, n_obs_in_bin - len(sure_indices)
+            ):
+                candidate = np.sort(np.concatenate([sure_indices, subset]))
+                chi2 = np.sum(np.abs(f_mod[candidate] - offset - f_obs[obs_mask]))
+                if chi2 < min_chi2:
+                    best_match = candidate
+                    min_chi2 = chi2
+
+            if best_match is None:
+                return None, None
+
+            selected = best_match
+
+    result: dict[str, np.ndarray] = {
+        "joinkeys": np.column_stack(
+            [np.full(n_obs_in_bin, l, dtype=int), n_mod[selected], n_obs[obs_mask]]
+        ),
+        "join": np.column_stack(
+            [f_mod[selected], e_mod[selected], f_obs[obs_mask], e_obs[obs_mask]]
+        ),
+    }
+
+    return selected, result
+
+
+def _match_l(
+    l: int,
+    star_modes: core.StarModes,
+    model_modes: core.ModelFrequencies,
+    obs_intervals: np.ndarray,
+    model_intervals: np.ndarray,
+    l0_offsets: np.ndarray | None,
+) -> tuple[np.ndarray, np.ndarray] | None:
+
+    obs_givenl = star_modes.modes.of_angular_degree(l)
+    model_givenl = model_modes.of_angular_degree(l)
+
+    n_obs = obs_givenl["n"]
+    n_mod = model_givenl["n"]
+    f_obs = obs_givenl["frequency"]
+    e_obs = obs_givenl["error"]
+    f_mod = model_givenl["frequency"]
+    e_mod = model_givenl["inertia"]
+
+    joinkeys, join = [], []
+
+    min_bins = min(len(obs_intervals), len(model_intervals))
+
+    for i in range(min_bins - 1):
+        obs_mask = (obs_intervals[i] <= f_obs) & (f_obs < obs_intervals[i + 1])
+        mod_mask = (model_intervals[i] <= f_mod) & (f_mod < model_intervals[i + 1])
+
+        n_obs_in_bin = np.sum(obs_mask)
+        n_mod_in_bin = np.sum(mod_mask)
+
+        if n_obs_in_bin == 0:
+            continue
+        if n_mod_in_bin < n_obs_in_bin:
+            # Models with fewer modes than observed cannot physically be a match
+            # So if that is the case, move on to the next model
+            return None
+
+        mod_selected, matched = resolve_matches(
+            f_mod,
+            e_mod,
+            n_mod,
+            f_obs,
+            e_obs,
+            n_obs,
+            mod_mask=mod_mask,
+            obs_mask=obs_mask,
+            n_obs_in_bin=n_obs_in_bin,
+            l=l,
+            l0_offsets=l0_offsets,
+        )
+        if mod_selected is None:
+            return None
+
+        if matched is not None:
+            joinkeys.append(matched["joinkeys"])
+            join.append(matched["join"])
+
+    if join:
+        return np.concatenate(joinkeys), np.concatenate(join)
+
+    return None
+
+
 def calc_join(star_modes: core.StarModes, model_modes: core.ModelFrequencies):
     """
     This functions maps the observed modes to the model modes.
 
     Parameters
     ----------
-    mod : array
-        Array containing the modes in the model.
-    modkey : array
-        Array containing the angular degrees and radial orders of mod
-    obs : array
-        Array containing the modes in the observed data
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obsintervals : array, optional
-        Array containing the endpoints of the intervals used in the frequency
-        fitting routine in freq_fit.calc_join.
-        As it is the same in all iterations for the observed frequencies,
-        when computing chi2, this is computed in su.prepare_obs once
-        and given as an argument in order to save time.
-        If obsintervals is None, it will be computed.
-    dnu : float, optional
-        Large frequency separation in microhertz used for the computation
-        of `obsintervals`.
-        If left None, the large frequency separation will be computed as
-        the median difference between consecutive l=0 modes.
-
+    star_modes : StarModes
+        Object containing observed frequencies, uncertainties, and other data.
+    model_modes : ModelFrequencies
+        Object containing model frequencies and inertias.
     Returns
     -------
     joins : list or None
@@ -168,117 +321,57 @@ def calc_join(star_modes: core.StarModes, model_modes: core.ModelFrequencies):
             Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
             join[i, 2] and uncertainty join[i, 3].
     """
-
-    obskey = np.asarray([star_modes.modes.l, star_modes.modes.n])
-    obs = np.asarray([star_modes.modes.frequencies, star_modes.modes.errors])
-    obsintervals = star_modes.obsintervals
-    assert obsintervals is not None
-    modintervals = make_intervals(data=model_modes)
+    obs_intervals = star_modes.obsintervals
+    assert obs_intervals is not None
+    model_intervals = make_intervals(data=model_modes)
 
     # Initialise
     join = []
     joinkeys = []
 
     # Count the number of observed and modelled modes in each bin
+    result = _match_l(
+        l=0,
+        star_modes=star_modes,
+        model_modes=model_modes,
+        obs_intervals=obs_intervals,
+        model_intervals=model_intervals,
+        l0_offsets=None,
+    )
+    if result is None:
+        return None
+
+    l0_joinkeys, l0_join = result
+    joinkeys.append(l0_joinkeys)
+    join.append(l0_join)
+
+    # Compute offset
+    matched_l0s = l0_join.T
+    l0_offsets = matched_l0s[0, :] - matched_l0s[2, :]
+
     for l in star_modes.modes.possible_angular_degrees:
-        obs_givenl = star_modes.modes.of_angular_degree(l)
-        model_givenl = model_modes.of_angular_degree(l)
-        nobs = obs_givenl["n"]
-        nmod = model_givenl["n"]
-        fobs = obs_givenl["frequency"]
-        eobs = obs_givenl["error"]
-        fmod = model_givenl["frequency"]
-        emod = model_givenl["inertia"]
-
-        minlength = min(len(obsintervals), len(modintervals))
-        for i in range(minlength - 1):
-            ofilter = (obsintervals[i] <= fobs) & (fobs < obsintervals[i + 1])
-            mfilter = (modintervals[i] <= fmod) & (fmod < modintervals[i + 1])
-
-            msum = np.sum(mfilter)
-            osum = np.sum(ofilter)
-            if osum > 0:  # & (msum > 0):
-                if msum == osum:
-                    pass
-                elif msum > osum:
-                    # Look at the inertia at k=osum+1
-                    emodsort = np.sort(emod[mfilter])
-                    ke = emodsort[osum]
-                    # Divide the modes into three area: sure, maybe & discard
-                    # This is done by arbitarily choosing that
-                    # everything with inertias below ke/10 should be matched,
-                    # everything with inertias higher than 10*ke are not,
-                    # and a subset of the in-between is selected based on the
-                    # the distance in frequency space.
-                    avedist = (emodsort[osum] - emodsort[0]) / (osum + 1)
-                    sure = (emod < (ke / 10)) & (mfilter)
-                    maybe = (
-                        (emod < np.amax((ke + (avedist), emodsort[0] * 10)))
-                        & (~sure)
-                        & (mfilter)
-                    )
-                    maybe = maybe.nonzero()[0]
-                    sure = sure.nonzero()[0]
-                    bestchi2 = np.inf
-                    solution = None
-                    if len(sure) == osum:
-                        solution = sure
-                    else:
-                        # Here we check all subsets of maybe.
-                        # First, find the proper offset
-                        if osum == 1:
-                            # The type:ignore is because the variable is defined in the l=0 iteration
-                            # and used in the l>0 iterations. TODO(Amalie) This should probably be rewritten.
-                            offset = offsets[  # type: ignore
-                                (np.abs(matched_l0s[2, :] - fmod[mfilter][0])).argmin()  # type: ignore
-                            ]
-                        else:
-                            offset = 0
-                        for ss in itertools.combinations(maybe, osum - len(sure)):
-                            subset = np.sort(np.concatenate((ss, sure)))
-                            fmodsubset = fmod[subset]
-                            # offs = [(np.abs(matched_l0s[2, :] - f)).argmin()
-                            #    for f in fmodsubset]
-                            chi2 = np.sum(np.abs(fmodsubset - offset - fobs[ofilter]))
-                            if chi2 < bestchi2:
-                                bestchi2 = chi2
-                                solution = subset
-                    assert solution is not None
-                    mfilter = np.zeros(len(mfilter), dtype=bool)
-                    mfilter[solution] = True
-                elif msum < osum:
-                    # If more observed modes than model, move on to next model
-                    return None
-
-                joinkeys.append(
-                    np.transpose(
-                        [l * np.ones(osum, dtype=int), nmod[mfilter], nobs[ofilter]]
-                    )
-                )
-                join.append(
-                    np.transpose(
-                        [fmod[mfilter], emod[mfilter], fobs[ofilter], eobs[ofilter]]
-                    )
-                )
         if l == 0:
-            # Compute the offset due to the surface effect to use in the case
-            # of mixed modes for the l=1 and l=2 matching.
-            # same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
-            matched_l0s = np.transpose(np.concatenate(join))
-            # Compute offset
-            # modmask = [mode in same_ns for mode in modkey_givenl[1, :]]
-            # obsmask = [mode in same_ns for mode in obskey_givenl[1, :]]
-            # offsets = mod_givenl[0, modmask] - obs_givenl[0, obsmask]
-            # Note that code linting might want to remove the following line (F841),
-            # but the line is needed since the 'offsets' variable is used in the
-            # l=1 and 2 cases in this for-loop.
-            offsets = matched_l0s[0, :] - matched_l0s[2, :]  # noqa: F841
-    if len(join) != 0:
-        joins = [
-            np.transpose(np.concatenate(joinkeys)),
-            np.transpose(np.concatenate(join)),
+            continue
+        result = _match_l(
+            l=l,
+            star_modes=star_modes,
+            model_modes=model_modes,
+            obs_intervals=obs_intervals,
+            model_intervals=model_intervals,
+            l0_offsets=l0_offsets,
+        )
+        if result is None:
+            return None
+
+        l_joinkeys, l_join = result
+        joinkeys.append(l_joinkeys)
+        join.append(l_join)
+
+    if join:
+        return [
+            np.concatenate(joinkeys).T,
+            np.concatenate(join).T,
         ]
-        return joins
     return None
 
 

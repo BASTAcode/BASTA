@@ -11,21 +11,9 @@ import numpy as np
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
-from basta import core, freq_fit, glitch_fit
+from basta import core, freq_fit, glitch_fit, surfacecorrections
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
-
-
-# Define named tuple used in selectedmodels
-# TODO(Amalie): Switch to dataclasses and add more precise types
-class Trackdnusurf(NamedTuple):
-    surfacecorrected_dnu: Any
-
-
-class Trackglitchpar(NamedTuple):
-    AHe: Any
-    dHe: Any
-    tauHe: Any
 
 
 @dataclass(frozen=True)
@@ -195,33 +183,32 @@ def chi2_astero(
         chi2rut = np.inf
         return chi2rut, warnings, shapewarn, 0
     joinkeys, join = joins
-    # nmodes = joinkeys[:, joinkeys[0, :] < 3].shape[1]
 
     # Apply surface correction
     if star.modes.surfacecorrection is None:
         corjoin = join
     elif star.modes.surfacecorrection.get("KBC08") is not None:
-        corjoin, _ = freq_fit.HK08(
+        corjoin, _ = surfacecorrections.KBC08(
             joinkeys=joinkeys,
             join=join,
             nuref=star.globalseismicparams.get_scaled("numax")[0],
             bcor=star.modes.surfacecorrection["KBC08"]["bexp"],
         )
-    elif star.modes.surfacecorrection.get("two-term-BG14") is not None:
-        corjoin, _ = freq_fit.BG14(
+    elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
+        corjoin, _ = surfacecorrections.two_term_BG14(
             joinkeys=joinkeys,
             join=join,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
-    elif star.modes.surfacecorrection.get("cubic-term-BG14") is not None:
-        corjoin, _ = freq_fit.cubicBG14(
+    elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
+        corjoin, _ = surfacecorrections.cubic_term_BG14(
             joinkeys=joinkeys,
             join=join,
             scalnu=star.globalseismicparams.get_scaled("numax")[0],
         )
     else:
         print(
-            f'ERROR: surface correction must be either "None" or in "KBC08", "two-term-BG14", "cubic-term-BG14"'
+            f'ERROR: surface correction must be either "None" or in {surfacecorrections.SURFACECORRECTIONS}'
         )
         return None
 
@@ -252,7 +239,6 @@ def chi2_astero(
     # --> Equivalent to 'dnufit', but using the frequencies *after*
     #     applying the surface correction.
     # --> Compared to the observed value, which is 'dnudata'.
-    # TODO(Amalie) Is this for ratio fits only?
     if inferencesettings.fit_surfacecorrected_dnu:
         # Read observed dnu
         dnudata, dnudata_err = star.globalseismicparams.get_scaled("dnufit")
