@@ -367,26 +367,31 @@ def calc_join(star_modes: core.StarModes, model_modes: core.ModelFrequencies):
         join.append(l_join)
 
     if join:
+        joinkeys = np.asarray(np.concatenate(joinkeys)).T
+        join = np.asarray(np.concatenate(join)).T
         data = np.zeros(
             len(joinkeys[0]),
             dtype=[
                 ("l", int),
-                ("n", int),
+                ("observed_n", int),
                 ("observed_frequency", float),
                 ("error", float),
+                ("model_n", int),
                 ("model_frequency", float),
                 ("inertia", float),
             ],
         )
         data["l"] = joinkeys[0]
-        data["n"] = joinkeys[1]
+        data["observed_n"] = joinkeys[1]
+        data["model_n"] = joinkeys[2]
         data["model_frequency"] = join[0]
         data["inertia"] = join[1]
         data["observed_frequency"] = join[2]
         data["error"] = join[3]
 
-        joinednmodes = core.JoinedModes(data=data)
-        return joinednmodes
+        joinedmodes = core.JoinedModes(data=data)
+        return joinedmodes
+
     return None
 
 

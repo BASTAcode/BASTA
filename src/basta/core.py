@@ -324,8 +324,12 @@ class JoinedModes:
         return self.data["l"]
 
     @property
-    def n(self) -> np.ndarray:
-        return self.data["n"]
+    def observed_n(self) -> np.ndarray:
+        return self.data["observed_n"]
+
+    @property
+    def model_n(self) -> np.ndarray:
+        return self.data["model_n"]
 
     @property
     def observed_frequencies(self) -> np.ndarray:
