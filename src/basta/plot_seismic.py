@@ -115,13 +115,10 @@ def echelle(
     corrected_model_modes = surfacecorrections.apply_surfacecorrection_coefficients(
         coeffs=x.coeffs, star=star, modes=model_modes
     )
-    print(f"{corrected_model_modes=}")
 
     s = su.scale_by_inertia(modes=corrected_model_modes)
-    print(f"{s=}")
     if joinedmodes is not None:
         sjoin = su.scale_by_inertia(modes=joinedmodes)
-        print(f"{sjoin=}")
         assert sjoin is not None
 
     fmod = {}
@@ -131,7 +128,6 @@ def echelle(
     eobs = {}
     eobs_all = {}
     obsls = star.modes.modes.possible_angular_degrees.astype(str)
-    print(obsls)
 
     for l in obsls:
         mod_givenl = model_modes.of_angular_degree(int(l))

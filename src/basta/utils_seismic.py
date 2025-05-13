@@ -358,13 +358,13 @@ def scale_by_inertia(
     oscl1 = modes.of_angular_degree(1)
     oscl2 = modes.of_angular_degree(2)
 
-    if len(oscl0) != 0:
+    if len(oscl0) > 0:
         s0 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl0["inertia"]]
         s.append(np.asarray(s0))
-    if len(oscl1) != 0:
+    if len(oscl1) > 0:
         s1 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl1["inertia"]]
         s.append(np.asarray(s1))
-    if len(oscl2) != 0:
+    if len(oscl2) > 0:
         s2 = [10 * (1 / (np.log10(2 * n / (el0min)))) ** 2 for n in oscl2["inertia"]]
         s.append(np.asarray(s2))
     return s

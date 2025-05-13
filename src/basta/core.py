@@ -257,7 +257,7 @@ class ModelFrequencies:
 
     @property
     def inertias(self) -> np.ndarray:
-        return self.data["error"]
+        return self.data["inertia"]
 
     def of_angular_degree(self, given_l: int) -> np.ndarray:
         return self.data[self.l == given_l]
