@@ -374,9 +374,11 @@ def apply_cubic_term_BG14(
     if isinstance(modes, core.ModelFrequencies):
         model_frequencies = modes.frequencies
         model_inertia = modes.inertias
+        freq_colname = "frequency"
     elif isinstance(modes, core.JoinedModes):
         model_frequencies = modes.model_frequencies
         model_inertia = modes.inertias
+        freq_colname = "model_frequency"
     else:
         raise TypeError("Unsupported mode type")
 
@@ -388,7 +390,7 @@ def apply_cubic_term_BG14(
         if len(modes_givenl) < 1:
             continue
 
-        freq = modes_givenl["frequency"]
+        freq = modes_givenl[freq_colname]
         inertia = modes_givenl["inertia"]
         df = (coeffs[0] * np.power(freq / scalnu, 3)) / inertia
         corrected_freqs.append(freq + df)
@@ -422,9 +424,11 @@ def apply_two_term_BG14(
     if isinstance(modes, core.ModelFrequencies):
         model_frequencies = modes.frequencies
         model_inertia = modes.inertias
+        freq_colname = "frequency"
     elif isinstance(modes, core.JoinedModes):
         model_frequencies = modes.model_frequencies
         model_inertia = modes.inertias
+        freq_colname = "model_frequency"
     else:
         raise TypeError("Unsupported mode type")
 
@@ -435,7 +439,7 @@ def apply_two_term_BG14(
         modes_givenl = modes.of_angular_degree(l)
         if len(modes_givenl) < 1:
             continue
-        freq = modes_givenl["frequency"]
+        freq = modes_givenl[freq_colname]
         inertia = modes_givenl["inertia"]
 
         df = (
@@ -460,8 +464,6 @@ def apply_surfacecorrection(
     assert star.modes is not None
     if star.modes.surfacecorrection is None:
         return joinedmodes, None
-
-    assert star.modes.surfacecorrection in SURFACECORRECTIONS
 
     if star.modes.surfacecorrection.get("KBC08") is not None:
         corrected_joinedmodes, coeffs = KBC08(

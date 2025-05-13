@@ -184,8 +184,8 @@ def chi2_astero(
         return chi2rut, warnings, shapewarn, 0
 
     # Apply surface correction
-    corjoin, _ = surfacecorrections.apply_surfacecorrection(
-        joinkeys=joinkeys, join=join, star=star
+    corrected_joinedmodes, _ = surfacecorrections.apply_surfacecorrection(
+        joinedmodes=joinedmodes, star=star
     )
 
     # Initialize chi2 value
@@ -194,8 +194,12 @@ def chi2_astero(
     if inferencesettings.has_frequencies:
         # The frequency correction moved up before the ratios fitting!
         # --> If fitting frequencies, just add the already calculated things
-        x = corjoin[0, :] - corjoin[2, :]
-        w = _weight(len(corjoin[0, :]), star.modes.seismicweights)
+        nmodes = len(corrected_joinedmodes.model_frequencies)
+        x = (
+            corrected_joinedmodes.model_frequencies
+            - corrected_joinedmodes.observed_frequencies
+        )
+        w = _weight(nmodes, star.modes.seismicweights)
         if x.shape[0] == star.modes.inverse_covariance.shape[0]:
             chi2rut += (x.T.dot(star.modes.inverse_covariance).dot(x)) / w
         else:
@@ -204,11 +208,11 @@ def chi2_astero(
 
         if ~np.isfinite(chi2rut):
             chi2rut = np.inf
-            if debug and verbose:
+            if outputoptions.debug and outputoptions.verbose:
                 print("DEBUG: Computed non-finite chi2, setting chi2 to inf")
         elif chi2rut < 0:
             chi2rut = np.inf
-            if debug and verbose:
+            if outputoptions.debug and outputoptions.verbose:
                 print("DEBUG: chi2 less than zero, setting chi2 to inf")
 
     # Add large frequency separation term (using corrected frequencies!)
@@ -218,12 +222,10 @@ def chi2_astero(
     if inferencesettings.fit_surfacecorrected_dnu:
         # Read observed dnu
         dnudata, dnudata_err = star.globalseismicparams.get_scaled("dnufit")
-        # dnudata = obsfreqdata["freqs"]["dnudata"]
-        # dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
 
         # Compute surface corrected dnu
         surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
-            joinkeys, corjoin, star.globalseismicparams.get_scaled("numax")[0]
+            modes=joinedmodes, numax=star.globalseismicparams.get_scaled("numax")[0]
         )
 
         chi2rut += ((dnudata - surfacecorrected_dnu) / dnudata_err) ** 2

@@ -11,54 +11,53 @@ from basta import utils_seismic as su
 from basta import core
 
 
-def compute_dnufit(data: core.ObservedFrequencies, numax: float):
+def compute_dnufit(
+    modes: core.ObservedFrequencies | core.JoinedModes, numax: float
+) -> tuple[float, float]:
     """
     Compute large frequency separation weighted around numax, the same way as dnufit.
     Coefficients based on White et al. 2011.
 
     Parameters
     ----------
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obs : array
-        Individual frequencies and uncertainties.
-    numax : scalar
-        Frequency of maximum power
+    modes: core.ObservedFrequencies | core.JoinedModes
+        Object containing observed mode frequencies
+    numax : float
+        Frequency of maximum power in microhertz
 
     Returns
     -------
-    dnu : scalar
+    dnu : float
         Large frequency separation obtained by fitting the radial mode observed
         frequencies.
-    dnu_err : scalar
-        Uncertainty on dnudata.
+    dnu_error : float
+        Uncertainty on dnu.
     """
+
+    if isinstance(modes, core.ObservedFrequencies):
+        radial_modes = modes.of_angular_degree(0)
+        radial_frequencies = radial_modes["frequency"]
+        ns = radial_modes["n"]
+    elif isinstance(modes, core.JoinedModes):
+        radial_modes = modes.of_angular_degree(0)
+        radial_frequencies = radial_modes["observed_frequency"]
+
+    xfitdnu = np.arange(0, len(radial_frequencies))
 
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    radial = data.of_angular_degree(0)
     wfitdnu = np.exp(
         -1.0
-        * np.power(data.frequencies - numax, 2)
+        * np.power(radial_frequencies - numax, 2)
         / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
     )
-    fitcoef, fitcov = np.polyfit(
-        data.n, data.frequencies, 1, w=np.sqrt(wfitdnu), cov=True
-    )
-    dnu, dnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
-    """
-    yfitdnu = data.of obs[0, obskey[0, :] == 0]
-    xfitdnu = np.arange(0, len(yfitdnu))
-    xfitdnu = obskey[1, obskey[0, :] == 0]
-    wfitdnu = np.exp(
-        -1.0
-        * np.power(yfitdnu - numax, 2)
-        / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
-    )
-    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-    dnu, dnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
-    """
 
-    return dnu, dnu_err
+    fitcoef, fitcov = np.polyfit(
+        xfitdnu, radial_frequencies, 1, w=np.sqrt(wfitdnu), cov=True
+    )
+
+    dnu, dnu_error = fitcoef[0], np.sqrt(fitcov[0, 0])
+
+    return dnu, dnu_error
 
 
 def make_intervals(
