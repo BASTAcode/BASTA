@@ -160,11 +160,11 @@ def _bastamain(
     noofskips = [0, 0]
 
     # In some cases we need to store quantities computed at runtime
-    quantities_at_runtime = {}
+    quantities_at_runtime: dict[str, Any] = {}
     if inferencesettings.has_glitches:
-        quantities_computed_at_runtime["glitches"] = {}
+        quantities_at_runtime["glitches"] = {}
     if inferencesettings.fit_surfacecorrected_dnu:
-        quantities_computed_at_runtime["surfacecorrected_dnu"] = {}
+        quantities_at_runtime["surfacecorrected_dnu"] = {}
 
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
@@ -200,6 +200,8 @@ def _bastamain(
             index = np.ones(len(libitem["age"][:]), dtype=bool)
 
             for param in star.limits:
+                if param in ["frequencies"]:
+                    continue
                 index &= libitem[param][:] >= star.limits[param][0]
                 index &= libitem[param][:] <= star.limits[param][1]
             if np.sum(index) < 1:
@@ -211,7 +213,7 @@ def _bastamain(
 
             if inferencesettings.has_any_seismic_case:
                 assert star.modes is not None
-                if inferencesettings.boxpriors.get("anchormodecut"):
+                if "frequencies" in star.limits:
                     # Check which models have l=0, lowest n within tolerance
                     for ind in np.where(index)[0]:
                         model_modes = core.make_model_modes_from_ln_freqinertia(
@@ -221,39 +223,19 @@ def _bastamain(
                         lowest_obs_radial = (
                             star.modes.modes.lowest_observed_radial_frequency
                         )
-                        same_n = radial_model_modes.n == lowest_obs_radial.n[0]
+                        same_n = radial_model_modes["n"] == lowest_obs_radial["n"][0]
                         if np.sum(same_n) < 1:
                             continue
                         model_equivalent = radial_model_modes[same_n]
-                        # rawmod = libitem["osc"][ind]
-                        # rawmodkey = libitem["osckey"][ind]
-                        # mod = su.transform_obj_array(rawmod)
-                        # modkey = su.transform_obj_array(rawmodkey)
-                        # modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
-                        # As mod is ordered (stacked in increasing n and l),
-                        # then [0, 0] is the lowest l=0 mode
-                        # same_n = modkeyl0[1, :] == obskey[1, 0]
-                        # cl0 = modl0[0, same_n]
-                        # if cl0.size == 0:
-                        #    continue
-                        # elif cl0.size > 1:
-                        #    cl0 = cl0[0]
-
-                        # cl0 = cl0.item()
                         anchordist = (
-                            lowest_obs_radial.frequencies - model_equivalent.frequencies
+                            lowest_obs_radial["frequency"]
+                            - model_equivalent["frequency"]
                         )
-                        dnutype = "dnufit"
-                        # TODO(Amalie) these quantitites could be computed outside loop
-                        dnufrac = inferencesettings.boxpriors["dnufrac"].kwargs[dnutype]
-                        dnu = star.globalseismicparams.get_scaled(dnutype)[0]
-                        lower_threshold = -max(
-                            dnufrac / 2 * dnu,
-                            3 * lowest_observed_radial_frequency.errors,
+                        index &= (
+                            star.limits["frequencies"][0]
+                            < anchordist
+                            <= star.limits["frequencies"][1]
                         )
-                        upper_threshold = dnufrac * dnu
-
-                        index &= lower_threshold < anchordist <= upper_threshold
 
             # TODO(Amalie) rewrite this to a function
             # If any models are within tolerances, calculate statistics
@@ -269,8 +251,8 @@ def _bastamain(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if inferencesettings.has_any_seismic_case:
-                    if inferencesettings.glitchfit:
-                        glitchpar = np.zeros((index.sum(), 3))
+                    if inferencesettings.has_glitches:
+                        quantities_at_runtime["glitches"] = np.zeros((index.sum(), 3))
                     for indd, ind in enumerate(np.where(index)[0]):
                         chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
                             libitem,
@@ -292,14 +274,14 @@ def _bastamain(
                         )
                         chi2[indd] += chi2_freq
 
-                        if inferencesettings.glitchfit:
-                            quantities_computed_at_runtime["glitches"][indd] = addpars[
+                        if inferencesettings.has_glitches:
+                            quantities_at_runtime["glitches"][indd] = addpars[
                                 "glitchparams"
                             ]
                         if inferencesettings.fit_surfacecorrected_dnu:
-                            quantities_computed_at_runtime["surfacecorrected_dnu"][
-                                indd
-                            ] = addpars["dnusurf"]
+                            quantities_at_runtime["surfacecorrected_dnu"][indd] = (
+                                addpars["surfacecorrected_dnu"]
+                            )
 
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
@@ -367,10 +349,12 @@ def _bastamain(
                         index, logPDFarr, chi2
                     )
                 if inferencesettings.has_glitches:
-                    glitchmodels[group_name + name] = stats.Trackglitchpar(
-                        glitchpar[:, 0],
-                        glitchpar[:, 1],
-                        glitchpar[:, 2],
+                    quantities_at_runtime["glitches"][group_name + name] = (
+                        stats.Trackglitchpar(
+                            glitchpar[:, 0],
+                            glitchpar[:, 1],
+                            glitchpar[:, 2],
+                        )
                     )
                 elif outputoptions.debug and outputoptions.verbose:
                     print(
@@ -468,7 +452,11 @@ def _bastamain(
             selectedmodels=selectedmodels,
             path=maxPDF_path,
             ind=maxPDF_ind,
-            glitchparams=glitchmodels if inferencesettings.has_glitches else None,
+            glitchparams=(
+                quantities_at_runtime["glitches"]
+                if inferencesettings.has_glitches
+                else None
+            ),
         )
     else:
         print(

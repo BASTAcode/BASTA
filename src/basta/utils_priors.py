@@ -82,19 +82,40 @@ def get_dnufrac_limits(
 
 
 def get_anchormodecut(
-    priors: dict[str, core.PriorEntry],
     inputstar: core.InputStar,
+    inferencesettings: core.InferenceSettings,
     dnutype: str = "dnufit",
 ) -> dict[str, tuple[float, float]]:
-    # anchormodecut
-    pass
+    """
+    This function computes the constraint in frequency for the model equivalent of the chosen anchor mode.
+
+    The anchor mode can either be:
+    - the lowest observed radial mode
+    - the observed radial mode just shy of numax
+    """
+    anchormodecut_limits: dict[str, tuple[float, float]] = {}
+    if inferencesettings.has_any_seismic_case:
+        if isinstance(
+            inferencesettings.boxpriors.get("anchormodecut"), core.PriorEntry
+        ):
+            # TODO(Amalie) make it easy to choose the anchor point nearest numax
+            anchor_mode = star.modes.modes.lowest_observed_radial_frequency
+            dnufrac = inferencesettings.boxpriors["anchormodecut"].kwargs[dnutype]
+            dnu = inputstar.globalseismicparams.get_scaled(dnutype)[0]
+            lower_threshold = -max(
+                dnufrac / 2 * dnu,
+                3 * lowest_observed_radial_frequency.errors,
+            )
+            upper_threshold = dnufrac * dnu
+
+    return lower_threshold, upper_threshold
 
 
 def get_limits(
     inputstar: core.InputStar,
     inferencesettings: core.InferenceSettings,
     distancelimits: dict[str, tuple[float, float]] | None = None,
-):
+) -> dict[str, tuple[float, float]]:
     """
     This function computes the bounds specified as boxpriors by the user or the range of the grid.
 
@@ -117,7 +138,13 @@ def get_limits(
         **inputstar.globalseismicparams.params,
     }
 
-    # Unpack special cases such as gridcut and dnufrac
+    # Unpack special cases
+    anchormodecut = get_anchormodecut(
+        inputstar=inputstar, inferencesettings=inferencesettings
+    )
+    if anchormodecut:
+        limits["frequencies"] = anchormodecut
+
     gridcut = priors.get("gridcut")
     gridcut_limits: dict[str, tuple[float, float]] = (
         gridcut if isinstance(gridcut, dict) else {}
@@ -135,6 +162,7 @@ def get_limits(
         if dimension in [
             "gridcut",
             "dnufrac",
+            "anchormodecut",
         ]:
             continue  # as we are processing its contents instead.
 

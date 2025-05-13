@@ -232,7 +232,7 @@ class ObservedFrequencies:
         return np.unique(self.l)
 
     @property
-    def lowest_observed_radial_frequency(self) -> np.void:
+    def lowest_observed_radial_frequency(self) -> np.ndarray:
         radial_modes = self.of_angular_degree(0)
         if len(radial_modes) == 0:
             raise ValueError("No radial modes (l=0) found.")
@@ -598,8 +598,6 @@ class InferenceSettings:
 
     # dnufit_in_ratios: bool | int = False
     fit_surfacecorrected_dnu: bool | int = False
-    # TODO(Amalie) What does glitchfit do?
-    glitchfit: bool = False
     # TODO(Amalie) Consider removing entirely
     dnuprior: bool | int = True
     seismicweights: dict[str, Any]

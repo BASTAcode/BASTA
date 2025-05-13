@@ -19,7 +19,7 @@ from basta.constants import freqtypes, statdata
 # Define named tuple used in selectedmodels
 # TODO(Amalie): Switch to dataclasses and add more precise types
 class Trackdnusurf(NamedTuple):
-    dnusurf: Any
+    surfacecorrected_dnu: Any
 
 
 class Trackglitchpar(NamedTuple):
@@ -181,7 +181,7 @@ def chi2_astero(
     """
 
     # Additional parameters calculated during fitting
-    addpars = {"dnusurf": None, "glitchparams": None}
+    addpars = {"surfacecorrected_dnu": None, "glitchparams": None}
 
     # Unpack model frequencies
     model_modes = core.make_model_modes_from_ln_freqinertia(
@@ -260,11 +260,11 @@ def chi2_astero(
         # dnudata_err = obsfreqdata["freqs"]["dnudata_err"]
 
         # Compute surface corrected dnu
-        dnusurf, _ = freq_fit.compute_dnufit(
+        surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
             joinkeys, corjoin, star.globalseismicparams.get_scaled("numax")[0]
         )
 
-        chi2rut += ((dnudata - dnusurf) / dnudata_err) ** 2
+        chi2rut += ((dnudata - surfacecorrected_dnu) / dnudata_err) ** 2
 
     # TODO(Amalie) Fix ratios
     # Add the chi-square terms for ratios
@@ -328,7 +328,7 @@ def chi2_astero(
         glitchtype = obsfreqmeta["glitch"]["fit"][0]
         # Compute surface corrected dnu, if not already computed
         if inferencesettings.fit_surfacecorrected_dnu:
-            dnusurf, _ = freq_fit.compute_dnufit(
+            surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
                 joinkeys, corjoin, star.globalseismicparams.get_scaled("numax")
             )
 
@@ -347,7 +347,7 @@ def chi2_astero(
                 joinkeys,
                 join,
                 glitchtype,
-                dnusurf,
+                surfacecorrected_dnu,
                 fitfreqs,
                 ac_depths,
                 debug,
@@ -382,7 +382,7 @@ def chi2_astero(
                 joinkeys,
                 join,
                 glitchtype,
-                dnusurf,
+                surfacecorrected_dnu,
                 fitfreqs,
                 ac_depths,
                 debug,
@@ -455,9 +455,9 @@ def chi2_astero(
         elif ~np.isfinite(chi2rut) or chi2rut < 0:
             chi2rut = np.inf
 
-    # Store dnusurf for output
+    # Store surfacecorrected_dnu for output
     if inferencesettings.fit_surfacecorrected_dnu:
-        addpars["dnusurf"] = dnusurf
+        addpars["surfacecorrected_dnu"] = surfacecorrected_dnu
 
     return chi2rut, warnings, shapewarn, addpars
 
