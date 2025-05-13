@@ -115,10 +115,13 @@ def echelle(
     corrected_model_modes = surfacecorrections.apply_surfacecorrection_coefficients(
         coeffs=x.coeffs, star=star, modes=model_modes
     )
+    corrected_joinedmodes = surfacecorrections.apply_surfacecorrection_coefficients(
+        coeffs=x.coeffs, star=star, modes=joinedmodes
+    )
 
     s = su.scale_by_inertia(modes=corrected_model_modes)
-    if joinedmodes is not None:
-        sjoin = su.scale_by_inertia(modes=joinedmodes)
+    if corrected_joinedmodes is not None:
+        sjoin = su.scale_by_inertia(modes=corrected_joinedmodes)
         assert sjoin is not None
 
     fmod = {}
@@ -130,13 +133,13 @@ def echelle(
     obsls = star.modes.modes.possible_angular_degrees.astype(str)
 
     for l in obsls:
-        mod_givenl = model_modes.of_angular_degree(int(l))
+        mod_givenl = corrected_model_modes.of_angular_degree(int(l))
         obs_givenl = star.modes.modes.of_angular_degree(int(l))
         fmod_all[l] = mod_givenl["frequency"] / scalex
         fobs_all[l] = obs_givenl["frequency"] / scalex
         eobs_all[l] = obs_givenl["error"] / scalex
         if joinedmodes is not None:
-            ljoin = joinedmodes.of_angular_degree(l)
+            ljoin = corrected_joinedmodes.of_angular_degree(l)
             fmod[l] = ljoin["model_frequency"] / scalex
             fobs[l] = ljoin["observed_frequency"] / scalex
             eobs[l] = ljoin["error"] / scalex

@@ -103,7 +103,7 @@ def plot_all_seismic(
         except Exception as e:
             print("\nUncorrected dupechelle failed with the error:", e)
 
-    corrected_joinmodes, coeffs = surfacecorrections.apply_surfacecorrection(
+    corrected_joinedmodes, coeffs = surfacecorrections.apply_surfacecorrection(
         joinedmodes=joinedmodes, star=star
     )
     if coeffs is not None:

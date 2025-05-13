@@ -379,6 +379,7 @@ def apply_cubic_term_BG14(
         model_frequencies = modes.model_frequencies
         model_inertia = modes.inertias
         freq_colname = "model_frequency"
+        freq_colname = "model_frequency"
     else:
         raise TypeError("Unsupported mode type")
 
@@ -498,8 +499,6 @@ def apply_surfacecorrection_coefficients(
         return modes
     if coeffs is None:
         return modes
-
-    assert star.modes.surfacecorrection in SURFACECORRECTIONS
 
     if star.modes.surfacecorrection.get("KBC08") is not None:
         corrected_frequencies = apply_KBC08(
