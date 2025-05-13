@@ -136,7 +136,7 @@ def echelle(
         scalex = 1
 
     assert star.modes is not None
-    obsls = np.unique(star.modes.l).astype(str)
+    obsls = np.unique(star.modes.modes.l).astype(str)
 
     if x.mod is None and x.modkey is None:
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
@@ -195,7 +195,7 @@ def echelle(
     eobs_all = {}
     for l in np.arange(np.amax(obsls.astype(int)) + 1):
         _, mod = su.get_givenl(l=l, osc=cormod, osckey=modkey)
-        obskey = np.asarray([star.modes.l, star.modes.n])
+        obskey = np.asarray([star.modes.modes.l, star.modes.modes.n])
         _, lobs = su.get_givenl(l=l, osc=x.obs, osckey=obskey)
         fmod_all[str(l)] = mod[0, :] / scalex
         fobs_all[str(l)] = lobs[0, :] / scalex
@@ -1011,7 +1011,7 @@ def correlation_map(fittype, star, outputfilename: Path | None) -> None:
     # Determine information for constructing labels
     if fittype in freqtypes.freqs:
         fmtstr = r"$\nu({:d}, {:d})$"
-        obskey = np.asarray([star.modes.l, star.modes.n])
+        obskey = np.asarray([star.modes.modes.l, star.modes.modes.n])
         ln_zip: Iterable[tuple[Any, Any]] = zip(obskey[0, :], obskey[1, :])
 
     elif fittype in freqtypes.rtypes:

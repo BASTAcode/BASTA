@@ -65,7 +65,7 @@ def plot_all_seismic(
 
     freqplots = plotconfig.freqplots
     assert star.modes is not None
-    obs = np.asarray([star.modes.frequencies, star.modes.errors])
+    obs = np.asarray([star.modes.modes.frequencies, star.modes.modes.errors])
     obsintervals = star.modes.obsintervals
     allfplots = freqplots[0] == True  # noqa: E712
     if any(x == "allechelle" for x in freqplots):

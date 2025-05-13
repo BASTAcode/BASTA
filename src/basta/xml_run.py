@@ -1223,10 +1223,9 @@ def run_xml(
                     )
                 # Add the constraint on the anchormode
                 if inputparams["fitfreqs"]["dnufrac"] is not None:
-                    pass
-                    # boxpriors["anchormode"] = core.PriorEntry(
-                    #    kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
-                    # )
+                    boxpriors["anchormode"] = core.PriorEntry(
+                        kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
+                    )
 
                 inferencesettings = core.InferenceSettings(
                     fitparams=fitparams,

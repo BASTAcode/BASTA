@@ -213,30 +213,9 @@ def _bastamain(
             if np.sum(index) < 1:
                 continue
 
-            if inferencesettings.has_any_seismic_case:
-                if star.limits["frequencies"] is not None:
-                    # Check which models have l=0, lowest n within tolerance
-                    for ind in np.where(index)[0]:
-                        model_modes = core.make_model_modes_from_ln_freqinertia(
-                            libitem["osckey"][ind], libitem["osc"][ind]
-                        )
-                        radial_model_modes = model_modes.of_angular_degree(0)
-                        lowest_obs_radial = (
-                            star.modes.modes.lowest_observed_radial_frequency
-                        )
-                        same_n = radial_model_modes["n"] == lowest_obs_radial["n"]
-                        if np.sum(same_n) < 1:
-                            continue
-                        model_equivalent = radial_model_modes[same_n]
-                        anchordist = (
-                            lowest_obs_radial["frequency"]
-                            - model_equivalent["frequency"]
-                        )
-                        index &= (
-                            star.limits["frequencies"][0]
-                            < anchordist
-                            <= star.limits["frequencies"][1]
-                        )
+            index &= util.apply_anchor_cut(
+                index, star=star, libitem=libitem, inferencesettings=inferencesettings
+            )
 
             # TODO(Amalie) rewrite this to a function
             # If any models are within tolerances, calculate statistics
@@ -252,8 +231,11 @@ def _bastamain(
 
                 # Frequency (and/or ratio and/or glitch) fitting
                 if inferencesettings.has_any_seismic_case:
-                    if inferencesettings.has_glitches:
-                        quantities_at_runtime["glitches"] = np.zeros((index.sum(), 3))
+                    inds: list = []
+                    ahe: list = []
+                    dhe: list = []
+                    tauhe: list = []
+                    surfacecorrected_dnu: list = []
                     for indd, ind in enumerate(np.where(index)[0]):
                         chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
                             libitem,
@@ -274,15 +256,28 @@ def _bastamain(
                             verbose=outputoptions.verbose,
                         )
                         chi2[indd] += chi2_freq
-
                         if inferencesettings.has_glitches:
-                            quantities_at_runtime["glitches"][indd] = addpars[
-                                "glitchparams"
-                            ]
+                            inds.append(indd)
+                            ahe.append(addpars["glitchparams"][:, 0])
+                            dhe.append(addpars["glitchparams"][:, 1])
+                            tauhe.append(addpars["glitchparams"][:, 2])
                         if inferencesettings.fit_surfacecorrected_dnu:
-                            quantities_at_runtime["surfacecorrected_dnu"][indd] = (
-                                addpars["surfacecorrected_dnu"]
-                            )
+                            surfacecorrected_dnu.append(addpars["surfacecorrected_dnu"])
+
+                    if inferencesettings.has_glitches:
+                        quantities_at_runtime["glitches"][group_name + name] = {
+                            "idx": inds,
+                            "aHe": addpars["glitchparams"][:, 0],
+                            "dHe": addpars["glitchparams"][:, 1],
+                            "tauHe": addpars["glitchparams"][:, 2],
+                        }
+                    if inferencesettings.fit_surfacecorrected_dnu:
+                        quantities_at_runtime["surfacecorrected_dnu"][
+                            group_name + name
+                        ] = {
+                            "idx": inds,
+                            "surfacecorrected_dnu": addpars["surfacecorrected_dnu"],
+                        }
 
                 # Bayesian weights (across tracks/isochrones)
                 logPDF = 0.0
@@ -348,18 +343,6 @@ def _bastamain(
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, logPDFarr, chi2
-                    )
-                if inferencesettings.has_glitches:
-                    quantities_at_runtime["glitches"][group_name + name] = (
-                        stats.Trackglitchpar(
-                            glitchpar[:, 0],
-                            glitchpar[:, 1],
-                            glitchpar[:, 2],
-                        )
-                    )
-                elif outputoptions.debug and outputoptions.verbose:
-                    print(
-                        f"DEBUG: Index not found: {group_name + name}, {~np.isinf(logPDFarr)}"
                     )
         # End loop over isochrones/tracks
         #######################################################################

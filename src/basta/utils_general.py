@@ -1313,3 +1313,69 @@ def gridlimits(
         kwargs={"gridcut": gridcut},
         limits=None,
     )
+
+
+def is_modelmodes_within_anchormodecut(
+    osckeys,
+    oscs,
+    anchormode: np.ndarray,
+    freq_limits: tuple[float, float],
+    index: np.ndarray,
+) -> bool:
+    """
+    Checks if the model equivalent of the anchor mode lies within the frequency limits set by the anchor mode.
+    """
+    lower_limit, upper_limit = freq_limits
+    output_mask = np.zeros(len(index), dtype=bool)
+
+    for i in np.where(index)[0]:
+        ln = osckeys[i]
+        freqin = oscs[i]
+
+        l_vals, n_vals = ln[0], ln[1]
+        freq_vals = freqin[0]
+
+        radial_mask = (l_vals == 0) & (n_vals == anchormode["n"])
+        if not np.any(radial_mask):
+            continue
+
+        anchor_freq = freq_vals[radial_mask][0]
+        anchordist = float(anchor_freq - anchormode["frequency"])
+
+        within_lower = np.abs(lower_limit) > np.abs(anchordist)
+        within_upper = anchordist <= upper_limit
+
+        output_mask[i] = within_lower and within_upper
+
+    return output_mask
+
+
+def apply_anchor_cut(
+    index: np.ndarray,
+    star: core.Star,
+    libitem: dict,
+    inferencesettings: core.InferenceSettings,
+) -> np.ndarray:
+    """Applies frequency limits based on anchor mode matching to filter model indices."""
+    if not inferencesettings.has_any_seismic_case:
+        return index
+
+    freq_limits = star.limits.get("frequencies")
+    if freq_limits is None:
+        return index
+
+    anchormode = star.modes.modes.lowest_observed_radial_frequency
+    indexf = np.zeros_like(index, dtype=bool)
+
+    osckeys = libitem["osckey"]
+    oscs = libitem["osc"]
+
+    indexf = is_modelmodes_within_anchormodecut(
+        osckeys=osckeys,
+        oscs=oscs,
+        anchormode=anchormode,
+        freq_limits=freq_limits,
+        index=index,
+    )
+
+    return indexf
