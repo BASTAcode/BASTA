@@ -751,3 +751,14 @@ class PlotConfig:
             "ytick.labelsize": 14,
             "legend.fontsize": 12,
         }
+
+    @property
+    def corner_style(self) -> dict:
+        return {
+            "show_titles": True,
+            "quantiles": constants.statdata.quantiles,
+            "smooth": 1,
+            "smooth1d": "kde",
+            "title_kwargs": {"fontsize": 10},
+            "plot_datapoints": False,
+        }

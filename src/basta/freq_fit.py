@@ -40,7 +40,7 @@ def compute_dnufit(
         ns = radial_modes["n"]
     elif isinstance(modes, core.JoinedModes):
         radial_modes = modes.of_angular_degree(0)
-        radial_frequencies = radial_modes["observed_frequency"]
+        radial_frequencies = radial_modes["model_frequency"]
 
     xfitdnu = np.arange(0, len(radial_frequencies))
 

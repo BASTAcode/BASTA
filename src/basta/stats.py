@@ -122,7 +122,7 @@ def compute_log_likelihood_from_residual(
     ndim: int = 1,
     dist_type: str = "gaussian",
     dof: int = 50,
-) -> np.ndarray:
+) -> float | np.ndarray:
     """
     Compute log-likelihood from a residual or Mahalanobis distance.
 
@@ -145,13 +145,13 @@ def compute_log_likelihood_from_residual(
 
     """
     if dist_type == "gaussian":
-        if np.isscalar(residual):
+        if isinstance(residual, float):
             return -0.5 * residual
         else:
             return -0.5 * residual**2 - np.log(np.sqrt(2 * np.pi) * sigma)
 
     elif dist_type == "studentt":
-        if np.isscalar(residual):  # Mahalanobis case
+        if isinstance(residual, float):  # Mahalanobis case
             return -0.5 * (ndim + dof) * np.log(1 + residual / dof)
         else:  # Univariate case (residual is normalized)
             return t.logpdf(residual, df=dof, loc=0, scale=1) - np.log(sigma)
@@ -165,7 +165,6 @@ def compute_classical_log_likelihood(
 ):
     """
     Compute log-likelihood from classical parameters.
-    #TODO(Amalie) play around with dof and consider putting these settings in inferencesettings.
     """
     log_likelihood = np.zeros(index.sum())
     residual = 0
@@ -175,26 +174,57 @@ def compute_classical_log_likelihood(
             continue
 
         model_values = libitem[param][index]
-        residual = (model_values - observed_value) / sigma
+        residual = (model_values - observed_value) / observed_error
 
-        log_likelihood += log_likelihood_from_residual(
+        log_likelihood += compute_log_likelihood_from_residual(
             residual, dist_type=dist_type, dof=dof, ndim=1, sigma=observed_error
         )
 
-    return log_likelihood, residual
+    return log_likelihood, residual**2
+
+
+def compute_globalseismic_log_likelihood(
+    libitem, index, star: core.Star, dist_type: str = "gaussian", dof: int = 50
+):
+    """
+    Compute log-likelihood from global seismic parameters.
+    """
+    log_likelihood = np.zeros(index.sum())
+    residual = 0
+
+    for param, observed_param in star.globalseismicparams.params.items():
+        model_values = libitem[param][index]
+        scaled_observed_value, scaled_observed_error = observed_param.scaled
+        residual = (model_values - scaled_observed_value) / scaled_observed_error
+
+        log_likelihood += compute_log_likelihood_from_residual(
+            residual, dist_type=dist_type, dof=dof, ndim=1, sigma=scaled_observed_error
+        )
+
+    return log_likelihood, residual**2
 
 
 def compute_surfacecorrected_dnu_log_likelihood(
-    libitem, index, star: core.Star, dist_type: str = "gaussian", dof: int = 50
-):
+    libitem,
+    index,
+    star: core.Star,
+    joinedmodes: core.JoinedModes,
+    dist_type: str = "gaussian",
+    dof: int = 50,
+) -> tuple[float | np.ndarray, float | np.ndarray, float]:
 
-    dnudata, dnudata_err = star.globalseismicparams.get_scaled("dnufit")
+    dnu_value, dnu_error = star.globalseismicparams.get_scaled("dnufit")
     numax = star.globalseismicparams.get_scaled("numax")[0]
 
-    surfacecorrected_dnu, _ = freq_fit.compute_dnufit(modes=joined_modes, numax=numax)
+    surfacecorrected_dnu, _ = freq_fit.compute_dnufit(modes=joinedmodes, numax=numax)
 
-    chi2 = ((dnudata - surfacecorrected_dnu) / dnudata_err) ** 2
-    return chi2, surfacecorrected_dnu
+    residual = (dnu_value - surfacecorrected_dnu) / dnu_error
+
+    log_likelihood = compute_log_likelihood_from_residual(
+        residual, dist_type=dist_type, dof=dof, ndim=1, sigma=dnu_error
+    )
+
+    return log_likelihood, residual**2, surfacecorrected_dnu
 
 
 def compute_seismic_log_likelihood(
@@ -204,10 +234,11 @@ def compute_seismic_log_likelihood(
     shapewarn: int = 0,
     dist_type: str = "gaussian",
     dof: int = 50,
-):
+) -> tuple[float | np.ndarray, float | np.ndarray, int]:
     """
     Compute seismic (frequency) log-likelihood
     """
+    assert star.modes is not None
     x = (
         corrected_joinedmodes.model_frequencies
         - corrected_joinedmodes.observed_frequencies
@@ -216,52 +247,114 @@ def compute_seismic_log_likelihood(
 
     if x.shape[0] != star.modes.inverse_covariance.shape[0]:
         if outputoptions and outputoptions.debug and outputoptions.verbose:
-            print("DEBUG: Frequency shape mismatch — setting chi2 to inf")
-        return -np.inf
+            print("DEBUG: Frequency shape mismatch, setting chi2 to inf")
+        return -np.inf, np.inf, shapewarn
 
     mahalanobis_dist = (x.T @ star.modes.inverse_covariance @ x) / w
     d = len(x)
 
     if not np.isfinite(mahalanobis_dist) or mahalanobis_dist < 0:
         if outputoptions and outputoptions.debug and outputoptions.verbose:
-            print("DEBUG: Invalid Mahalanobis distance — setting to inf")
+            print("DEBUG: Invalid Mahalanobis distance, setting to inf")
         # TODO(Amalie) why shapewarn?
         shapewarn = 1
-        return -np.inf
+        return -np.inf, np.inf, shapewarn
 
     if dist_type == "gaussian":
-        return -0.5 * mahalanobis_dist
+        log_likelihood = -0.5 * mahalanobis_dist
     elif dist_type == "studentt":
-        return -0.5 * (d + dof) * np.log(1 + mahalanobis_dist / dof)
+        log_likelihood = -0.5 * (d + dof) * np.log(1 + mahalanobis_dist / dof)
     else:
         raise ValueError(f"Unknown dist_type '{dist_type}'")
+
+    return log_likelihood, mahalanobis_dist, shapewarn
 
 
 def compute_log_likelihood(
     libitem,
-    star: core.Star,
     index: np.ndarray,
+    star: core.Star,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
-) -> tuple[np.ndarray, np.ndarray]:
+    dist_type: str = "gaussian",
+    dof: int = 50,
+) -> tuple[float | np.ndarray, float | np.ndarray, int]:
     if not np.any(index):
-        return np.array([])
+        return np.array([]), np.array([]), 0
+
+    addpars = {"surfacecorrected_dnu": None, "glitchparams": None}
+    shapewarn = 0
 
     total_log_likelihood, chi2 = compute_classical_log_likelihood(
-        libitem, star, index, dist_type=dist_type, dof=dof
+        libitem=libitem, index=index, star=star, dist_type=dist_type, dof=dof
     )
+    globalseismic_log_likelihood, globalseismic_chi2 = (
+        compute_globalseismic_log_likelihood(
+            libitem=libitem, index=index, star=star, dist_type=dist_type, dof=dof
+        )
+    )
+    total_log_likelihood += globalseismic_log_likelihood
+    chi2 += globalseismic_chi2
 
     if inferencesettings.has_frequencies:
+        assert star.modes is not None
         model_modes = core.make_model_modes_from_ln_freqinertia(
-            libitem["osckey"][ind], libitem["osc"][ind]
+            libitem["osckey"][index], libitem["osc"][index]
         )
-        seismic_log_likelihood, seismic_chi2 = compute_seismic_log_likelihood(
-            star, corrected_joinedmodes, outputoptions
+
+        joinedmodes = freq_fit.calc_join(star.modes, model_modes)
+        if joinedmodes is None:
+            return -np.inf, np.inf, shapewarn
+
+        corrected_joinedmodes, _ = surfacecorrections.apply_surfacecorrection(
+            joinedmodes=joinedmodes, star=star
+        )
+        seismic_log_likelihood, seismic_chi2, shapewarn = (
+            compute_seismic_log_likelihood(
+                star=star,
+                corrected_joinedmodes=corrected_joinedmodes,
+                outputoptions=outputoptions,
+            )
         )
         total_log_likelihood += seismic_log_likelihood
         chi2 += seismic_chi2
 
-    return total_log_likelihood, chi2
+    if inferencesettings.fit_surfacecorrected_dnu:
+        if not inferencesettings.has_frequencies:
+            assert star.modes is not None
+            model_modes = core.make_model_modes_from_ln_freqinertia(
+                libitem["osckey"][index], libitem["osc"][index]
+            )
+
+            joinedmodes = freq_fit.calc_join(star.modes, model_modes)
+            if joinedmodes is None:
+                return -np.inf, np.inf, shapewarn
+
+            corrected_joinedmodes, _ = surfacecorrections.apply_surfacecorrection(
+                joinedmodes=joinedmodes, star=star
+            )
+        surfcorr_log_likelihood, surfcorr_chi2, surfacecorrected_dnu = (
+            compute_surfacecorrected_dnu_log_likelihood(
+                libitem=libitem,
+                index=index,
+                star=star,
+                joinedmodes=joinedmodes,
+                dist_type=dist_type,
+                dof=dof,
+            )
+        )
+        total_log_likelihood += surfcorr_log_likelihood
+        chi2 += surfcorr_chi2
+        addpars["surfacecorrected_dnu"] = surfacecorrected_dnu
+
+    if inferencesettings.has_ratios:
+        pass
+    if inferencesettings.has_glitches:
+        pass
+    if inferencesettings.has_epsilondifferences:
+        pass
+
+    return total_log_likelihood, chi2, shapewarn
 
 
 def chi2_astero(
@@ -320,7 +413,7 @@ def chi2_astero(
     """
 
     # Additional parameters calculated during fitting
-    addpars = {"surfacecorrected_dnu": None, "glitchparams": None}
+    addpars: dict[str, dict] = {"surfacecorrected_dnu": {}, "glitchparams": {}}
 
     # Unpack model frequencies
     model_modes = core.make_model_modes_from_ln_freqinertia(

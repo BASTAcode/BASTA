@@ -242,14 +242,14 @@ def unique_unsort(params):
 
 def compare_output_to_input(
     star: core.Star,
-    absolutemagnitudes: core.AbsoluteMagnitudes,
+    absolutemagnitudes: core.AbsoluteMagnitudes | None,
     runfiles: core.RunFiles,
     inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
     hout,
     out,
     hout_dist,
     out_dist,
-    uncert="qunatiles",
     sigmacut=1,
 ):
     """
@@ -283,6 +283,7 @@ def compare_output_to_input(
     """
     if runfiles.warnoutput is None:
         return False
+
     fitparams = star.classicalparams.params
     warnfile = runfiles.warnoutput
     comparewarn = False
@@ -293,7 +294,7 @@ def compare_output_to_input(
         if p in hout:
             idx = np.nonzero([p == xout for xout in hout])[0][0]
             xin, xinerr = fitparams[p]
-            if uncert == "quantiles":
+            if outputoptions.uncert == "quantiles":
                 outerr = (out[idx + 1] + out[idx + 2]) / 2
             else:
                 outerr = out[idx + 1]
@@ -305,25 +306,26 @@ def compare_output_to_input(
                 ps.append(p)
                 sigmas.append(sigma)
 
-    if len(absolutemagnitudes["magnitudes"].keys()) > 0:
-        for m in list(absolutemagnitudes["magnitudes"].keys()):
-            mdist = "M_" + m
-            if mdist in hout_dist:
-                idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
-                priorM = absolutemagnitudes["magnitudes"][m]["median"]
-                priorerrp = absolutemagnitudes["magnitudes"][m]["errp"]
-                priorerrm = absolutemagnitudes["magnitudes"][m]["errm"]
-                if uncert == "quantiles":
-                    outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
-                else:
-                    outerr = out_dist[idx + 1]
-                serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
-                sigma = np.abs(out_dist[idx] - priorM) / serr
-                bigdiff = sigma >= sigmacut
-                if bigdiff:
-                    comparewarn = True
-                    ps.append(mdist)
-                    sigmas.append(sigma)
+    if absolutemagnitudes is not None:
+        if len(absolutemagnitudes["magnitudes"].keys()) > 0:
+            for m in list(absolutemagnitudes["magnitudes"].keys()):
+                mdist = "M_" + m
+                if mdist in hout_dist:
+                    idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
+                    priorM = absolutemagnitudes["magnitudes"][m]["median"]
+                    priorerrp = absolutemagnitudes["magnitudes"][m]["errp"]
+                    priorerrm = absolutemagnitudes["magnitudes"][m]["errm"]
+                    if outputoptions.uncert == "quantiles":
+                        outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
+                    else:
+                        outerr = out_dist[idx + 1]
+                    serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
+                    sigma = np.abs(out_dist[idx] - priorM) / serr
+                    bigdiff = sigma >= sigmacut
+                    if bigdiff:
+                        comparewarn = True
+                        ps.append(mdist)
+                        sigmas.append(sigma)
 
     if comparewarn:
         print(f"A >{sigmacut} sigma difference was found between input and output of")
