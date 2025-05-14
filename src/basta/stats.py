@@ -8,6 +8,7 @@ from dataclasses import dataclass
 from typing import Any, NamedTuple
 
 import numpy as np
+from scipy.stats import t  # type: ignore[import]
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
@@ -115,13 +116,160 @@ def _weight(N: int, seisw: dict) -> int:
     return w
 
 
+def compute_log_likelihood_from_residual(
+    residual: float | np.ndarray,
+    sigma: float | np.ndarray = 1,
+    ndim: int = 1,
+    dist_type: str = "gaussian",
+    dof: int = 50,
+) -> np.ndarray:
+    """
+    Compute log-likelihood from a residual or Mahalanobis distance.
+
+    Parameters:
+    -----------
+    residual : float or np.ndarray
+        Standardized residual (1D) or Mahalanobis distance (scalar).
+    sigma: float or np.ndarray
+        Standard deviation(s). Used for Gaussian normalization or t-scaling.
+    ndim: int
+        Dimensionality (1 for classical, >1 for seismic).
+    dist_type: str
+        'gaussian' or 'studentt'.
+    dof: float
+        Degrees of freedom (only used for Student's t).
+
+    Returns:
+    --------
+    log_likelihood: float or np.ndarray
+
+    """
+    if dist_type == "gaussian":
+        if np.isscalar(residual):
+            return -0.5 * residual
+        else:
+            return -0.5 * residual**2 - np.log(np.sqrt(2 * np.pi) * sigma)
+
+    elif dist_type == "studentt":
+        if np.isscalar(residual):  # Mahalanobis case
+            return -0.5 * (ndim + dof) * np.log(1 + residual / dof)
+        else:  # Univariate case (residual is normalized)
+            return t.logpdf(residual, df=dof, loc=0, scale=1) - np.log(sigma)
+
+    else:
+        raise ValueError(f"Unknown dist_type '{dist_type}'")
+
+
+def compute_classical_log_likelihood(
+    libitem, index, star: core.Star, dist_type: str = "gaussian", dof: int = 50
+):
+    """
+    Compute log-likelihood from classical parameters.
+    #TODO(Amalie) play around with dof and consider putting these settings in inferencesettings.
+    """
+    log_likelihood = np.zeros(index.sum())
+    residual = 0
+
+    for param, (observed_value, observed_error) in star.classicalparams.params.items():
+        if param in ["parallax", "distance"]:
+            continue
+
+        model_values = libitem[param][index]
+        residual = (model_values - observed_value) / sigma
+
+        log_likelihood += log_likelihood_from_residual(
+            residual, dist_type=dist_type, dof=dof, ndim=1, sigma=observed_error
+        )
+
+    return log_likelihood, residual
+
+
+def compute_surfacecorrected_dnu_log_likelihood(
+    libitem, index, star: core.Star, dist_type: str = "gaussian", dof: int = 50
+):
+
+    dnudata, dnudata_err = star.globalseismicparams.get_scaled("dnufit")
+    numax = star.globalseismicparams.get_scaled("numax")[0]
+
+    surfacecorrected_dnu, _ = freq_fit.compute_dnufit(modes=joined_modes, numax=numax)
+
+    chi2 = ((dnudata - surfacecorrected_dnu) / dnudata_err) ** 2
+    return chi2, surfacecorrected_dnu
+
+
+def compute_seismic_log_likelihood(
+    star: core.Star,
+    corrected_joinedmodes: core.JoinedModes,
+    outputoptions: core.OutputOptions,
+    shapewarn: int = 0,
+    dist_type: str = "gaussian",
+    dof: int = 50,
+):
+    """
+    Compute seismic (frequency) log-likelihood
+    """
+    x = (
+        corrected_joinedmodes.model_frequencies
+        - corrected_joinedmodes.observed_frequencies
+    )
+    w = _weight(len(x), star.modes.seismicweights)
+
+    if x.shape[0] != star.modes.inverse_covariance.shape[0]:
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Frequency shape mismatch — setting chi2 to inf")
+        return -np.inf
+
+    mahalanobis_dist = (x.T @ star.modes.inverse_covariance @ x) / w
+    d = len(x)
+
+    if not np.isfinite(mahalanobis_dist) or mahalanobis_dist < 0:
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Invalid Mahalanobis distance — setting to inf")
+        # TODO(Amalie) why shapewarn?
+        shapewarn = 1
+        return -np.inf
+
+    if dist_type == "gaussian":
+        return -0.5 * mahalanobis_dist
+    elif dist_type == "studentt":
+        return -0.5 * (d + dof) * np.log(1 + mahalanobis_dist / dof)
+    else:
+        raise ValueError(f"Unknown dist_type '{dist_type}'")
+
+
+def compute_log_likelihood(
+    libitem,
+    star: core.Star,
+    index: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+) -> tuple[np.ndarray, np.ndarray]:
+    if not np.any(index):
+        return np.array([])
+
+    total_log_likelihood, chi2 = compute_classical_log_likelihood(
+        libitem, star, index, dist_type=dist_type, dof=dof
+    )
+
+    if inferencesettings.has_frequencies:
+        model_modes = core.make_model_modes_from_ln_freqinertia(
+            libitem["osckey"][ind], libitem["osc"][ind]
+        )
+        seismic_log_likelihood, seismic_chi2 = compute_seismic_log_likelihood(
+            star, corrected_joinedmodes, outputoptions
+        )
+        total_log_likelihood += seismic_log_likelihood
+        chi2 += seismic_chi2
+
+    return total_log_likelihood, chi2
+
+
 def chi2_astero(
     libitem,
     ind,
     star: core.Star,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
-    warnings=True,
     shapewarn=0,
     debug=False,
     verbose=False,
@@ -155,8 +303,6 @@ def chi2_astero(
         processed.
     fitfreqs : dict
         Contains all user inputted frequency fitting options.
-    warnings : bool
-        If True, print something when it fails.
     shapewarn : int
         If a mismatch in array dimensions of the fitted parameters, or range
         of frequencies is encountered, this is set to corresponding integer
@@ -171,8 +317,6 @@ def chi2_astero(
     chi2rut : float
         The calculated chi2 value for the given model to the observed data.
         If the calculated value is less than zero, chi2rut will be np.inf.
-    warnings : bool
-        See 'warnings' above.
     """
 
     # Additional parameters calculated during fitting
@@ -188,7 +332,7 @@ def chi2_astero(
     joinedmodes = freq_fit.calc_join(star.modes, model_modes)
     if joinedmodes is None:
         chi2rut = np.inf
-        return chi2rut, warnings, shapewarn, 0
+        return chi2rut, shapewarn, 0
 
     # Apply surface correction
     corrected_joinedmodes, _ = surfacecorrections.apply_surfacecorrection(
@@ -243,7 +387,7 @@ def chi2_astero(
     if inferencesettings.has_ratios:
         if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
             chi2rut = np.inf
-            return chi2rut, warnings, shapewarn, 0
+            return chi2rut, shapewarn, 0
 
         # Add frequency ratios terms
         for ratiotype in inferencesettings.fitparams:
@@ -272,7 +416,7 @@ def chi2_astero(
                     ):
                         chi2rut = np.inf
                         shapewarn = 2
-                        return chi2rut, warnings, shapewarn, 0
+                        return chi2rut, shapewarn, 0
                     intfunc = interp1d(
                         broadratio[1, modmask], broadratio[0, modmask], kind="linear"
                     )
@@ -340,7 +484,7 @@ def chi2_astero(
                 ):
                     chi2rut = np.inf
                     shapewarn = 2
-                    return chi2rut, warnings, shapewarn, addpars
+                    return chi2rut, shapewarn, addpars
                 intfunc = interp1d(
                     broadglitches[1, broadmask],
                     broadglitches[0, broadmask],
@@ -431,7 +575,7 @@ def chi2_astero(
     if inferencesettings.fit_surfacecorrected_dnu:
         addpars["surfacecorrected_dnu"] = surfacecorrected_dnu
 
-    return chi2rut, warnings, shapewarn, addpars
+    return chi2rut, shapewarn, addpars
 
 
 def find_best_model(selectedmodels, score_key: str, reducer: callable):

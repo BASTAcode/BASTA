@@ -154,9 +154,8 @@ def _bastamain(
     )
 
     # Prepare the main loop
-    shapewarn = 0
-    warn = True
     selectedmodels: dict[str, stats.priorlogPDF | stats.Trackstats] = {}
+    shapewarn = 0
     noofind = 0
     noofposind = 0
     noofskips = [0, 0]
@@ -234,13 +233,12 @@ def _bastamain(
                     tauhe: list = []
                     surfacecorrected_dnu: list = []
                     for indd, ind in enumerate(np.where(index)[0]):
-                        chi2_freq, warn, shapewarn, addpars = stats.chi2_astero(
+                        chi2_freq, addpars, shapewarn = stats.chi2_astero(
                             libitem,
                             ind,
                             star,
                             inferencesettings,
                             outputoptions,
-                            warnings=warn,
                             shapewarn=shapewarn,
                             debug=outputoptions.debug,
                             verbose=outputoptions.verbose,
