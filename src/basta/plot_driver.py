@@ -107,7 +107,8 @@ def plot_all_seismic(
         joinedmodes=joinedmodes, star=star
     )
     if coeffs is not None:
-        print("Surface correction coefficient(s):", *coeffs)
+        print(f"\nSurface correction coefficient(s):")
+        print(np.array2string(coeffs, precision=4, separator=", "))
 
     x = plot_seismic.EchellePlotBase(
         selectedmodels=selectedmodels,

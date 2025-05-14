@@ -63,6 +63,99 @@ class EchellePlotBase:
     outputoptions: core.OutputOptions
 
 
+def _connect_model_observed(
+    ax: plt.Axes,
+    fmod: np.ndarray,
+    fobs: np.ndarray,
+    modx: float,
+    duplicatemode: bool,
+    color: str,
+    line_kwargs_base: dict,
+) -> None:
+    """
+    Draw lines connecting model and observed frequencies.
+
+    Parameters
+    ----------
+    ax : matplotlib.axes.Axes
+        The axis to draw on.
+    fmod : np.ndarray
+        Model frequencies.
+    fobs : np.ndarray
+        Observed frequencies.
+    modx : float
+        Modulo frequency.
+    duplicatemode : bool
+        Whether to plot duplicated modx range.
+    color : str
+        Color of the connecting line.
+    line_kwargs_base : dict
+        Base kwargs passed to ax.plot.
+    """
+    linelimit = 0.75 * modx
+    for i in range(len(fmod)):
+        mod_phase = fmod[i] % modx
+        obs_phase = fobs[i] % modx
+
+        if mod_phase > linelimit and obs_phase < (modx - linelimit):
+            x0 = -1 if duplicatemode else 0
+            slope = (fobs[i] - fmod[i]) / abs(obs_phase - (mod_phase - modx))
+            ax.plot(
+                [mod_phase - modx, obs_phase],
+                [fmod[i], fobs[i]],
+                color=color,
+                **line_kwargs_base,
+            )
+            ax.plot(
+                [mod_phase, modx],
+                [fmod[i], fmod[i] + slope * (modx - mod_phase)],
+                color=color,
+                **line_kwargs_base,
+            )
+            ax.plot(
+                [x0, obs_phase - modx],
+                [fmod[i] + slope * (modx - mod_phase), fobs[i]],
+                color=color,
+                **line_kwargs_base,
+            )
+
+        elif obs_phase > linelimit and mod_phase < (modx - linelimit):
+            x0 = -1 if duplicatemode else 0
+            slope = (fmod[i] - fobs[i]) / abs(mod_phase - (obs_phase - modx))
+            ax.plot(
+                [obs_phase - modx, mod_phase],
+                [fobs[i], fmod[i]],
+                color=color,
+                **line_kwargs_base,
+            )
+            ax.plot(
+                [obs_phase, modx],
+                [fobs[i], fobs[i] + slope * (modx - obs_phase)],
+                color=color,
+                **line_kwargs_base,
+            )
+            ax.plot(
+                [x0, mod_phase - modx],
+                [fobs[i] + slope * (modx - obs_phase), fmod[i]],
+                color=color,
+                **line_kwargs_base,
+            )
+        else:
+            ax.plot(
+                [mod_phase, obs_phase],
+                [fmod[i], fobs[i]],
+                color=color,
+                **line_kwargs_base,
+            )
+            if duplicatemode:
+                ax.plot(
+                    [mod_phase - modx, obs_phase - modx],
+                    [fmod[i], fobs[i]],
+                    color=color,
+                    **line_kwargs_base,
+                )
+
+
 def echelle(
     x: EchellePlotBase,
     pairmode: bool = False,
@@ -84,24 +177,18 @@ def echelle(
     outputfilename : str or None
         Filename for saving the figure.
     """
-    selectedmodels = x.selectedmodels
     star = x.star
-    dnu = star.globalseismicparams.get_original("dnufit")[0]
-    joinedmodes = x.joinedmodes
     if star.modes is None:
         return
+    dnu = star.globalseismicparams.get_original("dnufit")[0]
+    selectedmodels = x.selectedmodels
+    joinedmodes = x.joinedmodes
 
-    if pairmode:
-        lw = 1
-    else:
-        lw = 0
+    mpl.rcParams.update(x.plotconfig.mpl_style)
 
-    if duplicatemode:
-        modx = 1.0
-        scalex = dnu
-    else:
-        modx = dnu
-        scalex = 1
+    lw = 1 if pairmode else 0
+    modx = 1.0 if duplicatemode else dnu
+    scalex = dnu if duplicatemode else 1
 
     if x.model_modes is None:
         maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
@@ -120,17 +207,14 @@ def echelle(
     )
 
     s = su.scale_by_inertia(modes=corrected_model_modes)
-    if corrected_joinedmodes is not None:
-        sjoin = su.scale_by_inertia(modes=corrected_joinedmodes)
-        assert sjoin is not None
+    sjoin = (
+        su.scale_by_inertia(modes=corrected_joinedmodes)
+        if corrected_joinedmodes
+        else None
+    )
 
-    fmod = {}
-    fmod_all = {}
-    fobs = {}
-    fobs_all = {}
-    eobs = {}
-    eobs_all = {}
     obsls = star.modes.modes.possible_angular_degrees.astype(str)
+    fmod, fmod_all, fobs, fobs_all, eobs, eobs_all = {}, {}, {}, {}, {}, {}
 
     for l in obsls:
         mod_givenl = corrected_model_modes.of_angular_degree(int(l))
@@ -147,6 +231,17 @@ def echelle(
     # Create plot
     fig, ax1 = plt.subplots()
     ax2 = ax1.twinx()
+    ax = ax2 if duplicatemode else ax1
+    aax = ax1 if duplicatemode else ax2
+
+    errorbar_kwargs_base = {
+        "alpha": 0.5,
+    }
+    scatter_kwargs_case = {
+        "alpha": 0.5,
+    }
+    line_kwargs_base = {"alpha": 0.7, "lw": lw}
+
     if duplicatemode:
         # Plot something to set the scale on one y-axis
         ax1.errorbar(
@@ -156,8 +251,8 @@ def echelle(
             fmt=obsmarker,
             mfc=colors["l" + obsls[0]],
             ecolor=colors["l" + obsls[0]],
-            alpha=0.5,
             zorder=0,
+            **errorbar_kwargs_base,
         )
         ax1.axvline(x=0, linestyle="--", color="0.8", zorder=0)
         ax = ax2
@@ -170,8 +265,8 @@ def echelle(
             fmt=obsmarker,
             mfc=colors["l" + obsls[0]],
             ecolor=colors["l" + obsls[0]],
-            alpha=0.5,
             zorder=0,
+            **errorbar_kwargs_base,
         )
         ax = ax1
         aax = ax2
@@ -186,7 +281,7 @@ def echelle(
             mfc=colors["l" + l],
             ecolor=colors["l" + l],
             zorder=1,
-            alpha=0.5,
+            **errorbar_kwargs_base,
         )
         if duplicatemode:
             ax.errorbar(
@@ -197,7 +292,7 @@ def echelle(
                 mfc=colors["l" + l],
                 ecolor=colors["l" + l],
                 zorder=1,
-                alpha=0.5,
+                **errorbar_kwargs_base,
             )
 
     for l in obsls:
@@ -207,8 +302,8 @@ def echelle(
             s=s[int(l)],
             c=colors["l" + l],
             marker=modmarkers["l" + l],
-            alpha=0.5,
             zorder=2,
+            **scatter_kwargs_case,
         )
         if duplicatemode:
             ax.scatter(
@@ -217,13 +312,14 @@ def echelle(
                 s=s[int(l)],
                 c=colors["l" + l],
                 marker=modmarkers["l" + l],
-                alpha=0.5,
                 zorder=2,
+                **scatter_kwargs_case,
             )
 
     # Plot the matched modes in negative and positive side
     linelimit = 0.75 * modx
     if corrected_joinedmodes is not None:
+        assert sjoin is not None
         for l in obsls:
             if len(fmod[l]) > 0:
                 ax.scatter(
@@ -235,7 +331,7 @@ def echelle(
                     linewidths=1,
                     edgecolors="k",
                     zorder=3,
-                    label=rf"Best fit $\\ell={l}$",
+                    label=f"Best fit $\\ell={l}$",
                 )
                 if duplicatemode:
                     ax.scatter(
@@ -256,7 +352,7 @@ def echelle(
                     mfc=colors["l" + l],
                     ecolor=colors["l" + l],
                     zorder=1,
-                    label=rf"Measured $\\ell={l}$",
+                    label=f"Measured $\\ell={l}$",
                 )
                 if duplicatemode:
                     ax.errorbar(
@@ -270,105 +366,16 @@ def echelle(
                     )
 
                 if pairmode:
-                    fm = fmod[l]
-                    fo = fobs[l]
-                    for i in range(len(fm)):
-                        if ((fm[i] % modx) > linelimit) & (
-                            (fo[i] % modx) < (modx - linelimit)
-                        ):
-                            if duplicatemode:
-                                x0 = -1
-                            else:
-                                x0 = 0
-                            a = (fo[i] - fm[i]) / abs(
-                                fo[i] % modx - (fm[i] % modx - modx)
-                            )
-                            ax.plot(
-                                (fm[i] % modx - modx, fo[i] % modx),
-                                (fm[i], fo[i]),
-                                c=colors["l" + l],
-                                alpha=0.7,
-                                zorder=10,
-                            )
-                            ax.plot(
-                                (fm[i] % modx, modx),
-                                (fm[i], fm[i] + a * (modx - fm[i] % modx)),
-                                c=colors["l" + l],
-                                alpha=0.7,
-                                zorder=10,
-                            )
-                            ax.plot(
-                                (x0, fo[i] % modx - modx),
-                                (fm[i] + a * (modx - fm[i] % modx), fo[i]),
-                                c=colors["l" + l],
-                                alpha=0.7,
-                                zorder=10,
-                            )
-                        elif ((fo[i] % modx) > linelimit) & (
-                            (fm[i] % modx) < (modx - linelimit)
-                        ):
-                            if duplicatemode:
-                                x0 = -1
-                            else:
-                                x0 = 0
-                            a = (fm[i] - fo[i]) / abs(
-                                fm[i] % modx - (fo[i] % modx - modx)
-                            )
-                            ax.plot(
-                                (fo[i] % modx - modx, fm[i] % modx),
-                                (fo[i], fm[i]),
-                                c=colors["l" + l],
-                                alpha=0.7,
-                                zorder=10,
-                            )
-                            ax.plot(
-                                (fo[i] % modx, modx),
-                                (fo[i], fo[i] + a * (modx - fo[i] % modx)),
-                                c=colors["l" + l],
-                                alpha=0.7,
-                                zorder=10,
-                            )
-                            ax.plot(
-                                (x0, fm[i] % modx - modx),
-                                (fo[i] + a * (modx - fo[i] % modx), fm[i]),
-                                c=colors["l" + l],
-                                alpha=0.7,
-                                zorder=10,
-                            )
-                        else:
-                            ax.plot(
-                                (fm[i] % modx, fo[i] % modx),
-                                (fm[i], fo[i]),
-                                c=colors["l" + l],
-                                alpha=0.7,
-                                zorder=10,
-                                lw=lw,
-                            )
-                            if duplicatemode:
-                                ax.plot(
-                                    (fm[i] % modx - modx, fo[i] % modx - modx),
-                                    (fm[i], fo[i]),
-                                    c=colors["l" + l],
-                                    alpha=0.7,
-                                    zorder=10,
-                                    lw=lw,
-                                )
+                    _connect_model_observed(
+                        ax=ax,
+                        fmod=fmod[l],
+                        fobs=fobs[l],
+                        modx=modx,
+                        duplicatemode=duplicatemode,
+                        color=colors["l" + l],
+                        line_kwargs_base=line_kwargs_base,
+                    )
 
-                    """
-                    elif (
-                        duplicatemode
-                        & ((fo[i] % modx) > linelimit)
-                        & ((fm[i] % modx) < (modx - linelimit))
-                    ):
-                        ax.plot(
-                            (fo[i] % modx - modx, fm[i] % modx),
-                            (fo[i], fm[i]),
-                            c=colors["l" + str(l)],
-                            alpha=0.7,
-                            zorder=10,
-                            lw=lw,
-                        )
-                    """
     lgnd = ax.legend(
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
@@ -376,6 +383,7 @@ def echelle(
         mode="expand",
         borderaxespad=0.0,
     )
+
     for i in range(len(lgnd.legend_handles)):
         typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
@@ -457,7 +465,7 @@ def ratioplot(
             color=colors[rtname],
             edgecolors="k",
             zorder=3,
-            label=rf"Best fit ($r_{{{int(rtype):02d}}}$)",
+            label=f"Best fit ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             modratio[1, modmask],
@@ -478,7 +486,7 @@ def ratioplot(
             mew=0.5,
             linestyle="None",
             zorder=3,
-            label=rf"Measured ($r_{{{int(rtype):02d}}}$)",
+            label=f"Measured ($r_{{{int(rtype):02d}}}$)",
         )
         ax.plot(
             obsratio[1, obsmask],

@@ -720,3 +720,34 @@ class PlotConfig:
     kielplots: list[str]
     cornerplots: list[str]
     freqplots: list[str]
+    style: str = "poster"
+    figuresize: tuple[float, float] = (12.8, 8.8)
+
+    @property
+    def mpl_style(self) -> dict:
+        if self.style == "mnras":
+            return {
+                "figure.figsize": (3.5, 2.5),
+                "figure.constrained_layout.use": True,
+                "axes.labelsize": 18,
+                "axes.titlesize": 18,
+                "legend.fontsize": 16,
+                "xtick.labelsize": 14,
+                "ytick.labelsize": 14,
+                "savefig.dpi": 300,
+                "figure.dpi": 100,
+                "savefig.bbox": "tight",
+                "savefig.pad_inches": 0.02,
+            }
+        return {
+            "figure.figsize": self.figuresize,
+            "axes.labelsize": 17.6,
+            "axes.titlesize": 14,
+            "xtick.labelsize": 14,
+            "ytick.labelsize": 14,
+            "legend.fontsize": 12,
+        }
+
+    errorbar_kwargs_base: dict[str, Any] | None = None
+    scatter_kwargs_base: dict[str, Any] | None = None
+    line_kwargs_base: dict[str, Any] | None = None
