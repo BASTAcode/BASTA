@@ -177,11 +177,6 @@ def _bastamain(
     # Use a progress bar (with the package tqdm; will write to stderr)
     pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
 
-    if inferencesettings.has_any_seismic_case:
-        assert star.modes is not None
-        obskey = np.asarray([star.modes.modes.l, star.modes.modes.n])
-        obs = np.asarray([star.modes.modes.frequencies, star.modes.modes.errors])
-
     for FeH in metallicities:
         group_name = group_names[FeH]
         group = Grid[group_name]
@@ -391,7 +386,7 @@ def _bastamain(
         inferencesettings=inferencesettings,
         outputoptions=outputoptions,
     )
-    stats.get_lowest_chi2(
+    _, _ = stats.get_lowest_chi2(
         Grid,
         selectedmodels,
         star=star,
