@@ -15,7 +15,7 @@ from basta import interpolation_combined as ico
 from basta import interpolation_helpers as ih
 from basta.constants import parameters
 from basta.constants import sydsun as sydc
-from basta.utils_general import Logger
+from basta.remtor import Logger
 
 
 # ======================================================================================

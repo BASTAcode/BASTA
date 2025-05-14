@@ -9,7 +9,7 @@ import matplotlib as mpl
 import numpy as np
 
 import basta.fileio as fio
-from basta import core, plot_corner, plot_kiel, stats
+from basta import core, plot_corner, plot_kiel, remtor, stats
 from basta import utils_general as util
 from basta.constants import parameters, statdata
 from basta.distances import get_absorption, get_EBV_along_LOS
@@ -179,10 +179,10 @@ def compute_posterior(
 
             if idm == 0:
                 print("-----------------------------------------------------")
-            util.printparam(
+            remtor.print_param(
                 "d(" + filt + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
             )
-            util.printparam(
+            remtor.print_param(
                 "A(" + filt + ")", Acen, Astdm, Astdp, uncert=uncert, centroid=centroid
             )
             if "distance" in cornerplots and outputoptions.uncert == "quantiles":
@@ -248,10 +248,10 @@ def compute_posterior(
                 EBV_array, centroid, uncert, weights=EBVposterior
             )
 
-            util.printparam(
+            remtor.print_param(
                 "d(joint)", xcen, xstdm, xstdp, centroid=centroid, uncert=uncert
             )
-            util.printparam(
+            remtor.print_param(
                 "E(B-V)(joint)",
                 EBVcen,
                 EBVstdm,
@@ -371,7 +371,7 @@ def compute_posterior(
         # Print info to log and console
         if numpar == 0:
             print("-----------------------------------------------------")
-        util.printparam(param, xcen, xstdm, xstdp, uncert=uncert, centroid=centroid)
+        remtor.print_param(param, xcen, xstdm, xstdp, uncert=uncert, centroid=centroid)
 
         if param in cornerplots:
             idx = cornerplots.index(param)

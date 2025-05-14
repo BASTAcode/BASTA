@@ -18,6 +18,7 @@ from basta import (
     plot_driver,
     imfs,
     process_output,
+    remtor,
     stats,
     utils_priors,
 )
@@ -64,7 +65,7 @@ def BASTA(
     # Use try-finally to ensure that sys.stdout is reverted back
     # even when the run raises an exception.
     stdout = sys.stdout
-    sys.stdout = util.Logger(filepaths.logfile)  # type: ignore
+    sys.stdout = remtor.Logger(filepaths.logfile)  # type: ignore
     try:
         _bastamain(
             star,
@@ -90,13 +91,14 @@ def _bastamain(
 ) -> None:
     #### INITIALISATION OF BASTA RUN ####
     t0 = time.localtime()
-    util.print_bastaheader(
+    remtor.print_bastaheader(
         t0=t0, seed=inferencesettings.seed, developermode=outputoptions.developermode
     )
-    util.print_targetinformation(inputstar.starid)
+    remtor.print_targetinformation(inputstar.starid)
 
     ## Load the grid
     Grid, gridheader, gridinfo = util.get_grid(inferencesettings)
+    remtor.print_gridinfo(inferencesettings=inferencesettings, header=gridheader)
     bayweights, dweight = util.read_bayesianweights(
         Grid, gridinfo["entryname"], optional=not inferencesettings.usebayw
     )
@@ -126,12 +128,12 @@ def _bastamain(
         plotconfig=plotconfig,
     )
 
-    util.print_fitparams(star=star, inferencesettings=inferencesettings)
-    util.print_seismic(inferencesettings, inputstar=inputstar)
-    util.print_distances(star, outputoptions)
-    util.print_additional(star)
-    util.print_weights(bayweights, gridheader["gridtype"])
-    util.print_priors(inferencesettings)
+    remtor.print_fitparams(star=star, inferencesettings=inferencesettings)
+    remtor.print_seismic(inferencesettings, inputstar=inputstar)
+    remtor.print_distances(star, outputoptions)
+    remtor.print_additional(star)
+    remtor.print_weights(bayweights, gridheader["gridtype"])
+    remtor.print_priors(inferencesettings)
 
     # ~~~~~~~~~~~~~~~~~~~~~~~~~~~~
     # Start likelihood computation
@@ -379,7 +381,7 @@ def _bastamain(
         )
         return
 
-    util._banner("Output and results from the fit")
+    remtor._banner("Output and results from the fit")
 
     # Find and print highest likelihood model info
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(

@@ -11,8 +11,7 @@ import numpy as np
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
-from basta import constants, core, freq_fit, glitch_fit, surfacecorrections
-from basta import utils_general as util
+from basta import constants, core, freq_fit, glitch_fit, remtor, surfacecorrections
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
 
@@ -511,12 +510,12 @@ def lowest_chi2(selectedmodels):
 
 
 def print_model_info(Grid, path, index, star, outputoptions, label, score):
-    util._header(f"{label} model:")
-    util._bullet(f"Score: {score}", level=0)
-    util._bullet(f"Grid-index: {path}[{index}], with parameters:", level=0)
+    remtor._header(f"{label} model:")
+    remtor._bullet(f"Score: {score}", level=0)
+    remtor._bullet(f"Grid-index: {path}[{index}], with parameters:", level=0)
 
     if "name" in Grid[path]:
-        util._bullet(f"Name: {Grid[path + '/name'][index].decode('utf-8')}", level=1)
+        remtor._bullet(f"Name: {Grid[path + '/name'][index].decode('utf-8')}", level=1)
 
     for param in outputoptions.asciiparams:
         if param == "distance":
@@ -529,7 +528,7 @@ def print_model_info(Grid, path, index, star, outputoptions, label, score):
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:
             scaleprt = ""
-        util._bullet(f"{param:10}: {paramval:12.6f} {scaleprt}", level=1)
+        remtor._bullet(f"{param:10}: {paramval:12.6f} {scaleprt}", level=1)
 
 
 def get_highest_likelihood(
