@@ -45,7 +45,7 @@ class priorlogPDF:
     IMFw: float
 
 
-def _hist_bin_fd(x: np.ndarray) -> float:
+def _hist_bin_fd(data: np.ndarray) -> float:
     """
     The Freedman-Diaconis histogram bin estimator.
 
@@ -62,7 +62,7 @@ def _hist_bin_fd(x: np.ndarray) -> float:
 
     Parameters
     ----------
-    x : array_like
+    data : array_like
         Input data that is to be histogrammed, trimmed to range. May not
         be empty.
 
@@ -70,8 +70,11 @@ def _hist_bin_fd(x: np.ndarray) -> float:
     -------
     h : An estimate of the optimal bin width for the given data.
     """
-    iqr = np.subtract(*np.percentile(x, [75, 25]))
-    return 2.0 * iqr * x.size ** (-1.0 / 3.0)
+    data = np.asarray(data)
+    iqr = np.subtract(*np.percentile(data, [75, 25]))
+    if iqr == 0:
+        return 0.0
+    return 2.0 * iqr / np.cbrt(len(data))
 
 
 def _weight(N: int, seisw: dict) -> int:
@@ -92,20 +95,23 @@ def _weight(N: int, seisw: dict) -> int:
         Normalising factor
     """
     # Overwrite N if specified by the user
-    if seisw["N"]:
-        N = int(seisw["N"])
+    N = int(seisw.get("N", N))
 
     # Select weight case
-    if seisw["weight"] == "1/1":
+    weight_scheme = seisw.get("weight")
+    if weight_scheme not in ["1/1", "1/N", "1/N-dof"]:
+        raise ValueError(
+            f"Invalid weight scheme: '{weight_scheme}'. Expected '1/1', '1/N', or '1/N-dof'."
+        )
+
+    if weight_scheme == "1/1":
         w = 1
-    elif seisw["weight"] == "1/N":
+    elif weight_scheme == "1/N":
         w = N
-    elif seisw["weight"] == "1/N-dof":
-        if not seisw["dof"]:
-            dof = 0
-        else:
-            dof = int(seisw["dof"])
+    elif weight_scheme == "1/N-dof":
+        dof = int(seisw.get("dof", 0))
         w = N - dof
+
     return w
 
 
@@ -626,19 +632,25 @@ def quantile_1D(data, weights, quantile):
     Returns
     -------
     result : float
-        The output value.
+        Weighted quantile value
     """
-    # Sort the data
-    ind_sorted = np.argsort(data)
-    sorted_data = data[ind_sorted]
-    sorted_weights = weights[ind_sorted]
+    if len(data) == 0:
+        raise ValueError("Input data array is empty.")
+    if len(data) != len(weights):
+        raise ValueError("Data and weights must have the same length.")
+    if not (0 <= quantile <= 1):
+        raise ValueError("Quantile must be between 0 and 1.")
 
-    # Compute the auxiliary arrays
-    Sn = np.cumsum(sorted_weights)
-    Pn = (Sn - 0.5 * sorted_weights) / np.sum(sorted_weights)
+    sorted_indices = np.argsort(data)
+    data_sorted = data[sorted_indices]
+    weights_sorted = weights[sorted_indices]
 
-    result = np.interp(quantile, Pn, sorted_data)
-    assert not np.any(np.isnan(result)), "NaN encounted in quantile_1D."
+    cum_weights = np.cumsum(weights_sorted)
+    normalized_cum_weights = (cum_weights - 0.5 * weights_sorted) / cum_weights[-1]
+
+    result = np.interp(quantile, normalized_cum_weights, data_sorted)
+    if np.isnan(result):
+        raise RuntimeError("NaN encountered in quantile_1D.")
 
     return result
 
@@ -671,36 +683,35 @@ def posterior(x, nonzeroprop, sampled_indices, nsigma=0.25):
     samples = x[nonzeroprop][sampled_indices]
     xmin, xmax = np.nanmin(samples), np.nanmax(samples)
 
-    # Check if all entries of x are equal
-    if np.all(x == x[0]) or math.isclose(xmin, xmax, rel_tol=1e-5):
-        xvalues = np.array([x[0], x[0]])
+    if np.allclose(xmin, xmax, rtol=1e-5):
+        xvalues = np.array([xmin, xmax])
         like = np.array([1.0, 1.0])
-        like = interp1d(xvalues, like, fill_value=0, bounds_error=False)
-        return like
+        return interp1d(xvalues, like, fill_value=0.0, bounds_error=False)
 
-    # Compute bin width and number of bins
     N = len(samples)
     bin_width = _hist_bin_fd(samples)
-    if math.isclose(bin_width, 0, rel_tol=1e-5):
+    if bin_width <= 0 or not np.isfinite(bin_width):
         nbins = int(np.ceil(np.sqrt(N)))
     else:
-        nbins = int(np.ceil((xmax - xmin) / bin_width)) + 1
+        nbins = max(1, int(np.ceil((xmax - xmin) / bin_width)))
+
     if nbins > N:
         nbins = int(np.ceil(np.sqrt(N)))
-    bin_edges = np.linspace(xmin, xmax, nbins)
-    xvalues = bin_edges[:-1] + np.diff(bin_edges) / 2.0
+    bin_edges = np.linspace(xmin, xmax, nbins + 1)
+    bin_centers = bin_edges[:-1] + 0.5 * np.diff(bin_edges)
+
+    hist, _ = np.histogram(samples, bins=bin_edges, density=True)
     sigma = np.std(samples)
-    like = np.histogram(samples, bins=bin_edges, density=True)[0]
+
     if sigma > 0 and bin_width > 0:
-        like = gaussian_filter1d(like, (nsigma * sigma / bin_width))
-    like = interp1d(xvalues, like, fill_value=0, bounds_error=False)
-    return like
+        hist = gaussian_filter1d(hist, nsigma * sigma / bin_width)
+
+    return interp1d(bin_centers, hist, fill_value=0.0, bounds_error=False)
 
 
 def calc_key_stats(x, centroid, uncert, weights=None):
     """
-    Calculate and report the wanted format of centroid value and
-    uncertainties.
+    Compute statistical summary (centroid + uncertainty) of data.
 
     Parameters
     ----------
@@ -711,7 +722,7 @@ def calc_key_stats(x, centroid, uncert, weights=None):
     uncert : str
         Options for reported uncertainty format, 'quantiles' or
         'std' for standard deviation.
-    weights : list
+    weights : list, optional
         Weights needed to be applied to x before extracting statistics.
 
     Returns
@@ -719,26 +730,29 @@ def calc_key_stats(x, centroid, uncert, weights=None):
     xcen : float
         Centroid value
     xm : float
-        16'th percentile if quantile selected, 1 sigma for standard
-        deviation.
+        Lower uncertainty (16th percentile or 1-sigma).
     xp : float, None
-        84'th percentile if quantile selected, None for standard
-        deviation.
+        Upper uncertainty (84th percentile or None if std).
     """
 
-    xp = None
+    x = np.asarray(x)
+    if weights is not None:
+        weights = np.asarray(weights)
 
-    # Handling af all different combinations of input
-    if uncert == "quantiles" and weights is not None:
-        xcen, xm, xp = quantile_1D(x, weights, statdata.quantiles)
-    elif uncert == "quantiles":
-        xcen, xm, xp = np.quantile(x, statdata.quantiles)
+    if uncert == "quantiles":
+        if weights is not None:
+            xcen = quantile_1D(x, weights, 0.50)
+            xm = quantile_1D(x, weights, 0.16)
+            xp = quantile_1D(x, weights, 0.84)
+        else:
+            xm, xcen, xp = np.quantile(x, [0.16, 0.50, 0.84])
     else:
         xm = np.std(x)
-    if centroid == "mean" and weights is not None:
-        xcen = np.average(x, weights=weights)
-    elif centroid == "mean":
-        xcen = np.mean(x)
-    elif uncert != "quantiles":
+        xp = None  # only used for quantile mode
+
+    if centroid == "mean":
+        xcen = np.average(x, weights=weights) if weights is not None else np.mean(x)
+    elif centroid == "median" and uncert != "quantiles":
         xcen = np.median(x)
+
     return xcen, xm, xp
