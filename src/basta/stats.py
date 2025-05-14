@@ -11,7 +11,8 @@ import numpy as np
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
-from basta import core, freq_fit, glitch_fit, surfacecorrections
+from basta import constants, core, freq_fit, glitch_fit, surfacecorrections
+from basta import utils_general as util
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
 
@@ -114,6 +115,7 @@ def chi2_astero(
     ind,
     star: core.Star,
     inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
     warnings=True,
     shapewarn=0,
     debug=False,
@@ -194,6 +196,7 @@ def chi2_astero(
     if inferencesettings.has_frequencies:
         # The frequency correction moved up before the ratios fitting!
         # --> If fitting frequencies, just add the already calculated things
+        assert isinstance(corrected_joinedmodes, core.JoinedModes)
         nmodes = len(corrected_joinedmodes.model_frequencies)
         x = (
             corrected_joinedmodes.model_frequencies
@@ -238,7 +241,7 @@ def chi2_astero(
             return chi2rut, warnings, shapewarn, 0
 
         # Add frequency ratios terms
-        for ratiotype in star.inferencesettings.fitparams:
+        for ratiotype in inferencesettings.fitparams:
             if ratiotype not in constants.freqtypes.rtypes:
                 continue
             # Interpolate model ratios to observed frequencies
@@ -426,6 +429,49 @@ def chi2_astero(
     return chi2rut, warnings, shapewarn, addpars
 
 
+def find_best_model(selectedmodels, score_key: str, reducer: callable):
+    """
+    Generic helper to find the best model based on a score key.
+
+    Parameters
+    ----------
+    selectedmodels : dict
+        Dictionary mapping model path to stats.
+    score_key : str
+        Attribute name (e.g., 'logPDF', 'chi2') to use for comparison.
+    reducer : callable
+        np.argmax or np.argmin.
+
+    Returns
+    -------
+    best_path : str
+        Path to the model with the best score.
+    best_index : int
+        Index within the model with the best score.
+    best_score : float
+        Best score value.
+    """
+    best_score = -np.inf if reducer is np.argmax else np.inf
+    best_path, best_index = None, None
+
+    for path, trackstats in selectedmodels.items():
+        scores = getattr(trackstats, score_key)
+        i = reducer(scores)
+        score = scores[i]
+
+        if (reducer is np.argmax and score > best_score) or (
+            reducer is np.argmin and score < best_score
+        ):
+            best_score = score
+            best_path = path
+            best_index = trackstats.index.nonzero()[0][i]
+
+    if best_path is None:
+        raise ValueError(f"All {score_key} values are invalid.")
+
+    return best_path, best_index, best_score
+
+
 def most_likely(selectedmodels):
     """
     Find the index of the model with the highest probability
@@ -442,16 +488,7 @@ def most_likely(selectedmodels):
     maxPDF_ind : int
         Index of the model with the highest probability.
     """
-    maxPDF = -np.inf
-    for path, trackstats in selectedmodels.items():
-        i = np.argmax(trackstats.logPDF)
-        if trackstats.logPDF[i] > maxPDF:
-            maxPDF = trackstats.logPDF[i]
-            maxPDF_path = path
-            maxPDF_ind = trackstats.index.nonzero()[0][i]
-    if maxPDF == -np.inf:
-        print("The logPDF are all -np.inf")
-    return maxPDF_path, maxPDF_ind
+    return find_best_model(selectedmodels, "logPDF", np.argmax)[:2]
 
 
 def lowest_chi2(selectedmodels):
@@ -470,36 +507,29 @@ def lowest_chi2(selectedmodels):
     minchi2_ind : int
         Index of the model with the lowest chi2.
     """
-    minchi2 = np.inf
-    for path, trackstats in selectedmodels.items():
-        i = np.argmin(trackstats.chi2)
-        if trackstats.chi2[i] < minchi2:
-            minchi2 = trackstats.chi2[i]
-            minchi2_path = path
-            minchi2_ind = trackstats.index.nonzero()[0][i]
-    return minchi2_path, minchi2_ind
+    return find_best_model(selectedmodels, "chi2", np.argmin)[:2]
 
 
-def chi_for_plot(selectedmodels):
-    """
-    FOR VALIDATION PLOTTING!
+def print_model_info(Grid, path, index, star, outputoptions, label, score):
+    util._header(f"{label} model:")
+    util._bullet(f"Score: {score}", level=0)
+    util._bullet(f"Grid-index: {path}[{index}], with parameters:", level=0)
 
-    Could this be combined with the functions above in a wrapper?
+    if "name" in Grid[path]:
+        util._bullet(f"Name: {Grid[path + '/name'][index].decode('utf-8')}", level=1)
 
-    Return chi2 value of HLM and LCM.
-    """
-    # Get highest likelihood model (HLM)
-    maxPDF = -np.inf
-    minchi2 = np.inf
-    for trackstats in selectedmodels.values():
-        i = np.argmax(trackstats.logPDF)
-        j = np.argmin(trackstats.chi2)
-        if trackstats.logPDF[i] > maxPDF:
-            maxPDF = trackstats.logPDF[i]
-            maxPDFchi2 = trackstats.chi2[i]
-        minchi2 = min(minchi2, trackstats.chi2[j])
+    for param in outputoptions.asciiparams:
+        if param == "distance":
+            continue
+        paramval = Grid[os.path.join(path, param)][index]
 
-    return maxPDFchi2, minchi2
+        if param.startswith("dnu") or param.startswith("numax"):
+            scale = star.globalseismicparams.get_scalefactor(param)
+            scaleval = paramval / scale
+            scaleprt = f"(after rescaling: {scaleval:12.6f})"
+        else:
+            scaleprt = ""
+        util._bullet(f"{param:10}: {paramval:12.6f} {scaleprt}", level=1)
 
 
 def get_highest_likelihood(
@@ -508,7 +538,7 @@ def get_highest_likelihood(
     star: core.Star,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
-):
+) -> tuple[str, str]:
     """
     Find highest likelihood model and print info.
 
@@ -529,34 +559,11 @@ def get_highest_likelihood(
     maxPDF_ind : int
         Index of model with maximum likelihood.
     """
-    print("\nHighest likelihood model:")
-    maxPDF_path, maxPDF_ind = most_likely(selectedmodels)
-    print(
-        "* Weighted, non-normalized log-probability:",
-        np.max(selectedmodels[maxPDF_path].logPDF),
+    path, index, score = find_best_model(selectedmodels, "logPDF", np.argmax)
+    print_model_info(
+        Grid, path, index, star, outputoptions, "Highest likelihood", score
     )
-    print(f"* Grid-index: {maxPDF_path}[{maxPDF_ind}], with parameters:")
-
-    # Print name if it exists
-    if "name" in Grid[maxPDF_path]:
-        print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
-
-    # Print parameters
-    outparams = outputoptions.asciiparams
-    for param in outparams:
-        if param == "distance":
-            continue
-        paramval = Grid[os.path.join(maxPDF_path, param)][maxPDF_ind]
-
-        # Handle the scaled asteroseismic parameters
-        if param.startswith("dnu") or param.startswith("numax"):
-            scale = star.globalseismicparams.get_scalefactor(param)
-            scaleval = paramval / scale
-            scaleprt = f"(after rescaling: {scaleval:12.6f})"
-        else:
-            scaleprt = ""
-        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
-    return maxPDF_path, maxPDF_ind
+    return path, index
 
 
 def get_lowest_chi2(
@@ -565,7 +572,7 @@ def get_lowest_chi2(
     star: core.Star,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
-):
+) -> tuple[str, str]:
     """
     Find model with lowest chi2 value and print info.
 
@@ -585,32 +592,22 @@ def get_lowest_chi2(
     minchi2_ind : int
         Index of model with lowest chi2
     """
-    print("\nLowest chi2 model:")
-    minchi2_path, minchi2_ind = lowest_chi2(selectedmodels)
-    print("* chi2:", np.min(selectedmodels[minchi2_path].chi2))
-    print(f"* Grid-index: {minchi2_path}[{minchi2_ind}], with parameters:")
+    path, index, score = find_best_model(selectedmodels, "chi2", np.argmin)
+    print_model_info(Grid, path, index, star, outputoptions, "Lowest chi2", score)
+    return path, index
 
-    # Print name if it exists
-    if "name" in Grid[minchi2_path]:
-        print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
 
-    # Print parameters
-    outparams = outputoptions.asciiparams
-    for param in outparams:
-        if param == "distance":
-            continue
-        paramval = Grid[os.path.join(minchi2_path, param)][minchi2_ind]
+def chi_for_plot(selectedmodels):
+    """
+    FOR VALIDATION PLOTTING!
 
-        # Handle the scaled asteroseismic parameters
-        if param.startswith("dnu") or param.startswith("numax"):
-            scale = star.globalseismicparams.get_scalefactor(param)
-            scaleval = paramval / scale
-            scaleprt = f"(after rescaling: {scaleval:12.6f})"
-        else:
-            scaleprt = ""
-        print(f"  - {param:10}: {paramval:12.6f} {scaleprt}")
+    Could this be combined with the functions above in a wrapper?
 
-    return minchi2_path, minchi2_ind
+    Return chi2 value of HLM and LCM.
+    """
+    _, _, maxPDFchi2 = find_best_model(selectedmodels, "logPDF", np.argmax)
+    _, _, minchi2 = find_best_model(selectedmodels, "chi2", np.argmin)
+    return maxPDFchi2, minchi2
 
 
 def quantile_1D(data, weights, quantile):
