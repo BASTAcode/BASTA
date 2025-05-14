@@ -70,38 +70,12 @@ def plot_all_seismic(
         plotconfig=plotconfig,
         outputoptions=outputoptions,
     )
-    if allfplots or "echelle" in freqplots:
-        try:
-            plot_seismic.echelle(
-                x,
-                pairmode=False,
-                duplicatemode=False,
-                outputfilename=filepaths.plotfile("echelle_uncorrected"),
-            )
-        except Exception as e:
-            print("\nUncorrected echelle failed with the error:", e)
-
-    if allfplots or "pairechelle" in freqplots:
-        try:
-            plot_seismic.echelle(
-                x,
-                pairmode=True,
-                duplicatemode=False,
-                outputfilename=filepaths.plotfile("pairechelle_uncorrected"),
-            )
-        except Exception as e:
-            print("\nUncorrected pairechelle failed with the error:", e)
-
-    if allfplots or "dupechelle" in freqplots:
-        try:
-            plot_seismic.echelle(
-                x,
-                pairmode=True,
-                duplicatemode=True,
-                outputfilename=filepaths.plotfile("dupechelle_uncorrected"),
-            )
-        except Exception as e:
-            print("\nUncorrected dupechelle failed with the error:", e)
+    xs = [
+        x,
+    ]
+    labels = [
+        "_uncorrected",
+    ]
 
     corrected_joinedmodes, coeffs = surfacecorrections.apply_surfacecorrection(
         joinedmodes=joinedmodes, star=star
@@ -110,50 +84,57 @@ def plot_all_seismic(
         print(f"\nSurface correction coefficient(s):")
         print(np.array2string(coeffs, precision=4, separator=", "))
 
-    x = plot_seismic.EchellePlotBase(
-        selectedmodels=selectedmodels,
-        Grid=Grid,
-        model_modes=model_modes,
-        joinedmodes=joinedmodes,
-        coeffs=coeffs,
-        star=star,
-        inferencesettings=inferencesettings,
-        plotconfig=plotconfig,
-        outputoptions=outputoptions,
-    )
+        corr_x = plot_seismic.EchellePlotBase(
+            selectedmodels=selectedmodels,
+            Grid=Grid,
+            model_modes=model_modes,
+            joinedmodes=joinedmodes,
+            coeffs=coeffs,
+            star=star,
+            inferencesettings=inferencesettings,
+            plotconfig=plotconfig,
+            outputoptions=outputoptions,
+        )
 
-    if allfplots or "echelle" in freqplots:
-        try:
-            plot_seismic.echelle(
-                x,
-                pairmode=False,
-                duplicatemode=False,
-                outputfilename=filepaths.plotfile("echelle"),
-            )
-        except Exception as e:
-            print("\nEchelle failed with the error:", e)
+        xs.append(corr_x)
+        labels.append("")
 
-    if allfplots or "pairechelle" in freqplots:
-        try:
-            plot_seismic.echelle(
-                x,
-                pairmode=True,
-                duplicatemode=False,
-                outputfilename=filepaths.plotfile("pairechelle"),
-            )
-        except Exception as e:
-            print("\nPairechelle failed with the error:", e)
+    for x, label in zip(xs, labels):
+        if allfplots or "echelle" in freqplots:
+            plotname = f"echelle{label}"
+            try:
+                plot_seismic.echelle(
+                    x,
+                    pairmode=False,
+                    duplicatemode=False,
+                    outputfilename=filepaths.plotfile(plotname),
+                )
+            except Exception as e:
+                print(f"\n{plotname} failed with the error:", e)
 
-    if allfplots or "dupechelle" in freqplots:
-        try:
-            plot_seismic.echelle(
-                x,
-                duplicatemode=True,
-                pairmode=True,
-                outputfilename=filepaths.plotfile("dupechelle"),
-            )
-        except Exception as e:
-            print("\nDupechelle failed with the error:", e)
+        if allfplots or "pairechelle" in freqplots:
+            plotname = f"pairechelle{label}"
+            try:
+                plot_seismic.echelle(
+                    x,
+                    pairmode=True,
+                    duplicatemode=False,
+                    outputfilename=filepaths.plotfile(plotname),
+                )
+            except Exception as e:
+                print(f"\n{plotname} failed with the error:", e)
+
+        if allfplots or "dupechelle" in freqplots:
+            plotname = f"dupechelle{label}"
+            try:
+                plot_seismic.echelle(
+                    x,
+                    pairmode=True,
+                    duplicatemode=True,
+                    outputfilename=filepaths.plotfile(plotname),
+                )
+            except Exception as e:
+                print(f"\n{plotname} failed with the error:", e)
 
     if "freqcormap" in freqplots or outputoptions.debug:
         try:

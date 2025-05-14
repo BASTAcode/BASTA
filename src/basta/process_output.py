@@ -23,9 +23,6 @@ import matplotlib.pyplot as plt
 # Set the style of all plots
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
-# Define a color dictionary for easier change of color
-colors = {"l0": "#D55E00", "l1": "#009E73", "l2": "#0072B2"}
-
 
 def compute_posterior(
     starid,
@@ -81,7 +78,6 @@ def compute_posterior(
         star.classicalparams.params
         | star.globalseismicparams.params
         | star.distanceparams.params
-        # set(star.seismicparams.params.keys())
     )
 
     # TODO(Amalie) can this be simplified?

@@ -720,8 +720,12 @@ class PlotConfig:
     kielplots: list[str]
     cornerplots: list[str]
     freqplots: list[str]
+
     style: str = "poster"
     figuresize: tuple[float, float] = (12.8, 8.8)
+
+    seismic_twinax: bool = False
+    seismic_legend_on_top: bool = False
 
     @property
     def mpl_style(self) -> dict:
@@ -747,7 +751,3 @@ class PlotConfig:
             "ytick.labelsize": 14,
             "legend.fontsize": 12,
         }
-
-    errorbar_kwargs_base: dict[str, Any] | None = None
-    scatter_kwargs_base: dict[str, Any] | None = None
-    line_kwargs_base: dict[str, Any] | None = None

@@ -183,8 +183,9 @@ def echelle(
     dnu = star.globalseismicparams.get_original("dnufit")[0]
     selectedmodels = x.selectedmodels
     joinedmodes = x.joinedmodes
+    plotconfig = x.plotconfig
 
-    mpl.rcParams.update(x.plotconfig.mpl_style)
+    mpl.rcParams.update(plotconfig.mpl_style)
 
     lw = 1 if pairmode else 0
     modx = 1.0 if duplicatemode else dnu
@@ -252,7 +253,7 @@ def echelle(
             mfc=colors["l" + obsls[0]],
             ecolor=colors["l" + obsls[0]],
             zorder=0,
-            **errorbar_kwargs_base,
+            **errorbar_kwargs_base,  # type: ignore
         )
         ax1.axvline(x=0, linestyle="--", color="0.8", zorder=0)
         ax = ax2
@@ -266,7 +267,7 @@ def echelle(
             mfc=colors["l" + obsls[0]],
             ecolor=colors["l" + obsls[0]],
             zorder=0,
-            **errorbar_kwargs_base,
+            **errorbar_kwargs_base,  # type: ignore
         )
         ax = ax1
         aax = ax2
@@ -281,7 +282,7 @@ def echelle(
             mfc=colors["l" + l],
             ecolor=colors["l" + l],
             zorder=1,
-            **errorbar_kwargs_base,
+            **errorbar_kwargs_base,  # type: ignore
         )
         if duplicatemode:
             ax.errorbar(
@@ -292,7 +293,7 @@ def echelle(
                 mfc=colors["l" + l],
                 ecolor=colors["l" + l],
                 zorder=1,
-                **errorbar_kwargs_base,
+                **errorbar_kwargs_base,  # type: ignore
             )
 
     for l in obsls:
@@ -303,7 +304,7 @@ def echelle(
             c=colors["l" + l],
             marker=modmarkers["l" + l],
             zorder=2,
-            **scatter_kwargs_case,
+            **scatter_kwargs_case,  # type: ignore
         )
         if duplicatemode:
             ax.scatter(
@@ -313,7 +314,7 @@ def echelle(
                 c=colors["l" + l],
                 marker=modmarkers["l" + l],
                 zorder=2,
-                **scatter_kwargs_case,
+                **scatter_kwargs_case,  # type: ignore
             )
 
     # Plot the matched modes in negative and positive side
@@ -376,32 +377,47 @@ def echelle(
                         line_kwargs_base=line_kwargs_base,
                     )
 
-    lgnd = ax.legend(
-        bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
-        loc=8,
-        ncol=6,
-        mode="expand",
-        borderaxespad=0.0,
-    )
+    if plotconfig.seismic_legend_on_top:
+        lgnd = ax.legend(
+            bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
+            loc=8,
+            ncol=2 * len(obsls),
+            mode="expand",
+            borderaxespad=0.0,
+        )
+    else:
+        lgnd = ax.legend(
+            bbox_to_anchor=(1.02, 0.78, 0.2, 0.202),
+            loc="upper left",
+            ncol=1,
+            mode="expand",
+            borderaxespad=0.0,
+        )
 
     for i in range(len(lgnd.legend_handles)):
         typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     if duplicatemode:
-        ax.set_xlim((-1, 1))
+        if plotconfig.seismic_twinax:
+            ax.set_xlim((-1, 1))
+            ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
+        else:
+            ax.set_yticks([])
         aax.set_ylim(ax.set_ylim()[0] * dnu, ax.set_ylim()[1] * dnu)
         aax.set_xlabel(
             rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
         )
         aax.set_ylabel(r"Frequency ($\mu$Hz)")
-        ax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
     else:
-        ax.set_xlim((0, modx))
+        if plotconfig.seismic_twinax:
+            ax.set_xlim((0, modx))
+            ax.set_xlabel(
+                rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
+            )
+            ax.set_ylabel(r"Frequency ($\mu$Hz)")
+        else:
+            ax.set_yticks([])
         aax.set_ylim(ax.set_ylim()[0] / dnu, ax.set_ylim()[1] / dnu)
-        ax.set_xlabel(
-            rf"Frequency normalised by $\Delta \nu$ modulo 1 ($\Delta \nu =${dnu} $\mu$Hz)"
-        )
-        ax.set_ylabel(r"Frequency ($\mu$Hz)")
         aax.set_ylabel(r"Frequency normalised by $\Delta \nu$")
 
     if outputfilename is not None:
