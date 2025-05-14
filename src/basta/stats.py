@@ -638,18 +638,19 @@ def quantile_1D(data, weights, quantile):
         raise ValueError("Input data array is empty.")
     if len(data) != len(weights):
         raise ValueError("Data and weights must have the same length.")
-    if not (0 <= quantile <= 1):
-        raise ValueError("Quantile must be between 0 and 1.")
 
     sorted_indices = np.argsort(data)
     data_sorted = data[sorted_indices]
     weights_sorted = weights[sorted_indices]
 
     cum_weights = np.cumsum(weights_sorted)
-    normalized_cum_weights = (cum_weights - 0.5 * weights_sorted) / cum_weights[-1]
+
+    normalized_cum_weights = (cum_weights - 0.5 * weights_sorted) / np.sum(
+        weights_sorted
+    )
 
     result = np.interp(quantile, normalized_cum_weights, data_sorted)
-    if np.isnan(result):
+    if np.any(np.isnan(result)):
         raise RuntimeError("NaN encountered in quantile_1D.")
 
     return result
