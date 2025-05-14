@@ -24,6 +24,28 @@ import matplotlib.pyplot as plt
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
 
+def generate_sampled_indices(
+    selectedmodels,
+) -> tuple[np.ndarray, np.ndarray, int, np.ndarray, int, np.ndarray]:
+    logy = np.concatenate([ts.logPDF for ts in selectedmodels.values()])
+    noofind = len(logy)
+
+    nonzeroprop = np.isfinite(logy)
+    logy = logy[nonzeroprop]
+
+    nsamples = min(statdata.nsamples, len(logy))
+
+    # Normalize logy for numerical stability
+    logy_max = np.amax(logy)
+    lk = logy - logy_max
+    exp_lk = np.exp(lk)
+    p = exp_lk / np.sum(exp_lk)
+
+    sampled_indices = np.random.choice(np.arange(len(p)), p=p, size=nsamples)
+
+    return p, logy, noofind, nonzeroprop, nsamples, sampled_indices
+
+
 def compute_posterior(
     starid,
     selectedmodels,
@@ -53,58 +75,37 @@ def compute_posterior(
     gridtype : str
         Type of the grid (as read from the grid in bastamain) containing either 'tracks'
         or 'isochrones'.
-    debug : bool, optional
-        Debug flag for developers.
     developermode : bool, optional
         If True, experimental features will be used in run.
     validationmode : bool, optional
         If True, assume a validation run with changed behaviour
     """
-    # Load setings
+    # Extract relevant configuration and settings
     asciifile = runfiles.summarytable
     asciifile_dist = runfiles.distancesummarytable
-    centroid = outputoptions.centroid
-    uncert = outputoptions.uncert
 
-    # TODO(Amalie) Do we need this?
-    # Lists of params (copy to avoid problems when running multiple stars)
-    outparams = deepcopy(outputoptions.asciiparams)
+    ckwargs = plotconfig.corner_style
     cornerplots = deepcopy(plotconfig.cornerplots)
-    params = util.unique_unsort(outparams + cornerplots)
 
-    # List of params for plotting
     kielplots = plotconfig.kielplots
+
+    params = util.unique_unsort(outputoptions.asciiparams + cornerplots)
     fitparams = (
         star.classicalparams.params
         | star.globalseismicparams.params
         | star.distanceparams.params
     )
 
-    # TODO(Amalie) can this be simplified?
-    # Initialise strings for printing
-    hout = []
-    out = []
-    hout.append("starid")
-    out.append(star.starid)
-    hout_dist = []
-    out_dist = []
-    hout_dist.append("starid")
-    out_dist.append(star.starid)
+    # Initialize necessary arrays for results
+    hout = ["starid"]
+    out = [star.starid]
+    hout_dist = ["starid"]
+    out_dist = [star.starid]
 
-    # Generate PDF values
-    logy = np.concatenate([ts.logPDF for ts in selectedmodels.values()])
-    noofind = len(logy)
-    nonzeroprop = np.isfinite(logy)
-    logy = logy[nonzeroprop]
-    nsamples = min(statdata.nsamples, noofind)
-
-    # Likelihood is only defined up to a multiplicative constant of
-    # proportionality, therefore we subtract max(logy) from logy to make sure
-    # the greatest argument to np.exp is 1 and thus the sum is greater than 1
-    # and we avoid dividing by zero when normalizing.
-    lk = logy - np.amax(logy)
-    p = np.exp(lk - np.log(np.sum(np.exp(lk))))
-    sampled_indices = np.random.choice(np.arange(len(p)), p=p, size=nsamples)
+    # Generate log-likelihood values and sampled indices
+    p, logy, noofind, nonzeroprop, nsamples, sampled_indices = generate_sampled_indices(
+        selectedmodels
+    )
 
     if outputoptions.debug:
         cs = np.concatenate([ts.chi2 for ts in selectedmodels.values()])
@@ -115,21 +116,9 @@ def compute_posterior(
         lsampled_indices = np.random.choice(np.arange(len(p)), p=expcs, size=nsamples)
         wsampled_indices = np.random.choice(np.arange(len(ws)), p=ws, size=nsamples)
 
-    # Corner plot kwargs
-    # TODO(Amalie) This should be part of plotconfig or something similar
-    ckwargs = {
-        "show_titles": True,
-        "quantiles": statdata.quantiles,
-        "smooth": 1,
-        "smooth1d": "kde",
-        "title_kwargs": {"fontsize": 10},
-        "plot_datapoints": False,
-        "uncert": outputoptions.uncert,
-    }
-
     # TODO(Amalie) This can be simplified
     # Compute distance posterior
-    if "distance" in params:
+    if inferencesettings.has_distance_case:
         distanceparams = star.distanceparams
         ms = distanceparams.magnitudes.keys()
         d_samples = np.zeros((nsamples, 2 * (len(ms) + 1)))
@@ -168,22 +157,38 @@ def compute_posterior(
 
             # Compute centroid and uncertainties and print them
             xcen, xstdm, xstdp = stats.calc_key_stats(
-                d_all[nonzeroprop][sampled_indices], centroid, uncert
+                d_all[nonzeroprop][sampled_indices],
+                outputoptions.centroid,
+                outputoptions.uncert,
             )
             Acen, Astdm, Astdp = stats.calc_key_stats(
-                A_all[nonzeroprop][sampled_indices], centroid, uncert
+                A_all[nonzeroprop][sampled_indices],
+                outputoptions.centroid,
+                outputoptions.uncert,
             )
             Mcen, Mstdm, Mstdp = stats.calc_key_stats(
-                M_all[nonzeroprop][sampled_indices], centroid, uncert
+                M_all[nonzeroprop][sampled_indices],
+                outputoptions.centroid,
+                outputoptions.uncert,
             )
 
             if idm == 0:
                 print("-----------------------------------------------------")
             remtor.print_param(
-                "d(" + filt + ")", xcen, xstdm, xstdp, uncert=uncert, centroid=centroid
+                "d(" + filt + ")",
+                xcen,
+                xstdm,
+                xstdp,
+                uncert=outputoptions.uncert,
+                centroid=outputoptions.centroid,
             )
             remtor.print_param(
-                "A(" + filt + ")", Acen, Astdm, Astdp, uncert=uncert, centroid=centroid
+                "A(" + filt + ")",
+                Acen,
+                Astdm,
+                Astdp,
+                uncert=outputoptions.uncert,
+                centroid=outputoptions.centroid,
             )
             if "distance" in cornerplots and outputoptions.uncert == "quantiles":
                 plotout[6 * idm : 6 * idm + 3] = [xcen, xstdp - xcen, xcen - xstdm]
@@ -193,13 +198,31 @@ def compute_posterior(
                 plotout[6 * idm + 3 : 6 * idm + 6] = [Acen, Astdm, Astdm]
 
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "distance_" + filt, xcen, xstdm, xstdp, uncert
+                hout_dist,
+                out_dist,
+                "distance_" + filt,
+                xcen,
+                xstdm,
+                xstdp,
+                outputoptions.uncert,
             )
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "A_" + filt, Acen, Astdm, Astdp, uncert
+                hout_dist,
+                out_dist,
+                "A_" + filt,
+                Acen,
+                Astdm,
+                Astdp,
+                outputoptions.uncert,
             )
             hout_dist, out_dist = util.add_out(
-                hout_dist, out_dist, "M_" + filt, Mcen, Mstdm, Mstdp, uncert
+                hout_dist,
+                out_dist,
+                "M_" + filt,
+                Mcen,
+                Mstdm,
+                Mstdp,
+                outputoptions.uncert,
             )
 
             d_samples[:, j] = d_all[nonzeroprop][sampled_indices]
@@ -222,7 +245,7 @@ def compute_posterior(
             )
             print(derrmessage)
             fio.write_star_to_errfile(starid, runfiles, derrmessage)
-            if "distance" in outparams:
+            if "distance" in outputoptions.asciiparams:
                 hout_dist, out_dist = util.add_out(
                     hout_dist,
                     out_dist,
@@ -230,36 +253,51 @@ def compute_posterior(
                     np.nan,
                     np.nan,
                     np.nan,
-                    uncert,
+                    outputoptions.uncert,
                 )
                 hout_dist, out_dist = util.add_out(
-                    hout_dist, out_dist, "EBV", np.nan, np.nan, np.nan, uncert
+                    hout_dist,
+                    out_dist,
+                    "EBV",
+                    np.nan,
+                    np.nan,
+                    np.nan,
+                    outputoptions.uncert,
                 )
                 hout, out = util.add_out(
-                    hout, out, "distance", np.nan, np.nan, np.nan, uncert
+                    hout, out, "distance", np.nan, np.nan, np.nan, outputoptions.uncert
                 )
-            if "distance" in cornerplots:
-                cornerplots.remove("distance")
         else:
             xcen, xstdm, xstdp = stats.calc_key_stats(
-                d_array, centroid, uncert, weights=dposterior
+                d_array,
+                outputoptions.centroid,
+                outputoptions.uncert,
+                weights=dposterior,
             )
             EBVcen, EBVstdm, EBVstdp = stats.calc_key_stats(
-                EBV_array, centroid, uncert, weights=EBVposterior
+                EBV_array,
+                outputoptions.centroid,
+                outputoptions.uncert,
+                weights=EBVposterior,
             )
 
             remtor.print_param(
-                "d(joint)", xcen, xstdm, xstdp, centroid=centroid, uncert=uncert
+                "d(joint)",
+                xcen,
+                xstdm,
+                xstdp,
+                centroid=outputoptions.centroid,
+                uncert=outputoptions.uncert,
             )
             remtor.print_param(
                 "E(B-V)(joint)",
                 EBVcen,
                 EBVstdm,
                 EBVstdp,
-                centroid=centroid,
-                uncert=uncert,
+                centroid=outputoptions.centroid,
+                uncert=outputoptions.uncert,
             )
-            if "distance" in cornerplots and uncert == "quantiles":
+            if "distance" in cornerplots and outputoptions.uncert == "quantiles":
                 plotout[-6:-3] = [xcen, xstdp - xcen, xcen - xstdm]
                 plotout[-3:] = [EBVcen, EBVstdp - EBVcen, EBVcen - EBVstdm]
             elif "distance" in cornerplots:
@@ -290,40 +328,55 @@ def compute_posterior(
                 clabels = [*clabels, "d(joint)", "E(B-V)(joint)"]
                 try:
                     cornerfig = plot_corner.corner(
-                        d_samples, labels=clabels, plotout=plotout, **ckwargs
+                        d_samples,
+                        labels=clabels,
+                        plotout=plotout,
+                        uncert=outputoptions.uncert,
+                        **ckwargs,
                     )
                     filepaths.save_plot(cornerfig, kind="distance_corner")
                     plt.close()
                 except Exception as error:
                     print(f"\nDistance corner plot failed with the error:{error}\n")
 
-                # Plotting done: Remove keyword
-                cornerplots.remove("distance")
             # Add to output array
-            if "distance" in outparams:
+            if "distance" in outputoptions.asciiparams:
                 hout_dist, out_dist = util.add_out(
-                    hout_dist, out_dist, "distance_joint", xcen, xstdm, xstdp, uncert
+                    hout_dist,
+                    out_dist,
+                    "distance_joint",
+                    xcen,
+                    xstdm,
+                    xstdp,
+                    outputoptions.uncert,
                 )
                 hout_dist, out_dist = util.add_out(
-                    hout_dist, out_dist, "EBV", EBVcen, EBVstdm, EBVstdp, uncert
+                    hout_dist,
+                    out_dist,
+                    "EBV",
+                    EBVcen,
+                    EBVstdm,
+                    EBVstdp,
+                    outputoptions.uncert,
                 )
                 hout, out = util.add_out(
-                    hout, out, "distance", xcen, xstdm, xstdp, uncert
+                    hout, out, "distance", xcen, xstdm, xstdp, outputoptions.uncert
                 )
-
-        # We have finished using distances: Remove keyword
-        params.remove("distance")
-        if "distance" in outparams:
-            outparams.remove("distance")
 
     # Make sure that something is written to the ascii distance files! It will be
     # deleted later...
     else:
         hout_dist, out_dist = util.add_out(
-            hout_dist, out_dist, "distance_joint", np.nan, np.nan, np.nan, uncert
+            hout_dist,
+            out_dist,
+            "distance_joint",
+            np.nan,
+            np.nan,
+            np.nan,
+            outputoptions.uncert,
         )
         hout_dist, out_dist = util.add_out(
-            hout_dist, out_dist, "EBV", np.nan, np.nan, np.nan, uncert
+            hout_dist, out_dist, "EBV", np.nan, np.nan, np.nan, outputoptions.uncert
         )
 
     # Allocate arrays
@@ -348,32 +401,29 @@ def compute_posterior(
             x /= scale
             if param in fitparams:
                 fitparams_scaled[param] = star.globalseismicparams.get_original(param)
-        """
-        if param.startswith("dnu") and param not in ["dnufit", "dnufitMos12"]:
-            scale = star.globalseismicparams.get_scale(param)
-
-        elif param.startswith("numax"):
-            x *= inferencesettings.solarvalues["numax"]
-            if param in fitparams:
-                fitparams_scaled[param] = fitparams[param].original
-        elif param in ["dnufit", "dnufitMos12"]:
-            scale = star.globalseismicparams.get_scale(param)
-            x /= scale
-            if param in fitparams:
-                fitparams_scaled[param] = fitparams[param].original
-        """
 
         # Compute quantiles (using np.quantile is ~50 times faster than quantile_1D)
         xcen, xstdm, xstdp = stats.calc_key_stats(
-            x[nonzeroprop][sampled_indices], centroid, uncert
+            x[nonzeroprop][sampled_indices],
+            outputoptions.centroid,
+            outputoptions.uncert,
         )
 
         # Print info to log and console
         if numpar == 0:
             print("-----------------------------------------------------")
-        remtor.print_param(param, xcen, xstdm, xstdp, uncert=uncert, centroid=centroid)
+        remtor.print_param(
+            param,
+            xcen,
+            xstdm,
+            xstdp,
+            uncert=outputoptions.uncert,
+            centroid=outputoptions.centroid,
+        )
 
         if param in cornerplots:
+            if param in ["distance", "parallax"]:
+                continue
             idx = cornerplots.index(param)
             if param in fitparams_scaled:
                 xin, stdin = fitparams_scaled[param]
@@ -382,13 +432,17 @@ def compute_posterior(
             if outputoptions.debug:
                 lsamples[:, idx] = x[nonzeroprop][lsampled_indices]
                 wsamples[:, idx] = x[nonzeroprop][wsampled_indices]
-            if uncert == "quantiles":
+            if outputoptions.uncert == "quantiles":
                 plotout[3 * idx : 3 * idx + 3] = [xcen, xstdp - xcen, xcen - xstdm]
             else:
                 plotout[3 * idx : 3 * idx + 3] = [xcen, xstdm, xstdm]
 
-        if param in outparams:
-            hout, out = util.add_out(hout, out, param, xcen, xstdm, xstdp, uncert)
+        if param in outputoptions.asciiparams:
+            if param in ["distance", "parallax"]:
+                continue
+            hout, out = util.add_out(
+                hout, out, param, xcen, xstdm, xstdp, outputoptions.uncert
+            )
 
     # Create header for ascii file and save it
     if asciifile:
@@ -400,7 +454,7 @@ def compute_posterior(
         )
         print(f"\nSaved results to {runfiles.summarytablepath}.")
 
-    if asciifile_dist and "distance" in outparams:
+    if asciifile_dist and "distance" in outputoptions.asciiparams:
         asciifile_dist.seek(0)
         if b"#" not in asciifile_dist.readline():
             asciifile_dist.write(f"# {' '.join(hout_dist)} \n".encode())
@@ -420,11 +474,12 @@ def compute_posterior(
             star=star,
             absolutemagnitudes=star.absolutemagnitudes,
             runfiles=runfiles,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
             hout=hout,
             out=out,
             hout_dist=hout_dist,
             out_dist=out_dist,
-            uncert=uncert,
         )
         if comparewarn:
             print(
@@ -463,6 +518,8 @@ def compute_posterior(
                         Grid=Grid,
                         selectedmodels=selectedmodels,
                         star=star,
+                        inferencesettings=inferencesettings,
+                        outputoptions=outputoptions,
                         plotconfig=plotconfig,
                         lp_interval=lp_interval,
                         feh_interval=feh_interval,
@@ -470,9 +527,6 @@ def compute_posterior(
                         loggout=loggout,
                         gridtype=gridheader["gridtype"],
                         nameinplot=starid if plotconfig.nameinplot else False,
-                        debug=outputoptions.debug,
-                        developermode=outputoptions.developermode,
-                        validationmode=outputoptions.validationmode,
                     )
                     filepaths.save_plot(fig, kind="warn_kiel")
                     plt.close()
@@ -489,6 +543,7 @@ def compute_posterior(
                 plotin=plotin,
                 plotout=plotout,
                 nameinplot=starid if plotconfig.nameinplot else False,
+                uncert=outputoptions.uncert,
                 **ckwargs,
             )
             filepaths.save_plot(cornerfig, kind="corner")
@@ -504,6 +559,7 @@ def compute_posterior(
                     plotin=plotin,
                     plotout=plotout,
                     nameinplot=starid if plotconfig.nameinplot else False,
+                    uncert=outputoptions.uncert,
                     **ckwargs,
                 )
                 filepaths.save_plot(cornerfig, kind="likelihood_corner")
@@ -518,6 +574,7 @@ def compute_posterior(
                     plotin=plotin,
                     plotout=plotout,
                     nameinplot=starid if plotconfig.nameinplot else False,
+                    uncert=outputoptions.uncert,
                     **ckwargs,
                 )
                 filepaths.save_plot(fig, kind="prior_corner")
