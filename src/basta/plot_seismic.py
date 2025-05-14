@@ -387,7 +387,7 @@ def echelle(
         )
     else:
         lgnd = ax.legend(
-            bbox_to_anchor=(1.02, 0.78, 0.2, 0.202),
+            bbox_to_anchor=(1.02, 0.68, 0.2, 0.202),
             loc="upper left",
             ncol=1,
             mode="expand",

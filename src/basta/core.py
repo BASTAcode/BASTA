@@ -724,8 +724,8 @@ class PlotConfig:
     style: str = "poster"
     figuresize: tuple[float, float] = (12.8, 8.8)
 
-    seismic_twinax: bool = False
-    seismic_legend_on_top: bool = False
+    seismic_twinax: bool = True
+    seismic_legend_on_top: bool = True
 
     @property
     def mpl_style(self) -> dict:
