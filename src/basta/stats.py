@@ -12,7 +12,16 @@ from scipy.stats import t  # type: ignore[import]
 from scipy.interpolate import CubicSpline, interp1d  # type: ignore[import]
 from scipy.ndimage.filters import gaussian_filter1d  # type: ignore[import]
 
-from basta import constants, core, freq_fit, glitch_fit, remtor, surfacecorrections
+from basta import (
+    constants,
+    core,
+    freq_fit,
+    glitch_fit,
+    imfs,
+    remtor,
+    surfacecorrections,
+)
+from basta import utils_general as util
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
 
@@ -115,6 +124,58 @@ def _weight(N: int, seisw: dict) -> int:
         )
 
     return w
+
+
+def evaluate_track(
+    libitem,
+    gridheader: util.GridHeader,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    iphases: list[int],
+) -> np.ndarray:
+    # For grid with interpolated tracks, skip tracks flagged as empty
+    if gridheader["is_interpolated"]:
+        if libitem["IntStatus"][()] < 0:
+            return np.array([False])
+
+    if util.should_skip_due_to_diffusion(libitem=libitem, star=star):
+        return np.array([False])
+
+    # Check if individual models across the track are outside the
+    # ranges specified by the priors
+    index = np.ones(len(libitem["age"][:]), dtype=bool)
+
+    for param in star.limits:
+        if param in ["frequencies"]:
+            continue
+        index &= star.limits[param][0] <= libitem[param][:]
+        index &= libitem[param][:] <= star.limits[param][1]
+    if np.sum(index) < 1:
+        return np.array([False])
+
+    if star.phase is not None:
+        phaseindex = np.isin(libitem["phase"][:], iphases)
+        index &= phaseindex
+    if np.sum(index) < 1:
+        return np.array([False])
+
+    index &= util.apply_anchor_cut(
+        index, star=star, libitem=libitem, inferencesettings=inferencesettings
+    )
+    return index
+
+
+def evaluate_imf(
+    libitem, index: np.ndarray, inferencesettings: core.InferenceSettings
+) -> np.ndarray:
+    if inferencesettings.imf is None:
+        return np.zeros(np.sum(index))
+
+    if inferencesettings.imf not in imfs.PRIOR_FUNCTIONS:
+        raise ValueError(f"Unknown IMF: {inferencesettings.imf}")
+
+    val = imfs.PRIOR_FUNCTIONS[inferencesettings.imf](libitem, index)
+    return util.inflog(val)
 
 
 def compute_log_likelihood_from_residual(
@@ -295,6 +356,30 @@ def compute_seismic_log_likelihood(
     return log_likelihood, chi2, shapewarn
 
 
+def compute_distance_log_likelihood(
+    libitem,
+    index: np.ndarray,
+    star: core.Star,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+) -> np.ndarray:
+    """
+    Compute distance (absolute magnitude) log-likelihood
+    """
+    if not inferencesettings.has_distance_case:
+        return np.zeros(len(index)), np.zeros(len(index))
+
+    assert star.absolutemagnitudes is not None
+    for f in star.absolutemagnitudes["magnitudes"].keys():
+        mags = star.absolutemagnitudes["magnitudes"][f]["prior"]
+        absmags = libitem[f][index]
+        interp_mags = mags(absmags)
+
+        log_likelihood = util.inflog(interp_mags)
+
+    return log_likelihood
+
+
 def compute_log_likelihood(
     libitem,
     index: np.ndarray,
@@ -330,6 +415,17 @@ def compute_log_likelihood(
         total_log_likelihood += globalseismic_evaluation[0]
         chi2 += globalseismic_evaluation[1]
 
+    if inferencesettings.has_distance_case:
+        distance_evaluation = compute_distance_log_likelihood(
+            libitem=libitem,
+            index=index,
+            star=star,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
+        )
+        total_log_likelihood += distance_evaluation
+
+    # These evaluations are done on a model-to-model basis
     if (
         inferencesettings.has_any_seismic_case
         or inferencesettings.fit_surfacecorrected_dnu
@@ -411,6 +507,7 @@ def chi2_astero(
     debug=False,
     verbose=False,
 ):
+    # DEPRECATED
     """
     `chi2_astero` calculates the chi2 contributions from the asteroseismic
     fitting e.g., the frequency, ratio, or glitch fitting.
@@ -796,28 +893,6 @@ def lowest_chi2(selectedmodels):
     return find_best_model(selectedmodels, "chi2", np.argmin)[:2]
 
 
-def print_model_info(Grid, path, index, star, outputoptions, label, score):
-    remtor._header(f"{label} model:")
-    remtor._bullet(f"Score: {score}", level=0)
-    remtor._bullet(f"Grid-index: {path}[{index}], with parameters:", level=0)
-
-    if "name" in Grid[path]:
-        remtor._bullet(f"Name: {Grid[path + '/name'][index].decode('utf-8')}", level=1)
-
-    for param in outputoptions.asciiparams:
-        if param == "distance":
-            continue
-        paramval = Grid[os.path.join(path, param)][index]
-
-        if param.startswith("dnu") or param.startswith("numax"):
-            scale = star.globalseismicparams.get_scalefactor(param)
-            scaleval = paramval / scale
-            scaleprt = f"(after rescaling: {scaleval:12.6f})"
-        else:
-            scaleprt = ""
-        remtor._bullet(f"{param:10}: {paramval:12.6f} {scaleprt}", level=1)
-
-
 def get_highest_likelihood(
     Grid,
     selectedmodels,
@@ -846,7 +921,7 @@ def get_highest_likelihood(
         Index of model with maximum likelihood.
     """
     path, index, score = find_best_model(selectedmodels, "logPDF", np.argmax)
-    print_model_info(
+    remtor.print_model_info(
         Grid, path, index, star, outputoptions, "Highest likelihood", score
     )
     return path, index
@@ -879,7 +954,9 @@ def get_lowest_chi2(
         Index of model with lowest chi2
     """
     path, index, score = find_best_model(selectedmodels, "chi2", np.argmin)
-    print_model_info(Grid, path, index, star, outputoptions, "Lowest chi2", score)
+    remtor.print_model_info(
+        Grid, path, index, star, outputoptions, "Lowest chi2", score
+    )
     return path, index
 
 
@@ -913,26 +990,19 @@ def quantile_1D(data, weights, quantile):
     Returns
     -------
     result : float
-        Weighted quantile value
+        The output value.
     """
-    if len(data) == 0:
-        raise ValueError("Input data array is empty.")
-    if len(data) != len(weights):
-        raise ValueError("Data and weights must have the same length.")
+    # Sort the data
+    ind_sorted = np.argsort(data)
+    sorted_data = data[ind_sorted]
+    sorted_weights = weights[ind_sorted]
 
-    sorted_indices = np.argsort(data)
-    data_sorted = data[sorted_indices]
-    weights_sorted = weights[sorted_indices]
+    # Compute the auxiliary arrays
+    Sn = np.cumsum(sorted_weights)
+    Pn = (Sn - 0.5 * sorted_weights) / np.sum(sorted_weights)
 
-    cum_weights = np.cumsum(weights_sorted)
-
-    normalized_cum_weights = (cum_weights - 0.5 * weights_sorted) / np.sum(
-        weights_sorted
-    )
-
-    result = np.interp(quantile, normalized_cum_weights, data_sorted)
-    if np.any(np.isnan(result)):
-        raise RuntimeError("NaN encountered in quantile_1D.")
+    result = np.interp(quantile, Pn, sorted_data)
+    assert not np.any(np.isnan(result)), "NaN encounted in quantile_1D."
 
     return result
 
@@ -991,50 +1061,79 @@ def posterior(x, nonzeroprop, sampled_indices, nsigma=0.25):
     return interp1d(bin_centers, hist, fill_value=0.0, bounds_error=False)
 
 
-def calc_key_stats(x, centroid, uncert, weights=None):
+def calc_key_stats(
+    x: np.ndarray,
+    centroid: str = "median",
+    uncert: str = "quantiles",
+    weights: np.ndarray | None = None,
+    nan_safe: bool = True,
+) -> tuple[float, float, float]:
     """
     Compute statistical summary (centroid + uncertainty) of data.
 
     Parameters
     ----------
-    x : list
+    x : list or array-like
         Parameter values of the models with non-zero likelihood.
-    centroid : str
-        Options for centroid value definition, 'median' or 'mean'.
-    uncert : str
-        Options for reported uncertainty format, 'quantiles' or
-        'std' for standard deviation.
-    weights : list, optional
-        Weights needed to be applied to x before extracting statistics.
+    centroid : str, optional
+        Definition of central value. Options: 'median', 'mean'.
+    uncert : str, optional
+        Uncertainty format. Options: 'quantiles' or 'std'.
+    weights : list or array-like, optional
+        Optional weights applied to x before computing statistics.
+    nan_safe : bool, optional
+        If True, returns np.nan values instead of raising on invalid input.
 
     Returns
     -------
     xcen : float
-        Centroid value
+        Central value of the distribution.
     xm : float
-        Lower uncertainty (16th percentile or 1-sigma).
-    xp : float, None
-        Upper uncertainty (84th percentile or None if std).
+        Lower uncertainty (16th percentile or 1-sigma std).
+    xp : float or None
+        Upper uncertainty (84th percentile or None if std is used).
     """
+    try:
+        x = np.asarray(x)
+        if x.ndim != 1 or x.size == 0:
+            raise ValueError("Input 'x' must be a non-empty 1D array.")
 
-    x = np.asarray(x)
-    if weights is not None:
-        weights = np.asarray(weights)
+        if np.any(np.isnan(x)):
+            raise ValueError("Input 'x' contains NaNs.")
 
-    if uncert == "quantiles":
         if weights is not None:
-            xcen = quantile_1D(x, weights, 0.50)
-            xm = quantile_1D(x, weights, 0.16)
-            xp = quantile_1D(x, weights, 0.84)
+            weights = np.asarray(weights)
+            if weights.shape != x.shape:
+                raise ValueError("Weights must have the same shape as x.")
+            if np.any(np.isnan(weights)):
+                raise ValueError("Weights contain NaNs.")
+
+        # Uncertainty computation
+        if uncert == "quantiles":
+            if weights is not None:
+                xcen = quantile_1D(x, weights, 0.50, nan_safe=nan_safe)
+                xm = quantile_1D(x, weights, 0.16, nan_safe=nan_safe)
+                xp = quantile_1D(x, weights, 0.84, nan_safe=nan_safe)
+            else:
+                xm, xcen, xp = np.quantile(x, [0.16, 0.50, 0.84])
+        elif uncert == "std":
+            xm = np.std(x)
+            xp = None
         else:
-            xm, xcen, xp = np.quantile(x, [0.16, 0.50, 0.84])
-    else:
-        xm = np.std(x)
-        xp = None  # only used for quantile mode
+            raise ValueError("Uncertainty method must be 'quantiles' or 'std'.")
 
-    if centroid == "mean":
-        xcen = np.average(x, weights=weights) if weights is not None else np.mean(x)
-    elif centroid == "median" and uncert != "quantiles":
-        xcen = np.median(x)
+        # Centroid override (if requested)
+        if centroid == "mean":
+            xcen = np.average(x, weights=weights) if weights is not None else np.mean(x)
+        elif centroid == "median" and uncert != "quantiles":
+            xcen = np.median(x)
+        elif centroid not in ("median", "mean"):
+            raise ValueError("Centroid must be 'median' or 'mean'.")
 
-    return xcen, xm, xp
+        return xcen, xm, xp
+
+    except Exception as e:
+        if nan_safe:
+            return np.nan, np.nan, np.nan
+        else:
+            raise e

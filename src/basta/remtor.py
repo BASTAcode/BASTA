@@ -486,3 +486,25 @@ def raise_shapewarning(
             "Warning: Models ignored due to phase shift differences being",
             "unapplicable to models with mixed modes.",
         )
+
+
+def print_model_info(Grid, path, index, star, outputoptions, label, score):
+    _header(f"{label} model:")
+    _bullet(f"Score: {score}", level=0)
+    _bullet(f"Grid-index: {path}[{index}], with parameters:", level=0)
+
+    if "name" in Grid[path]:
+        _bullet(f"Name: {Grid[path + '/name'][index].decode('utf-8')}", level=1)
+
+    for param in outputoptions.asciiparams:
+        if param == "distance":
+            continue
+        paramval = Grid[os.path.join(path, param)][index]
+
+        if param.startswith("dnu") or param.startswith("numax"):
+            scale = star.globalseismicparams.get_scalefactor(param)
+            scaleval = paramval / scale
+            scaleprt = f"(after rescaling: {scaleval:12.6f})"
+        else:
+            scaleprt = ""
+        _bullet(f"{param:10}: {paramval:12.6f} {scaleprt}", level=1)

@@ -184,95 +184,18 @@ def _bastamain(
             # Update progress bar in the start of the loop to count skipped tracks
             pbar.update(1)
 
-            # Check if entire track should be skipped
-            # For grid with interpolated tracks, skip tracks flagged as empty
-            if gridheader["is_interpolated"]:
-                if libitem["IntStatus"][()] < 0:
-                    continue
-
-            if util.should_skip_due_to_diffusion(libitem=libitem, star=star):
-                continue
-
-            # Check if individual models across the track are outside the
-            # ranges specified by the priors
-            index = np.ones(len(libitem["age"][:]), dtype=bool)
-
-            for param in star.limits:
-                if param in ["frequencies"]:
-                    continue
-                index &= star.limits[param][0] <= libitem[param][:]
-                index &= libitem[param][:] <= star.limits[param][1]
-            if np.sum(index) < 1:
-                continue
-
-            if star.phase is not None:
-                phaseindex = np.isin(libitem["phase"][:], iphases)
-                index &= phaseindex
-            if np.sum(index) < 1:
-                continue
-
-            index &= util.apply_anchor_cut(
-                index, star=star, libitem=libitem, inferencesettings=inferencesettings
+            index = stats.evaluate_track(
+                libitem=libitem,
+                gridheader=gridheader,
+                star=star,
+                inferencesettings=inferencesettings,
+                iphases=iphases,
             )
             if np.sum(index) < 1:
                 continue
 
             # Compute the log likelihood contributions of most stellar observables
             if np.any(index):
-                """
-                # TODO(Amalie) rewrite this to a function
-                # If any models are within tolerances, calculate statistics
-                chi2 = np.zeros(index.sum())
-                for param in star.classicalparams.params.keys():
-                    if param not in ["parallax", "distance"]:
-                        paramvals = libitem[param][index]
-                        chi2 += (
-                            (paramvals - star.classicalparams.params[param][0])
-                            / star.classicalparams.params[param][1]
-                        ) ** 2.0
-
-                # Frequency (and/or ratio and/or glitch) fitting
-                if inferencesettings.has_any_seismic_case:
-                    inds: list = []
-                    ahe: list = []
-                    dhe: list = []
-                    tauhe: list = []
-                    surfacecorrected_dnu: list = []
-                    for indd, ind in enumerate(np.where(index)[0]):
-                        chi2_freq, addpars, shapewarn = stats.chi2_astero(
-                            libitem,
-                            ind,
-                            star,
-                            inferencesettings,
-                            outputoptions,
-                            shapewarn=shapewarn,
-                            debug=outputoptions.debug,
-                            verbose=outputoptions.verbose,
-                        )
-                        chi2[indd] += chi2_freq
-                        if inferencesettings.has_glitches:
-                            inds.append(indd)
-                            ahe.append(addpars["glitchparams"][:, 0])
-                            dhe.append(addpars["glitchparams"][:, 1])
-                            tauhe.append(addpars["glitchparams"][:, 2])
-                        if inferencesettings.fit_surfacecorrected_dnu:
-                            surfacecorrected_dnu.append(addpars["surfacecorrected_dnu"])
-
-                    if inferencesettings.has_glitches:
-                        quantities_at_runtime["glitches"][group_name + name] = {
-                            "idx": inds,
-                            "aHe": addpars["glitchparams"][:, 0],
-                            "dHe": addpars["glitchparams"][:, 1],
-                            "tauHe": addpars["glitchparams"][:, 2],
-                        }
-                    if inferencesettings.fit_surfacecorrected_dnu:
-                        quantities_at_runtime["surfacecorrected_dnu"][
-                            group_name + name
-                        ] = {
-                            "idx": inds,
-                            "surfacecorrected_dnu": addpars["surfacecorrected_dnu"],
-                        }
-                """
                 log_likelihood, chi2, shapewarn = stats.compute_log_likelihood(
                     libitem,
                     index=index,
@@ -283,63 +206,47 @@ def _bastamain(
 
                 # Bayesian weights (across tracks/isochrones)
                 number_of_possible_models = np.sum(index)
-                logPDF = np.zeros(number_of_possible_models)
+                log_prior = np.zeros(number_of_possible_models)
                 if outputoptions.debug:
                     bayw = np.zeros(number_of_possible_models)
-                    magw = np.zeros(number_of_possible_models)
                     IMFw = np.zeros(number_of_possible_models)
+
                 if bayweights is not None:
                     for weight in bayweights:
-                        logPDF += util.inflog(libitem[weight][()])
+                        log_prior += util.inflog(libitem[weight][()])
                         if outputoptions.debug:
                             bayw += util.inflog(libitem[weight][()])
 
                     # Within a given track/isochrone; these are called dweights
                     assert dweight is not None
-                    logPDF += util.inflog(libitem[dweight][index])
+                    log_prior += util.inflog(libitem[dweight][index])
                     if outputoptions.debug:
                         bayw += util.inflog(libitem[dweight][index])
 
-                # TODO(Amalie) Move this to compute_log_likelihood
-                # Fold with absolute magnitudes, if present
-                if inferencesettings.has_distance_case:
-                    assert star.absolutemagnitudes is not None
-                    for f in star.absolutemagnitudes["magnitudes"].keys():
-                        mags = star.absolutemagnitudes["magnitudes"][f]["prior"]
-                        absmags = libitem[f][index]
-                        interp_mags = mags(absmags)
-
-                        logPDF += util.inflog(interp_mags)
-                        if outputoptions.debug:
-                            magw += util.inflog(interp_mags)
-
                 # IMF prior
-                if inferencesettings.imf is not None:
-                    if inferencesettings.imf not in imfs.PRIOR_FUNCTIONS:
-                        raise ValueError(f"Unknown IMF: {inferencesettings.imf}")
-                    val = imfs.PRIOR_FUNCTIONS[inferencesettings.imf](libitem, index)
-                    logPDF += util.inflog(val)
-                    if outputoptions.debug:
-                        IMFw += util.inflog(val)
+                imf_prior = stats.evaluate_imf(
+                    libitem, index=index, inferencesettings=inferencesettings
+                )
+                log_prior += imf_prior
+                if outputoptions.debug:
+                    IMFw += imf_prior
 
                 # Calculate likelihood from weights, priors and chi2
                 # PDF = weights * np.exp(-0.5 * chi2)
-                logPDFarr = logPDF + log_likelihood  # - 0.5 * chi2
+                posterior = log_prior + log_likelihood  # - 0.5 * chi2
 
                 # Sum the number indexes and nonzero indexes
-                noofind += len(logPDFarr)
-                noofposind += np.count_nonzero(~np.isinf(logPDFarr))
-                if outputoptions.debug and outputoptions.verbose:
-                    print(f"DEBUG: {group_name + name}:{~np.isinf(logPDFarr)}")
+                noofind += len(posterior)
+                noofposind += np.count_nonzero(~np.isinf(posterior))
 
                 # Store statistical info
                 if outputoptions.debug:
                     selectedmodels[group_name + name] = stats.priorlogPDF(
-                        index, logPDFarr, chi2, bayw, magw, IMFw
+                        index, posterior, chi2, bayw, IMFw
                     )
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
-                        index, logPDFarr, chi2
+                        index, posterior, chi2
                     )
         # End loop over isochrones/tracks
         #######################################################################
@@ -428,6 +335,8 @@ def _bastamain(
         )
 
     # TODO(Amalie) Write quantities_computed_at_runtime to json file
+    if inferencesettings.fit_surfacecorrected_dnu or inferencesettings.has_glitches:
+        pass
 
     # Save dictionary with full statistics
     if outputoptions.optionaloutputs:
