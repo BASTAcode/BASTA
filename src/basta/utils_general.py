@@ -486,9 +486,7 @@ def get_globalseismicparams(
 
     globalseismicparams_p = inputstar.globalseismicparams.params
     globalseismicparams_sf = inputstar.globalseismicparams.scalefactors
-    dnutype_value, dnutype_error = inputstar.globalseismicparams.params[
-        dnutype
-    ].original
+    dnutype_value, dnutype_error = inputstar.globalseismicparams.params[dnutype].scaled
     dnutype_scale = inputstar.globalseismicparams.params[dnutype].scale
     new_dnutype_error = np.sqrt(dnutype_error**2.0 + inputstar.dnubias**2.0)
     globalseismicparams_p[dnutype] = core.ScaledValueError(
