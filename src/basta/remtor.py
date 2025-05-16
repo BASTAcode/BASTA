@@ -73,6 +73,10 @@ def _banner(
     print(border)
 
 
+def _line() -> None:
+    print("-----------------------------------------------------")
+
+
 def print_bastaheader(
     t0: time.struct_time, seed: int, llen: int = 88, developermode: bool = False
 ) -> None:
@@ -456,4 +460,29 @@ def print_param(
         print("{:9}  {:13} :  {:12.6f}".format("err_minus", param, xmed - xstdm))
     else:
         print("{:9}  {:13} :  {:12.6f}".format("stdev", param, xstdm))
-    print("-----------------------------------------------------")
+    _line()
+
+
+def raise_shapewarning(
+    shapewarn: int, inferencesettings: core.InferenceSettings
+) -> None:
+    if shapewarn == 1:
+        print(
+            "Warning: Found models with fewer frequencies than observed!",
+            "These were set to zero likelihood!",
+        )
+        if "intpol" in inferencesettings.gridfile:
+            print(
+                "This is probably due to the interpolation scheme. Lookup",
+                "`interpolate_frequencies` for more details.",
+            )
+    if shapewarn == 2:
+        print(
+            "Warning: Models without frequencies overlapping with observed",
+            "ignored due to interpolation of ratios being impossible.",
+        )
+    if shapewarn == 3:
+        print(
+            "Warning: Models ignored due to phase shift differences being",
+            "unapplicable to models with mixed modes.",
+        )

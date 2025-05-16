@@ -20,7 +20,7 @@ def piecewise_imf(m, ms, alphas, ks):
         if ms[i] <= m < ms[i + 1]:
             return ks[i] * m ** alphas[i]
     print("Mass outside range of IMF prior")
-    return 1e-300
+    return np.inf
 
 
 def normfactor(alphas, ms):

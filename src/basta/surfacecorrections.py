@@ -458,7 +458,7 @@ def apply_two_term_BG14(
 def apply_surfacecorrection(
     joinedmodes: core.JoinedModes,
     star: core.Star,
-) -> tuple[np.ndarray, np.ndarray] | tuple[core.JoinedModes, None]:
+) -> tuple[core.JoinedModes, np.ndarray] | tuple[core.JoinedModes, None]:
     """
     Compute a specified surfacecorrection for the mode frequencies
     """
@@ -469,18 +469,18 @@ def apply_surfacecorrection(
     if star.modes.surfacecorrection.get("KBC08") is not None:
         corrected_joinedmodes, coeffs = KBC08(
             joinedmodes=joinedmodes,
-            nuref=star.globalseismicparams.get_scaled("numax")[0],
+            nuref=star.globalseismicparams.get_original("numax")[0],
             bcor=star.modes.surfacecorrection["KBC08"]["bexp"],
         )
     elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
         corrected_joinedmodes, coeffs = two_term_BG14(
             joinedmodes=joinedmodes,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+            scalnu=star.globalseismicparams.get_original("numax")[0],
         )
     elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
         corrected_joinedmodes, coeffs = cubic_term_BG14(
             joinedmodes=joinedmodes,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+            scalnu=star.globalseismicparams.get_original("numax")[0],
         )
     return corrected_joinedmodes, coeffs
 
@@ -506,19 +506,19 @@ def apply_surfacecorrection_coefficients(
         corrected_frequencies = apply_KBC08(
             modes=modes,
             coeffs=coeffs,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+            scalnu=star.globalseismicparams.get_original("numax")[0],
         )
     elif star.modes.surfacecorrection.get("two_term_BG14") is not None:
         corrected_frequencies = apply_two_term_BG14(
             modes=modes,
             coeffs=coeffs,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+            scalnu=star.globalseismicparams.get_original("numax")[0],
         )
     elif star.modes.surfacecorrection.get("cubic_term_BG14") is not None:
         corrected_frequencies = apply_cubic_term_BG14(
             modes=modes,
             coeffs=coeffs,
-            scalnu=star.globalseismicparams.get_scaled("numax")[0],
+            scalnu=star.globalseismicparams.get_original("numax")[0],
         )
 
     assert corrected_frequencies is not None

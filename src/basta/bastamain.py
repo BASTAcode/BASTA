@@ -184,7 +184,7 @@ def _bastamain(
             # Update progress bar in the start of the loop to count skipped tracks
             pbar.update(1)
 
-            # Check entire track
+            # Check if entire track should be skipped
             # For grid with interpolated tracks, skip tracks flagged as empty
             if gridheader["is_interpolated"]:
                 if libitem["IntStatus"][()] < 0:
@@ -193,6 +193,8 @@ def _bastamain(
             if util.should_skip_due_to_diffusion(libitem=libitem, star=star):
                 continue
 
+            # Check if individual models across the track are outside the
+            # ranges specified by the priors
             index = np.ones(len(libitem["age"][:]), dtype=bool)
 
             for param in star.limits:
@@ -212,10 +214,14 @@ def _bastamain(
             index &= util.apply_anchor_cut(
                 index, star=star, libitem=libitem, inferencesettings=inferencesettings
             )
+            if np.sum(index) < 1:
+                continue
 
-            # TODO(Amalie) rewrite this to a function
-            # If any models are within tolerances, calculate statistics
+            # Compute the log likelihood contributions of most stellar observables
             if np.any(index):
+                """
+                # TODO(Amalie) rewrite this to a function
+                # If any models are within tolerances, calculate statistics
                 chi2 = np.zeros(index.sum())
                 for param in star.classicalparams.params.keys():
                     if param not in ["parallax", "distance"]:
@@ -266,13 +272,22 @@ def _bastamain(
                             "idx": inds,
                             "surfacecorrected_dnu": addpars["surfacecorrected_dnu"],
                         }
+                """
+                log_likelihood, chi2, shapewarn = stats.compute_log_likelihood(
+                    libitem,
+                    index=index,
+                    star=star,
+                    inferencesettings=inferencesettings,
+                    outputoptions=outputoptions,
+                )
 
                 # Bayesian weights (across tracks/isochrones)
-                logPDF = 0.0
+                number_of_possible_models = np.sum(index)
+                logPDF = np.zeros(number_of_possible_models)
                 if outputoptions.debug:
-                    bayw = 0.0
-                    magw = 0.0
-                    IMFw = 0.0
+                    bayw = np.zeros(number_of_possible_models)
+                    magw = np.zeros(number_of_possible_models)
+                    IMFw = np.zeros(number_of_possible_models)
                 if bayweights is not None:
                     for weight in bayweights:
                         logPDF += util.inflog(libitem[weight][()])
@@ -285,6 +300,7 @@ def _bastamain(
                     if outputoptions.debug:
                         bayw += util.inflog(libitem[dweight][index])
 
+                # TODO(Amalie) Move this to compute_log_likelihood
                 # Fold with absolute magnitudes, if present
                 if inferencesettings.has_distance_case:
                     assert star.absolutemagnitudes is not None
@@ -297,7 +313,7 @@ def _bastamain(
                         if outputoptions.debug:
                             magw += util.inflog(interp_mags)
 
-                # Multiply priors into the weight
+                # IMF prior
                 if inferencesettings.imf is not None:
                     if inferencesettings.imf not in imfs.PRIOR_FUNCTIONS:
                         raise ValueError(f"Unknown IMF: {inferencesettings.imf}")
@@ -308,20 +324,13 @@ def _bastamain(
 
                 # Calculate likelihood from weights, priors and chi2
                 # PDF = weights * np.exp(-0.5 * chi2)
-                logPDFarr = logPDF - 0.5 * chi2
-                if outputoptions.debug and outputoptions.verbose:
-                    print(
-                        "DEBUG: Mass with nonzero likelihood:",
-                        libitem["massini"][index][~np.isinf(logPDFarr)],
-                    )
+                logPDFarr = logPDF + log_likelihood  # - 0.5 * chi2
 
                 # Sum the number indexes and nonzero indexes
                 noofind += len(logPDFarr)
                 noofposind += np.count_nonzero(~np.isinf(logPDFarr))
                 if outputoptions.debug and outputoptions.verbose:
-                    print(
-                        f"DEBUG: Index found: {group_name + name}, {~np.isinf(logPDFarr)}"
-                    )
+                    print(f"DEBUG: {group_name + name}:{~np.isinf(logPDFarr)}")
 
                 # Store statistical info
                 if outputoptions.debug:
@@ -343,26 +352,11 @@ def _bastamain(
     )
 
     # Raise possible warnings
-    if shapewarn == 1:
-        print(
-            "Warning: Found models with fewer frequencies than observed!",
-            "These were set to zero likelihood!",
+    if shapewarn > 0:
+        remtor.raise_shapewarning(
+            shapewarn=shapewarn, inferencesettings=inferencesettings
         )
-        if "intpol" in inferencesettings.gridfile:
-            print(
-                "This is probably due to the interpolation scheme. Lookup",
-                "`interpolate_frequencies` for more details.",
-            )
-    if shapewarn == 2:
-        print(
-            "Warning: Models without frequencies overlapping with observed",
-            "ignored due to interpolation of ratios being impossible.",
-        )
-    if shapewarn == 3:
-        print(
-            "Warning: Models ignored due to phase shift differences being",
-            "unapplicable to models with mixed modes.",
-        )
+
     if noofposind == 0:
         fio.no_models(
             star.starid,
@@ -423,7 +417,7 @@ def _bastamain(
             Grid=Grid,
             selectedmodels=selectedmodels,
             path=maxPDF_path,
-            ind=maxPDF_ind,
+            ind=int(maxPDF_ind),
             quantities_at_runtime=(
                 quantities_at_runtime if inferencesettings.has_glitches else None
             ),
