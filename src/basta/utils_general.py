@@ -473,16 +473,38 @@ def compute_group_names(
     return {feh: f"{gridinfo['defaultpath']}FeH={feh:.4f}/" for feh in metallicities}
 
 
-def add_bias_to_dnuerror(globalseismicparams, inputstar, dnu="dnufit"):
+def get_globalseismicparams(
+    inputstar: core.InputStar, dnutype: str = "dnufit"
+) -> core.GlobalSeismicParameters:
+    if not inputstar.globalseismicparams.params:
+        return inputstar.globalseismicparams
+
+    assert inputstar.globalseismicparams.scalefactors is not None
+
     if inputstar.dnubias == 0.0:
-        return
-    dnu_value, dnu_error = globalseismicparams.params[dnu]
-    new_dnu_error = np.sqrt(dnu_error**2.0 + inputstar.dnubias**2.0)
+        return inputstar.globalseismicparams
+
+    globalseismicparams_p = inputstar.globalseismicparams.params
+    globalseismicparams_sf = inputstar.globalseismicparams.scalefactors
+    dnutype_value, dnutype_error = inputstar.globalseismicparams.params[
+        dnutype
+    ].original
+    dnutype_scale = inputstar.globalseismicparams.params[dnutype].scale
+    new_dnutype_error = np.sqrt(dnutype_error**2.0 + inputstar.dnubias**2.0)
+    globalseismicparams_p[dnutype] = core.ScaledValueError(
+        original=(dnutype_value, new_dnutype_error), scale=dnutype_scale
+    )
+
     print(
         f"Added a given systematic increase of uncertainty in dnu of {inputstar.dnubias}"
     )
-    print(f"Increases uncertainty from {dnu_error:.3f} µHz to {new_dnu_error:.3f} µHz")
-    globalseismicparams.params[dnu][1] = new_dnu_error
+    print(
+        f"Increases uncertainty from {dnutype_error:.3f} µHz to {new_dnutype_error:.3f} µHz"
+    )
+
+    return core.GlobalSeismicParameters(
+        params=globalseismicparams_p, scalefactors=globalseismicparams_sf
+    )
 
 
 def compute_inverse_covariancematrix(covariance: np.ndarray, inputstar: core.InputStar):
@@ -527,8 +549,8 @@ def get_modes(
         dnu = globalseismicparams.get_scaled("dnufit")[0]
     elif "numax" in globalseismicparams.params:
         dnu = freq_fit.compute_dnufit(
-            data=modedata, numax=globalseismicparams.get_scaled("numax")[0]
-        )
+            modes=modedata, numax=globalseismicparams.get_scaled("numax")[0]
+        )[0]
     else:
         raise ValueError("Missing dnu")
     obsintervals = freq_fit.make_intervals(data=modedata, dnu=dnu)
@@ -694,13 +716,8 @@ def setup_star(
 ) -> core.Star:
 
     classicalparams = inputstar.classicalparams
-    globalseismicparams = inputstar.globalseismicparams
     distanceparams = inputstar.distanceparams
-
-    if globalseismicparams.params:
-        assert globalseismicparams.scalefactors is not None
-
-    add_bias_to_dnuerror(globalseismicparams, inputstar)
+    globalseismicparams = get_globalseismicparams(inputstar)
 
     modes = ratios = glitches = epsilondifferences = None
     absolutemagnitudes = distancelimits = None
@@ -861,7 +878,7 @@ def is_modelmodes_within_anchormodecut(
     anchormode: np.ndarray,
     freq_limits: tuple[float, float],
     index: np.ndarray,
-) -> bool:
+) -> np.ndarray:
     """
     Checks if the model equivalent of the anchor mode lies within the frequency limits set by the anchor mode.
     """
@@ -904,6 +921,7 @@ def apply_anchor_cut(
     if freq_limits is None:
         return index
 
+    assert star.modes is not None
     anchormode = star.modes.modes.lowest_observed_radial_frequency
     indexf = np.zeros_like(index, dtype=bool)
 

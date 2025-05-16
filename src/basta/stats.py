@@ -40,19 +40,14 @@ class Trackstats:
     def magw(self) -> float:
         raise Exception("attempt to use magw when not debugging")
 
-    @property
-    def IMFw(self) -> float:
-        raise Exception("attempt to use IMFw when not debugging")
-
 
 @dataclass(frozen=True)
 class priorlogPDF:
     index: np.ndarray
     logPDF: np.ndarray
     chi2: np.ndarray
-    bayw: float
-    magw: float
-    IMFw: float
+    bayw: np.ndarray
+    IMFw: np.ndarray
 
 
 def _hist_bin_fd(data: np.ndarray) -> float:

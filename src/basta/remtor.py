@@ -401,6 +401,9 @@ def print_priors(inferencesettings: core.InferenceSettings) -> None:
             "max": "Absolute upper bound:",
         }
         for lim, k, v in constrained:
+            # TODO(Amalie) testing xml files had a different name for nsigma
+            if k == "sigmacut":
+                k = "nsigma"
             _bullet(f"{lim}: {strmap[k]} {v}", level=1)
 
 
