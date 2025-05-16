@@ -158,7 +158,6 @@ def _bastamain(
     shapewarn = 0
     noofind = 0
     noofposind = 0
-    noofskips = [0, 0]
 
     # In some cases we need to store quantities computed at runtime
     quantities_at_runtime: dict[str, Any] = {}
