@@ -450,6 +450,233 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     return ratio, ratio_cov
 
 
+def create_ratio_array(
+    ids: np.ndarray, ns: np.ndarray, ratios: np.ndarray, frequencies: np.ndarray
+) -> np.ndarray:
+    ratio_dtype = [("id", int), ("n", int), ("ratio", float), ("frequency", float)]
+    return np.array(list(zip(ids, ns, ratios, frequencies)), dtype=ratio_dtype)
+
+
+def is_valid(frequencies: np.ndarray, ns: np.ndarray) -> bool:
+    """
+    Common check if ratio can be computed
+    """
+    return len(frequencies) > 0 and len(frequencies) == (ns[-1] - ns[0] + 1)
+
+
+def zip_sequences(*arrays: np.ndarray) -> np.ndarray:
+    """
+    Combine and sort multiple ratio arrays by 'n', with a small offset to preserve order.
+    """
+    combined = np.concatenate(arrays)
+    sort_order = np.argsort(combined["n"] + combined["id"] * 0.01)
+    return combined[sort_order]
+
+
+def compute_r02(
+    radial_data: np.ndarray, dipole_data: np.ndarray, quadropole_data: np.ndarray
+) -> np.ndarray | None:
+    f0 = radial_data["frequency"]
+    n0 = radial_data["n"]
+    f1 = dipole_data["frequency"]
+    n1 = dipole_data["n"]
+    f2 = quadropole_data["frequency"]
+    n2 = quadropole_data["n"]
+
+    if not (is_valid(f0, n0) and is_valid(f1, n1) and is_valid(f2, n2)):
+        return None
+
+    lowest_n0 = (n0[0] - 1, n1[0], n2[0])
+    l0 = lowest_n0.index(max(lowest_n0))
+
+    if l0 == 0:
+        i00 = 0
+        i01 = n0[0] - n1[0] - 1
+        i02 = n0[0] - n2[0] - 1
+    elif l0 == 1:
+        i00 = n1[0] - n0[0] + 1
+        i01 = 0
+        i02 = n1[0] - n2[0]
+    else:
+        i00 = n2[0] - n0[0] + 1
+        i01 = n2[0] - n1[0]
+        i02 = 0
+
+    ln = (n0[-1], n1[-1], n2[-1] + 1).index(min((n0[-1], n1[-1], n2[-1] + 1)))
+    if ln == 0:
+        nr02 = n0[-1] - n0[i00] + 1
+    elif ln == 1:
+        nr02 = n1[-1] - n1[i01]
+    else:
+        nr02 = n2[-1] - n2[i02] + 1
+
+    ratios, freqs, ns = [], [], []
+    for i in range(nr02):
+        ratio = (f0[i00 + i] - f2[i02 + i]) / (f1[i01 + i + 1] - f1[i01 + i])
+        ratios.append(ratio)
+        freqs.append(f0[i00 + i])
+        ns.append(n0[i00 + i])
+
+    return create_ratio_array(
+        ids=np.full(nr02, 2),
+        ns=np.array(ns),
+        ratios=np.array(ratios),
+        frequencies=np.array(freqs),
+    )
+
+
+def compute_r01(
+    radial_data: np.ndarray, dipole_data: np.ndarray, threepoint: bool = False
+) -> np.ndarray | None:
+    f0 = radial_data["frequency"]
+    n0 = radial_data["n"]
+    f1 = dipole_data["frequency"]
+    n1 = dipole_data["n"]
+
+    if not (is_valid(f0, n0) and is_valid(f1, n1)):
+        return None
+
+    if n0[0] >= n1[0]:
+        i00 = 0
+        i01 = n0[0] - n1[0]
+    else:
+        i00 = n1[0] - n0[0]
+        i01 = 0
+
+    if threepoint:
+        nr = min(n0[-1] - n0[i00] + 1, n1[-1] - n1[i01])
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f0[i00 + i] - (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
+            ratio /= f1[i01 + i + 1] - f1[i01 + i]
+            ratios.append(ratio)
+            freqs.append(f0[i00 + i])
+            ns.append(n0[i00 + i])
+    else:
+        nr = min(n0[-1] - n0[i00] - 1, n1[-1] - n1[i01])
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f0[i00 + i] + 6.0 * f0[i00 + i + 1] + f0[i00 + i + 2]
+            ratio -= 4.0 * (f1[i01 + i + 1] + f1[i01 + i])
+            ratio /= 8.0 * (f1[i01 + i + 1] - f1[i01 + i])
+            ratios.append(ratio)
+            freqs.append(f0[i00 + i + 1])
+            ns.append(n0[i00 + i + 1])
+
+    return create_ratio_array(
+        ids=np.full(nr, 1),
+        ns=np.array(ns),
+        ratios=np.array(ratios),
+        frequencies=np.array(freqs),
+    )
+
+
+def compute_r10(
+    radial_data: np.ndarray, dipole_data: np.ndarray, threepoint: bool = False
+) -> np.ndarray | None:
+    f0 = radial_data["frequency"]
+    n0 = radial_data["n"]
+    f1 = dipole_data["frequency"]
+    n1 = dipole_data["n"]
+
+    if not (is_valid(f0, n0) and is_valid(f1, n1)):
+        return None
+
+    if n0[0] - 1 >= n1[0]:
+        i00, i01 = 0, n0[0] - n1[0] - 1
+    else:
+        i00, i01 = n1[0] - n0[0] + 1, 0
+
+    if threepoint:
+        nr = min(n0[-1] - n0[i00], n1[-1] - n1[i01])
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f1[i01 + i] - (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
+            ratio /= f0[i00 + i] - f0[i00 + i + 1]
+            ratios.append(ratio)
+            freqs.append(f1[i01 + i])
+            ns.append(n1[i01 + i])
+    else:
+        nr = min(n0[-1] - n0[i00], n1[-1] - n1[i01] - 1)
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f1[i01 + i] + 6.0 * f1[i01 + i + 1] + f1[i01 + i + 2]
+            ratio -= 4.0 * (f0[i00 + i + 1] + f0[i00 + i])
+            ratio /= -8.0 * (f0[i00 + i + 1] - f0[i00 + i])
+            ratios.append(ratio)
+            freqs.append(f1[i01 + i + 1])
+            ns.append(n1[i01 + i + 1])
+
+    return create_ratio_array(
+        ids=np.full(nr, 10),
+        ns=np.array(ns),
+        ratios=np.array(ratios),
+        frequencies=np.array(freqs),
+    )
+
+
+def compute_ratio_sequences(
+    star: core.Star, sequence: str, threepoint: bool = False
+) -> np.ndarray | None:
+    """
+    Routine to compute the ratios r02, r01 and r10 from oscillation
+    frequencies, and return the desired ratio sequence, both individual
+    and combined sequences.
+
+    Parameters
+    ----------
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios
+        instead of default five point definition.
+
+    Returns
+    -------
+    ratio : array
+    """
+    assert star.modes is not None
+    radial_data = star.modes.modes.of_angular_degree(0)
+    dipole_data = star.modes.modes.of_angular_degree(1)
+    quadropole_data = star.modes.modes.of_angular_degree(2)
+
+    r01 = (
+        compute_r01(
+            radial_data=radial_data, dipole_data=dipole_data, threepoint=threepoint
+        )
+        if sequence in {"r01", "r012", "r010"}
+        else None
+    )
+    r10 = (
+        compute_r10(
+            radial_data=radial_data, dipole_data=dipole_data, threepoint=threepoint
+        )
+        if sequence in {"r10", "r102", "r010"}
+        else None
+    )
+    r02 = (
+        compute_r02(
+            radial_data=radial_data,
+            dipole_data=dipole_data,
+            quadropole_data=quadropole_data,
+        )
+        if sequence in {"r02", "r012", "r102"}
+        else None
+    )
+
+    if sequence == "r01":
+        return r01
+    if sequence == "r10":
+        return r10
+    if sequence == "r02":
+        return r02
+    if sequence == "r012" and r01 is not None and r02 is not None:
+        return zip_sequences(r01, r02)
+    if sequence == "r102" and r10 is not None and r02 is not None:
+        return zip_sequences(r10, r02)
+    if sequence == "r010" and r01 is not None and r10 is not None:
+        return zip_sequences(r01, r10)
+    return None
+
+
 def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
