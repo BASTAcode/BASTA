@@ -370,7 +370,12 @@ def scale_by_inertia(
     return s
 
 
-def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
+def compute_cov_from_mc(
+    nr: int,
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    fittype: str,
+    kwargs: dict,
+):
     """
     Compute covariance matrix (and its inverse) using Monte Carlo realisations.
 
@@ -385,15 +390,19 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
     fittype : str
         Which sequence to determine, see `constants.freqtypes.rtypes` and
         `constants.freqtypes.epsdiff` for possible sequences.
-    args : dict
+    kwargs : dict
         Set of arguments to pass on to the function that computes the fitting
         sequences, i.e. `freq_fit.compute_ratioseqs` and
         `freq_fit.compute_epsilondiffseqs`.
-    nrealisations : int
+    nrealizations : int
         Number of realisations of the sampling for the computation of the
         covariance matrix.
     """
-    # Determine the function used to sample the corresponding sequence type
+    if "nrealizations" not in kwargs:
+        nrealizations = 10000
+    else:
+        nrealizations = kwargs["nrealizations"]
+
     if fittype in freqtypes.rtypes:
         seqs_function = freq_fit.compute_ratioseqs
     elif fittype in freqtypes.epsdiff:
@@ -406,51 +415,75 @@ def compute_cov_from_mc(nr, osckey, osc, fittype, args, nrealisations=10000):
         )
 
     # Compute different perturbed realisations (Monte Carlo) for covariances
-    nvalues = np.zeros((nrealisations, nr))
-    perturb_osc = deepcopy(osc)
+    nvalues = np.empty((nrealizations, nr))
+
+    # Extract frequency and error from structured array
+    if isinstance(modes, core.JoinedModes):
+        frequency_column = "model_frequency"
+        error_column = "observed_error"
+        n_column = "model_n"
+    else:
+        frequency_column = "frequency"
+        error_column = "error"
+        n_column = "n"
+
+    base_freqs = modes.data[frequency_column]
+    errors = modes.data[error_column]
+    n = modes.data[n_column]
+    l = modes.data["l"]
+
     for i in tqdm(
-        range(nrealisations), desc=f"Sampling {fittype} covariances", ascii=True
+        range(nrealizations),
+        desc=f"Sampling {fittype} covariances",
+        mininterval=0.5,
+        maxinterval=5.0,
+        ascii=True,
     ):
-        perturb_osc[0, :] = np.random.normal(osc[0, :], osc[1, :])
-        tmp = seqs_function(
-            osckey,
-            perturb_osc,
-            sequence=fittype,
-            **args,
-        )
-        nvalues[i, :] = tmp[0]
-
-    nfailed = np.sum(np.isnan(nvalues[:, -1]))
-    if nfailed / nrealisations > 0.3:
-        print(f"Warning: {nfailed} of {nrealisations} failed")
-
-    # Filter out bad failed iterations
-    nvalues = nvalues[~np.isnan(nvalues).any(axis=1), :]
-
-    # Derive covariance matrix from MC-realisations and test convergence
-    n = round((nrealisations - nfailed) / 2)
-    tmpcov = skcov.MinCovDet().fit(nvalues[:n, :]).covariance_
-    fullcov = skcov.MinCovDet().fit(nvalues).covariance_
-
-    # Test the convergence (change in standard deviations below a relative tolerance)
-    rdif = np.amax(
-        np.abs(
-            np.divide(
-                np.sqrt(np.diag(tmpcov)) - np.sqrt(np.diag(fullcov)),
-                np.sqrt(np.diag(fullcov)),
+        perturbed_frequencies = np.random.normal(base_freqs, errors)
+        perturbed_stardata = core.ObservedFrequencies(
+            data=core._pack_structuredarray(
+                int0=l,
+                int1=n,
+                float0=perturbed_frequencies,
+                float1=errors,
+                names=["l", "n", "frequency", "error"],
             )
         )
-    )
 
-    if rdif > 0.1:
+        tmp = seqs_function(perturbed_stardata, sequence=fittype, **kwargs)
+        if tmp is None:
+            nvalues[i, :] = np.full(nr, np.nan)
+        else:
+            nvalues[i, :] = tmp[0]
+
+    mask_valid = ~np.isnan(nvalues).any(axis=1)
+    nvalues_valid = nvalues[mask_valid]
+
+    nfailed = np.sum(~mask_valid)
+    if nfailed / nrealizations > 0.3:
+        print(f"Warning: {nfailed} of {nrealizations} realizations failed.")
+
+    # Compute robust covariance matrix
+    n_half = round(len(nvalues_valid) / 2)
+    # TODO(Amalie) This is an expensive computation, consider adding it as a flag?
+    # or maybe Ledoit-Wolf?
+    tmpcov = skcov.MinCovDet().fit(nvalues_valid[:n_half]).covariance_
+    fullcov = skcov.MinCovDet().fit(nvalues_valid).covariance_
+
+    # Convergence check
+    diag_tmp = np.sqrt(np.diag(tmpcov))
+    diag_full = np.sqrt(np.diag(fullcov))
+    max_diff = np.max(np.abs((diag_tmp - diag_full) / diag_full))
+    if max_diff > 0.1:
         print("Warning: Covariance failed to converge!")
-        print(f"Maximum relative difference = {rdif:.2e} (>0.1)")
+        print(f"Maximum relative std. difference = {max_diff:.2e} (> 0.1)")
 
-    # Glitch parameters are more robnustly determined as median of realizations
+    # Glitch parameters are more robustly determined as median of realizations
     if fittype in freqtypes.glitches:
-        # Simply overwrite values in tmp with median values
-        tmp[0, :] = np.median(nvalues, axis=0)
+        median_realization = np.median(nvalues_valid, axis=0)
+        tmp[0, :] = median_realization
         return tmp, fullcov
+
     return fullcov
 
 

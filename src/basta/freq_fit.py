@@ -290,7 +290,9 @@ def _match_l(
     return None
 
 
-def calc_join(star_modes: core.StarModes, model_modes: core.ModelFrequencies):
+def calc_join(
+    star_modes: core.StarModes, model_modes: core.ModelFrequencies
+) -> core.JoinedModes | None:
     """
     This functions maps the observed modes to the model modes.
 
@@ -302,22 +304,6 @@ def calc_join(star_modes: core.StarModes, model_modes: core.ModelFrequencies):
         Object containing model frequencies and inertias.
     Returns
     -------
-    joins : list or None
-        List containing joinkeys and join.
-
-        * joinkeys : int array
-            Array containing the mapping of model mode to the observed mode.
-            Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-            is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-
-        * join : array
-            Array containing the model frequency, model inertia, observed
-            frequency, uncertainty in observed frequency for a pair of mapped
-            modes.
-            Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-            join[i, 0], inertia join[i, 1].
-            Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-            join[i, 2] and uncertainty join[i, 3].
     """
     obs_intervals = star_modes.obsintervals
     assert obs_intervals is not None
@@ -433,7 +419,10 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     ratio_cov : array
         Covariance matrix of the requested ratio.
     """
-    ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
+    # ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
+    ratio = compute_ratio_sequences(
+        star=star, sequence=ratiotype, threepoint=threepoint
+    )
 
     # Check for valid return
     if ratio is None:
@@ -441,30 +430,27 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
 
     ratio_cov = su.compute_cov_from_mc(
         ratio.shape[1],
-        obskey,
-        obs,
         ratiotype,
-        args={"threepoint": threepoint},
-        nrealisations=nrealisations,
+        args=star.kwargs_ratios,
     )
     return ratio, ratio_cov
 
 
-def create_ratio_array(
+def _create_ratio_array(
     ids: np.ndarray, ns: np.ndarray, ratios: np.ndarray, frequencies: np.ndarray
 ) -> np.ndarray:
     ratio_dtype = [("id", int), ("n", int), ("ratio", float), ("frequency", float)]
     return np.array(list(zip(ids, ns, ratios, frequencies)), dtype=ratio_dtype)
 
 
-def is_valid(frequencies: np.ndarray, ns: np.ndarray) -> bool:
+def _is_valid(frequencies: np.ndarray, ns: np.ndarray) -> bool:
     """
     Common check if ratio can be computed
     """
     return len(frequencies) > 0 and len(frequencies) == (ns[-1] - ns[0] + 1)
 
 
-def zip_sequences(*arrays: np.ndarray) -> np.ndarray:
+def _zip_sequences(*arrays: np.ndarray) -> np.ndarray:
     """
     Combine and sort multiple ratio arrays by 'n', with a small offset to preserve order.
     """
@@ -474,16 +460,14 @@ def zip_sequences(*arrays: np.ndarray) -> np.ndarray:
 
 
 def compute_r02(
-    radial_data: np.ndarray, dipole_data: np.ndarray, quadropole_data: np.ndarray
+    f0: np.ndarray,
+    n0: np.ndarray,
+    f1: np.ndarray,
+    n1: np.ndarray,
+    f2: np.ndarray,
+    n2: np.ndarray,
 ) -> np.ndarray | None:
-    f0 = radial_data["frequency"]
-    n0 = radial_data["n"]
-    f1 = dipole_data["frequency"]
-    n1 = dipole_data["n"]
-    f2 = quadropole_data["frequency"]
-    n2 = quadropole_data["n"]
-
-    if not (is_valid(f0, n0) and is_valid(f1, n1) and is_valid(f2, n2)):
+    if not (_is_valid(f0, n0) and _is_valid(f1, n1) and _is_valid(f2, n2)):
         return None
 
     lowest_n0 = (n0[0] - 1, n1[0], n2[0])
@@ -517,7 +501,7 @@ def compute_r02(
         freqs.append(f0[i00 + i])
         ns.append(n0[i00 + i])
 
-    return create_ratio_array(
+    return _create_ratio_array(
         ids=np.full(nr02, 2),
         ns=np.array(ns),
         ratios=np.array(ratios),
@@ -526,14 +510,13 @@ def compute_r02(
 
 
 def compute_r01(
-    radial_data: np.ndarray, dipole_data: np.ndarray, threepoint: bool = False
+    f0: np.ndarray,
+    n0: np.ndarray,
+    f1: np.ndarray,
+    n1: np.ndarray,
+    threepoint: bool = False,
 ) -> np.ndarray | None:
-    f0 = radial_data["frequency"]
-    n0 = radial_data["n"]
-    f1 = dipole_data["frequency"]
-    n1 = dipole_data["n"]
-
-    if not (is_valid(f0, n0) and is_valid(f1, n1)):
+    if not (_is_valid(f0, n0) and _is_valid(f1, n1)):
         return None
 
     if n0[0] >= n1[0]:
@@ -563,7 +546,7 @@ def compute_r01(
             freqs.append(f0[i00 + i + 1])
             ns.append(n0[i00 + i + 1])
 
-    return create_ratio_array(
+    return _create_ratio_array(
         ids=np.full(nr, 1),
         ns=np.array(ns),
         ratios=np.array(ratios),
@@ -572,14 +555,13 @@ def compute_r01(
 
 
 def compute_r10(
-    radial_data: np.ndarray, dipole_data: np.ndarray, threepoint: bool = False
+    f0: np.ndarray,
+    n0: np.ndarray,
+    f1: np.ndarray,
+    n1: np.ndarray,
+    threepoint: bool = False,
 ) -> np.ndarray | None:
-    f0 = radial_data["frequency"]
-    n0 = radial_data["n"]
-    f1 = dipole_data["frequency"]
-    n1 = dipole_data["n"]
-
-    if not (is_valid(f0, n0) and is_valid(f1, n1)):
+    if not (_is_valid(f0, n0) and _is_valid(f1, n1)):
         return None
 
     if n0[0] - 1 >= n1[0]:
@@ -607,7 +589,7 @@ def compute_r10(
             freqs.append(f1[i01 + i + 1])
             ns.append(n1[i01 + i + 1])
 
-    return create_ratio_array(
+    return _create_ratio_array(
         ids=np.full(nr, 10),
         ns=np.array(ns),
         ratios=np.array(ratios),
@@ -616,7 +598,9 @@ def compute_r10(
 
 
 def compute_ratio_sequences(
-    star: core.Star, sequence: str, threepoint: bool = False
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    sequence: str,
+    threepoint: bool = False,
 ) -> np.ndarray | None:
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
@@ -633,30 +617,50 @@ def compute_ratio_sequences(
     -------
     ratio : array
     """
-    assert star.modes is not None
-    radial_data = star.modes.modes.of_angular_degree(0)
-    dipole_data = star.modes.modes.of_angular_degree(1)
-    quadropole_data = star.modes.modes.of_angular_degree(2)
+    if isinstance(modes, core.JoinedModes):
+        frequency_column = "model_frequency"
+        n_column = "model_n"
+    else:
+        frequency_column = "frequency"
+        n_column = "n"
+
+    radial_freqs = modes.of_angular_degree(0)[frequency_column]
+    radial_n = modes.of_angular_degree(0)[n_column]
+    dipole_freqs = modes.of_angular_degree(1)[frequency_column]
+    dipole_n = modes.of_angular_degree(1)[n_column]
+    quadropole_freqs = modes.of_angular_degree(1)[frequency_column]
+    quadropole_n = modes.of_angular_degree(1)[n_column]
 
     r01 = (
         compute_r01(
-            radial_data=radial_data, dipole_data=dipole_data, threepoint=threepoint
+            f0=radial_freqs,
+            n0=radial_n,
+            f1=dipole_freqs,
+            n1=dipole_n,
+            threepoint=threepoint,
         )
         if sequence in {"r01", "r012", "r010"}
         else None
     )
     r10 = (
         compute_r10(
-            radial_data=radial_data, dipole_data=dipole_data, threepoint=threepoint
+            f0=radial_freqs,
+            n0=radial_n,
+            f1=dipole_freqs,
+            n1=dipole_n,
+            threepoint=threepoint,
         )
         if sequence in {"r10", "r102", "r010"}
         else None
     )
     r02 = (
         compute_r02(
-            radial_data=radial_data,
-            dipole_data=dipole_data,
-            quadropole_data=quadropole_data,
+            f0=radial_freqs,
+            n0=radial_n,
+            f1=dipole_freqs,
+            n1=dipole_n,
+            f2=quadropole_freqs,
+            n2=quadropole_n,
         )
         if sequence in {"r02", "r012", "r102"}
         else None
@@ -669,15 +673,16 @@ def compute_ratio_sequences(
     if sequence == "r02":
         return r02
     if sequence == "r012" and r01 is not None and r02 is not None:
-        return zip_sequences(r01, r02)
+        return _zip_sequences(r01, r02)
     if sequence == "r102" and r10 is not None and r02 is not None:
-        return zip_sequences(r10, r02)
+        return _zip_sequences(r10, r02)
     if sequence == "r010" and r01 is not None and r10 is not None:
-        return zip_sequences(r01, r10)
+        return _zip_sequences(r01, r10)
     return None
 
 
 def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
+    # DEPRECATED
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
     frequencies, and return the desired ratio sequence, both individual
@@ -915,15 +920,14 @@ Epsilon difference fitting
 
 
 def compute_epsilondiff(
-    osckey,
-    osc,
-    avgdnu,
-    sequence="e012",
-    nsorting=True,
-    extrapolation=False,
-    nrealisations=20000,
-    debug=False,
-):
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    avgdnu: float,
+    sequence: str = "e012",
+    nsorting: bool = True,
+    extrapolation: bool = False,
+    nrealisations: int = 20000,
+    debug: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute epsilon differences and covariances.
 
@@ -945,10 +949,6 @@ def compute_epsilondiff(
 
     Parameters
     ----------
-    osckey : array
-        Array containing the angular degrees and radial orders of the modes.
-    osc : array
-        Array containing the modes (and inertias).
     avgdnu : float
         Average value of the large frequency separation.
     sequence : str, optional
@@ -975,9 +975,23 @@ def compute_epsilondiff(
     epsdiff_cov : array
         Covariances matrix.
     """
+    if isinstance(modes, core.JoinedModes):
+        frequency_column = "model_frequency"
+        n_column = "model_n"
+    else:
+        frequency_column = "frequency"
+        n_column = "n"
+
+    radial_freqs = modes.of_angular_degree(0)[frequency_column]
+    radial_n = modes.of_angular_degree(0)[n_column]
+    dipole_freqs = modes.of_angular_degree(1)[frequency_column]
+    dipole_n = modes.of_angular_degree(1)[n_column]
+    quadropole_freqs = modes.of_angular_degree(1)[frequency_column]
+    quadropole_n = modes.of_angular_degree(1)[n_column]
 
     # Remove modes outside of l=0 range
     if not extrapolation:
+        """
         indall = osckey[0, :] > -1
         ind0 = osckey[0, :] == 0
         ind12 = osckey[0, :] > 0
@@ -985,23 +999,29 @@ def compute_epsilondiff(
             osc[0, ind12] < max(osc[0, ind0]), osc[0, ind12] > min(osc[0, ind0])
         )
         indall[ind12] = mask
-        if debug and any(mask):
+        osc = osc[:, indall]
+        osckey = osckey[:, indall]
+        """
+        mask = (
+            np.amin(radial_freqs)
+            < modes.data[frequency_column]
+            <= np.amax(radial_freqs[1])
+        )
+        if debug and any(~mask):
             print(
                 "The following modes have been skipped from epsilon differences to avoid extrapolation:"
             )
-            for f, (l, n) in zip(osc[0, ~indall], osckey[:, ~indall].T):
+            for f, l, n in modes.data[[frequency_column, "l", n_column]][~mask]:
                 print(f" - (l,n,f) = ({l}, {n:02d}, {f:.3f})")
 
-        osc = osc[:, indall]
-        osckey = osckey[:, indall]
+        modes = core.ObservedFrequencies(data=modes.data[mask])
 
     epsdiff = compute_epsilondiffseqs(
-        osckey, osc, avgdnu, sequence=sequence, nsorting=nsorting
+        modes, avgdnu=avgdnu, sequence=sequence, nsorting=nsorting
     )
     epsdiff_cov = su.compute_cov_from_mc(
         epsdiff.shape[1],
-        osckey,
-        osc,
+        modes=modes,
         fittype=sequence,
         args={"avgdnu": avgdnu, "nsorting": nsorting},
         nrealisations=nrealisations,
@@ -1011,12 +1031,11 @@ def compute_epsilondiff(
 
 
 def compute_epsilondiffseqs(
-    osckey,
-    osc,
-    avgdnu,
-    sequence,
-    nsorting=True,
-):
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    avgdnu: float,
+    sequence: str,
+    nsorting: bool = True,
+) -> np.ndarray:
     """
     Computed epsilon differences, based on Roxburgh 2016 (eq. 1 and 4)
 

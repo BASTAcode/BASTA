@@ -568,23 +568,31 @@ class InputStar:
 
     correlations: bool | int = False
 
+    dnubias: float = 0.0
+
     nottrustedfile: str | None = None
     excludemodes: str | None = None
     onlyradial: bool | None = None
     # fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
 
     readratios: bool | int = False
+    kwargs_ratios: dict = {}
+    # kwargs_ratios = {'threepoint': False, 'nrealizations': 10000
+
     threepoint: bool | int = False
     interp_ratios: bool | int = True
 
     # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
+    kwargs_glitches: dict = {}
+    # kwargs_glitches = {'nrealizations': 10000,
+
     glitchfile: str | None = None
     nrealizations: int = 10000
 
     # fittypes: list[Literal["e01", "e012", "e02"]]
+    kwargs_epsilondifferences: dict = {}
+    # kwargs_epsilon_differences = {'nsorting': True, 'nrealizations': 20000
     nsorting: bool | int = True
-
-    dnubias: float = 0.0
 
 
 @dataclass(kw_only=True)
