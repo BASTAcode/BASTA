@@ -1,378 +1,180 @@
 """
-General mix of utility functions
+This module contains general purpose functions that are utilized throughout BASTA.
 """
 
+import os
 import sys
 import time
+from collections.abc import Sequence
 from io import IOBase
+from pathlib import Path
+from typing import IO, Literal, NamedTuple, TypedDict, Any
 
+import h5py  # type: ignore[import]
 import numpy as np
+import scipy.linalg  # type: ignore[import]
+
+from basta import core, constants, distances, errors, freq_fit, glitch_fit, utils_priors
+from basta import fileio as fio
+from basta import utils_seismic as su
 from basta.__about__ import __version__
-from basta import distances
-from basta.constants import freqtypes
 
 
-def h5py_to_array(xs) -> np.array:
+class GridHeader(TypedDict):
+    gridtype: str
+    version: str
+    time: str
+    is_interpolated: bool
+
+
+class GridInfo(TypedDict):
+    entryname: str
+    defaultpath: str
+    # TODO(Amalie) this could have a better name
+    difsolarmodel: int | None
+
+
+class BayesianWeights(NamedTuple):
+    weight_keys: tuple[str, ...]
+    along_weight: str
+
+
+def read_grid_header(Grid) -> GridHeader:
     """
-    Copy vector/dataset from an HDF5 file to a NumPy array
-
-    Parameters
-    ----------
-    xs : h5py_dataset
-       The input dataset read by h5py from an HDF5 object
-
-    Returns
-    -------
-    res : array_like
-        Copy of the dataset as NumPy array
+    Reads the essential metadata from a stellar grid HDF5 file header.
     """
-    res = np.empty(shape=xs.shape, dtype=xs.dtype)
-    res[:] = xs[:]
-    return res
-
-
-def prt_center(text: str, llen: int) -> None:
-    """
-    Prints a centered line
-
-    Parameters
-    ----------
-    text : str
-        The text string to print
-    llen : int
-        Length of the line
-    """
-    sp = int((llen - len(text)) / 2) * " "
-    print(f"{sp}{text}{sp}")
-
-
-def print_bastaheader(
-    t0: time.struct_time, seed: int, llen: int = 88, developermode: bool = False
-) -> None:
-    """
-    Prints the header of the BASTA run
-
-    Parameters
-    ----------
-    llen : int
-        Length of the line, default=88
-    t0 : time.struct_time
-        Local time of the beginning of the BASTA run
-    seed : int
-        Seed for BASTA run
-    developermode : bool, optional
-        Activate experimental features (for developers)
-    """
-    print(llen * "=")
-    prt_center("BASTA", llen)
-    prt_center("The BAyesian STellar Algorithm", llen)
-    print()
-    prt_center("Version {0}".format(__version__), llen)
-    print()
-    prt_center("(c) 2024, The BASTA Team", llen)
-    prt_center("https://github.com/BASTAcode/BASTA", llen)
-    print(llen * "=")
-    print("\nRun started on {0} . \n".format(time.strftime("%Y-%m-%d %H:%M:%S", t0)))
-    if developermode:
-        print("RUNNING WITH EXPERIMENTAL FEATURES ACTIVATED!\n")
-    print(f"Random numbers initialised with seed: {seed} .")
-
-
-def check_gridtype(
-    gridtype: str,
-    allowed_gridtype: list[str] = ["tracks", "isochrones"],
-    gridid: str | bool = False,
-) -> tuple[str, str, None | int]:
-    # Check type of grid (isochrones/tracks) and set default grid path
-    gridtype = gridtype.lower()
-    if "tracks" in gridtype:
-        entryname = "tracks"
-        defaultpath = "grid/"
-        difsolarmodel = None
-    elif "isochrones" in gridtype:
-        entryname = "isochrones"
-        if gridid:
-            difsolarmodel = int(gridid[1])
-            defaultpath = f"ove={gridid[0]:.4f}/dif={gridid[1]:.4f}/eta={gridid[2]:.4f}/alphaFe={gridid[3]:.4f}/"
-        else:
-            print(
-                "Unable to construct path for science case."
-                + " Probably missing (ove, dif, eta, alphaFe) in input!"
-            )
-            raise LibraryError
-
-    else:
-        raise OSError(
-            f"Gridtype {gridtype} not supported, only 'tracks' and 'isochrones'!"
-        )
-    return entryname, defaultpath, difsolarmodel
-
-
-def read_grid_header(Grid) -> tuple[str, str, str, bool]:
     try:
         gridtype = Grid["header/library_type"][()]
         gridver = Grid["header/version"][()]
         gridtime = Grid["header/buildtime"][()]
 
-        # Allow for usage of both h5py 2.10.x and 3.x.x
-        # --> If things are encoded as bytes, they must be made into standard strings
         if isinstance(gridtype, bytes):
             gridtype = gridtype.decode("utf-8")
             gridver = gridver.decode("utf-8")
             gridtime = gridtime.decode("utf-8")
+
     except KeyError:
         raise SystemExit(
             "Error: Some information is missing in the header of the grid!\n"
-            "Please check the entries in the header! It must include all "
-            "of the following:\n * header/library_type\n * header/version "
-            "\n * header/buildtime"
+            "Required: header/library_type, header/version, header/buildtime."
         )
 
-    # Check if grid is interpolated
     try:
         Grid["header/interpolation_time"][()]
+        is_interpolated = True
     except KeyError:
-        grid_is_intpol = False
-    else:
-        grid_is_intpol = True
+        is_interpolated = False
 
-    assert isinstance(gridtype, str), gridtype
-    assert isinstance(gridver, str), gridver
-    assert isinstance(gridtime, str), gridtime
-    return gridtype, gridver, gridtime, grid_is_intpol
-
-
-def read_grid_bayweights(Grid, gridtype) -> tuple[tuple[str, ...], str]:
-    try:
-        grid_weights = [x.decode("utf-8") for x in list(Grid["header/active_weights"])]
-
-    except KeyError:
-        print("WARNING: Bayesian weights requested, but none specified in grid file!\n")
-        raise
-    bayweights = tuple([x + "_weight" for x in grid_weights])
-
-    # Specify the along weight variable, varies due to conceptual difference
-    # - Isochrones --> dmass
-    # - Tracks     --> dage
-    if "isochrones" in gridtype.lower():
-        dweight = "dmass"
-    elif "tracks" in gridtype.lower():
-        dweight = "dage"
-    else:
-        raise Exception(f"Unknown gridtype {gridtype}")
-    return bayweights, dweight
+    return {
+        "gridtype": gridtype,
+        "version": gridver,
+        "time": gridtime,
+        "is_interpolated": is_interpolated,
+    }
 
 
-def prepare_distancefitting(
-    inputparams: dict, debug: bool, debug_dirpath: str, allparams: list[str]
-) -> tuple[dict, list[str]]:
-    # Special case if assuming gaussian magnitudes
-    if "gaussian_magnitudes" in inputparams:
-        use_gaussian_priors = inputparams["gaussian_magnitudes"]
-    else:
-        use_gaussian_priors = False
-
-    # Add magnitudes and colors to fitparams if fitting distance
-    inputparams = distances.add_absolute_magnitudes(
-        inputparams,
-        debug=debug,
-        debug_dirpath=debug_dirpath,
-        use_gaussian_priors=use_gaussian_priors,
-    )
-
-    # If keyword present, add individual filters
-    if "distance" in allparams:
-        allparams = list(
-            np.unique(allparams + inputparams["distanceparams"]["filters"])
-        )
-        allparams.remove("distance")
-    return inputparams, allparams
-
-
-def print_fitparams(fitparams: dict) -> None:
-    # Print fitparams
-    print("\nFitting information:")
-    print("* Fitting parameters with values and uncertainties:")
-    for fp in fitparams.keys():
-        if fp in ["numax", "dnuSer", "dnuscal", "dnuAsf"]:
-            fpstr = f"{fp} (solar units)"
-        else:
-            fpstr = fp
-        print(f"  - {fpstr}: {fitparams[fp]}")
-
-
-def print_seismic(fitfreqs: dict, obskey: np.array, obs: np.array) -> None:
-    # Fitting info: Frequencies
-    if not fitfreqs["active"]:
-        return
-    if "freqs" in fitfreqs["fittypes"]:
-        print("* Fitting of individual frequencies activated!")
-    elif any(x in freqtypes.rtypes for x in fitfreqs["fittypes"]):
-        print(f"* Fitting of frequency ratios {fitfreqs['fittypes']} activated!")
-        if "r010" in fitfreqs["fittypes"]:
-            print(
-                "  - WARNING: Fitting r01 and r10 simultaniously results in overfitting, and is thus not recommended!"
-            )
-    elif any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
-        print(f"* Fitting of glitches {fitfreqs['fittypes']} activated using:")
-        print(f"  - Method: {fitfreqs['glitchmethod']}")
-        print(f"  - Parameters in smooth component: {fitfreqs['npoly_params']}")
-        print(f"  - Order of derivative: {fitfreqs['nderiv']}")
-        print(f"  - Gradient tolerance: {fitfreqs['tol_grad']}")
-        print(f"  - Regularization parameter: {fitfreqs['regu_param']}")
-        print(f"  - Initial guesses: {fitfreqs['nguesses']}")
-        print("* General frequency fitting configuration:")
-    elif any(x in freqtypes.epsdiff for x in fitfreqs["fittypes"]):
-        print(f"* Fitting of epsilon differences {fitfreqs['fittypes']} activated!")
-
-    # Translate True/False to Yes/No
-    strmap = ("No", "Yes")
-    print(f"  - Automatic prior on dnu: {strmap[fitfreqs['dnuprior']]}")
-    print(
-        f"  - Constraining lowest l = 0 (n = {obskey[1, 0]}) with f = {obs[0, 0]:.3f} +/-",
-        f"{obs[1, 0]:.3f} muHz to within {fitfreqs['dnufrac'] * 100:.1f} % of dnu ({fitfreqs['dnufrac'] * fitfreqs['dnufit']:.3f} microHz)",
-    )
-    if fitfreqs["bexp"] is not None:
-        bexpstr = f" with b = {fitfreqs['bexp']}"
-    else:
-        bexpstr = ""
-    print(f"  - Correlations: {strmap[fitfreqs['correlations']]}")
-    print(f"  - Frequency input data: {fitfreqs['freqfile']}")
-    print(
-        f"  - Frequency input data (list of ignored modes): {fitfreqs['excludemodes']}"
-    )
-    print(f"  - Inclusion of dnu in ratios fit: {strmap[fitfreqs['dnufit_in_ratios']]}")
-    print(f"  - Interpolation in ratios: {strmap[fitfreqs['interp_ratios']]}")
-    print(f"  - Surface effect correction: {fitfreqs['fcor']}{bexpstr}")
-    print(f"  - Use alternative ratios (3-point): {strmap[fitfreqs['threepoint']]}")
-    if fitfreqs["dnufit_err"]:
-        print(
-            f"  - Value of dnu: {fitfreqs['dnufit']:.3f} +/- {fitfreqs['dnufit_err']:.3f} microHz"
-        )
-    else:
-        print(f"  - Value of dnu: {fitfreqs['dnufit']:.3f} microHz")
-    print(f"  - Value of numax: {fitfreqs['numax']:.3f} microHz")
-
-    weightcomment = ""
-    if fitfreqs["seismicweights"]["dof"]:
-        weightcomment += f"  |  dof = {fitfreqs['seismicweights']['dof']}"
-    if fitfreqs["seismicweights"]["N"]:
-        weightcomment += f"  |  N = {fitfreqs['seismicweights']['N']}"
-    print(
-        f"  - Weighting scheme: {fitfreqs['seismicweights']['weight']}{weightcomment}"
-    )
-
-
-def print_distances(distparams, asciiparams) -> None:
-    # Fitting info: Distance
-    if not distparams:
-        return
-    if ("parallax" in distparams) and "distance" in asciiparams:
-        print("* Parallax fitting and distance inference activated!")
-    elif "parallax" in distparams:
-        print("* Parallax fitting activated!")
-    elif "distance" in asciiparams:
-        print("* Distance inference activated!")
-
-    if distparams["dustframe"] == "icrs":
-        print(
-            f"  - Coordinates (icrs): RA = {distparams['RA']}, DEC = {distparams['DEC']}"
-        )
-    elif distparams["dustframe"] == "galactic":
-        print(
-            f"  - Coordinates (galactic): lat = {distparams['lat']}, lon = {distparams['lon']}"
-        )
-
-    print("  - Filters (magnitude value and uncertainty): ")
-    for filt in distparams["filters"]:
-        print(f"    + {filt}: [{distparams['m'][filt]}, {distparams['m_err'][filt]}]")
-
-    if "parallax" in distparams:
-        print(f"  - Parallax: {distparams['parallax']}")
-
-    if "EBV" in distparams:
-        print(f"  - EBV: {distparams['EBV'][1]} (uniform across all distance samples)")
-
-
-def print_additional(inputparams) -> None:
-    if "phase" in inputparams:
-        print("* Fitting evolutionary phase!")
-    print("\nAdditional input parameters and settings in alphabetical order:")
-    noprint = [
-        "asciioutput",
-        "asciioutput_dist",
-        "distanceparams",
-        "dnufit",
-        "dnufrac",
-        "erroutput",
-        "fcor",
-        "fitfreqs",
-        "fitparams",
-        "limits",
-        "magnitudes",
-        "excludemodes",
-        "numax",
-        "warnoutput",
-    ]
-    for ip in sorted(inputparams.keys()):
-        if ip not in noprint:
-            print(f"* {ip}: {inputparams[ip]}")
-
-
-def print_weights(bayweights: tuple[str, ...] | None, gridtype: str) -> None:
-    # Print weights and priors
-    print("\nWeights and priors:")
-    if bayweights is not None:
-        if "isochrones" in gridtype.lower():
-            gtname = "isochrones"
-            dwname = "mass"
-        elif "tracks" in gridtype.lower():
-            gtname = "tracks"
-            dwname = "age"
-
-        print("* Bayesian weights:")
-        print(f"  - Along {gtname}: {dwname}")
-        print(
-            f"  - Between {gtname}: {', '.join([q.split('_')[0] for q in bayweights])}"
-        )
-    else:
-        print("No Bayesian weights applied")
-
-
-def print_priors(limits: dict, usepriors: list[str]) -> None:
-    print("* Flat, constrained priors and ranges:")
-    for lim in limits.keys():
-        print(f"  - {lim}: {limits[lim]}")
-    print(f"* Additional priors (IMF): {', '.join(usepriors)}")
-
-
-class Logger(object):
+def extract_gridid(Grid) -> tuple[float, float, float, float] | bool:
     """
-    Class used to redefine stdout to terminal and an output file.
+    Extracts model parameters needed to build isochrone paths.
+    Returns False if missing.
+    """
+    try:
+        ove = Grid["header/ove"][()]
+        dif = Grid["header/dif"][()]
+        eta = Grid["header/eta"][()]
+        alphaFe = Grid["header/alphaFe"][()]
+        return (ove, dif, eta, alphaFe)
+    except KeyError:
+        return False
+
+
+def check_gridtype(
+    gridtype: str,
+    gridid: tuple[float, float, float, float] | bool = False,
+) -> GridInfo:
+    """
+    Constructs the appropriate file path based on the grid type.
+    """
+    gridtype = gridtype.lower()
+
+    if "tracks" in gridtype:
+        return {"entryname": "tracks", "defaultpath": "grid/", "difsolarmodel": None}
+
+    if "isochrones" in gridtype:
+        if not gridid or not isinstance(gridid, Sequence) or len(gridid) != 4:
+            raise errors.GridTypeError(
+                "Missing or invalid `gridid`. Expected tuple of (ove, dif, eta, alphaFe)."
+            )
+
+        ove, dif, eta, alphaFe = gridid
+        path = f"ove={ove:.4f}/dif={dif:.4f}/eta={eta:.4f}/alphaFe={alphaFe:.4f}/"
+        return {
+            "entryname": "isochrones",
+            "defaultpath": path,
+            "difsolarmodel": int(dif),
+        }
+
+    raise errors.GridTypeError(
+        f"Gridtype '{gridtype}' not supported. Must be 'tracks' or 'isochrones'."
+    )
+
+
+def get_grid(
+    inferencesettings: core.InferenceSettings,
+) -> tuple[h5py.File, GridHeader, GridInfo]:
+    """
+    Convenience wrapper to extract all required metadata from a grid.
+    """
+    Grid = h5py.File(inferencesettings.gridfile, "r")
+    header = read_grid_header(Grid)
+    gridid = extract_gridid(Grid)
+    return Grid, header, check_gridtype(header["gridtype"], gridid)
+
+
+def read_bayesianweights(
+    Grid, gridtype: str, optional: bool = False
+) -> BayesianWeights | tuple[None, None]:
+    """
+    Reads Bayesian weights and determines relevant dimensions.
 
     Parameters
     ----------
-    outfilename : str
-        Absolute path to an output file
+    Grid: HDF5 file handle.
+        The grid of stellar models
+    gridtype: str
+        Grid type, e.g. 'isochrones' or 'tracks'.
+    optional: bool
+        If True, returns (None, None) when weights are missing.
+
+    Returns:
+        A `BayesianWeights` namedtuple or `(None, None)` if optional and not found.
     """
+    try:
+        raw_weights = Grid["header/active_weights"]
+        grid_weights = [x.decode("utf-8") for x in list(raw_weights)]
+    except KeyError:
+        if optional:
+            return (None, None)
+        raise errors.MissingBayesianWeightsError(
+            "Bayesian weights requested, but none specified in grid file."
+        )
 
-    # Credit: http://stackoverflow.com/a/14906787
-    def __init__(self, outfilename):
-        self.terminal = sys.stdout
-        self.log = open(outfilename + ".log", "a")
+    bayweights = tuple(f"{x}_weight" for x in grid_weights)
 
-    def write(self, message):
-        self.terminal.write(message)
-        self.log.write(message)
+    gridtype = gridtype.lower()
+    if "isochrones" in gridtype:
+        dweight = "dmass"
+    elif "tracks" in gridtype:
+        dweight = "dage"
+    else:
+        raise errors.GridTypeError(f"Unknown gridtype '{gridtype}'.")
 
-    def flush(self):
-        # this flush method is needed for python 3 compatibility.
-        # this handles the flush command by doing nothing.
-        # you might want to specify some extra behavior here.
-        pass
+    return BayesianWeights(weight_keys=bayweights, along_weight=dweight)
 
 
-def list_metallicities(Grid, defaultpath, inputparams, limits):
+def list_metallicities(
+    grid: h5py.File, gridinfo: GridInfo, inferencesettings: core.InferenceSettings
+) -> np.ndarray:
     """
     Get a list of metallicities in the grid that we loop over
 
@@ -393,20 +195,29 @@ def list_metallicities(Grid, defaultpath, inputparams, limits):
         List of possible metalliticies that should be looped over in
         `bastamain`.
     """
-    if "grid" in defaultpath:
-        metal = range(1)
-    else:
-        metal = [x for x in Grid[defaultpath].items() if "=" in x[0]]
-        for i in range(len(metal)):
-            metal[i] = float(metal[i][0][4:])
-        metal = np.asarray(metal)
+    if "grid" in gridinfo["defaultpath"]:
+        return np.asarray([0])
 
-        metal_name = "MeH" if "MeH" in limits else "FeH"
-        if metal_name in limits:
-            metal = metal[
-                (metal >= limits[metal_name][0]) & (metal <= limits[metal_name][1])
+    # Collect metallicities available in grid
+    metallicity_strings = [
+        name for name, _ in grid[gridinfo["defaultpath"]].items() if "=" in name
+    ]
+    metallist = [float(name[4:]) for name in metallicity_strings]
+    metallicities = np.array(metallist)
+
+    # TODO(Amalie) Redo this when limits is determined
+    priors = inferencesettings.boxpriors
+    metal_name = "MeH" if "MeH" in priors else "FeH"
+
+    if metal_name in list(priors.keys()):
+        limits = priors[metal_name].limits
+        if limits is not None:
+            lower, upper = limits
+            metallicities = metallicities[
+                (metallicities >= lower) & (metallicities <= upper)
             ]
-    return metal
+
+    return metallicities
 
 
 def unique_unsort(params):
@@ -430,7 +241,16 @@ def unique_unsort(params):
 
 
 def compare_output_to_input(
-    starid, inputparams, hout, out, hout_dist, out_dist, uncert="qunatiles", sigmacut=1
+    star: core.Star,
+    absolutemagnitudes: core.AbsoluteMagnitudes | None,
+    runfiles: core.RunFiles,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    hout,
+    out,
+    hout_dist,
+    out_dist,
+    sigmacut=1,
 ):
     """
     This function compares the outputted value of all fitting parameters
@@ -461,10 +281,11 @@ def compare_output_to_input(
     comparewarn : bool
         Flag to determine whether or not a warning was raised.
     """
-    if inputparams["warnoutput"] is False:
+    if runfiles.warnoutput is None:
         return False
-    fitparams = inputparams["fitparams"]
-    warnfile = inputparams["warnoutput"]
+
+    fitparams = star.classicalparams.params
+    warnfile = runfiles.warnoutput
     comparewarn = False
     ps = []
     sigmas = []
@@ -473,7 +294,7 @@ def compare_output_to_input(
         if p in hout:
             idx = np.nonzero([p == xout for xout in hout])[0][0]
             xin, xinerr = fitparams[p]
-            if uncert == "quantiles":
+            if outputoptions.uncert == "quantiles":
                 outerr = (out[idx + 1] + out[idx + 2]) / 2
             else:
                 outerr = out[idx + 1]
@@ -485,53 +306,37 @@ def compare_output_to_input(
                 ps.append(p)
                 sigmas.append(sigma)
 
-    if len(inputparams["magnitudes"]) > 0:
-        for m in list(inputparams["distanceparams"]["filters"]):
-            mdist = "M_" + m
-            if mdist in hout_dist:
-                idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
-                priorM = inputparams["magnitudes"][m]["median"]
-                priorerrp = inputparams["magnitudes"][m]["errp"]
-                priorerrm = inputparams["magnitudes"][m]["errm"]
-                if uncert == "quantiles":
-                    outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
-                else:
-                    outerr = out_dist[idx + 1]
-                serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
-                sigma = np.abs(out_dist[idx] - priorM) / serr
-                bigdiff = sigma >= sigmacut
-                if bigdiff:
-                    comparewarn = True
-                    ps.append(mdist)
-                    sigmas.append(sigma)
-
-        if "distance" in hout_dist:
-            idx = np.nonzero([x == "distance_joint" for x in hout_dist])[0][0]
-            priordistqs = inputparams["distanceparams"]["priordistance"]
-            priorerrm = priordistqs[0] - priordistqs[1]
-            priorerrp = priordistqs[2] - priordistqs[0]
-            if uncert == "quantiles":
-                outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
-            else:
-                outerr = out_dist[idx + 1]
-            serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
-            sigma = np.abs(out_dist[idx] - priordistqs[1]) / serr
-            bigdiff = sigma >= sigmacut
-            if bigdiff:
-                comparewarn = True
-                ps.append("distance")
-                sigmas.append(sigma)
+    if absolutemagnitudes is not None:
+        if len(absolutemagnitudes["magnitudes"].keys()) > 0:
+            for m in list(absolutemagnitudes["magnitudes"].keys()):
+                mdist = "M_" + m
+                if mdist in hout_dist:
+                    idx = np.nonzero([x == mdist for x in hout_dist])[0][0]
+                    priorM = absolutemagnitudes["magnitudes"][m]["median"]
+                    priorerrp = absolutemagnitudes["magnitudes"][m]["errp"]
+                    priorerrm = absolutemagnitudes["magnitudes"][m]["errm"]
+                    if outputoptions.uncert == "quantiles":
+                        outerr = (out_dist[idx + 1] + out_dist[idx + 2]) / 2
+                    else:
+                        outerr = out_dist[idx + 1]
+                    serr = np.sqrt(((priorerrp + priorerrm) / 2) ** 2 + outerr**2)
+                    sigma = np.abs(out_dist[idx] - priorM) / serr
+                    bigdiff = sigma >= sigmacut
+                    if bigdiff:
+                        comparewarn = True
+                        ps.append(mdist)
+                        sigmas.append(sigma)
 
     if comparewarn:
-        print("A >%s sigma difference was found between input and output of" % sigmacut)
+        print(f"A >{sigmacut} sigma difference was found between input and output of")
         print(ps)
         print("with sigma differences of")
         print(sigmas)
         if isinstance(warnfile, IOBase):
-            warnfile.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+            warnfile.write(f"{star.starid}\t{ps}\t{sigmas}\n")
         else:
             with open(warnfile, "a") as wf:
-                wf.write("{}\t{}\t{}\n".format(starid, ps, sigmas))
+                wf.write(f"{star.starid}\t{ps}\t{sigmas}\n")
 
     return comparewarn
 
@@ -579,28 +384,6 @@ def add_out(hout, out, par, x, xm, xp, uncert):
     return hout, out
 
 
-def normfactor(alphas, ms):
-    # Algorithm from App. A in Pflamm-Altenburg & Kroupa (2006)
-    # https://ui.adsabs.harvard.edu/abs/2006MNRAS.373..295P/abstract
-    ks = np.zeros(len(alphas))
-    ks[0] = (1 / ms[1]) ** alphas[0]
-    ks[1] = (1 / ms[1]) ** alphas[1]
-    if len(ks) == 2:
-        return ks
-    ks[2] = (ms[2] / ms[1]) ** alphas[1] * (1 / ms[2]) ** alphas[2]
-    if len(ks) == 3:
-        return ks
-    if len(ks) == 4:
-        ks[3] = (
-            (ms[2] / ms[1]) ** alphas[1]
-            * (ms[3] / ms[2]) ** alphas[2]
-            * (1 / ms[3]) ** alphas[3]
-        )
-        return ks
-    else:
-        print("Mistake in normfactor")
-
-
 def get_parameter_values(parameter, Grid, selectedmodels, noofind):
     """
     Get parameter values from grid
@@ -633,40 +416,7 @@ def get_parameter_values(parameter, Grid, selectedmodels, noofind):
     return x_all
 
 
-def printparam(param, xmed, xstdm, xstdp, uncert="quantiles", centroid="median"):
-    """
-    Pretty-print of output parameter to log and console.
-
-    Parameters
-    ----------
-    param : str
-        Name of parameter
-    xmed : float
-        Centroid value (median or mean)
-    xstdm : float
-        Lower bound uncertainty, or symmetric unceartainty
-    xstdp : float
-        Upper bound uncertainty, if not symmetric. Unused if uncert is std.
-    uncert : str, optional
-        Type of reported uncertainty, "quantiles" or "std"
-    centroid : str, optional
-        Type of reported uncertainty, "median" or "mean"
-
-    Returns
-    -------
-    None
-    """
-    # Formats made to accomodate longest possible parameter name ("E(B-V)(joint)")
-    print("{0:9}  {1:13} :  {2:12.6f}".format(centroid, param, xmed))
-    if uncert == "quantiles":
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_plus", param, xstdp - xmed))
-        print("{0:9}  {1:13} :  {2:12.6f}".format("err_minus", param, xmed - xstdm))
-    else:
-        print("{0:9}  {1:13} :  {2:12.6f}".format("stdev", param, xstdm))
-    print("-----------------------------------------------------")
-
-
-def strtobool(val):
+def strtobool(val: str | Literal[0, 1]) -> Literal[0, 1]:
     """
     Convert a string representation of truth to true (1) or false (0).
     True values are 'y', 'yes', 't', 'true', 'on', and '1'.
@@ -679,10 +429,509 @@ def strtobool(val):
     val: str
         String value to be converted into a boolean.
     """
+    if not isinstance(val, str):
+        return val
     val = val.lower()
     if val in ("y", "yes", "t", "true", "on", "1"):
         return 1
-    elif val in ("n", "no", "f", "false", "off", "0"):
+    if val in ("n", "no", "f", "false", "off", "0"):
         return 0
+    raise ValueError(f"invalid truth value {val!r}")
+
+
+def flush_all(*files: IO | None) -> None:
+    """Flush multiple file buffers to ensure data is written."""
+    for f in files:
+        if f:
+            f.flush()
+
+
+def h5py_to_array(xs) -> np.ndarray:
+    """
+    Copy vector/dataset from an HDF5 file to a NumPy array
+
+    Parameters
+    ----------
+    xs : h5py_dataset
+       The input dataset read by h5py from an HDF5 object
+
+    Returns
+    -------
+    res : array_like
+        Copy of the dataset as NumPy array
+    """
+    res = np.empty(shape=xs.shape, dtype=xs.dtype)
+    res[:] = xs[:]
+    return res
+
+
+def compute_group_names(
+    gridinfo: GridInfo, metallicities: np.ndarray
+) -> dict[float, str]:
+    if "grid" in gridinfo["defaultpath"]:
+        return {feh: gridinfo["defaultpath"] + "tracks/" for feh in metallicities}
+    return {feh: f"{gridinfo['defaultpath']}FeH={feh:.4f}/" for feh in metallicities}
+
+
+def get_globalseismicparams(
+    inputstar: core.InputStar, dnutype: str = "dnufit"
+) -> core.GlobalSeismicParameters:
+    if not inputstar.globalseismicparams.params:
+        return inputstar.globalseismicparams
+
+    assert inputstar.globalseismicparams.scalefactors is not None
+
+    if inputstar.dnubias == 0.0:
+        return inputstar.globalseismicparams
+
+    globalseismicparams_p = inputstar.globalseismicparams.params
+    globalseismicparams_sf = inputstar.globalseismicparams.scalefactors
+    dnutype_value, dnutype_error = inputstar.globalseismicparams.params[dnutype].scaled
+    dnutype_scale = inputstar.globalseismicparams.params[dnutype].scale
+    new_dnutype_error = np.sqrt(dnutype_error**2.0 + inputstar.dnubias**2.0)
+    globalseismicparams_p[dnutype] = core.ScaledValueError(
+        original=(dnutype_value, new_dnutype_error), scale=dnutype_scale
+    )
+
+    print(
+        f"Added a given systematic increase of uncertainty in dnu of {inputstar.dnubias}"
+    )
+    print(
+        f"Increases uncertainty from {dnutype_error:.3f} µHz to {new_dnutype_error:.3f} µHz"
+    )
+
+    return core.GlobalSeismicParameters(
+        params=globalseismicparams_p, scalefactors=globalseismicparams_sf
+    )
+
+
+def compute_inverse_covariancematrix(covariance: np.ndarray, inputstar: core.InputStar):
+    if not inputstar.correlations:
+        covariance = np.diag(np.diag(covariance))
+    return compute_matrix_inverse(covariance)
+
+
+def compute_matrix_inverse(covariance: np.ndarray) -> np.ndarray:
+    try:
+        # Compute Cholesky factorization
+        c_factor = scipy.linalg.cho_factor(covariance, lower=True, check_finite=False)
+        covinv = scipy.linalg.cho_solve(
+            c_factor, np.eye(covariance.shape[0]), check_finite=False
+        )
+    except np.linalg.LinAlgError:
+        covinv = np.linalg.pinv(covariance, rcond=1e-8)
+
+    return covinv
+
+
+def get_modes(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    globalseismicparams: core.GlobalSeismicParameters,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    obscov: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+) -> core.StarModes | None:
+    if not any(
+        x in [*constants.freqtypes.freqs, *constants.freqtypes.rtypes]
+        for x in inferencesettings.fitparams
+    ):
+        return None
+
+    # TODO this function should not use obskey,obs
+    modedata = core.make_star_modes_from_l_n_freq_error(
+        obskey[0], obskey[1], obs[0], obs[1]
+    )
+    if "dnufit" in globalseismicparams.params:
+        dnu = globalseismicparams.get_scaled("dnufit")[0]
+    elif "numax" in globalseismicparams.params:
+        dnu = freq_fit.compute_dnufit(
+            modes=modedata, numax=globalseismicparams.get_scaled("numax")[0]
+        )[0]
     else:
-        raise ValueError("invalid truth value %r" % (val,))
+        raise ValueError("Missing dnu")
+    obsintervals = freq_fit.make_intervals(data=modedata, dnu=dnu)
+
+    covinv = compute_inverse_covariancematrix(covariance=obscov, inputstar=inputstar)
+
+    modes = core.StarModes(
+        modes=modedata,
+        surfacecorrection=inputstar.surfacecorrection,
+        obsintervals=obsintervals,
+        correlations=inputstar.correlations,
+        seismicweights=inferencesettings.seismicweights,
+        inverse_covariance=covinv,
+    )
+    return modes
+
+
+def get_ratios(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+):
+    if not any(np.isin(constants.freqtypes.rtypes, fit_plot_params)):
+        return None
+
+    ratios_dict: dict[str, core.SeismicSignature] = {}
+    for ratiotype in constants.freqtypes.rtypes:
+        if ratiotype not in fit_plot_params:
+            continue
+
+        if inputstar.readratios:
+            datos = fio._read_precomputed_ratios_xml(
+                filename=inputstar.freqfile,
+                ratiotype=ratiotype,
+                obskey=obskey,
+                obs=obs,
+                excludemodes=inputstar.nottrustedfile,
+                correlations=bool(inputstar.correlations),
+            )
+        else:
+            datos = freq_fit.compute_ratios(
+                obskey, obs, ratiotype, threepoint=inputstar.threepoint
+            )
+
+        if datos is None:
+            if ratiotype in inferencesettings.fitparams:
+                raise ValueError(
+                    f"Fitting parameter {ratiotype} could not be computed."
+                )
+            datos = (None, None)
+
+        covinv = compute_inverse_covariancematrix(
+            covariance=datos[1], inputstar=inputstar
+        )
+
+        ratios_dict[ratiotype] = core.SeismicSignature(datos[0], covinv)
+
+    return ratios_dict
+
+
+def get_glitches(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    globalseismicparams: core.GlobalSeismicParameters,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+) -> dict[str, core.SeismicSignature] | None:
+    if not any(np.isin(constants.freqtypes.glitches, fit_plot_params)):
+        return None
+
+    glitches_dict: dict[str, core.SeismicSignature] = {}
+    for glitchtype in constants.freqtypes.glitches:
+        if glitchtype not in fit_plot_params:
+            continue
+
+        if inputstar.readratios:
+            assert inputstar.glitchfile is not None
+            datos = fio._read_precomputed_glitches(
+                filename=inputstar.glitchfile,
+                type=glitchtype,
+            )
+        else:
+            datos = glitch_fit.compute_observed_glitches(
+                osckey=obskey,
+                osc=obs,
+                sequence=glitchtype,
+                dnu=globalseismicparams.get_scaled("dnufit")[0],
+                fitfreqs={
+                    "threepoint": inputstar.threepoint,
+                    "nrealisations": inputstar.nrealizations,
+                },
+                debug=outputoptions.debug,
+            )
+
+        if datos is None:
+            if glitchtype in inferencesettings.fitparams:
+                raise ValueError(
+                    f"Fitting parameter {glitchtype} could not be computed."
+                )
+            datos = (None, None)
+
+        covinv = compute_inverse_covariancematrix(datos[1], inputstar=inputstar)
+
+        glitches_dict[glitchtype] = core.SeismicSignature(datos[0], covinv)
+    return glitches_dict
+
+
+def get_epsilondifferences(
+    fit_plot_params: list[str],
+    inputstar: core.InputStar,
+    globalseismicparams: core.GlobalSeismicParameters,
+    obskey: np.ndarray,
+    obs: np.ndarray,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+):
+    if not any(np.isin(constants.freqtypes.epsdiff, fit_plot_params)):
+        return None
+
+    epsilondiff_dict: dict[str, core.SeismicSignature] = {}
+    for epsilondifftype in constants.freqtypes.epsdiff:
+        if epsilondifftype not in fit_plot_params:
+            continue
+
+        nrealisations = (
+            inputstar.nrealizations
+            if epsilondifftype in inferencesettings.fitparams
+            else 2000
+        )
+        datos = freq_fit.compute_epsilondiff(
+            osckey=obskey,
+            osc=obs,
+            avgdnu=globalseismicparams.get_scaled("dnufit")[0],
+            sequence=epsilondifftype,
+            nsorting=inputstar.nsorting,
+            nrealisations=nrealisations,
+            debug=outputoptions.debug,
+        )
+        if datos is None:
+            if epsilondifftype in inferencesettings.fitparams:
+                raise ValueError(
+                    f"Fitting parameter {epsilondifftype} could not be computed."
+                )
+            datos = (None, None)
+
+        covinv = compute_inverse_covariancematrix(datos[1], inputstar=inputstar)
+
+        epsilondiff_dict[epsilondifftype] = core.SeismicSignature(datos[0], covinv)
+
+    return epsilondiff_dict
+
+
+def setup_star(
+    inputstar: core.InputStar,
+    inferencesettings: core.InferenceSettings,
+    filepaths: core.FilePaths,
+    outputoptions: core.OutputOptions,
+    plotconfig: core.PlotConfig,
+) -> core.Star:
+
+    classicalparams = inputstar.classicalparams
+    distanceparams = inputstar.distanceparams
+    globalseismicparams = get_globalseismicparams(inputstar)
+
+    modes = ratios = glitches = epsilondifferences = None
+    absolutemagnitudes = distancelimits = None
+
+    if inferencesettings.has_any_seismic_case:
+        obskey, obs, obscov = fio.read_freq(
+            filename=inputstar.freqfile,
+            excludemodes=inputstar.excludemodes,
+            onlyradial=inputstar.onlyradial,
+            covarfre=bool(inputstar.correlations),
+        )
+        fit_plot_params = np.unique(
+            np.asarray(inferencesettings.fitparams + plotconfig.freqplots)
+        )
+
+        modes = get_modes(
+            fit_plot_params=fit_plot_params,
+            inputstar=inputstar,
+            globalseismicparams=globalseismicparams,
+            obskey=obskey,
+            obs=obs,
+            obscov=obscov,
+            inferencesettings=inferencesettings,
+        )
+        ratios = get_ratios(
+            fit_plot_params=fit_plot_params,
+            inputstar=inputstar,
+            obskey=obskey,
+            obs=obs,
+            inferencesettings=inferencesettings,
+        )
+        glitches = get_glitches(
+            fit_plot_params=fit_plot_params,
+            inputstar=inputstar,
+            globalseismicparams=globalseismicparams,
+            obskey=obskey,
+            obs=obs,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
+        )
+        epsilondifferences = get_epsilondifferences(
+            fit_plot_params=fit_plot_params,
+            inputstar=inputstar,
+            globalseismicparams=globalseismicparams,
+            obskey=obskey,
+            obs=obs,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
+        )
+
+    if inferencesettings.has_distance_case:
+        absolutemagnitudes, distancelimits = distances.add_absolute_magnitudes(
+            star=inputstar,
+            filepaths=filepaths,
+            inferencesettings=inferencesettings,
+            outputoptions=outputoptions,
+        )
+
+    # Translate boxpriors into ranges, depending on the given star
+    limits = utils_priors.get_limits(
+        inputstar=inputstar,
+        inferencesettings=inferencesettings,
+        distancelimits=distancelimits,
+        modes=modes,
+    )
+
+    return core.Star(
+        starid=inputstar.starid,
+        limits=limits,
+        classicalparams=classicalparams,
+        globalseismicparams=globalseismicparams,
+        distanceparams=distanceparams,
+        absolutemagnitudes=absolutemagnitudes,
+        modes=modes,
+        ratios=ratios,
+        glitches=glitches,
+        epsilondifferences=epsilondifferences,
+    )
+
+
+def list_phases(star: core.Star) -> list[int]:
+    if star.phase is None:
+        return []
+    if isinstance(star.phase, tuple):
+        return [constants.phasemap.pmap[ip] for ip in star.phase]
+    else:
+        return [constants.phasemap.pmap[star.phase]]
+
+
+def should_skip_due_to_diffusion(libitem, star: core.Star):
+    """
+    Check if the current track should be skipped based on given diffusion.
+    """
+    if any(np.isin(["dif", "diffusion"], list(star.classicalparams.params.keys()))):
+        lib_dif = int(round(libitem["dif"][0]))
+        star_dif = int(round(float(star.classicalparams.params["dif"][0])))
+        return lib_dif != star_dif
+    return False
+
+
+def gridlimits(
+    grid: h5py.File,
+    gridheader: GridHeader,
+    gridinfo: GridInfo,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+) -> None:
+    """
+    Refactor of grid cut section
+
+    Check if any specified limit in prior is in header, and can be used to
+    skip computation of models, in order to speed up computation
+    """
+    limits = list(inferencesettings.boxpriors.keys())
+
+    gridcut = {}
+
+    # Determine header path
+    if "tracks" in gridheader["gridtype"]:
+        headerpath = "header/"
+    elif "isochrones" in gridheader["gridtype"]:
+        headerpath = f"header/{gridinfo['defaultpath']}"
+        if "FeHini" in limits:
+            print("Warning: Dropping prior in FeHini, redundant for isochrones!")
+            inferencesettings.boxpriors.pop("FeHini")
+    else:
+        headerpath = None
+
+    if headerpath:
+        header_keys = grid[headerpath].keys()
+
+        # Extract gridcut params
+        gridcut_keys = set(header_keys) & set(limits)
+        gridcut = {key: limits.pop(key) for key in gridcut_keys}
+
+        if gridcut:
+            print("\nCutting in grid based on sampling parameters ('gridcut'):")
+            for cutpar, cutval in gridcut.items():
+                if cutpar != "dif":
+                    print(f"* {cutpar}: {cutval}")
+
+            # Special handling for diffusion switch
+            if "dif" in gridcut:
+                # Expecting value like [-inf, 0.5] or [0.5, inf]
+                switch = np.where(np.array(gridcut["dif"]) == 0.5)[0][0]
+                print(
+                    f"* Only considering tracks with diffusion turned {'on' if switch == 1 else 'off'}!"
+                )
+    inferencesettings.boxpriors["gridcut"] = core.PriorEntry(
+        kwargs={"gridcut": gridcut},
+        limits=None,
+    )
+
+
+def is_modelmodes_within_anchormodecut(
+    osckeys,
+    oscs,
+    anchormode: np.ndarray,
+    freq_limits: tuple[float, float],
+    index: np.ndarray,
+) -> np.ndarray:
+    """
+    Checks if the model equivalent of the anchor mode lies within the frequency limits set by the anchor mode.
+    """
+    lower_limit, upper_limit = freq_limits
+    output_mask = np.zeros(len(index), dtype=bool)
+
+    for i in np.where(index)[0]:
+        ln = osckeys[i]
+        freqin = oscs[i]
+
+        l_vals, n_vals = ln[0], ln[1]
+        freq_vals = freqin[0]
+
+        radial_mask = (l_vals == 0) & (n_vals == anchormode["n"])
+        if not np.any(radial_mask):
+            continue
+
+        anchor_freq = freq_vals[radial_mask][0]
+        anchordist = float(anchor_freq - anchormode["frequency"])
+
+        within_lower = np.abs(lower_limit) > np.abs(anchordist)
+        within_upper = anchordist <= upper_limit
+
+        output_mask[i] = within_lower and within_upper
+
+    return output_mask
+
+
+def apply_anchor_cut(
+    index: np.ndarray,
+    star: core.Star,
+    libitem: dict,
+    inferencesettings: core.InferenceSettings,
+) -> np.ndarray:
+    """Applies frequency limits based on anchor mode matching to filter model indices."""
+    if not inferencesettings.has_any_seismic_case:
+        return index
+
+    freq_limits = star.limits.get("frequencies")
+    if freq_limits is None:
+        return index
+
+    assert star.modes is not None
+    anchormode = star.modes.modes.lowest_observed_radial_frequency
+    indexf = np.zeros_like(index, dtype=bool)
+
+    osckeys = libitem["osckey"]
+    oscs = libitem["osc"]
+
+    indexf = is_modelmodes_within_anchormodecut(
+        osckeys=osckeys,
+        oscs=oscs,
+        anchormode=anchormode,
+        freq_limits=freq_limits,
+        index=index,
+    )
+
+    return indexf

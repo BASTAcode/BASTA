@@ -1,60 +1,69 @@
 """
-Fitting of frequencies and frequency-dependent properties.
+The BASTA seismic fitting module contains Python functions that compute products of combining frequencies.
 """
+
+import itertools
 
 import numpy as np
-import itertools
-from sklearn import linear_model
-from scipy.optimize import minimize
-from scipy.interpolate import CubicSpline
+from scipy.interpolate import CubicSpline  # type: ignore[import]
 
 from basta import utils_seismic as su
+from basta import core
 
 
-"""
-Individual frequencies
-"""
-
-
-def compute_dnu_wfit(obskey, obs, numax):
+def compute_dnufit(
+    modes: core.ObservedFrequencies | core.JoinedModes, numax: float
+) -> tuple[float, float]:
     """
     Compute large frequency separation weighted around numax, the same way as dnufit.
     Coefficients based on White et al. 2011.
 
     Parameters
     ----------
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obs : array
-        Individual frequencies and uncertainties.
-    numax : scalar
-        Frequency of maximum power
+    modes: core.ObservedFrequencies | core.JoinedModes
+        Object containing observed mode frequencies
+    numax : float
+        Frequency of maximum power in microhertz
 
     Returns
     -------
-    dnu : scalar
+    dnu : float
         Large frequency separation obtained by fitting the radial mode observed
         frequencies.
-    dnu_err : scalar
-        Uncertainty on dnudata.
+    dnu_error : float
+        Uncertainty on dnu.
     """
 
+    if isinstance(modes, core.ObservedFrequencies):
+        radial_modes = modes.of_angular_degree(0)
+        radial_frequencies = radial_modes["frequency"]
+        ns = radial_modes["n"]
+    elif isinstance(modes, core.JoinedModes):
+        radial_modes = modes.of_angular_degree(0)
+        radial_frequencies = radial_modes["model_frequency"]
+
+    xfitdnu = np.arange(0, len(radial_frequencies))
+
     FWHM_sigma = 2.0 * np.sqrt(2.0 * np.log(2.0))
-    yfitdnu = obs[0, obskey[0, :] == 0]
-    xfitdnu = np.arange(0, len(yfitdnu))
-    xfitdnu = obskey[1, obskey[0, :] == 0]
     wfitdnu = np.exp(
         -1.0
-        * np.power(yfitdnu - numax, 2)
+        * np.power(radial_frequencies - numax, 2)
         / (2 * np.power(0.25 * numax / FWHM_sigma, 2.0))
     )
-    fitcoef, fitcov = np.polyfit(xfitdnu, yfitdnu, 1, w=np.sqrt(wfitdnu), cov=True)
-    dnu, dnu_err = fitcoef[0], np.sqrt(fitcov[0, 0])
 
-    return dnu, dnu_err
+    fitcoef, fitcov = np.polyfit(
+        xfitdnu, radial_frequencies, 1, w=np.sqrt(wfitdnu), cov=True
+    )
+
+    dnu, dnu_error = fitcoef[0], np.sqrt(fitcov[0, 0])
+
+    return dnu, dnu_error
 
 
-def make_intervals(osc, osckey, dnu=None):
+def make_intervals(
+    data: core.ObservedFrequencies | core.ModelFrequencies,
+    dnu: float | tuple[float, float] | None = None,
+):
     """
     This function computes the interval bins used in the frequency
     mapping in :func:`freqfit.calc_join()`.
@@ -76,13 +85,19 @@ def make_intervals(osc, osckey, dnu=None):
         Array containing the endpoints of the intervals used in the frequency
         fitting routine in :func:`freq_fit.calc_join``.
     """
-    # Get l=0 modes
+
+    radial = data.of_angular_degree(0)
+    fl0 = radial["frequency"]
+    """
     osckeyl0, oscl0 = su.get_givenl(l=0, osc=osc, osckey=osckey)
     fl0 = oscl0[0, :]
     nl0 = osckeyl0[1, :]
+    """
 
     if dnu is None:
         dnu = np.median(np.diff(fl0))
+    if isinstance(dnu, tuple):
+        dnu = dnu[0]
 
     # limit is a fugde factor that determines the size in frequency of a gap
     limit = 1.9
@@ -96,571 +111,273 @@ def make_intervals(osc, osckey, dnu=None):
         difffl0 = np.diff(fl0) > (limit * dnu)
 
     # Make the binning
-    intervals = np.arange(nl0[0] + 1) * -dnu + fl0[0]
+    intervals = np.arange(radial["n"][0] + 1) * -dnu + fl0[0]
     intervals = intervals[::-1]
     intervals = np.concatenate((intervals, fl0[1:-1]))
-    upper = np.arange(np.amax(osckey[1, :]) + 2 - len(intervals)) * dnu + fl0[-1]
+    upper = np.arange(np.amax(radial["n"]) + 2 - len(intervals)) * dnu + fl0[-1]
     intervals = np.concatenate((intervals, upper))
     return intervals
 
 
-def calc_join(mod, modkey, obs, obskey, obsintervals=None, dnu=None):
+def _resolve_matches(
+    f_mod: np.ndarray,
+    e_mod: np.ndarray,
+    n_mod: np.ndarray,
+    f_obs: np.ndarray,
+    e_obs: np.ndarray,
+    n_obs: np.ndarray,
+    mod_mask: np.ndarray,
+    obs_mask: np.ndarray,
+    n_obs_in_bin: int,
+    l: int,
+    l0_offsets: np.ndarray | None,
+) -> tuple[np.ndarray, dict[str, np.ndarray]] | tuple[None, None]:
+    """
+    Match the observed modes to their model equivalent for a given l
+
+    Parameters
+    ----------
+    f_mod : np.ndarray
+        Model frequencies.
+    e_mod : np.ndarray
+        Model inertias.
+    n_mod : np.ndarray
+        Model radial orders.
+    f_obs : np.ndarray
+        Observed frequencies.
+    e_obs : np.ndarray
+        Observed frequency uncertainties.
+    n_obs : np.ndarray
+        Observed radial orders.
+    mod_mask : np.ndarray
+        Boolean mask for model modes in the current frequency bin.
+    obs_mask : np.ndarray
+        Boolean mask for observed modes in the current frequency bin.
+    n_obs_in_bin : int
+        Number of observed modes in the current bin.
+    l : int
+        Angular degree of the modes.
+    l0_offsets : np.ndarray | None
+        Frequency offsets computed from l=0 modes to assist matching.
+    """
+    mod_freqs = f_mod[mod_mask]
+    mod_inertias = e_mod[mod_mask]
+    mod_indices = np.where(mod_mask)[0]
+
+    if len(mod_freqs) == n_obs_in_bin:
+        selected = mod_indices
+    else:
+        # Look at the inertia at k=n_obs_in_bin+1
+        sorted_inertias = np.sort(mod_inertias)
+        ke = sorted_inertias[n_obs_in_bin]
+        # Divide the modes into three area: sure, maybe & discard
+        # This is done by arbitarily choosing that
+        # everything with inertias below ke/10 should be matched,
+        # everything with inertias higher than 10*ke are not,
+        # and a subset of the in-between is selected based on the
+        # the distance in frequency space.
+        low_cutoff = ke / 10
+        high_cutoff = max(
+            ke + (ke - sorted_inertias[0]) / (n_obs_in_bin + 1), sorted_inertias[0] * 10
+        )
+
+        sure_mask = (e_mod < low_cutoff) & mod_mask
+        maybe_mask = (e_mod < high_cutoff) & (~sure_mask) & mod_mask
+
+        sure_indices = np.where(sure_mask)[0]
+        maybe_indices = np.where(maybe_mask)[0]
+
+        if len(sure_indices) == n_obs_in_bin:
+            selected = sure_indices
+        else:
+            # TODO(Amalie) Double check offset
+            # offset = 0.0
+            # if l > 0 and l0_offsets is not None and len(mod_freqs) > 0:
+            #    offset = l0_offsets[np.argmin(np.abs(mod_freqs[0] - (mod_freqs - l0_offsets)))]
+            assert l0_offsets is not None
+            offset_diffs = np.abs((mod_freqs[0] - l0_offsets) - f_obs[obs_mask][0])
+            offset = l0_offsets[np.argmin(offset_diffs)]
+
+            best_match = None
+            min_chi2 = np.inf
+            # Here we check all subsets of maybe.
+            for subset in itertools.combinations(
+                maybe_indices, n_obs_in_bin - len(sure_indices)
+            ):
+                candidate = np.sort(np.concatenate([sure_indices, subset]))
+                chi2 = np.sum(np.abs(f_mod[candidate] - offset - f_obs[obs_mask]))
+                if chi2 < min_chi2:
+                    best_match = candidate
+                    min_chi2 = chi2
+
+            if best_match is None:
+                return None, None
+
+            selected = best_match
+
+    result: dict[str, np.ndarray] = {
+        "joinkeys": np.column_stack(
+            [np.full(n_obs_in_bin, l, dtype=int), n_mod[selected], n_obs[obs_mask]]
+        ),
+        "join": np.column_stack(
+            [f_mod[selected], e_mod[selected], f_obs[obs_mask], e_obs[obs_mask]]
+        ),
+    }
+
+    return selected, result
+
+
+def _match_l(
+    l: int,
+    star_modes: core.StarModes,
+    model_modes: core.ModelFrequencies,
+    obs_intervals: np.ndarray,
+    model_intervals: np.ndarray,
+    l0_offsets: np.ndarray | None,
+) -> tuple[np.ndarray, np.ndarray] | None:
+
+    obs_givenl = star_modes.modes.of_angular_degree(l)
+    model_givenl = model_modes.of_angular_degree(l)
+
+    n_obs = obs_givenl["n"]
+    n_mod = model_givenl["n"]
+    f_obs = obs_givenl["frequency"]
+    e_obs = obs_givenl["error"]
+    f_mod = model_givenl["frequency"]
+    e_mod = model_givenl["inertia"]
+
+    joinkeys, join = [], []
+
+    min_bins = min(len(obs_intervals), len(model_intervals))
+
+    for i in range(min_bins - 1):
+        obs_mask = (obs_intervals[i] <= f_obs) & (f_obs < obs_intervals[i + 1])
+        mod_mask = (model_intervals[i] <= f_mod) & (f_mod < model_intervals[i + 1])
+
+        n_obs_in_bin = np.sum(obs_mask)
+        n_mod_in_bin = np.sum(mod_mask)
+
+        if n_obs_in_bin == 0:
+            continue
+        if n_mod_in_bin < n_obs_in_bin:
+            # Models with fewer modes than observed cannot physically be a match
+            # So if that is the case, move on to the next model
+            return None
+
+        mod_selected, matched = _resolve_matches(
+            f_mod,
+            e_mod,
+            n_mod,
+            f_obs,
+            e_obs,
+            n_obs,
+            mod_mask=mod_mask,
+            obs_mask=obs_mask,
+            n_obs_in_bin=n_obs_in_bin,
+            l=l,
+            l0_offsets=l0_offsets,
+        )
+        if mod_selected is None:
+            return None
+
+        if matched is not None:
+            joinkeys.append(matched["joinkeys"])
+            join.append(matched["join"])
+
+    if join:
+        return np.concatenate(joinkeys), np.concatenate(join)
+
+    return None
+
+
+def calc_join(
+    star_modes: core.StarModes, model_modes: core.ModelFrequencies
+) -> core.JoinedModes | None:
     """
     This functions maps the observed modes to the model modes.
 
     Parameters
     ----------
-    mod : array
-        Array containing the modes in the model.
-    modkey : array
-        Array containing the angular degrees and radial orders of mod
-    obs : array
-        Array containing the modes in the observed data
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obsintervals : array, optional
-        Array containing the endpoints of the intervals used in the frequency
-        fitting routine in freq_fit.calc_join.
-        As it is the same in all iterations for the observed frequencies,
-        when computing chi2, this is computed in su.prepare_obs once
-        and given as an argument in order to save time.
-        If obsintervals is None, it will be computed.
-    dnu : float, optional
-        Large frequency separation in microhertz used for the computation
-        of `obsintervals`.
-        If left None, the large frequency separation will be computed as
-        the median difference between consecutive l=0 modes.
-
+    star_modes : StarModes
+        Object containing observed frequencies, uncertainties, and other data.
+    model_modes : ModelFrequencies
+        Object containing model frequencies and inertias.
     Returns
     -------
-    joins : list or None
-        List containing joinkeys and join.
-
-        * joinkeys : int array
-            Array containing the mapping of model mode to the observed mode.
-            Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-            is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-
-        * join : array
-            Array containing the model frequency, model inertia, observed
-            frequency, uncertainty in observed frequency for a pair of mapped
-            modes.
-            Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-            join[i, 0], inertia join[i, 1].
-            Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-            join[i, 2] and uncertainty join[i, 3].
     """
-    # Move obsintervals out to optimize (as it is the same every time)
-    if obsintervals is None:
-        obsintervals = make_intervals(osc=obs, osckey=obskey, dnu=dnu)
-    modintervals = make_intervals(osc=mod, osckey=modkey)
+    obs_intervals = star_modes.obsintervals
+    assert obs_intervals is not None
+    model_intervals = make_intervals(data=model_modes)
 
     # Initialise
     join = []
     joinkeys = []
 
     # Count the number of observed and modelled modes in each bin
-    for l in [0, 1, 2]:
-        obskey_givenl, obs_givenl = su.get_givenl(l=l, osc=obs, osckey=obskey)
-        modkey_givenl, mod_givenl = su.get_givenl(l=l, osc=mod, osckey=modkey)
-        nobs = obskey_givenl[1, :]
-        nmod = modkey_givenl[1, :]
-        fobs, eobs = obs_givenl
-        fmod, emod = mod_givenl
-
-        minlength = min(len(obsintervals), len(modintervals))
-        for i in range(minlength - 1):
-            ofilter = (obsintervals[i] <= fobs) & (fobs < obsintervals[i + 1])
-            mfilter = (modintervals[i] <= fmod) & (fmod < modintervals[i + 1])
-
-            msum = np.sum(mfilter)
-            osum = np.sum(ofilter)
-            if osum > 0:  # & (msum > 0):
-                if msum == osum:
-                    pass
-                elif msum > osum:
-                    # Look at the inertia at k=osum+1
-                    emodsort = np.sort(emod[mfilter])
-                    ke = emodsort[osum]
-                    # Divide the modes into three area: sure, maybe & discard
-                    # This is done by arbitarily choosing that
-                    # everything with inertias below ke/10 should be matched,
-                    # everything with inertias higher than 10*ke are not,
-                    # and a subset of the in-between is selected based on the
-                    # the distance in frequency space.
-                    avedist = (emodsort[osum] - emodsort[0]) / (osum + 1)
-                    sure = (emod < (ke / 10)) & (mfilter)
-                    maybe = (
-                        (emod < np.amax((ke + (avedist), emodsort[0] * 10)))
-                        & (~sure)
-                        & (mfilter)
-                    )
-                    maybe = maybe.nonzero()[0]
-                    sure = sure.nonzero()[0]
-                    bestchi2 = np.inf
-                    solution = None
-                    if len(sure) == osum:
-                        solution = sure
-                    else:
-                        # Here we check all subsets of maybe.
-                        # First, find the proper offset
-                        if osum == 1:
-                            offset = offsets[
-                                (np.abs(matched_l0s[2, :] - fmod[mfilter][0])).argmin()
-                            ]
-                        else:
-                            offset = 0
-                        for ss in itertools.combinations(maybe, osum - len(sure)):
-                            subset = np.sort(np.concatenate((ss, sure)))
-                            fmodsubset = fmod[subset]
-                            # offs = [(np.abs(matched_l0s[2, :] - f)).argmin()
-                            #    for f in fmodsubset]
-                            chi2 = np.sum(np.abs((fmodsubset - offset - fobs[ofilter])))
-                            if chi2 < bestchi2:
-                                bestchi2 = chi2
-                                solution = subset
-                    assert solution is not None
-                    mfilter = np.zeros(len(mfilter), dtype=bool)
-                    mfilter[solution] = True
-                elif msum < osum:
-                    # If more observed modes than model, move on to next model
-                    return None
-
-                joinkeys.append(
-                    np.transpose(
-                        [l * np.ones(osum, dtype=int), nmod[mfilter], nobs[ofilter]]
-                    )
-                )
-                join.append(
-                    np.transpose(
-                        [fmod[mfilter], emod[mfilter], fobs[ofilter], eobs[ofilter]]
-                    )
-                )
-        if l == 0:
-            # Compute the offset due to the surface effect to use in the case
-            # of mixed modes for the l=1 and l=2 matching.
-            same_ns = np.transpose(np.concatenate(joinkeys))[1, :]
-            matched_l0s = np.transpose(np.concatenate(join))
-            # Compute offset
-            # modmask = [mode in same_ns for mode in modkey_givenl[1, :]]
-            # obsmask = [mode in same_ns for mode in obskey_givenl[1, :]]
-            # offsets = mod_givenl[0, modmask] - obs_givenl[0, obsmask]
-            offsets = matched_l0s[0, :] - matched_l0s[2, :]
-    if len(join) != 0:
-        joins = [
-            np.transpose(np.concatenate(joinkeys)),
-            np.transpose(np.concatenate(join)),
-        ]
-        return joins
-    else:
+    result = _match_l(
+        l=0,
+        star_modes=star_modes,
+        model_modes=model_modes,
+        obs_intervals=obs_intervals,
+        model_intervals=model_intervals,
+        l0_offsets=None,
+    )
+    if result is None:
         return None
 
+    l0_joinkeys, l0_join = result
+    joinkeys.append(l0_joinkeys)
+    join.append(l0_join)
 
-def HK08(joinkeys, join, nuref, bcor):
-    """
-    Kjeldsen frequency correction
+    # Compute offset
+    matched_l0s = l0_join.T
+    l0_offsets = matched_l0s[0, :] - matched_l0s[2, :]
 
-    Correcting stellar oscillation frequencies for near-surface effects
-    following the approach in Hans Kjeldsen, Timothy R. Bedding, and Jørgen
-    Christensen-Dalsgaard. "Correcting stellar oscillation frequencies for
-    near-surface effects." `The Astrophysical Journal Letters 683.2 (2008):
-    L175.`
+    for l in star_modes.modes.possible_angular_degrees:
+        if l == 0:
+            continue
+        result = _match_l(
+            l=l,
+            star_modes=star_modes,
+            model_modes=model_modes,
+            obs_intervals=obs_intervals,
+            model_intervals=model_intervals,
+            l0_offsets=l0_offsets,
+        )
+        if result is None:
+            return None
 
-    The correction has the form:
+        l_joinkeys, l_join = result
+        joinkeys.append(l_joinkeys)
+        join.append(l_join)
 
-        .. math:: r\\nu{corr} - \\nu{model} = \\frac{a}{Q}\\left(\\frac{\\nu{model}}{\\nu_{max}}\\right)^b .
+    if join:
+        joinkeysarray = np.asarray(np.concatenate(joinkeys)).T
+        joinarray = np.asarray(np.concatenate(join)).T
+        data = np.zeros(
+            len(joinkeysarray[0]),
+            dtype=[
+                ("l", int),
+                ("observed_n", int),
+                ("observed_frequency", float),
+                ("error", float),
+                ("model_n", int),
+                ("model_frequency", float),
+                ("inertia", float),
+            ],
+        )
+        data["l"] = joinkeysarray[0]
+        data["observed_n"] = joinkeysarray[1]
+        data["model_n"] = joinkeysarray[2]
+        data["model_frequency"] = joinarray[0]
+        data["inertia"] = joinarray[1]
+        data["observed_frequency"] = joinarray[2]
+        data["error"] = joinarray[3]
 
-    Parameters
-    ----------
-    joinkeys : int array
-        Array containing the mapping of model mode to the observed mode.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-        is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-    join : array
-        Array containing the model frequency, model inertia, observed
-        frequency, uncertainty in observed frequency for a pair of mapped
-        modes.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-        join[i, 0], inertia join[i, 1].
-        Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-        join[i, 2] and uncertainty join[i, 3].
-    nuref : float
-        The reference frequency used in the Kjeldsen correction. Normally the
-        reference frequency used is numax of the observed star or numax of the
-        Sun, but it shouldn't make a difference.
-    bcor : float
-        The exponent in the Kjeldsen correction.
+        joinedmodes = core.JoinedModes(data=data)
+        return joinedmodes
 
-    Returns
-    -------
-    cormod : array
-        Array containing the corrected model frequencies and the unchanged
-        mode inertias in the same format as the osc-arrays.
-    coeffs : array
-        Array containing the coefficients in the found correction.
-    """
-    # Unpacking for readability
-    # If we do not have many modes but many mixed modes: only use l=0
-    _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-    f_modell0 = joinl0[0, :]
-    e_modell0 = joinl0[1, :]
-    f_obsl0 = joinl0[2, :]
-
-    f_model = join[0, :]
-    e_model = join[1, :]
-    f_obs = join[2, :]
-    e_obs = join[3, :]
-
-    # Interpolate inertia to l=0 inertia at same frequency
-    interp_inertia = np.interp(f_model, f_modell0, e_modell0)
-
-    # Calculate Q's
-    q_nl = e_model / interp_inertia
-
-    # Compute quantities used in the Kjelden et al. 2008 paper
-    dnuavD = np.mean(np.diff(f_obsl0))
-    dnuavM = np.mean(np.diff(f_modell0))
-
-    rpar = (bcor - 1) / (bcor * (np.mean(f_model) / np.mean(f_obs)) - dnuavM / dnuavD)
-    acor = (
-        len(f_obs)
-        * (np.mean(f_obs) - rpar * np.mean(f_model))
-        / np.sum(((f_obs / nuref) ** bcor) / q_nl)
-    )
-    coeffs = [rpar, acor, bcor]
-
-    # Apply the frequency correction
-    corosc = apply_HK08(modkey=joinkeys, mod=join, coeffs=coeffs, scalnu=nuref)
-    corjoin = np.copy(join)
-    corjoin[0, :] = np.asarray(corosc)
-
-    return corjoin, coeffs
-
-
-def apply_HK08(modkey, mod, coeffs, scalnu):
-    """
-    Applies the HK08 frequency correction to frequency for a given set
-    of coefficients
-
-    Parameters
-    ----------
-    modkey : array
-        Array containing the angular degrees and radial orders of mod.
-    mod : array
-        Array containing the modes in the model.
-    coeffs : list
-        List containing [rpar, acor, bcor] used in the HK08 correction.
-    scalnu : float
-        A scaling frequency used purely to non-dimensionalize the frequencies.
-
-    Returns
-    -------
-    corosc : array
-        Array containing the corrected model frequencies.
-    """
-    # Unpack
-    f_model = mod[0, :]
-    e_model = mod[1, :]
-
-    modkeyl0, modl0 = su.get_givenl(l=0, osc=mod, osckey=modkey)
-    f_modell0 = modl0[0, :]
-    e_modell0 = modl0[1, :]
-
-    # Interpolate inertia to l=0 inertia at same frequency
-    interp_inertia = np.interp(f_model, f_modell0, e_modell0)
-
-    # Calculate Q's
-    q_nl = e_model / interp_inertia
-
-    corosc = (f_model / coeffs[0]) + (coeffs[1] / (coeffs[0] * q_nl)) * (
-        (f_model / scalnu) ** coeffs[2]
-    )
-    return corosc
-
-
-def cubicBG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
-    """
-    Ball & Gizon frequency correction
-
-    Correcting stellar oscillation frequencies for near-surface effects.
-    This routine follows the approach from
-    Warrick H. Ball and Laurent Gizon.
-    "A new correction of stellar oscillation frequencies for near-surface effects."
-    Astronomy & Astrophysics 568 (2014): A123.
-
-    The correction has the form:
-
-        .. math:: d\\nu = \\frac{b \\left(\\frac{\\nu}{\\nu_{scal}}\\right)^3}{I}
-
-    where :math:`b` are the found parameters, :math:`\\nu_{scal}` is a scaling frequency used to non-dimensionalize the frequencies :math:`\\nu`, and :math:`I` is the mode inertia for each mode.
-
-    Parameters
-    ----------
-    joinkeys : int array
-        Array containing the mapping of model mode to the observed mode.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-        is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-    join : array
-        Array containing the model frequency, model inertia, observed
-        frequency, uncertainty in observed frequency for a pair of mapped
-        modes.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-        join[i, 0], inertia join[i, 1].
-        Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-        join[i, 2] and uncertainty join[i, 3].
-    scalnu : float
-        A scaling frequency used purely to non-dimensionalize the frequencies.
-    method : string, optional
-        The name of the fitting method used.
-        It can be 'ransac' (default), 'l1', or 'l2'.
-    onlyl0 : bool
-        Flag that if True only computes the correction based on the l=0 modes.
-        This can be usefull if not many modes have been observed.
-
-    Returns
-    -------
-    cormod : array
-        Array containing the corrected model frequencies and the unchanged
-        mode inertias in the same format as the osc-arrays.
-    coeffs : array
-        Array containing the coefficients a and b to the found correction.
-    """
-    # Unpacking for readability
-    # If we do not have many modes but many mixed modes: only use l=0
-    if onlyl0:
-        _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-
-        f_model = joinl0[0, :]
-        f_inertia = joinl0[1, :]
-        f_obs = joinl0[2, :]
-        f_unc = joinl0[3, :]
-    else:
-        f_model = join[0, :]
-        f_inertia = join[1, :]
-        f_obs = join[2, :]
-        f_unc = join[3, :]
-
-    # Initialize vector y and matrix X
-    nmodes = len(f_obs)
-    y = np.zeros((nmodes, 1))
-    matX = np.zeros((nmodes, 1))
-
-    # Filling in y and X
-    y[:, 0] = (f_obs - f_model) / f_unc
-    matX[:, 0] = np.power((f_model / scalnu), 3) / (f_inertia * f_unc)
-
-    # Try for the l1-norm minimization
-    def l1(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (np.abs(dist)).sum()
-
-    def l2(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (dist**2).sum()
-
-    if method == "ransac":
-        np.random.seed(5)
-        lr = linear_model.LinearRegression(fit_intercept=False)
-        ransac = linear_model.RANSACRegressor(lr)
-        ransac.fit(matX, y)
-        coeffs = ransac.estimator_.coef_.reshape(-1, 1)
-        coeffs = np.asarray([coeffs[0][0]])
-    elif method == "l1":
-        initial_params = np.zeros(1)
-        res = minimize(l1, initial_params, method="Nelder-Mead", args=(matX, y))
-        coeffs = res.x
-        coeffs = np.asarray([coeffs[0]])
-    elif method == "l2":
-        # Calculation of coefficients using Penrose-Moore coefficients
-        # XTXinv = np.linalg.inv(np.dot(matX.T, matX))
-        # XTy = np.dot(matX.T, y)
-        # coeffs = np.dot(XTXinv, XTy)
-        # Or shorter (and more efficient):
-        l2res = np.linalg.lstsq(matX, y)[0]
-        coeffs = np.array([l2res[0][0]])
-
-    # Apply the frequency correction
-    corjoin = np.copy(join)
-    corosc = apply_cubicBG14(modkey=joinkeys, mod=join, coeffs=coeffs, scalnu=scalnu)
-    corjoin[0, :] = corosc
-
-    return corjoin, coeffs
-
-
-def apply_cubicBG14(modkey, mod, coeffs, scalnu):
-    """
-    Applies the BG14 cubic frequency correction to frequency for a given set
-    of coefficients
-
-    Parameters
-    ----------
-    modkey : array
-        Array containing the angular degrees and radial orders of mod.
-    mod : array
-        Array containing the modes in the model.
-    coeffs : list
-        List containing the two coefficients used in the BG14 correction.
-    scalnu : float
-        A scaling frequency used purely to non-dimensionalize the frequencies.
-
-    Returns
-    -------
-    corosc : array
-        Array containing the corrected model frequencies.
-    """
-    corosc = []
-    # The correction is applied to all model modes with non-zero inertia
-    for l in [0, 1, 2]:
-        lmask = modkey[0, :] == l
-        df = (coeffs[0] * np.power((mod[0, lmask] / scalnu), 3)) / (mod[1, lmask])
-        corosc.append(mod[0, lmask] + df)
-    corosc = np.asarray(np.concatenate(corosc))
-    return corosc
-
-
-def BG14(joinkeys, join, scalnu, method="l1", onlyl0=False):
-    """
-    Ball & Gizon frequency correction
-
-    Correcting stellar oscillation frequencies for near-surface effects.
-    This routine follows the approach from Warrick H. Ball and Laurent Gizon. "A new correction of stellar oscillation frequencies for near-surface effects." Astronomy & Astrophysics 568 (2014): A123.
-
-    The correction has the form:
-
-        .. math:: d\\nu = \\frac{a \\left(\\frac{\\nu}{\\nu_{scal}}\\right)^{-1} + b \\left(\\frac{\\nu}{\\nu_{scal}}\\right)^3}{I}
-
-    where :math:`a` and :math:`b` are the found parameters, :math:`\\nu_{scal}` is a scaling frequency used to non-dimensionalize the frequencies :math:`\\nu`, and :math:`I` is the mode inertia for each mode.
-
-    Parameters
-    ----------
-    joinkeys : int array
-        Array containing the mapping of model mode to the observed mode.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1])
-        is mapped to observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]).
-    join : array
-        Array containing the model frequency, model inertia, observed
-        frequency, uncertainty in observed frequency for a pair of mapped
-        modes.
-        Model mode (l=joinkeys[i, 0], n=joinkeys[i, 1]) has frequency
-        join[i, 0], inertia join[i, 1].
-        Observed mode (l=joinkeys[i, 0], n=joinkeys[i, 2]) has frequency
-        join[i, 2] and uncertainty join[i, 3].
-    scalnu : float
-        A scaling frequency used purely to non-dimensionalize the frequencies.
-    method : string, optional
-        The name of the fitting method used.
-        It can be 'ransac' (default), 'l1', or 'l2'.
-    onlyl0 : bool
-        Flag that if True only computes the correction based on the l=0 modes.
-        This can be usefull if not many modes have been observed.
-
-    Returns
-    -------
-    cormod : array
-        Array containing the corrected model frequencies and the unchanged
-        mode inertias in the same format as the osc-arrays.
-    coeffs : array
-        Array containing the coefficients a and b to the found correction.
-    """
-    # Unpacking for readability
-    # If we do not have many modes but many mixed modes: only use l=0
-    if onlyl0:
-        _, joinl0 = su.get_givenl(l=0, osc=join, osckey=joinkeys)
-
-        f_model = joinl0[0, :]
-        f_inertia = joinl0[1, :]
-        f_obs = joinl0[2, :]
-        f_unc = joinl0[3, :]
-    else:
-        f_model = join[0, :]
-        f_inertia = join[1, :]
-        f_obs = join[2, :]
-        f_unc = join[3, :]
-
-    # Initialize vector y and matrix X
-    nmodes = len(f_obs)
-    y = np.zeros((nmodes, 1))
-    matX = np.zeros((nmodes, 2))
-
-    # Filling in y and X
-    y[:, 0] = (f_obs - f_model) / f_unc
-    matX[:, 0] = np.power((f_model / scalnu), -1) / (f_inertia * f_unc)
-    matX[:, 1] = np.power((f_model / scalnu), 3) / (f_inertia * f_unc)
-
-    # Try for the l1-norm minimization
-    def l1(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (np.abs(dist)).sum()
-
-    def l2(params, data, labels):
-        prediction = np.dot(data, params.reshape(-1, 1))
-        dist = prediction - labels
-        return (dist**2).sum()
-
-    if method == "ransac":
-        np.random.seed(5)
-        lr = linear_model.LinearRegression(fit_intercept=False)
-        ransac = linear_model.RANSACRegressor(lr)
-        ransac.fit(matX, y)
-        coeffs = ransac.estimator_.coef_.reshape(-1, 1)
-        coeffs = np.asarray([coeffs[0][0], coeffs[1][0]])
-    elif method == "l1":
-        initial_params = np.zeros(2)
-        res = minimize(l1, initial_params, method="Nelder-Mead", args=(matX, y))
-        coeffs = res.x
-        coeffs = np.asarray([coeffs[0], coeffs[1]])
-    elif method == "l2":
-        # Calculation of coefficients using Penrose-Moore coefficients
-        # XTXinv = np.linalg.inv(np.dot(matX.T, matX))
-        # XTy = np.dot(matX.T, y)
-        # coeffs = np.dot(XTXinv, XTy)
-        # Or shorter (and more efficient):
-        l2res = np.linalg.lstsq(matX, y)[0]
-        coeffs = np.array([l2res[0][0], l2res[1][0]])
-
-    # Apply the frequency correction
-    corjoin = np.copy(join)
-    corosc = apply_BG14(modkey=joinkeys, mod=join, coeffs=coeffs, scalnu=scalnu)
-    corjoin[0, :] = corosc
-
-    return corjoin, coeffs
-
-
-def apply_BG14(modkey, mod, coeffs, scalnu):
-    """
-    Applies the BG14 frequency correction to frequency for a given set
-    of coefficients
-
-    Parameters
-    ----------
-    modkey : array
-        Array containing the angular degrees and radial orders of mod.
-    mod : array
-        Array containing the modes in the model.
-    coeffs : list
-        List containing the two coefficients used in the BG14 correction.
-    scalnu : float
-        A scaling frequency used purely to non-dimensionalize the frequencies.
-
-    Returns
-    -------
-    corosc : array
-        Array containing the corrected model frequencies.
-    """
-    corosc = []
-    # The correction is applied to all model modes with non-zero inertia
-    for l in [0, 1, 2]:
-        lmask = modkey[0, :] == l
-        df = (
-            coeffs[0] * np.power((mod[0, lmask] / scalnu), -1)
-            + coeffs[1] * np.power((mod[0, lmask] / scalnu), 3)
-        ) / (mod[1, lmask])
-        corosc.append(mod[0, lmask] + df)
-    corosc = np.asarray(np.concatenate(corosc))
-    return corosc
+    return None
 
 
 """
@@ -702,7 +419,10 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     ratio_cov : array
         Covariance matrix of the requested ratio.
     """
-    ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
+    # ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
+    ratio = compute_ratio_sequences(
+        star=star, sequence=ratiotype, threepoint=threepoint
+    )
 
     # Check for valid return
     if ratio is None:
@@ -710,16 +430,259 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
 
     ratio_cov = su.compute_cov_from_mc(
         ratio.shape[1],
-        obskey,
-        obs,
         ratiotype,
-        args={"threepoint": threepoint},
-        nrealisations=nrealisations,
+        args=star.kwargs_ratios,
     )
     return ratio, ratio_cov
 
 
+def _create_ratio_array(
+    ids: np.ndarray, ns: np.ndarray, ratios: np.ndarray, frequencies: np.ndarray
+) -> np.ndarray:
+    ratio_dtype = [("id", int), ("n", int), ("ratio", float), ("frequency", float)]
+    return np.array(list(zip(ids, ns, ratios, frequencies)), dtype=ratio_dtype)
+
+
+def _is_valid(frequencies: np.ndarray, ns: np.ndarray) -> bool:
+    """
+    Common check if ratio can be computed
+    """
+    return len(frequencies) > 0 and len(frequencies) == (ns[-1] - ns[0] + 1)
+
+
+def _zip_sequences(*arrays: np.ndarray) -> np.ndarray:
+    """
+    Combine and sort multiple ratio arrays by 'n', with a small offset to preserve order.
+    """
+    combined = np.concatenate(arrays)
+    sort_order = np.argsort(combined["n"] + combined["id"] * 0.01)
+    return combined[sort_order]
+
+
+def compute_r02(
+    f0: np.ndarray,
+    n0: np.ndarray,
+    f1: np.ndarray,
+    n1: np.ndarray,
+    f2: np.ndarray,
+    n2: np.ndarray,
+) -> np.ndarray | None:
+    if not (_is_valid(f0, n0) and _is_valid(f1, n1) and _is_valid(f2, n2)):
+        return None
+
+    lowest_n0 = (n0[0] - 1, n1[0], n2[0])
+    l0 = lowest_n0.index(max(lowest_n0))
+
+    if l0 == 0:
+        i00 = 0
+        i01 = n0[0] - n1[0] - 1
+        i02 = n0[0] - n2[0] - 1
+    elif l0 == 1:
+        i00 = n1[0] - n0[0] + 1
+        i01 = 0
+        i02 = n1[0] - n2[0]
+    else:
+        i00 = n2[0] - n0[0] + 1
+        i01 = n2[0] - n1[0]
+        i02 = 0
+
+    ln = (n0[-1], n1[-1], n2[-1] + 1).index(min((n0[-1], n1[-1], n2[-1] + 1)))
+    if ln == 0:
+        nr02 = n0[-1] - n0[i00] + 1
+    elif ln == 1:
+        nr02 = n1[-1] - n1[i01]
+    else:
+        nr02 = n2[-1] - n2[i02] + 1
+
+    ratios, freqs, ns = [], [], []
+    for i in range(nr02):
+        ratio = (f0[i00 + i] - f2[i02 + i]) / (f1[i01 + i + 1] - f1[i01 + i])
+        ratios.append(ratio)
+        freqs.append(f0[i00 + i])
+        ns.append(n0[i00 + i])
+
+    return _create_ratio_array(
+        ids=np.full(nr02, 2),
+        ns=np.array(ns),
+        ratios=np.array(ratios),
+        frequencies=np.array(freqs),
+    )
+
+
+def compute_r01(
+    f0: np.ndarray,
+    n0: np.ndarray,
+    f1: np.ndarray,
+    n1: np.ndarray,
+    threepoint: bool = False,
+) -> np.ndarray | None:
+    if not (_is_valid(f0, n0) and _is_valid(f1, n1)):
+        return None
+
+    if n0[0] >= n1[0]:
+        i00 = 0
+        i01 = n0[0] - n1[0]
+    else:
+        i00 = n1[0] - n0[0]
+        i01 = 0
+
+    if threepoint:
+        nr = min(n0[-1] - n0[i00] + 1, n1[-1] - n1[i01])
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f0[i00 + i] - (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
+            ratio /= f1[i01 + i + 1] - f1[i01 + i]
+            ratios.append(ratio)
+            freqs.append(f0[i00 + i])
+            ns.append(n0[i00 + i])
+    else:
+        nr = min(n0[-1] - n0[i00] - 1, n1[-1] - n1[i01])
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f0[i00 + i] + 6.0 * f0[i00 + i + 1] + f0[i00 + i + 2]
+            ratio -= 4.0 * (f1[i01 + i + 1] + f1[i01 + i])
+            ratio /= 8.0 * (f1[i01 + i + 1] - f1[i01 + i])
+            ratios.append(ratio)
+            freqs.append(f0[i00 + i + 1])
+            ns.append(n0[i00 + i + 1])
+
+    return _create_ratio_array(
+        ids=np.full(nr, 1),
+        ns=np.array(ns),
+        ratios=np.array(ratios),
+        frequencies=np.array(freqs),
+    )
+
+
+def compute_r10(
+    f0: np.ndarray,
+    n0: np.ndarray,
+    f1: np.ndarray,
+    n1: np.ndarray,
+    threepoint: bool = False,
+) -> np.ndarray | None:
+    if not (_is_valid(f0, n0) and _is_valid(f1, n1)):
+        return None
+
+    if n0[0] - 1 >= n1[0]:
+        i00, i01 = 0, n0[0] - n1[0] - 1
+    else:
+        i00, i01 = n1[0] - n0[0] + 1, 0
+
+    if threepoint:
+        nr = min(n0[-1] - n0[i00], n1[-1] - n1[i01])
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f1[i01 + i] - (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
+            ratio /= f0[i00 + i] - f0[i00 + i + 1]
+            ratios.append(ratio)
+            freqs.append(f1[i01 + i])
+            ns.append(n1[i01 + i])
+    else:
+        nr = min(n0[-1] - n0[i00], n1[-1] - n1[i01] - 1)
+        ratios, freqs, ns = [], [], []
+        for i in range(nr):
+            ratio = f1[i01 + i] + 6.0 * f1[i01 + i + 1] + f1[i01 + i + 2]
+            ratio -= 4.0 * (f0[i00 + i + 1] + f0[i00 + i])
+            ratio /= -8.0 * (f0[i00 + i + 1] - f0[i00 + i])
+            ratios.append(ratio)
+            freqs.append(f1[i01 + i + 1])
+            ns.append(n1[i01 + i + 1])
+
+    return _create_ratio_array(
+        ids=np.full(nr, 10),
+        ns=np.array(ns),
+        ratios=np.array(ratios),
+        frequencies=np.array(freqs),
+    )
+
+
+def compute_ratio_sequences(
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    sequence: str,
+    threepoint: bool = False,
+) -> np.ndarray | None:
+    """
+    Routine to compute the ratios r02, r01 and r10 from oscillation
+    frequencies, and return the desired ratio sequence, both individual
+    and combined sequences.
+
+    Parameters
+    ----------
+    threepoint : bool
+        If True, use three point definition of r01 and r10 ratios
+        instead of default five point definition.
+
+    Returns
+    -------
+    ratio : array
+    """
+    if isinstance(modes, core.JoinedModes):
+        frequency_column = "model_frequency"
+        n_column = "model_n"
+    else:
+        frequency_column = "frequency"
+        n_column = "n"
+
+    radial_freqs = modes.of_angular_degree(0)[frequency_column]
+    radial_n = modes.of_angular_degree(0)[n_column]
+    dipole_freqs = modes.of_angular_degree(1)[frequency_column]
+    dipole_n = modes.of_angular_degree(1)[n_column]
+    quadropole_freqs = modes.of_angular_degree(1)[frequency_column]
+    quadropole_n = modes.of_angular_degree(1)[n_column]
+
+    r01 = (
+        compute_r01(
+            f0=radial_freqs,
+            n0=radial_n,
+            f1=dipole_freqs,
+            n1=dipole_n,
+            threepoint=threepoint,
+        )
+        if sequence in {"r01", "r012", "r010"}
+        else None
+    )
+    r10 = (
+        compute_r10(
+            f0=radial_freqs,
+            n0=radial_n,
+            f1=dipole_freqs,
+            n1=dipole_n,
+            threepoint=threepoint,
+        )
+        if sequence in {"r10", "r102", "r010"}
+        else None
+    )
+    r02 = (
+        compute_r02(
+            f0=radial_freqs,
+            n0=radial_n,
+            f1=dipole_freqs,
+            n1=dipole_n,
+            f2=quadropole_freqs,
+            n2=quadropole_n,
+        )
+        if sequence in {"r02", "r012", "r102"}
+        else None
+    )
+
+    if sequence == "r01":
+        return r01
+    if sequence == "r10":
+        return r10
+    if sequence == "r02":
+        return r02
+    if sequence == "r012" and r01 is not None and r02 is not None:
+        return _zip_sequences(r01, r02)
+    if sequence == "r102" and r10 is not None and r02 is not None:
+        return _zip_sequences(r10, r02)
+    if sequence == "r010" and r01 is not None and r10 is not None:
+        return _zip_sequences(r01, r10)
+    return None
+
+
 def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
+    # DEPRECATED
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
     frequencies, and return the desired ratio sequence, both individual
@@ -865,68 +828,67 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
 
     # Three-point frequency ratios
     # ----------------------------
-    else:
-        if r01 and sequence in ["r01", "r012", "r010"]:
-            # Find lowest indices for l = 0 and 1
-            # i01 point to one n-value lower than i00
-            if n0[0] - 1 >= n1[0]:
-                i00 = 0
-                i01 = n0[0] - n1[0] - 1
-            else:
-                i00 = n1[0] - n0[0] + 1
-                i01 = 0
+    elif r01 and sequence in ["r01", "r012", "r010"]:
+        # Find lowest indices for l = 0 and 1
+        # i01 point to one n-value lower than i00
+        if n0[0] - 1 >= n1[0]:
+            i00 = 0
+            i01 = n0[0] - n1[0] - 1
+        else:
+            i00 = n1[0] - n0[0] + 1
+            i01 = 0
 
-            # Number of r01s
-            if n0[-1] >= n1[-1]:
-                nr01 = n1[-1] - n1[i01]
-            else:
-                nr01 = n0[-1] - n0[i00] + 1
+        # Number of r01s
+        if n0[-1] >= n1[-1]:
+            nr01 = n1[-1] - n1[i01]
+        else:
+            nr01 = n0[-1] - n0[i00] + 1
 
-            # R01
-            r01 = np.zeros((4, nr01))
-            r01[2, :] = 1
-            for i in range(nr01):
-                r01[3, i] = n0[i00 + i]
-                r01[1, i] = f0[i00 + i]
-                r01[0, i] = f0[i00 + i]
-                r01[0, i] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
-                r01[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
+        # R01
+        r01 = np.zeros((4, nr01))
+        r01[2, :] = 1
+        for i in range(nr01):
+            r01[3, i] = n0[i00 + i]
+            r01[1, i] = f0[i00 + i]
+            r01[0, i] = f0[i00 + i]
+            r01[0, i] -= (f1[i01 + i + 1] + f1[i01 + i]) / 2.0
+            r01[0, i] /= f1[i01 + i + 1] - f1[i01 + i]
 
-        elif r10 and sequence in ["r10", "r102", "r010"]:
-            # Find lowest indices for l = 0 and 1
-            if n0[0] >= n1[0]:
-                i00 = 0
-                i01 = n0[0] - n1[0]
-            else:
-                i00 = n1[0] - n0[0]
-                i01 = 0
+    elif r10 and sequence in ["r10", "r102", "r010"]:
+        # Find lowest indices for l = 0 and 1
+        if n0[0] >= n1[0]:
+            i00 = 0
+            i01 = n0[0] - n1[0]
+        else:
+            i00 = n1[0] - n0[0]
+            i01 = 0
 
-            # Number of r10s
-            if n0[-1] >= n1[-1]:
-                nr10 = n1[-1] - n1[i01]
-            else:
-                nr10 = n0[-1] - n0[i00]
+        # Number of r10s
+        if n0[-1] >= n1[-1]:
+            nr10 = n1[-1] - n1[i01]
+        else:
+            nr10 = n0[-1] - n0[i00]
 
-            # R10
-            r10 = np.zeros((4, nr10))
-            r10[2, :] = 10
-            for i in range(nr10):
-                r10[3, i] = n1[i01 + i]
-                r10[1, i] = f1[i01 + i]
-                r10[0, i] = f1[i01 + i]
-                r10[0, i] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
-                r10[0, i] /= f0[i00 + i] - f0[i00 + i + 1]
+        # R10
+        r10 = np.zeros((4, nr10))
+        r10[2, :] = 10
+        for i in range(nr10):
+            r10[3, i] = n1[i01 + i]
+            r10[1, i] = f1[i01 + i]
+            r10[0, i] = f1[i01 + i]
+            r10[0, i] -= (f0[i00 + i] + f0[i00 + i + 1]) / 2.0
+            r10[0, i] /= f0[i00 + i] - f0[i00 + i + 1]
 
     if sequence == "r02":
         return r02
 
-    elif sequence == "r01":
+    if sequence == "r01":
         return r01
 
-    elif sequence == "r10":
+    if sequence == "r10":
         return r10
 
-    elif sequence == "r012":
+    if sequence == "r012":
         if r01 is None or r02 is None:
             return None
         # R012 (R01 followed by R02) ordered by n (R01 first for identical n)
@@ -934,7 +896,7 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
         r012 = np.hstack((r01, r02))[:, mask]
         return r012
 
-    elif sequence == "r102":
+    if sequence == "r102":
         if r10 is None or r02 is None:
             return None
         # R102 (R10 followed by R02) ordered by n (R10 first for identical n)
@@ -942,13 +904,14 @@ def compute_ratioseqs(obskey, obs, sequence, threepoint=False):
         r102 = np.hstack((r10, r02))[:, mask]
         return r102
 
-    elif sequence == "r010":
+    if sequence == "r010":
         if r01 is None or r10 is None:
             return None
         # R010 (R01 followed by R10) ordered by n (R01 first for identical n)
         mask = np.argsort(np.append(r01[3, :], r10[3, :] + 0.1))
         r010 = np.hstack((r01, r10))[:, mask]
         return r010
+    return None
 
 
 """
@@ -957,15 +920,14 @@ Epsilon difference fitting
 
 
 def compute_epsilondiff(
-    osckey,
-    osc,
-    avgdnu,
-    sequence="e012",
-    nsorting=True,
-    extrapolation=False,
-    nrealisations=20000,
-    debug=False,
-):
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    avgdnu: float,
+    sequence: str = "e012",
+    nsorting: bool = True,
+    extrapolation: bool = False,
+    nrealisations: int = 20000,
+    debug: bool = False,
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Compute epsilon differences and covariances.
 
@@ -987,10 +949,6 @@ def compute_epsilondiff(
 
     Parameters
     ----------
-    osckey : array
-        Array containing the angular degrees and radial orders of the modes.
-    osc : array
-        Array containing the modes (and inertias).
     avgdnu : float
         Average value of the large frequency separation.
     sequence : str, optional
@@ -1017,9 +975,23 @@ def compute_epsilondiff(
     epsdiff_cov : array
         Covariances matrix.
     """
+    if isinstance(modes, core.JoinedModes):
+        frequency_column = "model_frequency"
+        n_column = "model_n"
+    else:
+        frequency_column = "frequency"
+        n_column = "n"
+
+    radial_freqs = modes.of_angular_degree(0)[frequency_column]
+    radial_n = modes.of_angular_degree(0)[n_column]
+    dipole_freqs = modes.of_angular_degree(1)[frequency_column]
+    dipole_n = modes.of_angular_degree(1)[n_column]
+    quadropole_freqs = modes.of_angular_degree(1)[frequency_column]
+    quadropole_n = modes.of_angular_degree(1)[n_column]
 
     # Remove modes outside of l=0 range
     if not extrapolation:
+        """
         indall = osckey[0, :] > -1
         ind0 = osckey[0, :] == 0
         ind12 = osckey[0, :] > 0
@@ -1027,23 +999,29 @@ def compute_epsilondiff(
             osc[0, ind12] < max(osc[0, ind0]), osc[0, ind12] > min(osc[0, ind0])
         )
         indall[ind12] = mask
-        if debug and any(mask):
+        osc = osc[:, indall]
+        osckey = osckey[:, indall]
+        """
+        mask = (
+            np.amin(radial_freqs)
+            < modes.data[frequency_column]
+            <= np.amax(radial_freqs[1])
+        )
+        if debug and any(~mask):
             print(
                 "The following modes have been skipped from epsilon differences to avoid extrapolation:"
             )
-            for f, (l, n) in zip(osc[0, ~indall], osckey[:, ~indall].T):
-                print(" - (l,n,f) = ({0}, {1:02d}, {2:.3f})".format(l, n, f))
+            for f, l, n in modes.data[[frequency_column, "l", n_column]][~mask]:
+                print(f" - (l,n,f) = ({l}, {n:02d}, {f:.3f})")
 
-        osc = osc[:, indall]
-        osckey = osckey[:, indall]
+        modes = core.ObservedFrequencies(data=modes.data[mask])
 
     epsdiff = compute_epsilondiffseqs(
-        osckey, osc, avgdnu, sequence=sequence, nsorting=nsorting
+        modes, avgdnu=avgdnu, sequence=sequence, nsorting=nsorting
     )
     epsdiff_cov = su.compute_cov_from_mc(
         epsdiff.shape[1],
-        osckey,
-        osc,
+        modes=modes,
         fittype=sequence,
         args={"avgdnu": avgdnu, "nsorting": nsorting},
         nrealisations=nrealisations,
@@ -1053,12 +1031,11 @@ def compute_epsilondiff(
 
 
 def compute_epsilondiffseqs(
-    osckey,
-    osc,
-    avgdnu,
-    sequence,
-    nsorting=True,
-):
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    avgdnu: float,
+    sequence: str,
+    nsorting: bool = True,
+) -> np.ndarray:
     """
     Computed epsilon differences, based on Roxburgh 2016 (eq. 1 and 4)
 

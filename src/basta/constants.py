@@ -2,8 +2,8 @@
 Collection of all constants used in BASTA
 """
 
-from dataclasses import dataclass  # Python 3.7+ !
 import numpy as np
+from dataclasses import dataclass
 
 
 @dataclass
@@ -22,6 +22,7 @@ class freqtypes:
     Different possibilities of fitting frequencies, for global access
     """
 
+    # TODO(Amalie) remove the overall dependency on this class from different places in the code
     rtypes = ["r010", "r02", "r01", "r10", "r012", "r102"]
     freqs = ["freqs"]
     glitches = ["glitches", "gr010", "gr02", "gr01", "gr10", "gr012", "gr102"]
@@ -30,9 +31,72 @@ class freqtypes:
     defaultrtypes = ["r01"]
     defaultepstypes = ["e012"]
 
-    surfeffcorrs = ["HK08", "BG14", "cubicBG14"]
+
+@dataclass
+class SeismicfitAliases:
+    """
+    Specify aliases for common user specifications for different seismic fitting cases
+    Note that all keys are in lowercase.
+    """
+
+    alias = {
+        "frequencies": "frequencies",
+        "individualfrequencies": "frequencies",
+        "freqs": "frequencies",
+        "frequency": "frequencies",
+        "fs": "frequencies",
+        "ratios": "r01",
+        "ratio": "r01",
+        "r010": "r010",
+        "010": "r010",
+        "r02": "r02",
+        "02": "r02",
+        "r01": "r01",
+        "01": "r01",
+        "r10": "r10",
+        "10": "r10",
+        "r012": "r012",
+        "012": "r012",
+        "r102": "r102",
+        "102": "r102",
+        "glitches": "glitches",
+        "glitch": "glitches",
+        "gr010": "gr010",
+        "gr02": "gr02",
+        "gr01": "gr01",
+        "gr10": "gr10",
+        "gr012": "gr012",
+        "gr102": "gr102",
+        "gr102": "gr102",
+        "epsilondifferences": "e012",
+        "epsilon": "e012",
+        "e01": "e01",
+        "e02": "e02",
+        "e012": "e012",
+    }
+
+    scalias = {
+        "kbc08": "KBC08",
+        "hk08": "KBC08",
+        "kbcd08": "KBC08",
+        "kjeldsen08": "KBC08",
+        "kjeldsen2008": "KBC08",
+        "two-term-bg14": "two_term_BG14",
+        "two_term_bg14": "two_term_BG14",
+        "twotermbg14": "two_term_BG14",
+        "bg14": "two_term_BG14",
+        "ball14": "two_term_BG14",
+        "ball2014": "two_term_BG14",
+        "cubic-term-bg14": "cubic_term_BG14",
+        "cubic_term_bg14": "cubic_term_BG14",
+        "cubicbg14": "cubic_term_BG14",
+        "cubic-bg14": "cubic_term_bg14",
+        "cubic_bg14": "cubic_term_bg14",
+        "cbg14": "cubic_term_BG14",
+    }
 
 
+# TODO(Amalie) I am not convinced that default values like nsamples and nsigma should be specified like this? Consider rearranging
 @dataclass
 class statdata:
     """
@@ -72,186 +136,187 @@ class parameters:
     # Here we disable the Black-formatter and accept the long lines
     # fmt: off
     params = [
-              ('modnum', None, r'Model', r'Model number', pcol),
-              ('ove', None, r'$\xi_\mathrm{ove}$', r'Overshooting efficiency', pcol),
-              ('gcut', None, r'$g_\mathrm{cut}$', r'Geometric cutoff', pcol),
-              ('eta', None, r'$\eta$', r'Reimers mass loss', '#858FC2'),
-              ('alphaMLT', None, r'$\alpha_\mathrm{MLT}$', r'Mixing length efficiency', '#E4632D'),
-              ('Gconst', r'cm3/gs2', r'G', r'Gravitational constant', pcol),
-              ('LPhot', r'solar', r'$L$ (L$_\odot$)', r'Photospheric luminosity', '#CCBB44'),
-              ('radPhot', r'solar', r'$R_\mathrm{phot}$ (R$_\odot$)', r'Photospheric radius', '#EE6677'),
-              ('radTot', r'solar', r'$R_\mathrm{tot}$ (R$_\odot$)', r'Total radius', '#EE6677'),
-              ('massini', r'solar', r'$M_\mathrm{ini}$ (M$_\odot$)', r'Initial mass', '#549EB3'),
-              ('massfin', r'solar', r'$M$ (M$_\odot$)', r'Current mass', '#4E96BC'),
-              ('age', r'Myr', r'Age (Myr)', r'Current age in Myr',  '#999933'),
-              ('Teff', r'K', r'$T_\mathrm{eff}$ (K)', r'Effective temperature', '#88CCEE'),
-              ('rho', r'g/cm3', r'$\rho$ (g/cm$^3$)', r'Mean stellar density', '#AA4499'),
-              ('rhocen', r'g/cm3', r'$\rho_\mathrm{cen}$ (g/cm$^3$)', r'Central density', pcol),
-              ('logg', r'log10(cm/s2)', r'$\log \, g$ (dex)', r'Surface gravity', '#DDCC77'),
-              ('FeHini', r'dex', r'[Fe/H]$_\mathrm{ini}$ (dex)', r'Initial iron abundance', pcol),
-              ('MeHini', r'dex', r'[M/H]$_\mathrm{ini}$ (dex)', r'Initial metallicity', pcol),
-              ('MeH', r'dex', r'[M/H] (dex)', r'Metallicity', '#A778B4'),
-              ('FeH', r'dex', r'[Fe/H] (dex)', r'Iron abundance', '#6F4C98'),
-              ('alphaFe', r'dex', r'[$\alpha$/Fe] (dex)', r'Alpha enhancement', '#60AB9E'),
-              ('xsur', None, r'X$_\mathrm{sur}$', r'Surface hydrogen fraction', '#77B77D'),
-              ('ysur', None, r'Y$_\mathrm{sur}$', r'Surface helium fraction', '#A6BE54'),
-              ('zsur', None, r'Z$_\mathrm{sur}$', r'Surface heavy elements fraction', '#D18541'),
-              ('xcen', None, r'X$_\mathrm{cen}$', r'Central hydrogen fraction', '#77B77D'),
-              ('ycen', None, r'Y$_\mathrm{cen}$', r'Central helium fraction', '#A6BE54'),
-              ('zcen', None, r'Z$_\mathrm{cen}$', r'Central heavy elements fraction', '#D18541'),
-              ('xini', None, r'X$_\mathrm{ini}$', r'Initial hydrogen fraction', '#77B77D'),
-              ('yini', None, r'Y$_\mathrm{ini}$', r'Initial helium fraction', '#A6BE54'),
-              ('zini', None, r'Z$_\mathrm{ini}$', r'Initial heavy elements fraction', '#D18541'),
-              ('Mbcz', None, r'M$_\mathrm{bcz}$ (m/M)', r'Mass coordinate of base of the convective zone', '#E49C39'),
-              ('Rbcz', None, r'R$_\mathrm{bcz}$ (r/R$_\mathrm{phot}$)', r'Radius coordinate of base of the convective zone', '#DF4828'),
-              ('Mcore', None, r'M$_\mathrm{core}$ (m/M)', r'Mass coordinate of the convective core', '#CC6677'),
-              ('Rcore', None, r'R$\mathrm{core}$ (r/R$_\mathrm{phot}$)', r'Radius coordination of the convective core', '#882255'),
-              ('McoreX', None, r'M$_\mathrm{core}$ (m/M)', r'Mass coordinate of the convective core (old diagnostic)', '#CC6677'),
-              ('RcoreX', None, r'R$\mathrm{core}$ (r/R$_\mathrm{phot}$)', r'Radius coordination of the convective core (old diagnostic)', '#882255'),
-              ('MMaxNucE', None, r'M$_\mathrm{max}(\epsilon)$ (m/M)', r'Mass coordinate of maximum energy generation', pcol),
-              ('RMaxNucE', None, r'R$_\mathrm{max}(\epsilon)$ (r/R)$_\mathrm{phot}$', r'Radius coordinate of maximum energy generation', pcol),
-              ('ZAMSTeff', r'K', r'ZAMS $T_\mathrm{eff}$ (K)', r'Effective temperature at the ZAMS', pcol),
-              ('ZAMSLPhot', r'solar', r'ZAMS $L$ (L$_odot$)', r'Luminosity at the ZAMS', pcol),
-              ('TAMS', None, r'TAMS', r'Age scaled by TAMS (terminal age of main sequence, X$_\mathrm{cen}$ <1e-5)', pcol),
-              ('numax', r'solar', r'$\nu_\mathrm{max}$ ($\mu$Hz)', r'Frequency of maximum oscillation power', '#4477AA'),
-              ('dnuscal', r'solar', r'$\Delta \nu_\mathrm{scaling}$ ($\mu$Hz)', r'Large frequency separation from scaling relations', '#228833'),
-              ('dnufit', r'microHz', r'$\Delta \nu_\mathrm{fit}$ ($\mu$Hz)', r'Large frequency separation from linear fit to individual $\ell=0$ modes', '#228833'),
-              ('epsfit', None, r'$\epsilon_\mathrm{fit}$', r'Dimensionless frequency offset', '#B8221E'),
-              ('dnufitMos12', r'microHz', r'$\Delta \nu_\mathrm{fit}$ ($\mu$Hz)', r'Large frequency separation from linear fit to individual $\ell=0$ modes (Mosser et al. 2012)', '#117733'),
-              ('epsfitMos12', None, r'$\epsilon_\mathrm{fit}$', r'Dimensionless frequency offset (Mosser et al. 12)', '#44AA99'),
-              ('dnuAsf', r'solar', r'$\Delta \nu_\mathrm{Asfgrid}$ ($\mu$Hz)', r'Large frequency separation corrected with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022', '#228833'),
-              ('numaxAsf', r'solar', r'$\nu_\mathrm{max,\,Asfgrid}$ ($\mu$Hz)', r'Frequency of maximum oscillation power corrected with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022', '#4477AA'),
-              ('fdnuAsf', None, r'f$_{\Delta \nu}$ (Asfgrid)', r'Correction factor for large frequency separation with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022', pcol),
-              ('fdnuSer', None, r'f$_\Delta \nu$ (Serenelli 17)', r'Correction factor for large frequency separatoin from Serenelli et al. 2017', pcol),
-              ('nummodSer', None, r'N$_\mathrm{modes}$ (Serenelli 17)', r'Number of modes used in the corrections from Serenelli et al. 2017', pcol),
-              ('errflagSer', None, r'error$_\mathrm{flag}$ (Serenelli 17)', r'Error output of the corrections from Serenelli et al. 2017', pcol),
-              ('dnuSer', r'solar', r'$\Delta \nu_\mathrm{Serenelli 17}$', r'Large frequency separation corrected following Serenelli et al. 2017', '#228833'),
-              ('TPS', r's', r't', r'to be completed', pcol),
-              ('PS', r's', r'$\Delta \Pi$ (s)', r'Asymptotic period spacing', '#332288'),
-              ('d02fit', r'microHz', r'$d_{02,{\rm fit}}$ ($\mu$Hz)', r'Weighted mean small frequency separation', '#D36E70'),
-              ('d02mean', r'microHz', r'$d_{02,{\rm mean}}$ ($\mu$Hz)', r'Simple mean small frequency separation', '#D36E70'),
-              ('tau0', r's', r'$\tau$ (s)', r'Acoustic radius', pcol),
-              ('taubcz', r's', r'$\tau_\mathrm{bcz,\,integration}$ (s)', r'Acoustic depth of the base the convective envelope by integration', pcol),
-              ('tauhe', r's', r'$\tau_\mathrm{He,\,integration}$ (s)', r'Acoustic depth of the helium ionization zone by integration', pcol),
-              ('dage', r'Myr', r'Age$_\mathrm{weight}$ (Myr)', r'Bayesian age weight', pcol),
-              ('dmass', r'solar', r'$M_\mathrm{weight}$', r'Bayesian mass weight', pcol),
-              ('phase', None, r'Phase', r'Evolutionary phase: 1) hydrogen or 2) helium burning', pcol),
-              ('Mu_JC', r'mag', r'$U$', r'$U$ magnitude in the Johnson/Cousins photometric system', '#D1BBD7'),
-              ('Mbx_JC', r'mag', r'$Bx$', r'$Bx$ magnitude in the Johnson/Cousins photometric system', '#AE76A3'),
-              ('Mb_JC', r'mag', r'$B$', r'$B$ magnitude in the Johnson/Cousins photometric system', '#882E72'),
-              ('Mv_JC', r'mag', r'$V$', r'$V$ magnitude in the Johnson/Cousins photometric system', '#1965B0'),
-              ('Mr_JC', r'mag', r'$R$', r'$R$ magnitude in the Johnson/Cousins photometric system', '#5289C7'),
-              ('Mi_JC', r'mag', r'$I$', r'$I$ magnitude in the Johnson/Cousins photometric system', '#7BAFDE'),
-              ('Mj_JC', r'mag', r'$J$', r'$J$ magnitude in the Johnson/Cousins photometric system', '#4EB265'),
-              ('Mh_JC', r'mag', r'$H$', r'$H$ magnitude in the Johnson/Cousins photometric system', '#CAE0AB'),
-              ('Mk_JC', r'mag', r'$K$', r'$K$ magnitude in the Johnson/Cousins photometric system', '#F7F056'),
-              ('Mlp_JC', r'mag', r'$Lp$', r'$Lp$ magnitude in the Johnson/Cousins photometric system', '#F4A736'),
-              ('Ml_JC', r'mag', r'$L$', r'$L$ magnitude in the Johnson/Cousins photometric system', '#E8601C'),
-              ('Mm_JC', r'mag', r'$M$', r'$M$ magnitude in the Johnson/Cousins photometric system', '#DC050C'),
-              ('Mu_SAGE', r'mag', r'$u$', r'$u$ magnitude in the SAGE photometric system', '#882E72'),
-              ('Mv_SAGE', r'mag', r'$v$', r'$v$ magnitude in the SAGE photometric system', '#1965B0'),
-              ('Mg_SAGE', r'mag', r'$g$', r'$g$ magnitude in the SAGE photometric system', '#7BAFDE'),
-              ('Mr_SAGE', r'mag', r'$r$', r'$r$ magnitude in the SAGE photometric system', '#4EB265'),
-              ('Mi_SAGE', r'mag', r'$i$', r'$i$ magnitude in the SAGE photometric system', '#CAE0AB'),
-              ('DDO51_SAGE', r'mag', r'DDO51', r'DDO51 magnitude in the SAGE photometric system', '#F7F056'),
-              ('Han_SAGE', r'mag', r'H$\alpha_\mathrm{n}$', r'H$\alpha_\mathrm{n}$ magnitude in the SAGE photometric system', '#EE8026'),
-              ('Haw_SAGE', r'mag', r'H$\alpha_\mathrm{w}$', r'H$\alpha_\mathrm{w}$ magnitude in the SAGE photometric system', '#DC050C'),
-              ('Mj_2MASS', r'mag', r'$J$', r'$J$ magnitude in the 2MASS photometric system', '#1965B0'),
-              ('Mh_2MASS', r'mag', r'$H$', r'$H$ magnitude in the 2MASS photometric system', '#F7F056'),
-              ('Mk_2MASS', r'mag', r'$K$', r'$K$ magnitude in the 2MASS photometric system', '#DC050C'),
-              ('G_GAIA', r'mag', r'$G$', r'$G$ magnitude in the Gaia photometric system', '#1965B0'),
-              ('BP_GAIA', r'mag', r'$G_\mathrm{BP}$', r'$G_\mathrm{BP}$ magnitude in the Gaia photometric system', '#F7F056'),
-              ('RP_GAIA', r'mag', r'$G_\mathrm{RP}$', r'$G_\mathrm{RP}$ magnitude in the Gaia photometric system', '#DC050C'),
-              ('F070W_JWST', r'mag', r'F070W', r'F070W magnitude in the JWST photometric system', '#882E72'),
-              ('F090W_JWST', r'mag', r'F090W', r'F090W magnitude in the JWST photometric system', '#1965B0'),
-              ('F115W_JWST', r'mag', r'F115W', r'F115W magnitude in the JWST photometric system', '#7BAFDE'),
-              ('F150W_JWST', r'mag', r'F150W', r'F150W magnitude in the JWST photometric system', '#4EB265'),
-              ('F200W_JWST', r'mag', r'F200W', r'F200W magnitude in the JWST photometric system', '#CAE0AB'),
-              ('F277W_JWST', r'mag', r'F277W', r'F277W magnitude in the JWST photometric system', '#F7F056'),
-              ('F356W_JWST', r'mag', r'F356W', r'F356W magnitude in the JWST photometric system', '#EE8026'),
-              ('F444W_JWST', r'mag', r'F444W', r'F444W magnitude in the JWST photometric system', '#DC050C'),
-              ('Mu_SLOAN', r'mag', r'$u\prime$', r'$u\prime$ magnitude in the Sloan photometric system', '#1965B0'),
-              ('Mg_SLOAN', r'mag', r'$g\prime$', r'$g\prime$ magnitude in the Sloan photometric system', '#7BAFDE'),
-              ('Mr_SLOAN', r'mag', r'$r\prime$', r'$r\prime$ magnitude in the Sloan photometric system', '#4EB265'),
-              ('Mi_SLOAN', r'mag', r'$i\prime$', r'$i\prime$ magnitude in the Sloan photometric system', '#F7F056'),
-              ('Mz_SLOAN', r'mag', r'$z\prime$', r'$z\prime$ magnitude in the Sloan photometric system', '#DC050C'),
-              ('Mu_STROMGREN', r'mag', r'$u$', r'$u$ magnitude in the Stromgren photometric system', '#1965B0'),
-              ('Mv_STROMGREN', r'mag', r'$v$', r'$v$ magnitude in the Stromgren photometric system', '#7BAFDE'),
-              ('Mb_STROMGREN', r'mag', r'$b$', r'$b$ magnitude in the Stromgren photometric system', '#4EB265'),
-              ('My_STROMGREN', r'mag', r'$y$', r'$y$ magnitude in the Stromgren photometric system', '#CAE0AB'),
-              ('m1_STROMGREN', r'mag', r'$m_{1}$', r'Index m1 in the Stromgren photometric system', '#F7F056'),
-              ('c1_STROMGREN', r'mag', r'$c_{1}$', r'Index c1 in the Stromgren photometric system', '#DC050C'),
-              ('Mz_VISTA', r'mag', r'$Z$', r'$Z$ magnitude in the VISTA photometric system', '#1965B0'),
-              ('My_VISTA', r'mag', r'$Y$', r'$Y$ magnitude in the VISTA photometric system', '#7BAFDE'),
-              ('Mj_VISTA', r'mag', r'$J$', r'$J$ magnitude in the VISTA photometric system', '#4EB265'),
-              ('Mh_VISTA', r'mag', r'$H$', r'$H$ magnitude in the VISTA photometric system', '#F7F056'),
-              ('Mk_VISTA', r'mag', r'$K$', r'$K$ magnitude in the VISTA photometric system', '#DC050C'),
-              ('F160W_WFC2', r'mag', r'F160W', r'F160W in the WFC2 photometric system', '#D1BBD7'),
-              ('F170W_WFC2', r'mag', r'F170W', r'F170W in the WFC2 photometric system', '#BA8DB4'),
-              ('F185W_WFC2', r'mag', r'F185W', r'F185W in the WFC2 photometric system', '#AA6F9E'),
-              ('F218W_WFC2', r'mag', r'F218W', r'F218W in the WFC2 photometric system', '#994F88'),
-              ('F255W_WFC2', r'mag', r'F255W', r'F255W in the WFC2 photometric system', '#882E72'),
-              ('F300W_WFC2', r'mag', r'F300W', r'F300W in the WFC2 photometric system', '#1965B0'),
-              ('F336W_WFC2', r'mag', r'F336W', r'F336W in the WFC2 photometric system', '#5289C7'),
-              ('F380W_WFC2', r'mag', r'F380W', r'F380W in the WFC2 photometric system', '#7BAFDE'),
-              ('F439W_WFC2', r'mag', r'F439W', r'F439W in the WFC2 photometric system', '#4EB265'),
-              ('F450W_WFC2', r'mag', r'F450W', r'F450W in the WFC2 photometric system', '#90C987'),
-              ('F555W_WFC2', r'mag', r'F555W', r'F555W in the WFC2 photometric system', '#CAE0AB'),
-              ('F606W_WFC2', r'mag', r'F606W', r'F606W in the WFC2 photometric system', '#F7F056'),
-              ('F622W_WFC2', r'mag', r'F622W', r'F622W in the WFC2 photometric system', '#F6C141'),
-              ('F675W_WFC2', r'mag', r'F675W', r'F675W in the WFC2 photometric system', '#F1932D'),
-              ('F702W_WFC2', r'mag', r'F702W', r'F702W in the WFC2 photometric system', '#E8601C'),
-              ('F791W_WFC2', r'mag', r'F791W', r'F791W in the WFC2 photometric system', '#DC050C'),
-              ('F814W_WFC2', r'mag', r'F814W', r'F814W in the WFC2 photometric system', '#72190E'),
-              ('F435W_ACS', r'mag', r'F435W', r'F435W in the ACS photometric system', '#882E72'),
-              ('F475W_ACS', r'mag', r'F475W', r'F475W in the ACS photometric system', '#1965B0'),
-              ('F555W_ACS', r'mag', r'F555W', r'F555W in the ACS photometric system', '#7BAFDE'),
-              ('F606W_ACS', r'mag', r'F606W', r'F606W in the ACS photometric system', '#4EB265'),
-              ('F625W_ACS', r'mag', r'F625W', r'F625W in the ACS photometric system', '#CAE0AB'),
-              ('F775W_ACS', r'mag', r'F775W', r'F775W in the ACS photometric system', '#F7F056'),
-              ('F814W_ACS', r'mag', r'F814W', r'F814W in the ACS photometric system', '#DC050C'),
-              ('F218W_WFC3', r'mag', r'F218W', r'F218W in the WFC3 UVIS/IR photometric system', '#D1BBD7'),
-              ('F225W_WFC3', r'mag', r'F225W', r'F225W in the WFC3 UVIS/IR photometric system', '#BA8DB4'),
-              ('F275W_WFC3', r'mag', r'F275W', r'F275W in the WFC3 UVIS/IR photometric system', '#AA6F9E'),
-              ('F336W_WFC3', r'mag', r'F336W', r'F336W in the WFC3 UVIS/IR photometric system', '#994F88'),
-              ('F390W_WFC3', r'mag', r'F390W', r'F390W in the WFC3 UVIS/IR photometric system', '#882E72'),
-              ('F438W_WFC3', r'mag', r'F438W', r'F438W in the WFC3 UVIS/IR photometric system', '#1965B0'),
-              ('F475W_WFC3', r'mag', r'F475W', r'F475W in the WFC3 UVIS/IR photometric system', '#5289C7'),
-              ('F555W_WFC3', r'mag', r'F555W', r'F555W in the WFC3 UVIS/IR photometric system', '#7BAFDE'),
-              ('F606W_WFC3', r'mag', r'F606W', r'F606W in the WFC3 UVIS/IR photometric system', '#4EB265'),
-              ('F625W_WFC3', r'mag', r'F625W', r'F625W in the WFC3 UVIS/IR photometric system', '#90C987'),
-              ('F775W_WFC3', r'mag', r'F775W', r'F775W in the WFC3 UVIS/IR photometric system', '#CAE0AB'),
-              ('F814W_WFC3', r'mag', r'F814W', r'F814W in the WFC3 UVIS/IR photometric system', '#F7F056'),
-              ('F105W_WFC3', r'mag', r'F105W', r'F105W in the WFC3 UVIS/IR photometric system', '#F6C141'),
-              ('F110W_WFC3', r'mag', r'F110W', r'F110W in the WFC3 UVIS/IR photometric system', '#F1932D'),
-              ('F125W_WFC3', r'mag', r'F125W', r'F125W in the WFC3 UVIS/IR photometric system', '#E8601C'),
-              ('F140W_WFC3', r'mag', r'F140W', r'F140W in the WFC3 UVIS/IR photometric system', '#DC050C'),
-              ('F160W_WFC3', r'mag', r'F160W', r'F160W in the WFC3 UVIS/IR photometric system', '#72190E'),
-              ('Mu_DECAM', r'mag', r'$u$', r'$u$ in the DECAM photometric system', '#1965B0'),
-              ('Mg_DECAM', r'mag', r'$g$', r'$g$ in the DECAM photometric system', '#7BAFDE'),
-              ('Mr_DECAM', r'mag', r'$r$', r'$r$ in the DECAM photometric system', '#4EB265'),
-              ('Mi_DECAM', r'mag', r'$i$', r'$i$ in the DECAM photometric system', '#CAE0AB'),
-              ('Mz_DECAM', r'mag', r'$z$', r'$z$ in the DECAM photometric system', '#F7F056'),
-              ('My_DECAM', r'mag', r'$y$', r'$y$ in the DECAM photometric system', '#DC050C'),
-              ('Mu_SKYMAPPER', r'mag', r'$u$', r'$u$ in the SkyMapper photometric system', '#882E72'),
-              ('Mv_SKYMAPPER', r'mag', r'$v$', r'$v$ in the SkyMapper photometric system', '#1965B0'),
-              ('Mg_SKYMAPPER', r'mag', r'$g$', r'$g$ in the SkyMapper photometric system', '#7BAFDE'),
-              ('Mr_SKYMAPPER', r'mag', r'$r$', r'$r$ in the SkyMapper photometric system', '#4EB265'),
-              ('Mi_SKYMAPPER', r'mag', r'$i$', r'$i$ in the SkyMapper photometric system', '#CAE0AB'),
-              ('Mz_SKYMAPPER', r'mag', r'$z$', r'$z$ in the SkyMapper photometric system', '#F7F056'),
-              ('Mule_SKYMAPPER', r'mag', r'$u_\mathrm{le}$', r'$u_\mathrm{le}$ in the SkyMapper photometric system', '#DC050C'),
-              ('Mkp_KEPLER', r'mag', r'$K_{p}$', r'Magnitude in the Kepler photometric system', '#1965B0'),
-              ('Mhp_TYCHO', r'mag', r'$H_{p}$', r'Hipparcos magnitude in the Tycho photometric system', '#1965B0'),
-              ('Mb_TYCHO', r'mag', r'$B_{t}$', r'$B$ magnitude in the Tycho photometric system', '#F7F056'),
-              ('Mv_TYCHO', r'mag', r'$V_{t}$', r'$V$ magnitude in the Tycho photometric system', '#DC050C'),
-              ('Mt_TESS', r'mag', r'$T_{\mathrm{mag}}$', r'Magnitude in the TESS photometric system', '#1965B0'),
-              ('distance', r'pc', r'$d$ (pc)', r'Stellar distance', pcol),
-              ('dif', None, r'Diffusion', r'Atomic diffusion: 0) no and 1) yes', pcol)
+              ("modnum", None, r"Model", r"Model number", pcol),
+              ("ove", None, r"$\xi_\mathrm{ove}$", r"Overshooting efficiency", pcol),
+              ("gcut", None, r"$g_\mathrm{cut}$", r"Geometric cutoff", pcol),
+              ("eta", None, r"$\eta$", r"Reimers mass loss", "#858FC2"),
+              ("alphaMLT", None, r"$\alpha_\mathrm{MLT}$", r"Mixing length efficiency", "#E4632D"),
+              ("Gconst", r"cm3/gs2", r"G", r"Gravitational constant", pcol),
+              ("LPhot", r"solar", r"$L$ (L$_\odot$)", r"Photospheric luminosity", "#CCBB44"),
+              ("radPhot", r"solar", r"$R_\mathrm{phot}$ (R$_\odot$)", r"Photospheric radius", "#EE6677"),
+              ("radTot", r"solar", r"$R_\mathrm{tot}$ (R$_\odot$)", r"Total radius", "#EE6677"),
+              ("massini", r"solar", r"$M_\mathrm{ini}$ (M$_\odot$)", r"Initial mass", "#549EB3"),
+              ("massfin", r"solar", r"$M$ (M$_\odot$)", r"Current mass", "#4E96BC"),
+              ("age", r"Myr", r"Age (Myr)", r"Current age in Myr",  "#999933"),
+              ("Teff", r"K", r"$T_\mathrm{eff}$ (K)", r"Effective temperature", "#88CCEE"),
+              ("rho", r"g/cm3", r"$\rho$ (g/cm$^3$)", r"Mean stellar density", "#AA4499"),
+              ("rhocen", r"g/cm3", r"$\rho_\mathrm{cen}$ (g/cm$^3$)", r"Central density", pcol),
+              ("logg", r"log10(cm/s2)", r"$\log \, g$ (dex)", r"Surface gravity", "#DDCC77"),
+              ("FeHini", r"dex", r"[Fe/H]$_\mathrm{ini}$ (dex)", r"Initial iron abundance", pcol),
+              ("MeHini", r"dex", r"[M/H]$_\mathrm{ini}$ (dex)", r"Initial metallicity", pcol),
+              ("MeH", r"dex", r"[M/H] (dex)", r"Metallicity", "#A778B4"),
+              ("FeH", r"dex", r"[Fe/H] (dex)", r"Iron abundance", "#6F4C98"),
+              ("alphaFe", r"dex", r"[$\alpha$/Fe] (dex)", r"Alpha enhancement", "#60AB9E"),
+              ("xsur", None, r"X$_\mathrm{sur}$", r"Surface hydrogen fraction", "#77B77D"),
+              ("ysur", None, r"Y$_\mathrm{sur}$", r"Surface helium fraction", "#A6BE54"),
+              ("zsur", None, r"Z$_\mathrm{sur}$", r"Surface heavy elements fraction", "#D18541"),
+              ("xcen", None, r"X$_\mathrm{cen}$", r"Central hydrogen fraction", "#77B77D"),
+              ("ycen", None, r"Y$_\mathrm{cen}$", r"Central helium fraction", "#A6BE54"),
+              ("zcen", None, r"Z$_\mathrm{cen}$", r"Central heavy elements fraction", "#D18541"),
+              ("xini", None, r"X$_\mathrm{ini}$", r"Initial hydrogen fraction", "#77B77D"),
+              ("yini", None, r"Y$_\mathrm{ini}$", r"Initial helium fraction", "#A6BE54"),
+              ("zini", None, r"Z$_\mathrm{ini}$", r"Initial heavy elements fraction", "#D18541"),
+              ("Mbcz", None, r"M$_\mathrm{bcz}$ (m/M)", r"Mass coordinate of base of the convective zone", "#E49C39"),
+              ("Rbcz", None, r"R$_\mathrm{bcz}$ (r/R$_\mathrm{phot}$)", r"Radius coordinate of base of the convective zone", "#DF4828"),
+              ("Mcore", None, r"M$_\mathrm{core}$ (m/M)", r"Mass coordinate of the convective core", "#CC6677"),
+              ("Rcore", None, r"R$\mathrm{core}$ (r/R$_\mathrm{phot}$)", r"Radius coordination of the convective core", "#882255"),
+              ("McoreX", None, r"M$_\mathrm{core}$ (m/M)", r"Mass coordinate of the convective core (old diagnostic)", "#CC6677"),
+              ("RcoreX", None, r"R$\mathrm{core}$ (r/R$_\mathrm{phot}$)", r"Radius coordination of the convective core (old diagnostic)", "#882255"),
+              ("MMaxNucE", None, r"M$_\mathrm{max}(\epsilon)$ (m/M)", r"Mass coordinate of maximum energy generation", pcol),
+              ("RMaxNucE", None, r"R$_\mathrm{max}(\epsilon)$ (r/R)$_\mathrm{phot}$", r"Radius coordinate of maximum energy generation", pcol),
+              ("ZAMSTeff", r"K", r"ZAMS $T_\mathrm{eff}$ (K)", r"Effective temperature at the ZAMS", pcol),
+              ("ZAMSLPhot", r"solar", r"ZAMS $L$ (L$_odot$)", r"Luminosity at the ZAMS", pcol),
+              ("TAMS", None, r"TAMS", r"Age scaled by TAMS (terminal age of main sequence, X$_\mathrm{cen}$ <1e-5)", pcol),
+              ("numax", r"solar", r"$\nu_\mathrm{max}$ ($\mu$Hz)", r"Frequency of maximum oscillation power", "#4477AA"),
+              ("dnuscal", r"solar", r"$\Delta \nu_\mathrm{scaling}$ ($\mu$Hz)", r"Large frequency separation from scaling relations", "#228833"),
+              ("dnufit", r"microHz", r"$\Delta \nu_\mathrm{fit}$ ($\mu$Hz)", r"Large frequency separation from linear fit to individual $\ell=0$ modes", "#228833"),
+              ("epsfit", None, r"$\epsilon_\mathrm{fit}$", r"Dimensionless frequency offset", "#B8221E"),
+              ("dnufitMos12", r"microHz", r"$\Delta \nu_\mathrm{fit}$ ($\mu$Hz)", r"Large frequency separation from linear fit to individual $\ell=0$ modes (Mosser et al. 2012)", "#117733"),
+              ("epsfitMos12", None, r"$\epsilon_\mathrm{fit}$", r"Dimensionless frequency offset (Mosser et al. 12)", "#44AA99"),
+              ("dnuAsf", r"solar", r"$\Delta \nu_\mathrm{Asfgrid}$ ($\mu$Hz)", r"Large frequency separation corrected with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022", "#228833"),
+              ("numaxAsf", r"solar", r"$\nu_\mathrm{max,\,Asfgrid}$ ($\mu$Hz)", r"Frequency of maximum oscillation power corrected with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022", "#4477AA"),
+              ("fdnuAsf", None, r"f$_{\Delta \nu}$ (Asfgrid)", r"Correction factor for large frequency separation with Asfgrid following Sharma et al. 2016, Stello and Sharma 2022", pcol),
+              ("fdnuSer", None, r"f$_\Delta \nu$ (Serenelli 17)", r"Correction factor for large frequency separatoin from Serenelli et al. 2017", pcol),
+              ("nummodSer", None, r"N$_\mathrm{modes}$ (Serenelli 17)", r"Number of modes used in the corrections from Serenelli et al. 2017", pcol),
+              ("errflagSer", None, r"error$_\mathrm{flag}$ (Serenelli 17)", r"Error output of the corrections from Serenelli et al. 2017", pcol),
+              ("dnuSer", r"solar", r"$\Delta \nu_\mathrm{Serenelli 17}$", r"Large frequency separation corrected following Serenelli et al. 2017", "#228833"),
+              ("TPS", r"s", r"t", r"to be completed", pcol),
+              ("PS", r"s", r"$\Delta \Pi$ (s)", r"Asymptotic period spacing", "#332288"),
+              ("d02fit", r"microHz", r"$d_{02,{\rm fit}}$ ($\mu$Hz)", r"Weighted mean small frequency separation", "#D36E70"),
+              ("d02mean", r"microHz", r"$d_{02,{\rm mean}}$ ($\mu$Hz)", r"Simple mean small frequency separation", "#D36E70"),
+              ("tau0", r"s", r"$\tau$ (s)", r"Acoustic radius", pcol),
+              ("taubcz", r"s", r"$\tau_\mathrm{bcz,\,integration}$ (s)", r"Acoustic depth of the base the convective envelope by integration", pcol),
+              ("tauhe", r"s", r"$\tau_\mathrm{He,\,integration}$ (s)", r"Acoustic depth of the helium ionization zone by integration", pcol),
+              ("dage", r"Myr", r"Age$_\mathrm{weight}$ (Myr)", r"Bayesian age weight", pcol),
+              ("dmass", r"solar", r"$M_\mathrm{weight}$", r"Bayesian mass weight", pcol),
+              ("phase", None, r"Phase", r"Evolutionary phase: 1) hydrogen or 2) helium burning", pcol),
+              ("Mu_JC", r"mag", r"$U$", r"$U$ magnitude in the Johnson/Cousins photometric system", "#D1BBD7"),
+              ("Mbx_JC", r"mag", r"$Bx$", r"$Bx$ magnitude in the Johnson/Cousins photometric system", "#AE76A3"),
+              ("Mb_JC", r"mag", r"$B$", r"$B$ magnitude in the Johnson/Cousins photometric system", "#882E72"),
+              ("Mv_JC", r"mag", r"$V$", r"$V$ magnitude in the Johnson/Cousins photometric system", "#1965B0"),
+              ("Mr_JC", r"mag", r"$R$", r"$R$ magnitude in the Johnson/Cousins photometric system", "#5289C7"),
+              ("Mi_JC", r"mag", r"$I$", r"$I$ magnitude in the Johnson/Cousins photometric system", "#7BAFDE"),
+              ("Mj_JC", r"mag", r"$J$", r"$J$ magnitude in the Johnson/Cousins photometric system", "#4EB265"),
+              ("Mh_JC", r"mag", r"$H$", r"$H$ magnitude in the Johnson/Cousins photometric system", "#CAE0AB"),
+              ("Mk_JC", r"mag", r"$K$", r"$K$ magnitude in the Johnson/Cousins photometric system", "#F7F056"),
+              ("Mlp_JC", r"mag", r"$Lp$", r"$Lp$ magnitude in the Johnson/Cousins photometric system", "#F4A736"),
+              ("Ml_JC", r"mag", r"$L$", r"$L$ magnitude in the Johnson/Cousins photometric system", "#E8601C"),
+              ("Mm_JC", r"mag", r"$M$", r"$M$ magnitude in the Johnson/Cousins photometric system", "#DC050C"),
+              ("Mu_SAGE", r"mag", r"$u$", r"$u$ magnitude in the SAGE photometric system", "#882E72"),
+              ("Mv_SAGE", r"mag", r"$v$", r"$v$ magnitude in the SAGE photometric system", "#1965B0"),
+              ("Mg_SAGE", r"mag", r"$g$", r"$g$ magnitude in the SAGE photometric system", "#7BAFDE"),
+              ("Mr_SAGE", r"mag", r"$r$", r"$r$ magnitude in the SAGE photometric system", "#4EB265"),
+              ("Mi_SAGE", r"mag", r"$i$", r"$i$ magnitude in the SAGE photometric system", "#CAE0AB"),
+              ("DDO51_SAGE", r"mag", r"DDO51", r"DDO51 magnitude in the SAGE photometric system", "#F7F056"),
+              ("Han_SAGE", r"mag", r"H$\alpha_\mathrm{n}$", r"H$\alpha_\mathrm{n}$ magnitude in the SAGE photometric system", "#EE8026"),
+              ("Haw_SAGE", r"mag", r"H$\alpha_\mathrm{w}$", r"H$\alpha_\mathrm{w}$ magnitude in the SAGE photometric system", "#DC050C"),
+              ("Mj_2MASS", r"mag", r"$J$", r"$J$ magnitude in the 2MASS photometric system", "#1965B0"),
+              ("Mh_2MASS", r"mag", r"$H$", r"$H$ magnitude in the 2MASS photometric system", "#F7F056"),
+              ("Mk_2MASS", r"mag", r"$K$", r"$K$ magnitude in the 2MASS photometric system", "#DC050C"),
+              ("G_GAIA", r"mag", r"$G$", r"$G$ magnitude in the Gaia photometric system", "#1965B0"),
+              ("BP_GAIA", r"mag", r"$G_\mathrm{BP}$", r"$G_\mathrm{BP}$ magnitude in the Gaia photometric system", "#F7F056"),
+              ("RP_GAIA", r"mag", r"$G_\mathrm{RP}$", r"$G_\mathrm{RP}$ magnitude in the Gaia photometric system", "#DC050C"),
+              ("F070W_JWST", r"mag", r"F070W", r"F070W magnitude in the JWST photometric system", "#882E72"),
+              ("F090W_JWST", r"mag", r"F090W", r"F090W magnitude in the JWST photometric system", "#1965B0"),
+              ("F115W_JWST", r"mag", r"F115W", r"F115W magnitude in the JWST photometric system", "#7BAFDE"),
+              ("F150W_JWST", r"mag", r"F150W", r"F150W magnitude in the JWST photometric system", "#4EB265"),
+              ("F200W_JWST", r"mag", r"F200W", r"F200W magnitude in the JWST photometric system", "#CAE0AB"),
+              ("F277W_JWST", r"mag", r"F277W", r"F277W magnitude in the JWST photometric system", "#F7F056"),
+              ("F356W_JWST", r"mag", r"F356W", r"F356W magnitude in the JWST photometric system", "#EE8026"),
+              ("F444W_JWST", r"mag", r"F444W", r"F444W magnitude in the JWST photometric system", "#DC050C"),
+              ("Mu_SLOAN", r"mag", r"$u\prime$", r"$u\prime$ magnitude in the Sloan photometric system", "#1965B0"),
+              ("Mg_SLOAN", r"mag", r"$g\prime$", r"$g\prime$ magnitude in the Sloan photometric system", "#7BAFDE"),
+              ("Mr_SLOAN", r"mag", r"$r\prime$", r"$r\prime$ magnitude in the Sloan photometric system", "#4EB265"),
+              ("Mi_SLOAN", r"mag", r"$i\prime$", r"$i\prime$ magnitude in the Sloan photometric system", "#F7F056"),
+              ("Mz_SLOAN", r"mag", r"$z\prime$", r"$z\prime$ magnitude in the Sloan photometric system", "#DC050C"),
+              ("Mu_STROMGREN", r"mag", r"$u$", r"$u$ magnitude in the Stromgren photometric system", "#1965B0"),
+              ("Mv_STROMGREN", r"mag", r"$v$", r"$v$ magnitude in the Stromgren photometric system", "#7BAFDE"),
+              ("Mb_STROMGREN", r"mag", r"$b$", r"$b$ magnitude in the Stromgren photometric system", "#4EB265"),
+              ("My_STROMGREN", r"mag", r"$y$", r"$y$ magnitude in the Stromgren photometric system", "#CAE0AB"),
+              ("m1_STROMGREN", r"mag", r"$m_{1}$", r"Index m1 in the Stromgren photometric system", "#F7F056"),
+              ("c1_STROMGREN", r"mag", r"$c_{1}$", r"Index c1 in the Stromgren photometric system", "#DC050C"),
+              ("Mz_VISTA", r"mag", r"$Z$", r"$Z$ magnitude in the VISTA photometric system", "#1965B0"),
+              ("My_VISTA", r"mag", r"$Y$", r"$Y$ magnitude in the VISTA photometric system", "#7BAFDE"),
+              ("Mj_VISTA", r"mag", r"$J$", r"$J$ magnitude in the VISTA photometric system", "#4EB265"),
+              ("Mh_VISTA", r"mag", r"$H$", r"$H$ magnitude in the VISTA photometric system", "#F7F056"),
+              ("Mk_VISTA", r"mag", r"$K$", r"$K$ magnitude in the VISTA photometric system", "#DC050C"),
+              ("F160W_WFC2", r"mag", r"F160W", r"F160W in the WFC2 photometric system", "#D1BBD7"),
+              ("F170W_WFC2", r"mag", r"F170W", r"F170W in the WFC2 photometric system", "#BA8DB4"),
+              ("F185W_WFC2", r"mag", r"F185W", r"F185W in the WFC2 photometric system", "#AA6F9E"),
+              ("F218W_WFC2", r"mag", r"F218W", r"F218W in the WFC2 photometric system", "#994F88"),
+              ("F255W_WFC2", r"mag", r"F255W", r"F255W in the WFC2 photometric system", "#882E72"),
+              ("F300W_WFC2", r"mag", r"F300W", r"F300W in the WFC2 photometric system", "#1965B0"),
+              ("F336W_WFC2", r"mag", r"F336W", r"F336W in the WFC2 photometric system", "#5289C7"),
+              ("F380W_WFC2", r"mag", r"F380W", r"F380W in the WFC2 photometric system", "#7BAFDE"),
+              ("F439W_WFC2", r"mag", r"F439W", r"F439W in the WFC2 photometric system", "#4EB265"),
+              ("F450W_WFC2", r"mag", r"F450W", r"F450W in the WFC2 photometric system", "#90C987"),
+              ("F555W_WFC2", r"mag", r"F555W", r"F555W in the WFC2 photometric system", "#CAE0AB"),
+              ("F606W_WFC2", r"mag", r"F606W", r"F606W in the WFC2 photometric system", "#F7F056"),
+              ("F622W_WFC2", r"mag", r"F622W", r"F622W in the WFC2 photometric system", "#F6C141"),
+              ("F675W_WFC2", r"mag", r"F675W", r"F675W in the WFC2 photometric system", "#F1932D"),
+              ("F702W_WFC2", r"mag", r"F702W", r"F702W in the WFC2 photometric system", "#E8601C"),
+              ("F791W_WFC2", r"mag", r"F791W", r"F791W in the WFC2 photometric system", "#DC050C"),
+              ("F814W_WFC2", r"mag", r"F814W", r"F814W in the WFC2 photometric system", "#72190E"),
+              ("F435W_ACS", r"mag", r"F435W", r"F435W in the ACS photometric system", "#882E72"),
+              ("F475W_ACS", r"mag", r"F475W", r"F475W in the ACS photometric system", "#1965B0"),
+              ("F555W_ACS", r"mag", r"F555W", r"F555W in the ACS photometric system", "#7BAFDE"),
+              ("F606W_ACS", r"mag", r"F606W", r"F606W in the ACS photometric system", "#4EB265"),
+              ("F625W_ACS", r"mag", r"F625W", r"F625W in the ACS photometric system", "#CAE0AB"),
+              ("F775W_ACS", r"mag", r"F775W", r"F775W in the ACS photometric system", "#F7F056"),
+              ("F814W_ACS", r"mag", r"F814W", r"F814W in the ACS photometric system", "#DC050C"),
+              ("F218W_WFC3", r"mag", r"F218W", r"F218W in the WFC3 UVIS/IR photometric system", "#D1BBD7"),
+              ("F225W_WFC3", r"mag", r"F225W", r"F225W in the WFC3 UVIS/IR photometric system", "#BA8DB4"),
+              ("F275W_WFC3", r"mag", r"F275W", r"F275W in the WFC3 UVIS/IR photometric system", "#AA6F9E"),
+              ("F336W_WFC3", r"mag", r"F336W", r"F336W in the WFC3 UVIS/IR photometric system", "#994F88"),
+              ("F390W_WFC3", r"mag", r"F390W", r"F390W in the WFC3 UVIS/IR photometric system", "#882E72"),
+              ("F438W_WFC3", r"mag", r"F438W", r"F438W in the WFC3 UVIS/IR photometric system", "#1965B0"),
+              ("F475W_WFC3", r"mag", r"F475W", r"F475W in the WFC3 UVIS/IR photometric system", "#5289C7"),
+              ("F555W_WFC3", r"mag", r"F555W", r"F555W in the WFC3 UVIS/IR photometric system", "#7BAFDE"),
+              ("F606W_WFC3", r"mag", r"F606W", r"F606W in the WFC3 UVIS/IR photometric system", "#4EB265"),
+              ("F625W_WFC3", r"mag", r"F625W", r"F625W in the WFC3 UVIS/IR photometric system", "#90C987"),
+              ("F775W_WFC3", r"mag", r"F775W", r"F775W in the WFC3 UVIS/IR photometric system", "#CAE0AB"),
+              ("F814W_WFC3", r"mag", r"F814W", r"F814W in the WFC3 UVIS/IR photometric system", "#F7F056"),
+              ("F105W_WFC3", r"mag", r"F105W", r"F105W in the WFC3 UVIS/IR photometric system", "#F6C141"),
+              ("F110W_WFC3", r"mag", r"F110W", r"F110W in the WFC3 UVIS/IR photometric system", "#F1932D"),
+              ("F125W_WFC3", r"mag", r"F125W", r"F125W in the WFC3 UVIS/IR photometric system", "#E8601C"),
+              ("F140W_WFC3", r"mag", r"F140W", r"F140W in the WFC3 UVIS/IR photometric system", "#DC050C"),
+              ("F160W_WFC3", r"mag", r"F160W", r"F160W in the WFC3 UVIS/IR photometric system", "#72190E"),
+              ("Mu_DECAM", r"mag", r"$u$", r"$u$ in the DECAM photometric system", "#1965B0"),
+              ("Mg_DECAM", r"mag", r"$g$", r"$g$ in the DECAM photometric system", "#7BAFDE"),
+              ("Mr_DECAM", r"mag", r"$r$", r"$r$ in the DECAM photometric system", "#4EB265"),
+              ("Mi_DECAM", r"mag", r"$i$", r"$i$ in the DECAM photometric system", "#CAE0AB"),
+              ("Mz_DECAM", r"mag", r"$z$", r"$z$ in the DECAM photometric system", "#F7F056"),
+              ("My_DECAM", r"mag", r"$y$", r"$y$ in the DECAM photometric system", "#DC050C"),
+              ("Mu_SKYMAPPER", r"mag", r"$u$", r"$u$ in the SkyMapper photometric system", "#882E72"),
+              ("Mv_SKYMAPPER", r"mag", r"$v$", r"$v$ in the SkyMapper photometric system", "#1965B0"),
+              ("Mg_SKYMAPPER", r"mag", r"$g$", r"$g$ in the SkyMapper photometric system", "#7BAFDE"),
+              ("Mr_SKYMAPPER", r"mag", r"$r$", r"$r$ in the SkyMapper photometric system", "#4EB265"),
+              ("Mi_SKYMAPPER", r"mag", r"$i$", r"$i$ in the SkyMapper photometric system", "#CAE0AB"),
+              ("Mz_SKYMAPPER", r"mag", r"$z$", r"$z$ in the SkyMapper photometric system", "#F7F056"),
+              ("Mule_SKYMAPPER", r"mag", r"$u_\mathrm{le}$", r"$u_\mathrm{le}$ in the SkyMapper photometric system", "#DC050C"),
+              ("Mkp_KEPLER", r"mag", r"$K_{p}$", r"Magnitude in the Kepler photometric system", "#1965B0"),
+              ("Mhp_TYCHO", r"mag", r"$H_{p}$", r"Hipparcos magnitude in the Tycho photometric system", "#1965B0"),
+              ("Mb_TYCHO", r"mag", r"$B_{t}$", r"$B$ magnitude in the Tycho photometric system", "#F7F056"),
+              ("Mv_TYCHO", r"mag", r"$V_{t}$", r"$V$ magnitude in the Tycho photometric system", "#DC050C"),
+              ("Mt_TESS", r"mag", r"$T_{\mathrm{mag}}$", r"Magnitude in the TESS photometric system", "#1965B0"),
+              ("distance", r"pc", r"$d$ (pc)", r"Stellar distance", pcol),
+              ("dif", None, r"Diffusion", r"Atomic diffusion: 0) no and 1) yes", pcol)
               ]
     # fmt: on
 
     names = [i[0] for i in params]
 
+    @staticmethod
     def exclude_params(excludeparams):
         """
         Takes a list of input parameters (or a
@@ -266,18 +331,13 @@ class parameters:
             excludeparams = [excludeparams]
 
         for par in excludeparams:
-            if type(par) is not str:
-                print("Parameters should be strings!")
-                exit()
-
-            if par in parnames:
-                parnames.remove(par)
-            else:
-                print(f"Parameter {par} is not in params!")
-                exit()
+            assert isinstance(par, str), par
+            assert par in parnames, par
+            parnames.remove(par)
 
         return parnames
 
+    @staticmethod
     def get_keys(inputparams):
         """
         Takes a list of input parameters (or a
@@ -294,12 +354,25 @@ class parameters:
         if type(inputparams) is not list:
             inputparams = list(inputparams)
 
+        missing = []
         for par in inputparams:
             entry = [i for i in classParams if i[0] == par]
+            if not entry:
+                if par in [
+                    "parallax",
+                    "absorption",
+                    "EBV",
+                    "magnitudes",
+                ]:
+                    continue
+                missing.append(par)
+                continue
             paramsunits.append(entry[0][1])
             paramsplots.append(entry[0][2])
             paramsremarks.append(entry[0][3])
             paramscolors.append(entry[0][4])
+        if missing:
+            raise Exception(missing)
 
         return paramsunits, paramsplots, paramsremarks, paramscolors
 
@@ -552,7 +625,6 @@ class distanceranges:
     # 2MASS.max: https://old.ipac.caltech.edu/2mass/releases/sampler/index.html
     # 2MASS.min: Brightest star in 2mass All-Sky Release PSC is Betelgeuse,
     # https://old.ipac.caltech.edu/2mass/releases/allsky/doc/sec1_6b.html#satr1
-    # TODO!
     filters = {
         "Mj_2MASS": {"max": 16.5, "min": -2.99},
         "Mh_2MASS": {"max": 16.0, "min": -4.01},
@@ -569,3 +641,8 @@ class metallicityranges:
     values = {
         "metallicity": {"max": 0.50, "min": -4.0},
     }
+
+
+@dataclass
+class phasemap:
+    pmap = {"pre-ms": 1, "solar": 2, "rgb": 3, "flash": 4, "clump": 5, "agb": 6}

@@ -4,27 +4,24 @@ Parallax fitting and computation of distances
 
 import os
 import warnings
-import collections
-from bisect import bisect_left
-from typing import Callable
+from collections.abc import Callable
+from pathlib import Path
 
-import h5py
+import dustmaps  # type: ignore[import]
+import h5py  # type: ignore[import]
+import matplotlib as mpl
 import numpy as np
-import scipy.stats
-from scipy.interpolate import interp1d
-from astropy.coordinates import SkyCoord
-from healpy import ang2pix
-from dustmaps.sfd import SFDQuery
-from dustmaps.bayestar import BayestarWebQuery
-from astropy.utils.exceptions import AstropyWarning
+import scipy.stats  # type: ignore[import]
+from astropy.coordinates import SkyCoord  # type: ignore[import]
+from astropy.utils.exceptions import AstropyWarning  # type: ignore[import]
+from healpy import ang2pix  # type: ignore[import]
+from scipy.interpolate import interp1d  # type: ignore[import]
 
-import basta.utils_distances as udist
 import basta.constants as cnsts
-import basta.stats as stats
+import basta.utils_distances as udist
+from basta import core, stats
 
-import matplotlib
-
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 # Don't print Astropy warnings (catch error caused by mock'ing astropy in Sphinx)
@@ -40,7 +37,9 @@ except ModuleNotFoundError:
     raise
 
 
-def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
+def get_EBV_along_LOS(
+    distanceparams: core.DistanceParameters,
+) -> Callable[[np.ndarray], np.ndarray]:
     """
     Returns color excess E(B-V) for a line of sight, mainly using a
     pre-downloaded 3D extinction map provided by Green et al. 2015/2018 - see
@@ -59,19 +58,25 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
     EBV_along_LOS : function
        Reddening or excess color function along the given line-of-sight
     """
-    if "EBV" in distanceparams:
-        return lambda x: np.ones(len(x)) * distanceparams["EBV"][1]
+    # If EBV is given, use that instead of reading it from the dust map
+    if len(distanceparams.EBV) > 0:
+        return lambda x: np.ones(len(x)) * distanceparams.EBV[1]
 
     # Convert to galactic coordinates
-    frame = distanceparams["dustframe"]
-    if frame == "icrs":
-        ra = distanceparams["RA"]
-        dec = distanceparams["DEC"]
-        c = SkyCoord(ra=ra, dec=dec, frame="icrs", unit="deg")
-    elif frame == "galactic":
-        lon = distanceparams["lon"]
-        lat = distanceparams["lat"]
-        c = SkyCoord(l=lon, b=lat, frame="galactic", unit="deg")
+    if distanceparams.coordinates["frame"].lower() == "icrs":
+        c = SkyCoord(
+            ra=distanceparams.coordinates["RA"],
+            dec=distanceparams.coordinates["DEC"],
+            frame="icrs",
+            unit="deg",
+        )
+    elif distanceparams.coordinates["frame"].lower() == "galactic":
+        c = SkyCoord(
+            l=distanceparams.coordinates["lon"],
+            b=distanceparams.coordinates["lat"],
+            frame="galactic",
+            unit="deg",
+        )
     else:
         raise ValueError("Unknown dust map frame for computing reddening!")
 
@@ -85,7 +90,7 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
 
     # If webquery fails use local copy of dustmap
     try:
-        bayestar = BayestarWebQuery(version="bayestar2019")
+        bayestar = dustmaps.BayestarQuery(version="bayestar2019")
         Egr_samples = bayestar(c, mode="samples")
     except Exception:
         # contains positional info
@@ -119,9 +124,8 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
     if np.isnan(Egr_samples).any():
         print("WARNING: Coordinates outside dust map boundaries!")
         print("Default to Schegel 1998 dust map")
-        sfd = SFDQuery()
-        EBV_along_LOS = lambda x: np.full_like(x, sfd(c))
-        return EBV_along_LOS
+        sfd = dustmaps.sfd.SFDQuery()
+        return lambda x: np.full_like(x, sfd(c))
 
     Egr_med, Egr_err = [], []
     for i in range(len(dmbin)):
@@ -146,11 +150,11 @@ def get_EBV_along_LOS(distanceparams: dict) -> Callable[[np.array], np.array]:
 
 
 def get_EBV(
-    dist: np.array,
-    EBV_along_LOS: Callable[[np.array], np.array],
+    dist: np.ndarray,
+    EBV_along_LOS: Callable[[np.ndarray], np.ndarray],
     debug: bool = False,
-    debug_dirpath: str = "",
-) -> np.array:
+    debug_dirpath: Path | str = "",
+) -> np.ndarray:
     """
     Estimate E(B-V) by drawing distances from a normal parallax
     distribution with EDSD prior.
@@ -181,13 +185,13 @@ def get_EBV(
         plt.plot(dmod, EBVs, ".")
         plt.xlabel("dmod")
         plt.ylabel("E(B-V)")
-        plt.savefig(debug_dirpath + "_DEBUG_dmod_EBVs.png")
+        plt.savefig(f"{debug_dirpath}_DEBUG_dmod_EBVs.png")
         plt.close()
 
     return EBVs
 
 
-def get_absorption(EBV: np.array, fitparams: dict, filt: str) -> np.array:
+def get_absorption(EBV: np.ndarray, fitparams: dict, filt: str) -> np.ndarray:
     """
     Compute extinction coefficient Rzeta for band zeta.
     Using parameterized law from Casagrande & VandenBerg 2014.
@@ -240,13 +244,13 @@ def get_absorption(EBV: np.array, fitparams: dict, filt: str) -> np.array:
 
 
 def add_absolute_magnitudes(
-    inputparams: dict,
+    star: core.InputStar,
+    filepaths: core.FilePaths,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
     n: int = 1000,
     k: int = 1000,
-    use_gaussian_priors: bool = False,
-    debug=False,
-    debug_dirpath="",
-) -> dict:
+) -> tuple[core.AbsoluteMagnitudes, dict[str, (float, float)]]:
     """
     Convert apparent magnitudes to absolute magnitudes using the distance and add it to `inputparams`.
     Extinction E(B-V) is estimated based on Green et al. (2015) dust map.
@@ -274,39 +278,41 @@ def add_absolute_magnitudes(
     inputparams : dict
         Modified version of inputparams including absolute magnitudes.
     """
-    if "parallax" not in inputparams["fitparams"]:
-        return inputparams
+    if len(star.distanceparams.params["parallax"]) < 1:
+        return {
+            "magnitudes": {},
+            "absorption": {},
+            "prior_EBV": [],
+            "prior_distance": [],
+        }, {}
 
-    print("\nPreparing distance/parallax/magnitude input ...", flush=True)
+    if outputoptions.verbose:
+        print("\nPreparing distance/parallax/magnitude input ...", flush=True)
 
-    fitparams = inputparams["fitparams"]
-    distanceparams = inputparams["distanceparams"]
-
-    if use_gaussian_priors:
-        inputparams["fitparams"][filt] = [val, std]
-        return inputparams
+    distanceparams = star.distanceparams
+    fitparams = distanceparams.params
 
     # Get apparent magnitudes from input data
-    mobs = distanceparams["m"]
-    mobs_err = distanceparams["m_err"]
+    # mobs = distanceparams.m
+    # mobs_err = distanceparams.m_err
+    magnitudes = distanceparams.magnitudes
 
-    if len(mobs.keys()) == 0:
+    if len(magnitudes.keys()) < 1:
         raise ValueError("No filters were given")
 
     # Convert the inputted parallax in mas to as
     plxobs = fitparams["parallax"][0] * 1e-3
     plxobs_err = fitparams["parallax"][1] * 1e-3
     L = udist.EDSD(None, None) * 1e3
-    fitparams.pop("parallax")
 
     # Sample distances more densely around the mode of the distance distribution
     # See Bailer-Jones 2015, Eq 19
     coeffs = [1 / L, -2, plxobs / (plxobs_err**2), -1 / (plxobs_err**2)]
     roots = np.roots(coeffs)
-    if np.sum((np.isreal(roots))) == 1:
+    if np.sum(np.isreal(roots)) == 1:
         (mode,) = np.real(roots[np.isreal(roots)])
     else:
-        assert np.sum((np.isreal(roots))) == 3
+        assert np.sum(np.isreal(roots)) == 3
         if plxobs >= 0:
             mode = np.amin(np.real(roots[np.isreal(roots)]))
         else:
@@ -317,34 +323,35 @@ def add_absolute_magnitudes(
     dist = scipy.stats.norm.ppf(
         np.linspace(bla, 0.96, n - n // 2), loc=mode, scale=1000
     )
-    # We also want to sample across the entire range.
     lindist = 10 ** np.linspace(-0.4, 4.4, n // 2)
-    assert np.all(np.isfinite(dist))
-    assert np.all(dist > 0)
-
     dist = np.concatenate([dist, lindist])
     dist = np.sort(dist)
+
     lldist = udist.compute_distlikelihoods(
         dist,
         plxobs,
         plxobs_err,
         L,
-        debug=debug,
-        debug_dirpath=debug_dirpath,
+        debug=outputoptions.debug,
+        debug_dirpath=filepaths.extradirectory,
     )
     dists = np.repeat(dist, k)
-    lldists = np.repeat(lldist, k)
+    lldists: np.ndarray = np.repeat(lldist, k)
 
     # Get EBV values
     EBV_along_LOS = get_EBV_along_LOS(distanceparams=distanceparams)
     EBV = get_EBV(
-        dist=dist, EBV_along_LOS=EBV_along_LOS, debug=debug, debug_dirpath=debug_dirpath
+        dist=dist,
+        EBV_along_LOS=EBV_along_LOS,
+        debug=outputoptions.debug,
+        debug_dirpath=filepaths.extradirectory,
     )
     EBVs = np.repeat(EBV, k)
 
-    distanceparams["As"] = {}
+    new_As = {}
+    new_magnitudes: dict[str, core.AbsoluteMagnitude] = {}
     llabsms_joined = np.zeros(n * k)
-    for filt in mobs.keys():
+    for filt in magnitudes.keys():
         # Sample apparent magnitudes over the entire parameter range
         if filt in cnsts.distanceranges.filters:
             m = np.linspace(
@@ -359,16 +366,16 @@ def add_absolute_magnitudes(
                 m,
                 scipy.stats.norm.ppf(
                     np.linspace(0.04, 0.96, k // 2),
-                    loc=mobs[filt],
-                    scale=mobs_err[filt],
+                    loc=magnitudes[filt][0],
+                    scale=magnitudes[filt][1],
                 ),
             ]
         )
         m = np.sort(m)
 
-        llm = udist.compute_mslikelihoods(m, mobs[filt], mobs_err[filt])
+        llm = udist.compute_mslikelihoods(m, magnitudes[filt][0], magnitudes[filt][1])
         ms = np.tile(m, n)
-        llms = np.tile(llm, n)
+        llms: np.ndarray = np.tile(llm, n)
         assert len(dists) == len(ms) == n * k
 
         A = get_absorption(EBV, fitparams, filt)
@@ -390,53 +397,39 @@ def add_absolute_magnitudes(
             bins[:-1] + np.diff(bins) / 2.0, like, fill_value=0, bounds_error=False
         )
 
-        if debug:
-            plt.figure()
-            plt.hist(absms, bins=150, weights=labsms)
-            plt.xlabel("Abs %s" % filt)
-            plt.savefig(debug_dirpath + "_DEBUG_absms_%s.png" % filt)
-            plt.close()
-
         absms_qs = stats.quantile_1D(absms, labsms, cnsts.statdata.quantiles)
-        distanceparams["As"][filt] = list(
-            stats.quantile_1D(As, labsms, cnsts.statdata.quantiles)
-        )
+        new_As[filt] = list(stats.quantile_1D(As, labsms, cnsts.statdata.quantiles))
 
         # Extended dictionary for use in Kiel diagram, and clarifying it as a prior
-        inputparams["magnitudes"][filt] = {
+        new_magnitudes[filt] = {
             "prior": M_prior,
             "median": absms_qs[0],
             "errp": np.abs(absms_qs[2] - absms_qs[0]),
             "errm": np.abs(absms_qs[0] - absms_qs[1]),
         }
 
-    # Get an estimate from all filters
+    # # Get an estimate from all filters
     labsms_joined = np.exp(llabsms_joined - np.log(np.sum(np.exp(llabsms_joined))))
 
-    distanceparams["priorEBV"] = list(
-        stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles)
-    )
-    distanceparams["priordistance"] = list(
+    prior_EBV = list(stats.quantile_1D(EBVs, labsms_joined, cnsts.statdata.quantiles))
+    prior_distance = list(
         stats.quantile_1D(dists, labsms_joined, cnsts.statdata.quantiles)
     )
 
     # Constrain metallicity within the limits of the color transformations
-    metal = "MeH" if "MeH" in inputparams["limits"] else "FeH"
-    metal_limit = inputparams["limits"].get(metal)
-    if not metal_limit:
-        inputparams["limits"][metal] = [
-            cnsts.metallicityranges.values["metallicity"]["min"],
-            cnsts.metallicityranges.values["metallicity"]["max"],
-        ]
-    else:
-        if metal_limit[0] < cnsts.metallicityranges.values["metallicity"]["min"]:
-            inputparams["limits"][metal][0] = cnsts.metallicityranges.values[
-                "metallicity"
-            ]["min"]
-        if metal_limit[1] > cnsts.metallicityranges.values["metallicity"]["max"]:
-            inputparams["limits"][metal][1] = cnsts.metallicityranges.values[
-                "metallicity"
-            ]["max"]
+    metal = "MeH" if "MeH" in inferencesettings.fitparams else "FeH"
+    distancelimits: dict[str, (float, float)] = {}
+    distancelimits[metal] = [
+        cnsts.metallicityranges.values["metallicity"]["min"],
+        cnsts.metallicityranges.values["metallicity"]["max"],
+    ]
 
-    print("Done!")
-    return inputparams
+    if outputoptions.verbose:
+        print("Done!")
+
+    return {
+        "magnitudes": new_magnitudes,
+        "absorption": new_As,
+        "prior_EBV": prior_EBV,
+        "prior_distance": prior_distance,
+    }, distancelimits
