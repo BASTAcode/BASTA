@@ -622,47 +622,52 @@ def get_glitches(
     fit_plot_params: list[str],
     inputstar: core.InputStar,
     globalseismicparams: core.GlobalSeismicParameters,
-    obskey: np.ndarray,
-    obs: np.ndarray,
+    modes: core.StarModes | None,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
 ) -> dict[str, core.SeismicSignature] | None:
     if not any(np.isin(constants.freqtypes.glitches, fit_plot_params)):
         return None
 
+    if modes is None:
+        return None
+
+    kwargs = star.kwargs_glitches if isinstance(star, core.InputStar) else {}
+
     glitches_dict: dict[str, core.SeismicSignature] = {}
-    for glitchtype in constants.freqtypes.glitches:
-        if glitchtype not in fit_plot_params:
+
+    for sequence in constants.freqtypes.glitches:
+        if sequence not in fit_plot_params:
             continue
 
         if inputstar.readratios:
             assert inputstar.glitchfile is not None
             datos = fio._read_precomputed_glitches(
                 filename=inputstar.glitchfile,
-                type=glitchtype,
+                type=sequence,
             )
         else:
             datos = glitch_fit.compute_observed_glitches(
-                osckey=obskey,
-                osc=obs,
-                sequence=glitchtype,
+                modes=modes.modes,
+                sequence=sequence,
                 dnu=globalseismicparams.get_scaled("dnufit")[0],
                 debug=outputoptions.debug,
                 **inputstar.kwargs_glitches,
             )
 
         if datos is None:
-            if glitchtype in inferencesettings.fitparams:
-                raise ValueError(
-                    f"Fitting parameter {glitchtype} could not be computed."
-                )
+            if sequence in inferencesettings.fitparams:
+                raise ValueError(f"Fitting parameter {sequence} could not be computed.")
             datos = (None, None)
 
         covinv = compute_inverse_covariancematrix(
             datos[1], correlations=inputstar.correlations
         )
 
-        glitches_dict[glitchtype] = core.SeismicSignature(datos[0], covinv)
+        glitches_dict[sequence] = core.SeismicSignature(
+            values=datos[0], inverse_covariance=covinv
+        )
+
     return glitches_dict
 
 
@@ -670,11 +675,12 @@ def get_epsilondifferences(
     fit_plot_params: list[str],
     average_dnu: float,
     numax: float,
-    modes: core.StarModes | None,
     star: core.InputStar | core.Star,
+    modes: core.StarModes | None,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
 ) -> dict[str, core.SeismicSignature] | None:
+
     if not any(np.isin(constants.freqtypes.epsdiff, fit_plot_params)):
         return None
 
@@ -683,16 +689,21 @@ def get_epsilondifferences(
 
     kwargs = star.kwargs_epsilondifferences if isinstance(star, core.InputStar) else {}
 
-    epsilondiff_dict: dict[str, core.SeismicSignature] = {}
+    if isinstance(star, core.Star):
+        correlations = modes.correlations
+    else:
+        correlations = star.correlations
 
-    for epsilondifftype in constants.freqtypes.epsdiff:
-        if epsilondifftype not in fit_plot_params:
+    epsilondifferences_dict: dict[str, core.SeismicSignature] = {}
+
+    for sequence in constants.freqtypes.epsdiff:
+        if sequence not in fit_plot_params:
             continue
 
         datos = freq_fit.compute_epsilondifferences(
             average_dnu=average_dnu,
             numax=numax,
-            sequence=epsilondifftype,
+            sequence=sequence,
             modes=modes.modes,
             debug=outputoptions.debug,
             **kwargs,
@@ -700,22 +711,19 @@ def get_epsilondifferences(
         """
         #TODO(Amalie) These functions do not output None
         if datos is None:
-            if epsilondifftype in inferencesettings.fitparams:
+            if sequence in inferencesettings.fitparams:
                 raise ValueError(
-                    f"Fitting parameter {epsilondifftype} could not be computed."
+                    f"Fitting parameter {sequence} could not be computed."
                 )
             datos = (None, None)
         """
 
-        if isinstance(star, core.Star):
-            correlations = modes.correlations
-        else:
-            correlations = star.correlations
-
         covinv = compute_inverse_covariancematrix(datos[1], correlations=correlations)
-        epsilondiff_dict[epsilondifftype] = core.SeismicSignature(datos[0], covinv)
+        epsilondifferences_dict[sequence] = core.SeismicSignature(
+            values=datos[0], inverse_covariance=covinv
+        )
 
-    return epsilondiff_dict
+    return epsilondifferences_dict
 
 
 def setup_star(

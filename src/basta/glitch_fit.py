@@ -21,12 +21,11 @@ except ImportError:
 
 
 def compute_observed_glitches(
-    osckey: np.ndarray,
-    osc: np.ndarray,
+    modes: core.StarModes,
     sequence: str,
     dnu: float,
-    fitfreqs: dict,
-    debug=False,
+    kwargs: dict,
+    debug: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
     Routine to compute glitch parameters (and ratios) with full covariance
@@ -67,12 +66,10 @@ def compute_observed_glitches(
 
     # Call routine for sampling covariance
     glitchseq, glitchseq_cov = su.compute_cov_from_mc(
-        sequence_length,
-        osckey,
-        osc,
-        sequence,
-        args={"dnu": dnu, "fitfreqs": fitfreqs},
-        nrealizations=fitfreqs["nrealizations"],
+        nr=sequence_length,
+        modes=modes,
+        sequence=sequence,
+        kwargs=kwargs,
     )
 
     return glitchseq, glitchseq_cov
@@ -86,8 +83,7 @@ class AcDepths(TypedDict):
 
 
 def compute_glitchseqs(
-    osckey: np.ndarray,
-    osc: np.ndarray,
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedFrequencies,
     sequence: str,
     dnu: float,
     fitfreqs: dict,

@@ -481,7 +481,7 @@ def compute_covariance_epsilondifferences(
 def compute_cov_from_mc(
     nr: int,
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
-    fittype: str,
+    sequence: str,
     kwargs: dict,
 ) -> np.ndarray:
     """
@@ -559,7 +559,7 @@ def compute_cov_from_mc(
             )
         )
 
-        tmp = seqs_function(perturbed_stardata, sequence=fittype, **kwargs)
+        tmp = seqs_function(perturbed_stardata, sequence=sequence, **kwargs)
         if tmp is None:
             nvalues[i, :] = np.full(nr, np.nan)
         else:
