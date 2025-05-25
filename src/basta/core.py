@@ -359,7 +359,7 @@ class StarModes:
     obsintervals: np.ndarray | None = None
 
     # TODO(Amalie) how is this used?
-    correlations: bool | int = False
+    correlations: bool = False
 
     seismicweights: dict[str, Any]
 
@@ -372,7 +372,7 @@ class SeismicSignature:
     Seismic signatures, for example ratios, epsilon differences or glitches.
     """
 
-    # 1-D array
+    # Structered array with l, n, value, frequency
     values: np.ndarray
     # Matrix with inverse covariances of `values`
     inverse_covariance: np.ndarray
@@ -566,7 +566,7 @@ class InputStar:
 
     surfacecorrection: dict[str, Any] | None = None
 
-    correlations: bool | int = False
+    correlations: bool = False
 
     dnubias: float = 0.0
 
@@ -576,23 +576,22 @@ class InputStar:
     # fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
 
     readratios: bool | int = False
-    kwargs_ratios: dict = {}
+    kwargs_ratios: dict
     # kwargs_ratios = {'threepoint': False, 'nrealizations': 10000
-
-    threepoint: bool | int = False
+    # threepoint: bool | int = False
     interp_ratios: bool | int = True
 
     # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
-    kwargs_glitches: dict = {}
+    kwargs_glitches: dict
     # kwargs_glitches = {'nrealizations': 10000,
 
     glitchfile: str | None = None
-    nrealizations: int = 10000
+    # nrealizations: int = 10000
 
     # fittypes: list[Literal["e01", "e012", "e02"]]
-    kwargs_epsilondifferences: dict = {}
+    kwargs_epsilondifferences: dict
     # kwargs_epsilon_differences = {'nsorting': True, 'nrealizations': 20000
-    nsorting: bool | int = True
+    # nsorting: bool | int = True
 
 
 @dataclass(kw_only=True)

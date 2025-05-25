@@ -1193,12 +1193,20 @@ def run_xml(
                     excludemodes=inputparams["fitfreqs"]["excludemodes"],
                     onlyradial=inputparams["fitfreqs"]["onlyradial"],
                     readratios=inputparams["fitfreqs"]["readratios"],
-                    threepoint=inputparams["fitfreqs"]["threepoint"],
                     interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
-                    nrealizations=inputparams["fitfreqs"]["nrealizations"],
                     glitchfile=inputparams["fitfreqs"]["glitchfile"],
-                    nsorting=inputparams["fitfreqs"]["nsorting"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
+                    kwargs_ratios={
+                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
+                        "threepoint": inputparams["fitfreqs"]["threepoint"],
+                    },
+                    kwargs_glitches={
+                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
+                    },
+                    kwargs_epsilondifferences={
+                        "nsorting": inputparams["fitfreqs"]["nsorting"],
+                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
+                    },
                 )
                 boxpriors: dict[str, core.PriorEntry] = {}
                 for param in root.findall("default/priors/"):

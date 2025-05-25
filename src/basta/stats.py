@@ -764,7 +764,6 @@ def chi2_astero(
             mod,
             libitem["dnufit"][ind],
             sequence=epsdifftype,
-            nsorting=fitfreqs["nsorting"],
         )
 
         # Mixed modes results in negative differences. Flag using nans
@@ -786,10 +785,18 @@ def chi2_astero(
                 )
                 evalepsdiff[indobs] = spline(obsepsdiff[1][indobs])
 
+        # Determine best-fitting surface correction of model
+        corjoin, _ = surf_corr.cubicBG14(
+            joinkeys=joinkeys, join=join, scalnu=fitfreqs["numax"]
+        )
+
+        # Determine corrected dnu of model
+        moddnusurf, _ = compute_dnusurf(joinkeys, corjoin, modnumax)
+
         # Compute chi^2 of epsilon contribution
         chi2rut = 0.0
-        x = obsepsdiff[0] - evalepsdiff
-        w = _weight(len(evalepsdiff), fitfreqs["seismicweights"])
+        x = np.append(obsepsdiff[0], dnusurf) - np.append(evalepsdiff, moddnusurf)
+        w = _weight(len(x), fitfreqs["seismicweights"])
         covinv = obsfreqdata[epsdifftype]["covinv"]
         chi2rut += (x.T.dot(covinv).dot(x)) / w
 

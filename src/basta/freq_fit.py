@@ -919,13 +919,13 @@ Epsilon difference fitting
 """
 
 
-def compute_epsilondiff(
+def compute_epsilondifferences(
+    average_dnu: float,
+    numax: float,
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
-    avgdnu: float,
     sequence: str = "e012",
-    nsorting: bool = True,
     extrapolation: bool = False,
-    nrealisations: int = 20000,
+    nrealizations: int = 20000,
     debug: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -949,14 +949,11 @@ def compute_epsilondiff(
 
     Parameters
     ----------
-    avgdnu : float
+    average_dnu : float
         Average value of the large frequency separation.
     sequence : str, optional
         Similar to ratios, what sequence of epsilon differences to be computed.
         Can be e01, e02 or e012 for a combination of the two first.
-    nsorting : bool, optional
-        If True (default), the sequences are sorted by n-value of the frequencies. If
-        False, the entire 01 sequence is followed by the 02 sequence.
     extrapolation : bool, optional
         If False (default), modes outside the range of the l=0 modes are discarded to
         avoid extrapolation.
@@ -991,17 +988,6 @@ def compute_epsilondiff(
 
     # Remove modes outside of l=0 range
     if not extrapolation:
-        """
-        indall = osckey[0, :] > -1
-        ind0 = osckey[0, :] == 0
-        ind12 = osckey[0, :] > 0
-        mask = np.logical_and(
-            osc[0, ind12] < max(osc[0, ind0]), osc[0, ind12] > min(osc[0, ind0])
-        )
-        indall[ind12] = mask
-        osc = osc[:, indall]
-        osckey = osckey[:, indall]
-        """
         mask = (
             np.amin(radial_freqs)
             < modes.data[frequency_column]
@@ -1016,25 +1002,26 @@ def compute_epsilondiff(
 
         modes = core.ObservedFrequencies(data=modes.data[mask])
 
-    epsdiff = compute_epsilondiffseqs(
-        modes, avgdnu=avgdnu, sequence=sequence, nsorting=nsorting
+    epsdiff = compute_sequence_of_epsilondifferences(
+        modes,
+        average_dnu=average_dnu,
+        sequence=sequence,
     )
-    epsdiff_cov = su.compute_cov_from_mc(
-        epsdiff.shape[1],
+    epsdiff_cov = su.compute_covariance_epsilondifferences(
+        nr=epsdiff.shape[1],
+        numax=numax,
         modes=modes,
-        fittype=sequence,
-        args={"avgdnu": avgdnu, "nsorting": nsorting},
-        nrealisations=nrealisations,
+        sequence=sequence,
+        nrealizations=nrealizations,
     )
 
     return epsdiff, epsdiff_cov
 
 
-def compute_epsilondiffseqs(
+def compute_sequence_of_epsilondifferences(
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
-    avgdnu: float,
+    average_dnu: float,
     sequence: str,
-    nsorting: bool = True,
 ) -> np.ndarray:
     """
     Computed epsilon differences, based on Roxburgh 2016 (eq. 1 and 4)
@@ -1053,76 +1040,59 @@ def compute_epsilondiffseqs(
 
     Parameters
     ----------
-    osckey : array
-        Array containing the angular degrees and radial orders of the modes
-    osc : array
-        Array containing the modes (and inertias)
-    avgdnu : float
+    average_dnu : float
         Average large frequency separation
     sequence : str
         Similar to ratios, what sequence of epsilon differences to be computed.
         Can be 01, 02 or 012 for a combination of the two first.
-    nsorting : bool
-        If True (default), the sequences are sorted by n-value of the frequencies.
-        If False, the entire 01 sequence is followed by the 02 sequence.
 
     Returns
     -------
     deps : array
-        Array containing epsilon differences. First index correpsonds to:
-        0 - Epsilon differences
-        1 - Indentifying frequencies
-        2 - Identifying degree l
-        3 - Radial degree n of identifying l={1,2} mode
+        Array containing epsilon differences.
     """
 
     # Select the sequence(s) to use
-    if sequence == "e012":
-        l_used = [1, 2]
-    elif sequence == "e02":
-        l_used = [2]
-    elif sequence == "e01":
-        l_used = [1]
-    else:
-        raise KeyError("Undefined epsilon difference sequence requested!")
+    sequence_map = {
+        "e012": [1, 2],
+        "e02": [2],
+        "e01": [1],
+    }
+    if sequence not in sequence_map:
+        raise KeyError(f"Undefined epsilon difference sequence: '{sequence}'")
 
-    # Epsilon is computed analytically from the frequency information
-    epsilon = np.zeros(osc.shape[1])
+    epsilon_ls = sequence_map[sequence]
 
-    for i, freq in enumerate(osc[0, :]):
-        ll, nn = osckey[:, i]
-        epsilon[i] = freq / avgdnu - nn - ll / 2
+    def compute_epsilon(modes: np.ndarray, average_dnu: float) -> np.ndarray:
+        return modes["frequency"] / average_dnu - modes["n"] - modes["l"] / 2
 
-    # Setup base l=0 interpolater object
-    nu0 = osc[0, osckey[0, :] == 0]
-    eps0 = epsilon[osckey[0, :] == 0]
-    eps0_intpol = CubicSpline(nu0, eps0)
+    radial_modes = modes.of_angular_degree(0)
+    radial_epsilon = compute_epsilon(modes=radial_modes, average_dnu=average_dnu)
+    epsilon = compute_epsilon(modes=modes.data, average_dnu=average_dnu)
+    radial_epsilon_interp = CubicSpline(radial_modes["frequency"], radial_epsilon)
 
-    # Compute the epsilon differences of the selected sequence(s)
-    nmodes = sum([sum(osckey[0] == ll) for ll in l_used])
-    deps = np.zeros((4, nmodes))
-    Niter = 0
-    for ll in l_used:
-        # Extract freq and epsilon for l=ll modes
-        nul = osc[0, osckey[0] == ll]
-        epsl = epsilon[osckey[0] == ll]
+    # Collect epsilon differences for selected l values
+    ns = []
+    ls = []
+    diffs = []
+    frequencies = []
+    for given_l in epsilon_ls:
+        mask = modes.data["l"] == given_l
+        frequencies_l = modes.data["frequency"][mask]
+        epsilon_l = epsilon[mask]
+        eps0_at_frequencies = radial_epsilon_interp(frequencies_l)
+        diff = eps0_at_frequencies - epsilon_l
+        ns.append(modes.data["n"][mask])
+        ls.append(np.ones(np.sum(mask)) * given_l)
+        diffs.append(diff)
+        frequencies.append(frequencies_l)
 
-        # Evaluate epsilon(l=0) at nu(l=ll)
-        eps0_at_nul = eps0_intpol(nul)
+    epsilon_differences = core._pack_structuredarray(
+        np.asarray(ls),
+        np.asarray(ns),
+        np.asarray(diffs),
+        np.asarray(frequencies),
+        names=["l", "n", "epsilon_difference", "frequency"],
+    )
 
-        # Difference
-        diff_eps0l = eps0_at_nul - epsl
-
-        # Store 0: difference, 1: freq, 2: l, 3: n
-        deps[0, Niter : Niter + len(diff_eps0l)] = diff_eps0l
-        deps[1, Niter : Niter + len(diff_eps0l)] = nul
-        deps[2, Niter : Niter + len(diff_eps0l)] = ll
-        deps[3, Niter : Niter + len(diff_eps0l)] = osckey[1][osckey[0] == ll]
-
-        Niter += len(diff_eps0l)
-
-    # Sort according to n if flagged (ensure l=1 before l=2 with 0.1)
-    if nsorting:
-        mask = np.argsort(deps[3, :] + deps[2, :] * 0.1)
-        deps = deps[:, mask]
-    return deps
+    return epsilon_differences

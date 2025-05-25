@@ -370,12 +370,120 @@ def scale_by_inertia(
     return s
 
 
+def compute_covariance_epsilondifferences(
+    nr: int,
+    numax: float,
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    sequence: str,
+    nrealizations: int = 10000,
+) -> np.ndarray:
+    """
+    Compute covariance matrix (and its inverse) using Monte Carlo realisations for the epsilon difference fitting. This is separate from the others as epsilon differences add the surface effect corrected dnu to the covariance matrix.
+
+    Parameters
+    ----------
+    nr : int
+        Size of covariance matrix
+    modes : core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes
+    sequence : str
+        Which sequence to determine, see `constants.freqtypes.rtypes` and
+        `constants.freqtypes.epsdiff` for possible sequences.
+    kwargs : dict
+        Set of arguments to pass on to the function that computes the fitting
+        sequences, i.e. `freq_fit.compute_ratioseqs` and
+        `freq_fit.compute_epsilondiffseqs`.
+    """
+    # Compute different perturbed realisations (Monte Carlo) for covariances
+    nvalues = np.empty((nrealizations, nr + 1))
+    surfacecorrected_dnu_errs = np.empty((nrealizations))
+
+    # Extract frequency and error from structured array
+    if isinstance(modes, core.JoinedModes):
+        frequency_column = "model_frequency"
+        error_column = "observed_error"
+        n_column = "model_n"
+    else:
+        frequency_column = "frequency"
+        error_column = "error"
+        n_column = "n"
+
+    base_freqs = modes.data[frequency_column]
+    errors = modes.data[error_column]
+    n = modes.data[n_column]
+    l = modes.data["l"]
+
+    for i in tqdm(
+        range(nrealizations),
+        desc=f"Sampling {sequence} covariances",
+        mininterval=0.5,
+        maxinterval=5.0,
+        ascii=True,
+    ):
+        perturbed_frequencies = np.random.normal(base_freqs, errors)
+        perturbed_stardata = core.ObservedFrequencies(
+            data=core._pack_structuredarray(
+                int0=l,
+                int1=n,
+                float0=perturbed_frequencies,
+                float1=errors,
+                names=["l", "n", "frequency", "error"],
+            )
+        )
+
+        for given_l in np.unique(l):
+            if not np.any(
+                np.diff(perturbed_stardata.of_angular_degree(given_l)["frequency"]) < 0
+            ):
+                continue
+            # fio.write_warning_to_out(
+            #    inputparams, category="eps-sampling", message=sampmsg
+            # )
+            raise ValueError("Epsilon sampling warning")
+
+        surfacecorrected_dnu, surfacecorrected_dnu_err = freq_fit.compute_dnufit(
+            perturbed_stardata, numax=numax
+        )
+        nvalues[i, -1] = surfacecorrected_dnu
+        surfacecorrected_dnu_errs[0] = surfacecorrected_dnu_err
+
+        perturbed_epsilon = freq_fit.compute_sequence_of_epsilondifferences(
+            modes=perturbed_stardata,
+            average_dnu=surfacecorrected_dnu,
+            sequence=sequence,
+        )
+
+    mask_valid = ~np.isnan(nvalues).any(axis=1)
+    nvalues_valid = nvalues[mask_valid]
+
+    nfailed = np.sum(~mask_valid)
+    if nfailed / nrealizations > 0.3:
+        print(f"Warning: {nfailed} of {nrealizations} realizations failed.")
+
+    # Compute robust covariance matrix
+    n_half = len(nvalues_valid) // 2
+    cov = np.cov(nvalues[:n, :], rowvar=False)
+    covDeps = np.cov(nvalues, rowvar=False)
+    fnorm = p.linalg.norm(covDeps - cov) / epsilon.shape[1] ** 2
+    if fnorm > 1.0e-6:
+        warmsg = "Frobenius norm {0} > 1e-6".format(fnorm)
+        warmsg += "Warning: Covariance failed to converge"
+        fio.write_warning_to_out(inputparams, category="eps-covariance", message=warmsg)
+
+    # Use maxmimum dnusurf error between variance and mean fitting error
+    olderr = np.sqrt(covDeps[-1, -1])
+    newerr = np.amax(np.mean(surfacecorrected_dnu_errs), olderr)
+    covDeps[-1, :] *= newerr / olderr
+    covDeps[:, -1] *= newerr / olderr
+
+    return covDeps
+
+
 def compute_cov_from_mc(
     nr: int,
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     fittype: str,
     kwargs: dict,
-):
+) -> np.ndarray:
     """
     Compute covariance matrix (and its inverse) using Monte Carlo realisations.
 
@@ -404,9 +512,10 @@ def compute_cov_from_mc(
         nrealizations = kwargs["nrealizations"]
 
     if fittype in freqtypes.rtypes:
-        seqs_function = freq_fit.compute_ratioseqs
-    elif fittype in freqtypes.epsdiff:
-        seqs_function = freq_fit.compute_epsilondiffseqs
+        # seqs_function = freq_fit.compute_ratioseqs
+        seqs_function = freq_fit.compute_ratio_sequences
+    # elif fittype in freqtypes.epsdiff:
+    #    seqs_function = freq_fit.compute_epsilondiffseqs
     elif fittype in freqtypes.glitches:
         seqs_function = glitch_fit.compute_glitchseqs
     else:

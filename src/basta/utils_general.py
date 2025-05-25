@@ -505,8 +505,10 @@ def get_globalseismicparams(
     )
 
 
-def compute_inverse_covariancematrix(covariance: np.ndarray, inputstar: core.InputStar):
-    if not inputstar.correlations:
+def compute_inverse_covariancematrix(
+    covariance: np.ndarray, correlations: bool = False
+):
+    if not correlations:
         covariance = np.diag(np.diag(covariance))
     return compute_matrix_inverse(covariance)
 
@@ -553,7 +555,9 @@ def get_modes(
         raise ValueError("Missing dnu")
     obsintervals = freq_fit.make_intervals(data=modedata, dnu=dnu)
 
-    covinv = compute_inverse_covariancematrix(covariance=obscov, inputstar=inputstar)
+    covinv = compute_inverse_covariancematrix(
+        covariance=obscov, correlations=inputstar.correlations
+    )
 
     modes = core.StarModes(
         modes=modedata,
@@ -592,7 +596,10 @@ def get_ratios(
             )
         else:
             datos = freq_fit.compute_ratios(
-                obskey, obs, ratiotype, threepoint=inputstar.threepoint
+                obskey,
+                obs,
+                ratiotype,
+                **inputstar.kwargs_ratios,
             )
 
         if datos is None:
@@ -603,7 +610,7 @@ def get_ratios(
             datos = (None, None)
 
         covinv = compute_inverse_covariancematrix(
-            covariance=datos[1], inputstar=inputstar
+            covariance=datos[1], correlations=inputstar.correlations
         )
 
         ratios_dict[ratiotype] = core.SeismicSignature(datos[0], covinv)
@@ -640,11 +647,8 @@ def get_glitches(
                 osc=obs,
                 sequence=glitchtype,
                 dnu=globalseismicparams.get_scaled("dnufit")[0],
-                fitfreqs={
-                    "threepoint": inputstar.threepoint,
-                    "nrealisations": inputstar.nrealizations,
-                },
                 debug=outputoptions.debug,
+                **inputstar.kwargs_glitches,
             )
 
         if datos is None:
@@ -654,7 +658,9 @@ def get_glitches(
                 )
             datos = (None, None)
 
-        covinv = compute_inverse_covariancematrix(datos[1], inputstar=inputstar)
+        covinv = compute_inverse_covariancematrix(
+            datos[1], correlations=inputstar.correlations
+        )
 
         glitches_dict[glitchtype] = core.SeismicSignature(datos[0], covinv)
     return glitches_dict
@@ -662,44 +668,51 @@ def get_glitches(
 
 def get_epsilondifferences(
     fit_plot_params: list[str],
-    inputstar: core.InputStar,
-    globalseismicparams: core.GlobalSeismicParameters,
-    obskey: np.ndarray,
-    obs: np.ndarray,
+    average_dnu: float,
+    numax: float,
+    modes: core.StarModes | None,
+    star: core.InputStar | core.Star,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
-):
+) -> dict[str, core.SeismicSignature] | None:
     if not any(np.isin(constants.freqtypes.epsdiff, fit_plot_params)):
         return None
 
+    if modes is None:
+        return None
+
+    kwargs = star.kwargs_epsilondifferences if isinstance(star, core.InputStar) else {}
+
     epsilondiff_dict: dict[str, core.SeismicSignature] = {}
+
     for epsilondifftype in constants.freqtypes.epsdiff:
         if epsilondifftype not in fit_plot_params:
             continue
 
-        nrealisations = (
-            inputstar.nrealizations
-            if epsilondifftype in inferencesettings.fitparams
-            else 2000
-        )
-        datos = freq_fit.compute_epsilondiff(
-            osckey=obskey,
-            osc=obs,
-            avgdnu=globalseismicparams.get_scaled("dnufit")[0],
+        datos = freq_fit.compute_epsilondifferences(
+            average_dnu=average_dnu,
+            numax=numax,
             sequence=epsilondifftype,
-            nsorting=inputstar.nsorting,
-            nrealisations=nrealisations,
+            modes=modes.modes,
             debug=outputoptions.debug,
+            **kwargs,
         )
+        """
+        #TODO(Amalie) These functions do not output None
         if datos is None:
             if epsilondifftype in inferencesettings.fitparams:
                 raise ValueError(
                     f"Fitting parameter {epsilondifftype} could not be computed."
                 )
             datos = (None, None)
+        """
 
-        covinv = compute_inverse_covariancematrix(datos[1], inputstar=inputstar)
+        if isinstance(star, core.Star):
+            correlations = modes.correlations
+        else:
+            correlations = star.correlations
 
+        covinv = compute_inverse_covariancematrix(datos[1], correlations=correlations)
         epsilondiff_dict[epsilondifftype] = core.SeismicSignature(datos[0], covinv)
 
     return epsilondiff_dict
@@ -758,10 +771,9 @@ def setup_star(
         )
         epsilondifferences = get_epsilondifferences(
             fit_plot_params=fit_plot_params,
-            inputstar=inputstar,
-            globalseismicparams=globalseismicparams,
-            obskey=obskey,
-            obs=obs,
+            average_dnu=globalseismicparams.get_scaled("dnufit")[0],
+            numax=globalseismicparams.get_scaled("numax")[0],
+            modes=modes,
             inferencesettings=inferencesettings,
             outputoptions=outputoptions,
         )

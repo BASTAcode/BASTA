@@ -844,7 +844,7 @@ def read_allseismic(
         ):
             obsfreqdata[epsdifffit] = {}
             if epsdifffit in obsfreqmeta["epsdiff"]["fit"]:
-                datos = freq_fit.compute_epsilondiff(
+                datos = freq_fit.compute_epsilondifferences(
                     obskey,
                     obs,
                     obsfreqdata["freqs"]["dnudata"],
@@ -861,7 +861,7 @@ def read_allseismic(
                     obsfreqdata["freqs"]["dnudata"],
                     sequence=epsdifffit,
                     nsorting=fitfreqs["nsorting"],
-                    nrealisations=2000,
+                    nrealizations=2000,
                     debug=debug,
                 )
                 obsfreqdata[epsdifffit]["data"] = datos[0]
