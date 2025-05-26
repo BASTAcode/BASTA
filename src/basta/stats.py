@@ -355,6 +355,7 @@ def compute_ratio_log_likelihood(
     sequence: str,
     star: core.Star,
     model_modes: core.ModelFrequencies,
+    joinedmodes: core.JoinedModes | None,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
     shapewarn: int = 0,
@@ -366,20 +367,32 @@ def compute_ratio_log_likelihood(
     """
     assert star.modes is not None
     assert star.ratios is not None
+
+    if joinedmodes is None:
+        return np.inf, np.inf, shapewarn
+
+    model_ratios = freq_fit.compute_ratio_sequences(
+        modes=joinedmodes,
+        sequence=sequence,
+        threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
+    )
+
+    if model_ratios is None:
+        return np.inf, np.inf, shapewarn
+
     if inferencesettings.interp_ratios:
         model_ratios_full = freq_fit.compute_ratio_sequences(
             modes=model_modes,
             sequence=sequence,
             threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
         )
-        if model_ratios_full is None:
-            return np.inf, np.inf, shapewarn
 
         observed_ratios = np.copy(star.ratios[sequence].values)
 
         # Seperate and interpolate within the separate r01, r10 and r02 sequences
         # iterate over 1, 2, 10
-        for subsequence in np.unique(observed_ratios["id"]):
+        subsequences = list(np.unique(observed_ratios["id"]))
+        for subsequence in subsequences:
             obs_mask = observed_ratios["id"] == subsequence
             mod_mask = model_ratios_full["id"] == subsequence
 
@@ -397,17 +410,12 @@ def compute_ratio_log_likelihood(
             )
             observed_ratios[obs_mask]["ratio"] = interp_func(obs_freqs)
     else:
-        model_ratios = freq_fit.compute_ratio_sequences(
-            modes=model_modes,
-            sequence=sequence,
-            threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
-        )
         observed_ratios = star.ratios[sequence].values
 
-    x = model_ratios - observed_ratios
+    x = model_ratios["ratio"] - observed_ratios["ratio"]
     w = _weight(len(x), star.modes.seismicweights)
 
-    if x.shape[0] != star.modes.inverse_covariance.shape[0]:
+    if x.shape[0] != star.ratios[sequence].inverse_covariance.shape[0]:
         if outputoptions and outputoptions.debug and outputoptions.verbose:
             print("DEBUG: Ratio shape mismatch, setting chi2 to inf")
         return np.inf, np.inf, shapewarn
@@ -417,6 +425,7 @@ def compute_ratio_log_likelihood(
     d = len(x)
 
     if not np.isfinite(r2) or r2 < 0:
+        print("r2 < 0")
         if outputoptions and outputoptions.debug and outputoptions.verbose:
             print("DEBUG: Invalid Mahalanobis distance, setting to inf")
         shapewarn = 1
@@ -510,23 +519,23 @@ def compute_log_likelihood(
         inferencesettings.has_any_seismic_case
         or inferencesettings.fit_surfacecorrected_dnu
     ):
+        assert star.modes is not None
+
         ahe = np.empty_like(number_of_possible_models)
         dhe = np.empty_like(number_of_possible_models)
         tauhe = np.empty_like(number_of_possible_models)
         surfacecorrected_dnu: np.ndarray = np.empty_like(number_of_possible_models)
 
         for idxidx, idx in enumerate(np.where(index)[0]):
+            model_modes = core.make_model_modes_from_ln_freqinertia(
+                libitem["osckey"][idx], libitem["osc"][idx]
+            )
+            joinedmodes = freq_fit.calc_join(star.modes, model_modes)
+
             if (
                 inferencesettings.has_frequencies
                 or inferencesettings.fit_surfacecorrected_dnu
             ):
-                assert star.modes is not None
-                model_modes = core.make_model_modes_from_ln_freqinertia(
-                    libitem["osckey"][idx], libitem["osc"][idx]
-                )
-
-                joinedmodes = freq_fit.calc_join(star.modes, model_modes)
-
                 assert joinedmodes is not None
                 corrected_joinedmodes, _ = surfacecorrections.apply_surfacecorrection(
                     joinedmodes=joinedmodes, star=star
@@ -564,6 +573,7 @@ def compute_log_likelihood(
                         sequence=sequence,
                         star=star,
                         model_modes=model_modes,
+                        joinedmodes=joinedmodes,
                         inferencesettings=inferencesettings,
                         outputoptions=outputoptions,
                     )

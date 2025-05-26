@@ -7,11 +7,10 @@ import os
 import matplotlib as mpl
 import numpy as np
 
-from basta import core, stats
+from basta import core, constants, stats
 from basta import fileio as fio
 from basta import utils_general as gu
 from basta import utils_seismic as su
-from basta.constants import parameters
 from basta.downloader import get_basta_dir
 
 # Set the style of all plots
@@ -21,7 +20,14 @@ import matplotlib.pyplot as plt
 plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
 
-def plot_param(Grid, ax, track, all_segments, label, color):
+def plot_param(
+    Grid,
+    ax: mpl.axes.Axes,
+    track: str,
+    all_segments: np.ndarray,
+    label: str,
+    color: str,
+) -> str:
     """
     Function for plotting the parameter interval in the Kiel diagram
 
@@ -51,45 +57,42 @@ def plot_param(Grid, ax, track, all_segments, label, color):
     else:
         # If multiple segments, plot each individually
         where_skip = np.append(where_skip, len(all_segments) - 1)
-        segments = []
-        current = 0
-        for skip in where_skip:
-            segments.append(list(all_segments[current : skip + 1]))
-            current = skip + 1
+        segments = [
+            list(all_segments[start : end + 1])
+            for start, end in zip(np.append(0, segment_breaks[:-1] + 1), segment_breaks)
+        ]
 
-    # Dummy variable for making legend line
-    dummy = False
+    # Plot dummy, so legend entry becomes a line
+    dummy_line_plotted = False
 
-    # Plot the segments
     for segment in segments:
         # Determine if the segment is a line or a single point
-        if len(segment) < 2:
-            markertype = "."
-            lab = label
-            if lab != "_nolegend_":
-                dummy = True
-                # Plot dummy, so legend entry becomes a line
-                ax.plot([0, 0], [0, 0], "-", alpha=0.5, lw=3, color=color, label=lab)
-                lab = "_nolegend_"
-        else:
-            markertype = "-"
-            lab = label
-        # The actual plotting
+        is_single_point = len(segment) < 2
+        plot_type = "." if is_single_point else "-"
+        current_label = label
+
+        if is_single_point and label != "_nolegend_":
+            dummy_line_plotted = True
+            ax.plot([0, 0], [0, 0], "-", alpha=0.5, lw=3, color=color, label=label)
+            current_label = "_nolegend_"
+
         ax.plot(
             Grid[track + "/Teff"][segment],
             Grid[track + "/logg"][segment],
-            markertype,
+            plot_type,
             lw=3,
             markersize=6,
             color=color,
             zorder=3,
             alpha=0.5,
-            label=lab,
+            label=current_label,
         )
+
         # Label magic to limit the legend to having only a single line
         # entry per parameter
-        if lab != "_nolegend_" or dummy:
+        if current_label != "_nolegend_" or dummy_line_plotted:
             label = "_nolegend_"
+
     return label
 
 
@@ -187,7 +190,7 @@ def kiel(
 
     # Save the tracks in selectedmodels with appropriate massini and FeH
     tracks = []
-    constants = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
+    constant_parameters = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
     metal = "MeH" if "MeH" in fitparams else "FeH"
     for modelpath in selectedmodels:
         if "tracks" in gridtype.lower():
@@ -196,7 +199,7 @@ def kiel(
             trackvalue = Grid[modelpath]["age"][0]
         if trackvalue >= lp_interval[0] and trackvalue <= lp_interval[1]:
             track_pass = True
-            for param in constants:
+            for param in constant_parameters:
                 if param in fitparams:
                     val, err = star.classicalparams.params[param]
                     param_interval = [
@@ -282,12 +285,13 @@ def kiel(
 
     # Get labels and colors for sorted params
     keys = fitparams + filters
-    if toggle_freqs:
-        keys.remove("freqs")
+    for key in keys:
+        if key in constants.freqtypes.alltypes:
+            keys.remove(key)
     if "parallax" in keys:
         keys.remove("parallax")
     sorted_parameters = np.array(keys)[np.argsort(keys)]
-    _, labels, _, colors = parameters.get_keys(sorted_parameters)
+    _, labels, _, colors = constants.parameters.get_keys(sorted_parameters)
     assert len(labels) == len(colors) == len(sorted_parameters), sorted_parameters
 
     ################
@@ -424,7 +428,9 @@ def kiel(
 
             # All parameters with no special cases
             elif (
-                (param != metal) and ("mass" not in param) and (param not in constants)
+                (param != metal)
+                and ("mass" not in param)
+                and (param not in constant_parameters)
             ):
                 ncol += 1
                 # Set up the parameter-limit
@@ -514,7 +520,7 @@ def kiel(
             borderaxespad=0.0,
             title=nameinplot if nameinplot else "",
         )
-        _, axlabels, _, _ = parameters.get_keys(["Teff", "logg"])
+        _, axlabels, _, _ = constants.parameters.get_keys(["Teff", "logg"])
         ax.set_xlabel(axlabels[0])
         ax.set_ylabel(axlabels[1])
         ax.set_xlim(tlim)
@@ -533,7 +539,7 @@ def kiel(
         else:
             metal_str = f"{min(metal_list):.3f},...,{max(metal_list):.3f}"
 
-        _, mlabel, _, _ = parameters.get_keys([metal])
+        _, mlabel, _, _ = constants.parameters.get_keys([metal])
         text = mlabel[0] + ": " + metal_str
 
         # The cases for single or divided plot

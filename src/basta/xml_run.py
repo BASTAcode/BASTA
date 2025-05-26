@@ -1193,7 +1193,6 @@ def run_xml(
                     excludemodes=inputparams["fitfreqs"]["excludemodes"],
                     onlyradial=inputparams["fitfreqs"]["onlyradial"],
                     readratios=inputparams["fitfreqs"]["readratios"],
-                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
                     glitchfile=inputparams["fitfreqs"]["glitchfile"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
                 )
@@ -1240,6 +1239,7 @@ def run_xml(
                     fit_surfacecorrected_dnu=inputparams["fitfreqs"][
                         "dnufit_in_ratios"
                     ],
+                    interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
                     dnuprior=inputparams["fitfreqs"]["dnuprior"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
                     kwargs_ratios={
