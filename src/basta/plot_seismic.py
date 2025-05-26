@@ -428,14 +428,12 @@ def echelle(
 
 def ratioplot(
     star: core.Star,
-    joinkeys,
-    join,
-    modkey,
-    mod,
-    ratiotype,
+    joinedmodes: core.JoinedModes,
+    model_modes: core.ModelFrequencies,
+    sequence: str,
     outputfilename: Path | None = None,
-    threepoint=False,
-    interp_ratios=True,
+    kwargs_ratios: dict[str, Any] = {},
+    interp_ratios: bool = True,
 ) -> None:
     """
     Plot frequency ratios.
@@ -451,41 +449,46 @@ def ratioplot(
         sequences at the same frequencies.
     """
 
-    # Exit if there are no ratios to plot
-    if star.ratios is None or ratiotype not in star.ratios:
+    if star.ratios is None:
         return
 
-    obsratio = star.ratios[ratiotype].values
-    obsratio_invcov = star.ratios[ratiotype].inverse_covariance
-    obsratio_err = np.sqrt(1 / np.diag(obsratio_invcov))
+    obs_ratios = star.ratios[sequence].values
+    obs_ratios_invcov = star.ratios[sequence].inverse_covariance
+    obs_ratios_err = np.sqrt(1 / np.diag(obs_ratios_invcov))
 
     if interp_ratios:
-        modratio = freq_fit.compute_ratioseqs(
-            modkey, mod, ratiotype, threepoint=threepoint
+        model_ratios = freq_fit.compute_ratio_sequences(
+            modes=model_modes,
+            sequence=sequence,
+            threepoint=kwargs_ratios.get("threepoint", False),
         )
     else:
-        modratio = freq_fit.compute_ratioseqs(
-            joinkeys, join[0:2, :], ratiotype, threepoint=threepoint
+        model_ratios = freq_fit.compute_ratio_sequences(
+            modes=joinedmodes,
+            sequence=sequence,
+            threepoint=kwargs_ratios.get("threepoint", False),
         )
 
     fig, ax = plt.subplots(1, 1)
     handles: list[Any] = []
-    for rtype in set(obsratio[2, :]):
-        obsmask = obsratio[2, :] == rtype
-        modmask = modratio[2, :] == rtype
-        rtname = f"r{int(rtype):02d}"
+    xlabel = "frequency"
+    ylabel = "ratio"
+    for sequence in np.unique(obs_ratios["id"]):
+        obsmask = obs_ratios["id"] == sequence
+        modmask = model_ratios["id"] == sequence
+        rtname = f"r{int(sequence):02d}"
         modp = ax.scatter(
-            modratio[1, modmask],
-            modratio[0, modmask],
+            model_ratios[modmask][xlabel],
+            model_ratios[modmask][ylabel],
             marker=modmarkers["ratio"],
             color=colors[rtname],
             edgecolors="k",
             zorder=3,
-            label=f"Best fit ($r_{{{int(rtype):02d}}}$)",
+            label=f"Best fit ($r_{{{int(sequence):02d}}}$)",
         )
         ax.plot(
-            modratio[1, modmask],
-            modratio[0, modmask],
+            model_ratios[modmask][xlabel],
+            model_ratios[modmask][ylabel],
             "-",
             color="darkgrey",
             alpha=0.9,
@@ -493,20 +496,20 @@ def ratioplot(
         )
 
         obsp = ax.errorbar(
-            obsratio[1, obsmask],
-            obsratio[0, obsmask],
-            yerr=obsratio_err[obsmask],
+            obs_ratios[obsmask][xlabel],
+            obs_ratios[obsmask][ylabel],
+            yerr=obs_ratios_err[obsmask],
             marker=obsmarker,
             color=colors[rtname],
             mec="k",
             mew=0.5,
             linestyle="None",
             zorder=3,
-            label=f"Measured ($r_{{{int(rtype):02d}}}$)",
+            label=f"Measured ($r_{{{int(sequence):02d}}}$)",
         )
         ax.plot(
-            obsratio[1, obsmask],
-            obsratio[0, obsmask],
+            obs_ratios[obsmask][xlabel],
+            obs_ratios[obsmask][ylabel],
             "-",
             color=colors[rtname],
             zorder=-1,
@@ -514,16 +517,22 @@ def ratioplot(
 
         if interp_ratios:
             intfunc = interp1d(
-                modratio[1, modmask], modratio[0, modmask], kind="linear"
+                model_ratios[modmask][xlabel],
+                model_ratios[modmask][ylabel],
+                kind="linear",
             )
             # When only plotting, not fitting, model freqs can be outside observed range
             rangemask = np.ones(sum(obsmask), dtype=bool)
-            rangemask &= obsratio[1, obsmask] > min(modratio[1, modmask])
-            rangemask &= obsratio[1, obsmask] < max(modratio[1, modmask])
-            newmod = intfunc(obsratio[1, obsmask][rangemask])
-            marker = splinemarkers[1] if "1" in str(rtype) else splinemarkers[2]
+            rangemask &= obs_ratios[obsmask][xlabel] > min(
+                model_ratios[modmask][xlabel]
+            )
+            rangemask &= obs_ratios[obsmask][xlabel] < max(
+                model_ratios[modmask][xlabel]
+            )
+            newmod = intfunc(obs_ratios[obsmask][rangemask][xlabel])
+            marker = splinemarkers[1] if "1" in str(sequence) else splinemarkers[2]
             (intp,) = ax.plot(
-                obsratio[1, obsmask][rangemask],
+                obs_ratios[obsmask][rangemask][xlabel],
                 newmod,
                 marker=marker,
                 color="k",
@@ -531,7 +540,7 @@ def ratioplot(
                 alpha=0.7,
                 lw=0,
                 zorder=5,
-                label=rf"$r_{{{int(rtype):02d}}}(\nu^{{\mathrm{{obs}}}})$",
+                label=rf"$r_{{{int(sequence):02d}}}(\nu^{{\mathrm{{obs}}}})$",
             )
             handles.extend([modp, intp, obsp])
         else:
@@ -543,7 +552,7 @@ def ratioplot(
         [h.get_label() for h in handles],
         bbox_to_anchor=(0.0, 1.02, 1.0, 0.102),
         loc=8,
-        ncol=nbase * len(set(obsratio[2, :])),
+        ncol=nbase * len(set(obs_ratios["id"])),
         mode="expand",
         borderaxespad=0.0,
     )
@@ -551,7 +560,7 @@ def ratioplot(
         typing.cast(Any, lgnd.legend_handles[i])._sizes = [50]
 
     ax.set_xlabel(r"Frequency ($\mu$Hz)")
-    ax.set_ylabel(f"Frequency ratio ({ratiotype})")
+    ax.set_ylabel(f"Frequency ratio ({sequence})")
     ylim = ax.get_ylim()
     ax.set_ylim(max(ylim[0], 0), ylim[1])
 

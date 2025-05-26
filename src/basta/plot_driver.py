@@ -46,6 +46,7 @@ def plot_all_seismic(
         freqplots += ["dupechelle", "echelle", "pairechelle"]
     if any(x in freqtypes.rtypes for x in freqplots):
         freqplots += ["ratios"]
+
     try:
         rawmaxmod = Grid[path + "/osc"][ind]
         rawmaxmodkey = Grid[path + "/osckey"][ind]
@@ -148,18 +149,20 @@ def plot_all_seismic(
             print("\nFrequencies correlation map failed with the error:", e)
 
     for ratiotype in plotconfig.freqplots:
-        if ratiotype not in freqtypes.rtypes:
-            continue
+        if ratiotype == "ratios":
+            sequence = "r012"
+        else:
+            sequence = ratiotype
         try:
             ratnamestr = f"ratios_{ratiotype}"
             plot_seismic.ratioplot(
-                star,
-                joinedmodes,
-                model_modes,
-                ratiotype,
+                star=star,
+                joinedmodes=joinedmodes,
+                model_modes=model_modes,
+                sequence=sequence,
                 outputfilename=filepaths.plotfile(ratnamestr),
-                threepoint=inputstar.threepoint,
-                interp_ratios=inputstar.interp_ratios,
+                kwargs_ratios=inferencesettings.kwargs_ratios,
+                interp_ratios=inferencesettings.interp_ratios,
             )
         except Exception as e:
             print(
