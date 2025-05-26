@@ -390,7 +390,7 @@ def compute_ratios(
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
     kwargs_ratios: dict = {},
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
     frequencies, and return the desired ratio sequence, both individual
@@ -933,7 +933,7 @@ def compute_epsilondifferences(
     sequence: str = "e012",
     kwargs_epsilondifferences: dict = {},
     debug: bool = False,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Compute epsilon differences and covariances.
 
@@ -1007,6 +1007,9 @@ def compute_epsilondifferences(
                 print(f" - (l,n,f) = ({l}, {n:02d}, {f:.3f})")
 
         modes = core.ObservedFrequencies(data=modes.data[mask])
+
+    if len(modes.data) < 1:
+        return None
 
     epsilondifferences = compute_sequence_of_epsilondifferences(
         modes,

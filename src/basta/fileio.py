@@ -420,9 +420,8 @@ def _read_precomputed_glitches(
 
 def _read_precomputed_ratios_xml(
     filename: str,
-    ratiotype: str,
-    obskey: np.ndarray,
-    obs: np.ndarray,
+    sequence: str,
+    modes: core.StarModes,
     excludemodes: str | None = None,
     correlations: bool = True,
 ) -> tuple[np.ndarray, np.ndarray]:
@@ -432,85 +431,80 @@ def _read_precomputed_ratios_xml(
     Parameters
     ----------
     filename : str
-        Path to xml-file to be read
-    ratiotype : str
-        Ratio sequence to be read, see constants.freqtypes.rtypes for
-        possible sequences.
-    obskey : array
-        Array containing the angular degrees and radial orders of obs
-    obs : array
-        Individual frequencies and uncertainties.
+        Path to xml file
+    sequence : str
+        Ratio sequence to be read (see `constants.freqtypes.rtypes`)
+    modes: core.StarModes
+        Individual mode frequencies
     excludemodes : str or None, optional
-        Name of file containing the (l, n) values of frequencies to be
-        omitted in the fit. Does however only trigger a warning for
-        precomputed ratios.
+        File with (l, n) values to omit (only triggers a warning here).
     correlations : bool
-        True for reading covariance matrix from xml, False to assume no
-        correlations, and simply use individual errors on ratios.
+        Whether to read covariance matrix or assume uncorrelated errors.
 
     Returns
     -------
-    ratios : array
-        Contains frequency ratios, their identifying integers of sequence and
-        radial order, and their frequency location (matching l=0 frequency).
-    cov : array
+    ratios : np.ndarray
+        Array of shape (4, N)
+    covariance_matrix : array
         Covariance matrix matching the ratios.
     """
-    # Print warning to user
     if excludemodes is not None:
-        wstr = "Warning: Removing precomputed ratios based on "
-        wstr += "not-trusted-file is not yet supported!"
-        print(wstr)
+        print(
+            "Warning: Removing precomputed ratios based on not-trusted-file is not yet supported!"
+        )
 
     # Read in xml tree/root
     tree = ET.parse(filename)
     root = tree.getroot()
-
-    # Get all ratios available in xml
     all_ratios = root.findall("frequency_ratio")
 
-    # Make numpy arrays of all ratios
     # Developers note: Standard examples also contain unused "error_minus" and "error_plus"
-    orders = np.array([ratio.get("order") for ratio in all_ratios], dtype=int)
-    ratval = np.array([ratio.get("value") for ratio in all_ratios], dtype=float)
-    types = np.array([ratio.get("type") for ratio in all_ratios], dtype="U3")
-    errors = np.array([ratio.get("error") for ratio in all_ratios], dtype=float)
+    orders = np.array([int(r.get("order")) for r in all_ratios])
+    ratio_values = np.array([float(r.get("value")) for r in all_ratios])
+    types = np.array([r.get("type") for r in all_ratios], dtype="U3")
+    errors = np.array([float(r.get("error")) for r in all_ratios])
 
-    # Make sorting mask for the desired ratio sequence
-    if ratiotype == "r012":
-        mask = np.where(np.logical_or(types == "r01", types == "r02"))[0]
-    elif ratiotype == "r102":
-        mask = np.where(np.logical_or(types == "r10", types == "r02"))[0]
-    elif ratiotype == "r010":
-        mask = np.where(np.logical_or(types == "r01", types == "r10"))[0]
-    else:
-        mask = np.where(types == ratiotype)[0]
+    def select_mask(rtype: str) -> np.ndarray:
+        if rtype == "r012":
+            return np.where(np.isin(types, ["r01", "r02"]))[0]
+        elif rtype == "r102":
+            return np.where(np.isin(types, ["r10", "r02"]))[0]
+        elif rtype == "r010":
+            return np.where(np.isin(types, ["r01", "r10"]))[0]
+        else:
+            return np.where(types == rtype)[0]
+
+    mask = select_mask(sequence)
 
     # Pack into data structure
-    ratios: np.ndarray = np.zeros((4, len(mask)))
-    ratios[0, :] = ratval[mask]
-    ratios[3, :] = orders[mask]
+    ratios = np.zeros((4, len(mask)))
+    ratios[0, :] = ratio_values[mask]
     ratios[2, :] = [int(r[1:]) for r in types[mask]]
+    ratios[3, :] = orders[mask]
 
-    # Get frequency location from obs and obskey
+    radial_modes = modes.modes.of_angular_degree(0)
     try:
-        for i, nn in enumerate(ratios[3, :]):
-            l0mask = obskey[0, :] == 0
-            ratios[1, i] = obs[0, l0mask][obskey[1, l0mask] == nn]
-    except ValueError as e:
-        wstr = "Could not find l=0, n={0:d} frequency to match {1}(n={0:d})!"
-        raise KeyError(wstr.format(int(nn), types[mask][i])) from e
+        for i, n_order in enumerate(ratios[3, :]):
+            match = radial_modes["frequency"][radial_modes["n"] == n_order]
+            if len(match) == 0:
+                raise ValueError(f"No radial mode found for n={n_order}")
+            ratios[1, i] = match[0]
+    except Exception as e:
+        raise KeyError(f"Failed to match radial mode for n={n_order}: {e}")
 
     # Sort n-before-l
-    sorting = np.argsort(ratios[3, :] + 0.01 * ratios[2, :])
-    ratios = ratios[:, sorting]
+    sorting_idx = np.argsort(ratios[3, :] + 0.01 * ratios[2, :])
+    ratios = ratios[:, sorting_idx]
 
     # Either read covariance matrix or assume uncorrelated
     if correlations:
-        cov = _read_ratios_cov_xml(root, types[mask][sorting], orders[mask][sorting])
+        covariance_matrix = _read_ratios_cov_xml(
+            root, types[mask][sorting_idx], orders[mask][sorting]
+        )
     else:
-        cov = np.diag(errors[mask][sorting])
-    return ratios, cov
+        covariance_matrix = np.diag(errors[mask][sorting_idx])
+
+    return ratios, covariance_matrix
 
 
 def _read_ratios_cov_xml(xmlroot, types: np.ndarray, order: np.ndarray) -> np.ndarray:
@@ -521,18 +515,19 @@ def _read_ratios_cov_xml(xmlroot, types: np.ndarray, order: np.ndarray) -> np.nd
     ----------
     xmlroot : Element
         Element tree of xml-file.
-    types : array
+    types : np.ndarray
         Ratios types of all ratios to be read
-    order : array
+    order : np.ndarray
         Radial order of all ratios to be read
 
     Returns
     -------
-    cov : array
+    covariance_matrix : np.ndarray
         Covariance matrix matching the ratios.
     """
-    # Empty matrix to fill out and format string to look for
-    cov = np.zeros((len(types), len(types)))
+    num_ratios = len(types)
+    covariance_matrix = np.zeros((num_ratios, num_ratios))
+
     fstr = (
         "frequency_ratio_corr[@type1='{0}'][@order1='{1}'][@type2='{2}'][@order2='{3}']"
     )
@@ -547,9 +542,11 @@ def _read_ratios_cov_xml(xmlroot, types: np.ndarray, order: np.ndarray) -> np.nd
                     "Could not find covariance between {0}(n={1}) and {2}(n={3}) in xml"
                 )
                 raise KeyError(wstr.format(type1, order1, type2, order2)) from e
-            cov[ind1, ind2] = float(element.find("covariance").get("value"))
+            covariance_matrix[ind1, ind2] = float(
+                element.find("covariance").get("value")
+            )
 
-    return cov
+    return covariance_matrix
 
 
 def _make_obsfreqs(
@@ -560,6 +557,7 @@ def _make_obsfreqs(
     plotconfig: core.PlotConfig,
     outputoptions: core.OutputOptions,
 ) -> tuple[dict, dict]:
+    # DEPRECATED?
     """
     Make a dictionary of frequency-dependent data
 

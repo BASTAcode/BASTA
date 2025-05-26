@@ -506,8 +506,11 @@ def get_globalseismicparams(
 
 
 def compute_inverse_covariancematrix(
-    covariance: np.ndarray, correlations: bool = False
-):
+    covariance: np.ndarray | None, correlations: bool = False
+) -> np.ndarray | None:
+    if covariance is None:
+        return None
+
     if not correlations:
         covariance = np.diag(np.diag(covariance))
     return compute_matrix_inverse(covariance)
@@ -573,47 +576,41 @@ def get_modes(
 def get_ratios(
     fit_plot_params: list[str],
     inputstar: core.InputStar,
-    obskey: np.ndarray,
-    obs: np.ndarray,
+    modes: core.StarModes,
     inferencesettings: core.InferenceSettings,
 ):
     if not any(np.isin(constants.freqtypes.rtypes, fit_plot_params)):
         return None
 
     ratios_dict: dict[str, core.SeismicSignature] = {}
-    for ratiotype in constants.freqtypes.rtypes:
-        if ratiotype not in fit_plot_params:
+    for sequence in constants.freqtypes.rtypes:
+        if sequence not in fit_plot_params:
             continue
 
         if inputstar.readratios:
             datos = fio._read_precomputed_ratios_xml(
                 filename=inputstar.freqfile,
-                ratiotype=ratiotype,
-                obskey=obskey,
-                obs=obs,
+                sequence=sequence,
                 excludemodes=inputstar.nottrustedfile,
                 correlations=bool(inputstar.correlations),
             )
         else:
             datos = freq_fit.compute_ratios(
-                obskey,
-                obs,
-                ratiotype,
-                **inputstar.kwargs_ratios,
+                modes=modes.modes,
+                sequence=sequence,
+                kwargs_ratios=inputstar.kwargs_ratios,
             )
 
         if datos is None:
-            if ratiotype in inferencesettings.fitparams:
-                raise ValueError(
-                    f"Fitting parameter {ratiotype} could not be computed."
-                )
+            if sequence in inferencesettings.fitparams:
+                raise ValueError(f"Fitting parameter {sequence} could not be computed.")
             datos = (None, None)
 
         covinv = compute_inverse_covariancematrix(
             covariance=datos[1], correlations=inputstar.correlations
         )
 
-        ratios_dict[ratiotype] = core.SeismicSignature(datos[0], covinv)
+        ratios_dict[sequence] = core.SeismicSignature(datos[0], covinv)
 
     return ratios_dict
 
