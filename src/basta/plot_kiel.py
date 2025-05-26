@@ -21,7 +21,7 @@ plt.style.use(os.path.join(get_basta_dir(), "plots.mplstyle"))
 
 
 def plot_param(
-    Grid,
+    grid,
     ax: mpl.axes.Axes,
     track: str,
     all_segments: np.ndarray,
@@ -33,12 +33,12 @@ def plot_param(
 
     Parameters
     ----------
-    Grid : hdf5 object
+    grid : hdf5 object
         The already loaded grid, containing the tracks/isochrones
     ax : AxesSubplot object
         Axis in which to plot
     track : str
-        Path for the current track/isochrone in the Gridfile
+        Path for the current track/isochrone in the grid
     all_segments : list
         The indeces in the track/isochrone where the parameter is within
         the limit in fitparams
@@ -77,8 +77,8 @@ def plot_param(
             current_label = "_nolegend_"
 
         ax.plot(
-            Grid[track + "/Teff"][segment],
-            Grid[track + "/logg"][segment],
+            grid[track + "/Teff"][segment],
+            grid[track + "/logg"][segment],
             plot_type,
             lw=3,
             markersize=6,
@@ -96,20 +96,26 @@ def plot_param(
     return label
 
 
+def calculate_limits(
+    value: float, err_m: float, err_p: float, nsigma: int = 2
+) -> tuple[float, float]:
+    return value - nsigma * err_m, value + nsigma * err_p
+
+
 def kiel(
-    Grid,
+    grid,
     selectedmodels,
     star: core.Star,
     inferencesettings: core.InferenceSettings,
     plotconfig: core.PlotConfig,
     outputoptions: core.OutputOptions,
-    lp_interval,
-    feh_interval,
-    Teffout,
-    loggout,
-    gridtype,
-    nameinplot=False,
-    color_by_likelihood=False,
+    lp_interval: list[float],
+    feh_interval: list[float],
+    Teffout: list[float],
+    loggout: list[float],
+    gridtype: str,
+    nameinplot: bool = False,
+    color_by_likelihood: bool = False,
 ):
     """
     Make a Kiel diagram of the relevant tracks/isochrones, where fitted
@@ -127,7 +133,7 @@ def kiel(
 
     Parameters
     ----------
-    Grid : hdf5 object
+    grid : hdf5 object
         The already loaded grid, containing the tracks/isochrones.
     selectedmodels : dict
         Contains information on all models with a non-zero likelihood.
@@ -172,58 +178,42 @@ def kiel(
         scalefactor = 0.3
         lp_interval[0] *= 1 - scalefactor
         lp_interval[1] *= 1 + scalefactor
-        if outputoptions.debug:
-            print(
-                f"DEBUG: Interval after inflation by {scalefactor * 100} pct. = {lp_interval}\n"
-            )
 
     # Assign params
     fitparams = inferencesettings.fitparams
-    toggle_freqs = False
-    filters = []
-
-    if inferencesettings.has_any_seismic_case:
-        toggle_freqs = True
-    if inferencesettings.has_distance_case:
-        assert star.absolutemagnitudes is not None
-        filters = list(star.absolutemagnitudes["magnitudes"].keys())
+    filters = (
+        list(star.absolutemagnitudes["magnitudes"].keys())
+        if inferencesettings.has_distance_case
+        else []
+    )
+    constant_parameters = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
+    metal = "MeH" if "MeH" in fitparams else "FeH"
 
     # Save the tracks in selectedmodels with appropriate massini and FeH
     tracks = []
-    constant_parameters = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
-    metal = "MeH" if "MeH" in fitparams else "FeH"
     for modelpath in selectedmodels:
-        if "tracks" in gridtype.lower():
-            trackvalue = Grid[modelpath]["massini"][0]
-        else:
-            trackvalue = Grid[modelpath]["age"][0]
-        if trackvalue >= lp_interval[0] and trackvalue <= lp_interval[1]:
-            track_pass = True
-            for param in constant_parameters:
-                if param in fitparams:
-                    val, err = star.classicalparams.params[param]
-                    param_interval = [
-                        val - err,
-                        val + err,
-                    ]
-                    trackvalue = Grid[modelpath + "/" + param][0]
-                    if (
-                        not trackvalue >= param_interval[0]
-                        and trackvalue <= param_interval[1]
-                    ):
-                        track_pass = False
+        trackvalue = (
+            grid[modelpath]["massini"][0]
+            if "tracks" in gridtype.lower()
+            else grid[modelpath]["age"][0]
+        )
+
+        if lp_interval[0] <= trackvalue <= lp_interval[1]:
+            track_pass = all(
+                lp_interval[0] <= grid[modelpath + f"/{param}"][0] <= lp_interval[1]
+                for param in constant_parameters
+                if param in fitparams
+            )
             if track_pass:
                 metal_in_track = np.where(
-                    np.logical_and(
-                        Grid[modelpath + "/" + metal][:] >= feh_interval[0],
-                        Grid[modelpath + "/" + metal][:] <= feh_interval[1],
-                    )
+                    (grid[modelpath + f"/{metal}"][:] >= feh_interval[0])
+                    & (grid[modelpath + f"/{metal}"][:] <= feh_interval[1])
                 )[0]
-                if list(metal_in_track):
+                if metal_in_track.size > 0:
                     tracks.append(modelpath)
 
     # Median teff and logg
-    Teff, terrm, terrp = Teffout[0], Teffout[0] - Teffout[1], Teffout[2] - Teffout[0]
+    teff, terrm, terrp = Teffout[0], Teffout[0] - Teffout[1], Teffout[2] - Teffout[0]
     logg, lerrm, lerrp = loggout[0], loggout[0] - loggout[1], loggout[2] - loggout[0]
 
     # The highest likelihood is used to control the plot below. If desired, the
@@ -237,19 +227,12 @@ def kiel(
     maxPDF_path, maxPDF_ind = stats.most_likely(selectedmodels)
     if maxPDF_path not in tracks:
         tracks.append(maxPDF_path)
-    teffrange = [min(Grid[maxPDF_path + "/Teff"]), max(Grid[maxPDF_path + "/Teff"])]
-    loggrange = [min(Grid[maxPDF_path + "/logg"]), max(Grid[maxPDF_path + "/logg"])]
-    nsigma = 2
-    if Teff < teffrange[0]:
-        teffrange[0] = Teff - nsigma * terrm
-    if Teff > teffrange[1]:
-        teffrange[1] = Teff + nsigma * terrp
-    if logg < loggrange[0]:
-        loggrange[0] = logg - nsigma * lerrm
-    if logg > loggrange[1]:
-        loggrange[1] = logg + nsigma * lerrp
-    dteff = teffrange[1] - teffrange[0]
-    dlogg = loggrange[1] - loggrange[0]
+
+    teffrange = [min(grid[maxPDF_path + "/Teff"]), max(grid[maxPDF_path + "/Teff"])]
+    loggrange = [min(grid[maxPDF_path + "/logg"]), max(grid[maxPDF_path + "/logg"])]
+
+    teffrange = list(calculate_limits(teff, terrm, terrp))
+    loggrange = list(calculate_limits(logg, lerrm, lerrp))
 
     # Limits for full track, adjusted to even values
     tefflim = [
@@ -259,69 +242,55 @@ def kiel(
     logglim = [0.1 * np.floor(loggrange[0] / 0.1), 0.1 * np.ceil(loggrange[1] / 0.1)]
 
     # "Standard" value for span in axis
-    if "tracks" in gridtype.lower():
-        teff_std = 350
-        logg_std = 0.5
-    else:
-        teff_std = 150
-        logg_std = 0.30
-    make_subplot = [dteff > teff_std * 2, dlogg > logg_std * 2]
+    teff_std, logg_std = (350, 0.5) if "tracks" in gridtype.lower() else (150, 0.3)
+    make_subplot = [
+        (teffrange[1] - teffrange[0]) > teff_std * 2,
+        (loggrange[1] - loggrange[0]) > logg_std * 2,
+    ]
 
     # If the range is too large, make a zoomed subplot, keep ratio of original
-    if True in make_subplot:
+    if any(make_subplot):
         tefflim_sub = [
-            100 * np.floor((Teff - teff_std) / 100),
-            100 * np.ceil((Teff + teff_std) / 100),
+            100 * np.floor((teff - teff_std) / 100),
+            100 * np.ceil((teff + teff_std) / 100),
         ]
         ratio = (logglim[1] - logglim[0]) / (tefflim[1] - tefflim[0])
         logglim_sub = [
             logg - 0.5 * (tefflim_sub[1] - tefflim_sub[0]) * ratio,
             logg + 0.5 * (tefflim_sub[1] - tefflim_sub[0]) * ratio,
         ]
+        tefflim = [tefflim_sub, tefflim]
+        logglim = [logglim_sub, logglim]
+    else:
+        tefflim = [tefflim]
+        logglim = [logglim]
 
     # Make list with both limits
     tefflim = [tefflim_sub, tefflim] if True in make_subplot else [tefflim]
     logglim = [logglim_sub, logglim] if True in make_subplot else [logglim]
 
     # Get labels and colors for sorted params
-    keys = fitparams + filters
-    for key in keys:
-        if key in constants.freqtypes.alltypes:
-            keys.remove(key)
-    if "parallax" in keys:
-        keys.remove("parallax")
+    keys = [
+        k
+        for k in fitparams + filters
+        if k not in constants.freqtypes.alltypes and k != "parallax"
+    ]
     sorted_parameters = np.array(keys)[np.argsort(keys)]
     _, labels, _, colors = constants.parameters.get_keys(sorted_parameters)
-    assert len(labels) == len(colors) == len(sorted_parameters), sorted_parameters
 
-    ################
-    # Figure starts
-    ################
+    fig, axes = (
+        plt.subplots(2, 1, figsize=(12.8, 17.6))
+        if any(make_subplot)
+        else plt.subplots(1, 1, figsize=(8.47, 6))
+    )
+    axes = axes if isinstance(axes, np.ndarray) else [axes]
 
-    # Set up the figure
-    if True in make_subplot:
-        fig, axis = plt.subplots(2, 1, figsize=(12.8, 17.6))
-        axis[1].plot(
-            [tefflim[0][0], tefflim[0][1], tefflim[0][1], tefflim[0][0], tefflim[0][0]],
-            [logglim[0][0], logglim[0][0], logglim[0][1], logglim[0][1], logglim[0][0]],
-            "-",
-            color="darkgrey",
-            alpha=0.5,
-            zorder=5,
-            label="_nolegend_",
-        )
-        iteration = zip(axis, tefflim, logglim)
-    else:
-        fig, axis = plt.subplots(1, 1, figsize=(8.47, 6))
-        iteration = zip([axis], tefflim, logglim)
-
-    # Iteration over the subplots, the same is done with different limits
-    for ax, tlim, glim in iteration:
+    for ax, tlim, glim in zip(axes, tefflim, logglim):
         max_logPDF = selectedmodels[maxPDF_path].logPDF.max()
         for track in tracks:
             # Make a copy to allow manipulation
-            xs = gu.h5py_to_array(Grid[track + "/Teff"])
-            ys = gu.h5py_to_array(Grid[track + "/logg"])
+            xs = gu.h5py_to_array(grid[track + "/Teff"])
+            ys = gu.h5py_to_array(grid[track + "/logg"])
 
             # Special treatment to plot points color-coded by likelihood
             if color_by_likelihood:
@@ -366,8 +335,8 @@ def kiel(
         else:
             bfmmodlab = "Best fit model"
         ax.plot(
-            Grid[maxPDF_path + "/Teff"][maxPDF_ind],
-            Grid[maxPDF_path + "/logg"][maxPDF_ind],
+            grid[maxPDF_path + "/Teff"][maxPDF_ind],
+            grid[maxPDF_path + "/logg"][maxPDF_ind],
             "*",
             color="#000000",
             markersize=20,
@@ -375,14 +344,14 @@ def kiel(
             label=bfmmodlab,
         )
         ax.plot(
-            Teff, logg, "o", color="k", markersize=15, zorder=np.inf, label="Median"
+            teff, logg, "o", color="k", markersize=15, zorder=np.inf, label="Median"
         )
 
         # Add chi^2 model?
         if outputoptions.validationmode:
             ax.plot(
-                Grid[minchi2_path + "/Teff"][minchi2_ind],
-                Grid[minchi2_path + "/logg"][minchi2_ind],
+                grid[minchi2_path + "/Teff"][minchi2_ind],
+                grid[minchi2_path + "/logg"][minchi2_ind],
                 "p",
                 color="k",
                 markersize=15,
@@ -393,14 +362,13 @@ def kiel(
         ncol = 2
         for i, param in enumerate(sorted_parameters):
             label = labels[i]
-            # Set background marking of Teff
             if param == "Teff":
                 ncol += 1
                 val, err = star.classicalparams.params[param]
                 Tmin = np.ones(2) * val - err
                 Tmax = np.ones(2) * val + err
                 ax.fill_betweenx(
-                    glim,
+                    glim[0],
                     Tmin,
                     Tmax,
                     facecolor=colors[i],
@@ -455,29 +423,29 @@ def kiel(
                     # the paramlimits
                     all_segments = np.where(
                         np.logical_and(
-                            Grid[track + "/" + param][:] > parmin,
-                            Grid[track + "/" + param][:] < parmax,
+                            grid[track + "/" + param][:] > parmin,
+                            grid[track + "/" + param][:] < parmax,
                         )
                     )[0]
                     # If none are, skip the track
                     if len(all_segments) == 0:
                         continue
                     # Call the plot function
-                    label = plot_param(Grid, ax, track, all_segments, label, colors[i])
+                    label = plot_param(grid, ax, track, all_segments, label, colors[i])
 
         # Highlight where frequencies are limited to
         # Calculation follows that of bastamain
         # TODO(Amalie) This can be simplified
-        if inferencesettings.has_frequencies and toggle_freqs:
+        # TODO(Amalie) Why is this repeated here?
+        if inferencesettings.has_frequencies:
             ncol += 1
             label = "Freq. constrain"
-            # TODO(Amalie) Why is this repeated here?
             assert star.modes is not None
             obskey = np.asarray([star.modes.modes.l, star.modes.modes.n])
             obs = np.asarray([star.modes.modes.frequencies, star.modes.modes.errors])
 
             for track in tracks:
-                libitem = Grid[track]
+                libitem = grid[track]
                 index: list[bool] = []
 
                 # TODO(Amalie) Why is this code repeated in here?
@@ -503,13 +471,12 @@ def kiel(
                     dnu = star.globalseismicparams.get_scaled(dnutype)[0]
                     lower_threshold = -max(dnufrac / 2 * dnu, 3 * obs[1, 0])
                     upper_threshold = dnufrac * dnu
-                    # TODO(Amalie) This seems too restrictive as a default!
                     index.append(lower_threshold < anchordist <= upper_threshold)
 
                 # Plot the region
                 if True in index:
                     all_segments = np.where(index)[0]
-                    label = plot_param(Grid, ax, track, all_segments, label, "#AA3377")
+                    label = plot_param(grid, ax, track, all_segments, label, "#AA3377")
 
         # General settings of plot
         ax.legend(
@@ -523,14 +490,14 @@ def kiel(
         _, axlabels, _, _ = constants.parameters.get_keys(["Teff", "logg"])
         ax.set_xlabel(axlabels[0])
         ax.set_ylabel(axlabels[1])
-        ax.set_xlim(tlim)
-        ax.set_ylim(glim)
+        ax.set_xlim(tlim[0])
+        ax.set_ylim(glim[0])
         ax.invert_xaxis()
         ax.invert_yaxis()
 
     # Make list of metallicities in isochrones for annotation
     if "isochrones" in gridtype.lower():
-        metal_list = np.asarray([Grid[track + "/" + metal][0] for track in tracks])
+        metal_list = np.asarray([grid[track + "/" + metal][0] for track in tracks])
 
         # Assumes the lowest metallicity is at the highest Teff
         metal_list = np.sort(np.unique(metal_list))

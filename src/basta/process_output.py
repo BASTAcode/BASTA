@@ -515,7 +515,7 @@ def compute_posterior(
 
                 try:
                     fig = plot_kiel.kiel(
-                        Grid=Grid,
+                        grid=Grid,
                         selectedmodels=selectedmodels,
                         star=star,
                         inferencesettings=inferencesettings,
@@ -608,7 +608,7 @@ def compute_posterior(
 
         try:
             fig = plot_kiel.kiel(
-                Grid=Grid,
+                grid=Grid,
                 selectedmodels=selectedmodels,
                 star=star,
                 inferencesettings=inferencesettings,
