@@ -382,7 +382,7 @@ def run_monte_carlo(
         if tmp is None:
             nvalues[i, :] = np.full(nr, np.nan)
         else:
-            nvalues[i, :] = tmp[0]
+            nvalues[i, :] = tmp["ratio"]
 
     mask_valid = ~np.isnan(nvalues).any(axis=1)
     nvalues_valid = nvalues[mask_valid]

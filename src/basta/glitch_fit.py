@@ -6,7 +6,7 @@ from typing import TypedDict
 
 import numpy as np
 
-from basta import freq_fit
+from basta import core, freq_fit
 from basta import utils_seismic as su
 
 try:
@@ -83,7 +83,7 @@ class AcDepths(TypedDict):
 
 
 def compute_glitchseqs(
-    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedFrequencies,
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
     dnu: float,
     fitfreqs: dict,

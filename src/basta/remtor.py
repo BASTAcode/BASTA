@@ -242,10 +242,14 @@ def print_seismic(
             f"Surface-effect corrected large frequency separation added as fitting constraint",
             level=1,
         )
-    if inputstar.interp_ratios:
+    if inferencesettings.interp_ratios:
         _bullet("#TODO(Amalie) interp_ratios", level=1)
-    if inputstar.threepoint:
-        _bullet("#TODO(Amalie) threepoint", level=1)
+    if inferencesettings.kwargs_ratios:
+        _bullet(f"#TODO(Amalie) {inferencesettings.kwargs_ratios}", level=1)
+    if inferencesettings.kwargs_glitches:
+        _bullet(f"#TODO(Amalie) {inferencesettings.kwargs_glitches}", level=1)
+    if inferencesettings.kwargs_epsilondifferences:
+        _bullet(f"#TODO(Amalie) {inferencesettings.kwargs_epsilondifferences}", level=1)
 
     for param in ["dnufit", "numax"]:
         if inputstar.globalseismicparams.get_scaled(param):

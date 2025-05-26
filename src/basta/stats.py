@@ -301,7 +301,7 @@ def compute_surfacecorrected_dnu_log_likelihood(
     return log_likelihood, chi2, surfacecorrected_dnu
 
 
-def compute_seismic_log_likelihood(
+def compute_mode_log_likelihood(
     star: core.Star,
     corrected_joinedmodes: core.JoinedModes,
     outputoptions: core.OutputOptions,
@@ -351,6 +351,91 @@ def compute_seismic_log_likelihood(
     return log_likelihood, chi2, shapewarn
 
 
+def compute_ratio_log_likelihood(
+    sequence: str,
+    star: core.Star,
+    model_modes: core.ModelFrequencies,
+    inferencesettings: core.InferenceSettings,
+    outputoptions: core.OutputOptions,
+    shapewarn: int = 0,
+    dist_type: str = "gaussian",
+    dof: int = 50,
+) -> tuple[float, float, int]:
+    """
+    Compute log-likelihood from ratios
+    """
+    assert star.modes is not None
+    assert star.ratios is not None
+    if inferencesettings.interp_ratios:
+        model_ratios_full = freq_fit.compute_ratio_sequences(
+            modes=model_modes,
+            sequence=sequence,
+            threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
+        )
+        if model_ratios_full is None:
+            return np.inf, np.inf, shapewarn
+
+        observed_ratios = np.copy(star.ratios[sequence].values)
+
+        # Seperate and interpolate within the separate r01, r10 and r02 sequences
+        # iterate over 1, 2, 10
+        for subsequence in np.unique(observed_ratios["id"]):
+            obs_mask = observed_ratios["id"] == subsequence
+            mod_mask = model_ratios_full["id"] == subsequence
+
+            obs_freqs = observed_ratios[obs_mask]["frequency"]
+            mod_freqs = model_ratios_full[mod_mask]["frequency"]
+
+            # Check interpolation range
+            if obs_freqs[0] < mod_freqs[0] or mod_freqs[-1] < obs_freqs[-1]:
+                return np.inf, np.inf, 2
+
+            interp_func = interp1d(
+                mod_freqs,
+                model_ratios_full[mod_mask]["ratio"],
+                kind="linear",
+            )
+            observed_ratios[obs_mask]["ratio"] = interp_func(obs_freqs)
+    else:
+        model_ratios = freq_fit.compute_ratio_sequences(
+            modes=model_modes,
+            sequence=sequence,
+            threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
+        )
+        observed_ratios = star.ratios[sequence].values
+
+    x = model_ratios - observed_ratios
+    w = _weight(len(x), star.modes.seismicweights)
+
+    if x.shape[0] != star.modes.inverse_covariance.shape[0]:
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Ratio shape mismatch, setting chi2 to inf")
+        return np.inf, np.inf, shapewarn
+
+    # Squared Mahalanobis distance
+    r2 = (x.T @ star.ratios[sequence].inverse_covariance @ x) / w
+    d = len(x)
+
+    if not np.isfinite(r2) or r2 < 0:
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Invalid Mahalanobis distance, setting to inf")
+        shapewarn = 1
+        return np.inf, np.inf, shapewarn
+
+    log_likelihood = compute_log_likelihood_from_residual(
+        residual=r2,
+        dist_type=dist_type,
+        dof=dof,
+        ndim=d,
+        # no need for sigma here
+    )
+    assert isinstance(log_likelihood, float)
+
+    chi2 = r2
+
+    return log_likelihood, chi2, shapewarn
+
+
 def compute_distance_log_likelihood(
     libitem,
     index: np.ndarray,
@@ -362,7 +447,7 @@ def compute_distance_log_likelihood(
     Compute distance (absolute magnitude) log-likelihood
     """
     if not inferencesettings.has_distance_case:
-        return np.zeros(len(index)), np.zeros(len(index))
+        return np.zeros(len(index))
 
     assert star.absolutemagnitudes is not None
     for f in star.absolutemagnitudes["magnitudes"].keys():
@@ -442,19 +527,20 @@ def compute_log_likelihood(
 
                 joinedmodes = freq_fit.calc_join(star.modes, model_modes)
 
+                assert joinedmodes is not None
                 corrected_joinedmodes, _ = surfacecorrections.apply_surfacecorrection(
                     joinedmodes=joinedmodes, star=star
                 )
 
             if inferencesettings.has_frequencies:
-                seismic_evaluation = compute_seismic_log_likelihood(
+                mode_evaluation = compute_mode_log_likelihood(
                     star=star,
                     corrected_joinedmodes=corrected_joinedmodes,
                     outputoptions=outputoptions,
                 )
-                total_log_likelihood[idxidx] += seismic_evaluation[0]
-                chi2[idxidx] += seismic_evaluation[1]
-                shapewarn = seismic_evaluation[2]
+                total_log_likelihood[idxidx] += mode_evaluation[0]
+                chi2[idxidx] += mode_evaluation[1]
+                shapewarn = mode_evaluation[2]
 
             if inferencesettings.fit_surfacecorrected_dnu:
                 surfcorr_evaluation = compute_surfacecorrected_dnu_log_likelihood(
@@ -471,15 +557,46 @@ def compute_log_likelihood(
                 surfacecorrected_dnu[idxidx] = surfcorr_evaluation[2]
 
             if inferencesettings.has_ratios:
-                pass
+                for sequence in constants.freqtypes.rtypes:
+                    if sequence not in inferencesettings.fitparams:
+                        continue
+                    ratio_evaluation = compute_ratio_log_likelihood(
+                        sequence=sequence,
+                        star=star,
+                        model_modes=model_modes,
+                        inferencesettings=inferencesettings,
+                        outputoptions=outputoptions,
+                    )
+                    total_log_likelihood[idxidx] += ratio_evaluation[0]
+                    chi2[idxidx] += ratio_evaluation[1]
+                    if ratio_evaluation[2] != 0:
+                        shapewarn = ratio_evaluation[2]
             if inferencesettings.has_glitches:
+
+                glitch_evaluation = compute_glitch_log_likelihood(
+                    star=star,
+                    corrected_joinedmodes=corrected_joinedmodes,
+                    outputoptions=outputoptions,
+                )
+                total_log_likelihood[idxidx] += glitch_evaluation[0]
+                chi2[idxidx] += glitch_evaluation[1]
+                shapewarn = glitch_evaluation[2]
                 # ahe[indd] = glitch_evaluation[2]
                 # dhe[indd] = glitch_evaluation[3]
                 # tauhe[indd] = glitc_evaluation[4]
-                pass
             if inferencesettings.has_epsilondifferences:
-                pass
+                epsilondifferences_evaluation = (
+                    compute_epdilondifferences_log_likelihood(
+                        star=star,
+                        corrected_joinedmodes=corrected_joinedmodes,
+                        outputoptions=outputoptions,
+                    )
+                )
+                total_log_likelihood[idxidx] += epsilondifferences_evaluation[0]
+                chi2[idxidx] += epsilondifferences_evaluation[1]
+                shapewarn = epsilondifferences_evaluation[2]
 
+        # TODO(Amalie) this could also be saved if just computed?
         if inferencesettings.fit_surfacecorrected_dnu:
             quantities_per_track["surfacecorrected_dnu"] = surfacecorrected_dnu
         if inferencesettings.has_glitches:
@@ -625,7 +742,7 @@ def chi2_astero(
             # Interpolate model ratios to observed frequencies
             if fitfreqs["interp_ratios"]:
                 # Get all available model ratios
-                broadratio = freq_fit.compute_ratioseqs(
+                broadratio = freq_fit.compute_ratiosequences(
                     modkey,
                     mod,
                     ratiotype,

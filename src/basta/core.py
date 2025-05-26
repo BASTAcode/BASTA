@@ -394,7 +394,7 @@ class Star:
 
     modes: StarModes | None = None
     surfacecorrection: dict[str, Any] | None = None
-    ratios: dict[str, dict[str, SeismicSignature]] | None = None
+    ratios: dict[str, SeismicSignature] | None = None
     glitches: dict[str, SeismicSignature] | None = None
     epsilondifferences: dict[str, SeismicSignature] | None = None
 
@@ -564,6 +564,10 @@ class InputStar:
     freqpath: str
     freqfile: str
 
+    readratios: bool | int = False
+
+    glitchfile: str | None = None
+
     surfacecorrection: dict[str, Any] | None = None
 
     correlations: bool = False
@@ -574,24 +578,6 @@ class InputStar:
     excludemodes: str | None = None
     onlyradial: bool | None = None
     # fittypes: list[Literal["r01", "r010", "r012", "r02", "r10", "r102"]]
-
-    readratios: bool | int = False
-    kwargs_ratios: dict
-    # kwargs_ratios = {'threepoint': False, 'nrealizations': 10000
-    # threepoint: bool | int = False
-    interp_ratios: bool | int = True
-
-    # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
-    kwargs_glitches: dict
-    # kwargs_glitches = {'nrealizations': 10000,
-
-    glitchfile: str | None = None
-    # nrealizations: int = 10000
-
-    # fittypes: list[Literal["e01", "e012", "e02"]]
-    kwargs_epsilondifferences: dict
-    # kwargs_epsilon_differences = {'nsorting': True, 'nrealizations': 20000
-    # nsorting: bool | int = True
 
 
 @dataclass(kw_only=True)
@@ -641,9 +627,25 @@ class InferenceSettings:
 
     # dnufit_in_ratios: bool | int = False
     fit_surfacecorrected_dnu: bool | int = False
+    interp_ratios: bool | int = True
     # TODO(Amalie) Consider removing entirely
     dnuprior: bool | int = True
     seismicweights: dict[str, Any]
+
+    kwargs_ratios: dict
+    # kwargs_ratios = {'threepoint': False, 'nrealizations': 10000
+    # threepoint: bool | int = False
+
+    # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
+    kwargs_glitches: dict
+    # kwargs_glitches = {'nrealizations': 10000,
+
+    # nrealizations: int = 10000
+
+    # fittypes: list[Literal["e01", "e012", "e02"]]
+    kwargs_epsilondifferences: dict
+    # kwargs_epsilon_differences = {'nsorting': True, 'nrealizations': 20000
+    # nsorting: bool | int = True
 
     @property
     def has_frequencies(self) -> bool:

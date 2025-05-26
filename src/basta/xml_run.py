@@ -1196,17 +1196,6 @@ def run_xml(
                     interp_ratios=inputparams["fitfreqs"]["interp_ratios"],
                     glitchfile=inputparams["fitfreqs"]["glitchfile"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
-                    kwargs_ratios={
-                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
-                        "threepoint": inputparams["fitfreqs"]["threepoint"],
-                    },
-                    kwargs_glitches={
-                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
-                    },
-                    kwargs_epsilondifferences={
-                        "nsorting": inputparams["fitfreqs"]["nsorting"],
-                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
-                    },
                 )
                 boxpriors: dict[str, core.PriorEntry] = {}
                 for param in root.findall("default/priors/"):
@@ -1253,6 +1242,17 @@ def run_xml(
                     ],
                     dnuprior=inputparams["fitfreqs"]["dnuprior"],
                     seismicweights=inputparams["fitfreqs"]["seismicweights"],
+                    kwargs_ratios={
+                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
+                        "threepoint": inputparams["fitfreqs"]["threepoint"],
+                    },
+                    kwargs_glitches={
+                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
+                    },
+                    kwargs_epsilondifferences={
+                        "nsorting": inputparams["fitfreqs"]["nsorting"],
+                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
+                    },
                 )
                 plotconfig = core.PlotConfig(
                     nameinplot=inputparams["nameinplot"],

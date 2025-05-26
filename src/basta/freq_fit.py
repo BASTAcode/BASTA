@@ -435,7 +435,7 @@ def compute_ratios(
         return None
 
     covariance_matrix = su.compute_ratio_covariances(
-        nr=ratios.shape[1],
+        nr=len(ratios),
         modes=modes,
         sequence=sequence,
         **kwargs_ratios,
