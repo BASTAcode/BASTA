@@ -695,6 +695,7 @@ def read_allseismic(
     outputoptions: core.OutputOptions,
     plotconfig: core.PlotConfig,
 ) -> tuple[np.ndarray, np.ndarray, dict, dict]:
+    # DEPRECATED
     """
     Routine to all necesary data from individual frequencies for the
     desired fit

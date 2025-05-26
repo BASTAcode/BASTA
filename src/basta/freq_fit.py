@@ -12,7 +12,8 @@ from basta import core
 
 
 def compute_dnufit(
-    modes: core.ObservedFrequencies | core.JoinedModes, numax: float
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    numax: float,
 ) -> tuple[float, float]:
     """
     Compute large frequency separation weighted around numax, the same way as dnufit.
@@ -34,13 +35,13 @@ def compute_dnufit(
         Uncertainty on dnu.
     """
 
-    if isinstance(modes, core.ObservedFrequencies):
+    if isinstance(modes, core.JoinedModes):
+        radial_modes = modes.of_angular_degree(0)
+        radial_frequencies = radial_modes["model_frequency"]
+    else:
         radial_modes = modes.of_angular_degree(0)
         radial_frequencies = radial_modes["frequency"]
         ns = radial_modes["n"]
-    elif isinstance(modes, core.JoinedModes):
-        radial_modes = modes.of_angular_degree(0)
-        radial_frequencies = radial_modes["model_frequency"]
 
     xfitdnu = np.arange(0, len(radial_frequencies))
 
@@ -385,7 +386,11 @@ Frequency ratios
 """
 
 
-def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False):
+def compute_ratios(
+    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+    sequence: str,
+    kwargs_ratios: dict = {},
+) -> tuple[np.ndarray, np.ndarray]:
     """
     Routine to compute the ratios r02, r01 and r10 from oscillation
     frequencies, and return the desired ratio sequence, both individual
@@ -419,21 +424,23 @@ def compute_ratios(obskey, obs, ratiotype, nrealisations=10000, threepoint=False
     ratio_cov : array
         Covariance matrix of the requested ratio.
     """
-    # ratio = compute_ratioseqs(obskey, obs, ratiotype, threepoint=threepoint)
-    ratio = compute_ratio_sequences(
-        star=star, sequence=ratiotype, threepoint=threepoint
+    ratios = compute_ratio_sequences(
+        modes=modes,
+        sequence=sequence,
+        threepoint=kwargs_ratios.get("threepoint", False),
     )
 
     # Check for valid return
-    if ratio is None:
+    if ratios is None:
         return None
 
-    ratio_cov = su.compute_cov_from_mc(
-        ratio.shape[1],
-        ratiotype,
-        args=star.kwargs_ratios,
+    covariance_matrix = su.compute_ratio_covariances(
+        nr=ratios.shape[1],
+        modes=modes,
+        sequence=sequence,
+        **kwargs_ratios,
     )
-    return ratio, ratio_cov
+    return ratios, covariance_matrix
 
 
 def _create_ratio_array(
@@ -924,8 +931,7 @@ def compute_epsilondifferences(
     numax: float,
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str = "e012",
-    extrapolation: bool = False,
-    nrealizations: int = 20000,
+    kwargs_epsilondifferences: dict = {},
     debug: bool = False,
 ) -> tuple[np.ndarray, np.ndarray]:
     """
@@ -987,7 +993,7 @@ def compute_epsilondifferences(
     quadropole_n = modes.of_angular_degree(1)[n_column]
 
     # Remove modes outside of l=0 range
-    if not extrapolation:
+    if kwargs_epsilondifferences.get("extrapolation", False):
         mask = (
             np.amin(radial_freqs)
             < modes.data[frequency_column]
@@ -1002,20 +1008,23 @@ def compute_epsilondifferences(
 
         modes = core.ObservedFrequencies(data=modes.data[mask])
 
-    epsdiff = compute_sequence_of_epsilondifferences(
+    epsilondifferences = compute_sequence_of_epsilondifferences(
         modes,
         average_dnu=average_dnu,
         sequence=sequence,
     )
-    epsdiff_cov = su.compute_covariance_epsilondifferences(
-        nr=epsdiff.shape[1],
+    covariance_matrix = su.compute_epsilondifference_covariances(
+        nr=epsilondifferences.shape[1],
         numax=numax,
         modes=modes,
         sequence=sequence,
-        nrealizations=nrealizations,
+        nrealizations=kwargs_epsilondifferences.get("nrealizations", 20000),
+        covariance_estimator=kwargs_epsilondifferences.get(
+            "covariance_estimator", "classic"
+        ),
     )
 
-    return epsdiff, epsdiff_cov
+    return epsilondifferences, covariance_matrix
 
 
 def compute_sequence_of_epsilondifferences(
@@ -1087,12 +1096,12 @@ def compute_sequence_of_epsilondifferences(
         diffs.append(diff)
         frequencies.append(frequencies_l)
 
-    epsilon_differences = core._pack_structuredarray(
+    epsilondifferences = core._pack_structuredarray(
         np.asarray(ls),
         np.asarray(ns),
         np.asarray(diffs),
         np.asarray(frequencies),
-        names=["l", "n", "epsilon_difference", "frequency"],
+        names=["l", "n", "epsilondifference", "frequency"],
     )
 
-    return epsilon_differences
+    return epsilondifferences

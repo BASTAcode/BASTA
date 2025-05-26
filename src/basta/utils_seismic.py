@@ -4,7 +4,7 @@ Auxiliary functions for frequency analysis
 
 import os
 from copy import deepcopy
-from typing import Any, Literal
+from typing import Any, Literal, Callable
 
 import h5py  # type: ignore[import]
 import numpy as np
@@ -340,10 +340,9 @@ def run_monte_carlo(
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
     sequence_function: Callable,
-    kwargs: dict,
+    nrealizations: int = 10000,
+    kwargs: dict = {},
 ) -> np.ndarray:
-
-    nrealizations = kwargs.get("nrealizations", 10000)
 
     if isinstance(modes, core.JoinedModes):
         frequency_column = "model_frequency"
@@ -410,7 +409,7 @@ def compute_covariance_matrix(
         estimator_class = skcov.LedoitWolf
         estimator_instance = estimator_class().fit(nvalues_valid)
         covariance_matrix = estimator_instance.covariance_
-    elif estimator == "classic":
+    elif covariance_estimator == "classic":
         covariance_matrix = np.cov(nvalues_valid, rowvar=False)
     else:
         raise ValueError(f"Unsupported covariance estimator: {covariance_estimator}")
@@ -420,13 +419,13 @@ def compute_covariance_matrix(
         n_half = round(len(nvalues_valid) / 2)
         tmpcov = skcov.MinCovDet().fit(nvalues_valid[:n_half]).covariance_
         diag_tmp = np.sqrt(np.diag(tmpcov))
-        diag_full = np.sqrt(np.diag(covariance))
+        diag_full = np.sqrt(np.diag(covariance_matrix))
         max_diff = np.max(np.abs((diag_tmp - diag_full) / diag_full))
         if max_diff > 0.1:
             print("Warning: Covariance failed to converge!")
             print(f"Maximum relative std. difference = {max_diff:.2e} (> 0.1)")
 
-    if estimator == "classic" and epsilon is not None:
+    if covariance_estimator == "classic" and epsilon is not None:
         n_half = len(nvalues_valid) // 2
         cov_half = np.cov(nvalues_valid[:n_half, :], rowvar=False)
         fnorm = np.linalg.norm(covariance_matrix - cov_half) / epsilon.shape[1] ** 2
@@ -447,10 +446,10 @@ def compute_covariance_matrix(
 
 def compute_ratio_covariances(
     nr: int,
-    numax: float,
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
     nrealizations: int = 10000,
+    threepoint: bool = False,
     covariance_estimator: str = "mcd",
 ) -> np.ndarray:
     sequence_function = freq_fit.compute_ratio_sequences
@@ -459,7 +458,8 @@ def compute_ratio_covariances(
         modes=modes,
         sequence=sequence,
         sequence_function=sequence_function,
-        kwargs={"numax": numax},
+        nrealizations=nrealizations,
+        kwargs={"threepoint": threepoint},
     )
     covariance_matrix = compute_covariance_matrix(
         nvalues_valid, covariance_estimator=covariance_estimator
@@ -482,6 +482,7 @@ def compute_glitch_covariances(
         modes=modes,
         sequence=sequence,
         sequence_function=sequence_function,
+        nrealizations=nrealizations,
         kwargs={
             "dnu": dnu,
         },
@@ -503,7 +504,7 @@ def compute_epsilondifference_covariances(
     numax: float,
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
-    nrealizations: int = 10000,
+    nrealizations: int = 20000,
     covariance_estimator: str = "classic",
 ) -> np.ndarray:
     """
@@ -520,6 +521,11 @@ def compute_epsilondifference_covariances(
         `constants.freqtypes.epsdiff` for possible sequences.
     """
 
+    surfacecorrected_dnu, _ = freq_fit.compute_dnufit(modes=modes, numax=numax)
+    epsilondifferences = freq_fit.compute_sequence_of_epsilondifferences(
+        modes=modes, average_dnu=surfacecorrected_dnu, sequence=sequence
+    )
+
     # Compute different perturbed realisations (Monte Carlo) for covariances
     nvalues = np.empty((nrealizations, nr + 1))
     surfacecorrected_dnu_errs = np.empty((nrealizations))
@@ -534,10 +540,12 @@ def compute_epsilondifference_covariances(
         error_column = "error"
         n_column = "n"
 
-    base_freqs = modes.data[frequency_column]
-    errors = modes.data[error_column]
-    n = modes.data[n_column]
-    l = modes.data["l"]
+    data = modes.data
+
+    base_freqs = data[frequency_column]
+    errors = data[error_column]
+    n = data[n_column]
+    l = data["l"]
 
     for i in tqdm(
         range(nrealizations),
@@ -586,7 +594,7 @@ def compute_epsilondifference_covariances(
     covariance_matrix = compute_covariance_matrix(
         nvalues_valid=nvalues_valid,
         covariance_estimator=covariance_estimator,
-        epsilon=epsilon,
+        epsilon=epsilondifferences,
         surfacecorrected_dnu_errs=surfacecorrected_dnu_errs,
     )
 
@@ -713,6 +721,7 @@ def compute_cov_from_mc(
 
 
 def extend_modjoin(joinkey, join, modkey, mod):
+    # DEPRECATED (never used)
     """
     Re-determines modkey and mod for an extended range of model frequencies.
     Needed for constructing ratios that are interpolated at observed
