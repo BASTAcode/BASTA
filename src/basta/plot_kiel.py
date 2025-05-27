@@ -276,11 +276,9 @@ def kiel(
     sorted_parameters = np.array(keys)[np.argsort(keys)]
     _, labels, _, colors = constants.parameters.get_keys(sorted_parameters)
 
-    fig, axes = (
-        plt.subplots(2, 1, figsize=(12.8, 17.6))
-        if any(make_subplot)
-        else plt.subplots(1, 1, figsize=(8.47, 6))
-    )
+    mpl.rcParams.update(plotconfig.mpl_style)
+
+    fig, axes = plt.subplots(2, 1) if any(make_subplot) else plt.subplots(1, 1)
     axes = axes if isinstance(axes, np.ndarray) else [axes]
 
     for ax, tlim, glim in zip(axes, tefflim, logglim):
