@@ -444,10 +444,28 @@ def compute_ratios(
 
 
 def _create_ratio_array(
-    ids: np.ndarray, ns: np.ndarray, ratios: np.ndarray, frequencies: np.ndarray
+    ids: np.ndarray,
+    ns: np.ndarray,
+    ratios: np.ndarray,
+    frequencies: np.ndarray,
+    names: list[str] = ["id", "n", "ratio", "frequency"],
 ) -> np.ndarray:
-    ratio_dtype = [("id", int), ("n", int), ("ratio", float), ("frequency", float)]
-    return np.array(list(zip(ids, ns, ratios, frequencies)), dtype=ratio_dtype)
+    ratio_dtype = [
+        (names[0], int),
+        (names[1], int),
+        (names[2], float),
+        (names[3], float),
+    ]
+    data = np.zeros(
+        len(ids),
+        dtype=ratio_dtype,
+    )
+    data[names[0]] = ids
+    data[names[1]] = ns
+    data[names[2]] = ratios
+    data[names[3]] = frequencies
+
+    return data
 
 
 def _is_valid(frequencies: np.ndarray, ns: np.ndarray) -> bool:
@@ -1105,7 +1123,7 @@ def compute_sequence_of_epsilondifferences(
 
     # Collect epsilon differences for selected l values
     ns = []
-    ls = []
+    ls: list = []
     diffs = []
     frequencies = []
     for given_l in epsilon_ls:

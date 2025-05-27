@@ -238,18 +238,8 @@ def plot_all_seismic(
                     e,
                 )
 
-            # TODO(Amalie) Fix this plot
-            """
             ratiotype = sequence[1:]
             ratnamestr = f"ratios_{ratiotype}"
-            if ratiotype not in obsfreqdata:
-                mask = np.where(
-                    np.isin(obsfreqdata[sequence]["data"][2, :], [1.0, 2.0, 10.0])
-                )[0]
-                obsfreqdata[ratiotype] = {
-                    "data": obsfreqdata[sequence]["data"][:, mask],
-                    "cov": obsfreqdata[sequence]["cov"][np.ix_(mask, mask)],
-                }
             try:
                 plot_seismic.ratioplot(
                     star,
@@ -265,7 +255,7 @@ def plot_all_seismic(
                     f"\nRatio plot for {ratiotype} sequence failed with the error:",
                     e,
                 )
-            """
+
             if "cormap" in plots:
                 try:
                     plot_seismic.correlation_map(

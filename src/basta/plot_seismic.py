@@ -626,13 +626,13 @@ def confidence_ellipse(
 
 def glitchplot(
     star: core.Star,
-    glitchtype,
+    sequence,
     modelvalues,
     maxPath,
     maxInd,
     outputfilename: Path | None,
 ) -> None:
-    if star.glitches is None or glitchtype not in star.glitches:
+    if star.glitches is None or sequence not in star.glitches:
         return
     labels = {
         7: r"$\langle A_{\mathrm{He}}\rangle$ ($\mu$Hz)",
@@ -641,8 +641,8 @@ def glitchplot(
     }
 
     # Read in data
-    obsparams = star.glitches[glitchtype].values
-    obs_invcov = star.glitches[glitchtype].inverse_covariance
+    obsparams = star.glitches[sequence].values
+    obs_invcov = star.glitches[sequence].inverse_covariance
     obs_err = np.sqrt(1 / np.diag(obs_invcov))
 
     # Start figure
@@ -982,8 +982,8 @@ def correlation_map(fittype, star, outputfilename: Path | None) -> None:
             9: r"$\tau_{\mathrm{He}}$ (s)",
         }
 
-        for glitchtype in data[2, -3:]:
-            labs.append(glitchlabels[int(glitchtype)])
+        for sequence in data[2, -3:]:
+            labs.append(glitchlabels[int(sequence)])
 
     # Compute correlations
     Dinv = np.diag(np.sqrt(np.diag(invcov)))

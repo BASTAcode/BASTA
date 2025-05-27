@@ -78,7 +78,26 @@ def compute_observed_glitches(
         **kwargs,
     )
 
-    return glitchseq, glitchseq_cov
+    glitch_struct = np.zeros(
+        sequence_length,
+        dtype=[("id", int), ("n", int), ("value", float), ("frequency", float)],
+    )
+    glitch_ids = [7, 8, 9]
+    glitch_ns = [-1, -1, -1]
+    glitch_frequencies = [np.nan, np.nan, np.nan]
+    glitch_values = glitchseq
+
+    if sequence != "glitches":
+        glitch_ids = np.concatenate((ratios["id"], glitch_ids))
+        glitch_ns = np.concatenate((ratios["n"], glitch_ns))
+        glitch_frequencies = np.concatenate((ratios["frequency"], glitch_frequencies))
+
+    glitch_struct["id"] = glitch_ids
+    glitch_struct["n"] = glitch_ns
+    glitch_struct["frequency"] = glitch_frequencies
+    glitch_struct["value"] = glitchseq
+
+    return glitch_struct, glitchseq_cov
 
 
 class AcDepths(TypedDict):
@@ -129,7 +148,9 @@ def compute_sequence_of_glitches(
     assert modes is not None
 
     # Setup array, make similar to ratios
-    glitchseq = np.empty((4, 3)) * np.nan
+    target_dtype = [("id", int), ("n", int), ("value", float), ("frequency", float)]
+    glitch_struct = np.zeros(3, dtype=target_dtype)
+    # glitchseq = np.empty((4, 3)) * np.nan
 
     # Acoustic radius and acoustic depths of the glitches
     acousticRadius = 5.0e5 / dnu
@@ -147,7 +168,7 @@ def compute_sequence_of_glitches(
     if isinstance(modes, core.JoinedModes):
         frequency_column = "model_frequency"
         n_column = "model_n"
-        error_column = "obs_error"
+        error_column = "error"
     else:
         frequency_column = "frequency"
         n_column = "n"
@@ -216,11 +237,11 @@ def compute_sequence_of_glitches(
             glitchmethod=glitchmethod,
         )
         # Restructure glitch parameters
-        glitchseq[0, :] = [AHe, param[-3], param[-2]]
-        glitchseq[2, :] = [7, 8, 9]
+        glitch_struct["value"] = [AHe, param[-3], param[-2]]
+        glitch_struct["id"] = [7, 8, 9]
     # If only glitches, return these
     if sequence == "glitches":
-        return glitchseq
+        return glitch_struct
     # Compute ratio sequence
     ratios = freq_fit.compute_ratio_sequences(
         modes=modes,
@@ -229,10 +250,16 @@ def compute_sequence_of_glitches(
     )
     assert ratios is not None
 
-    # Stack arrays and return full sequence
-    glitchseq = np.hstack((ratios, glitchseq))
+    ratio_struct = np.zeros(len(ratios), dtype=target_dtype)
+    ratio_struct["id"] = ratios["id"]
+    ratio_struct["n"] = ratios["n"]
+    ratio_struct["value"] = ratios["ratio"]
+    ratio_struct["frequency"] = ratios["frequency"]
 
-    return glitchseq
+    # Stack arrays and return full sequence
+    glitch_struct = np.hstack((ratio_struct, glitch_struct))
+
+    return glitch_struct
 
 
 def _average_amplitudes(param, fmin, fmax, dnu=None, glitchmethod="freq"):

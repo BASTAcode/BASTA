@@ -340,6 +340,7 @@ def run_monte_carlo(
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
     sequence_function: Callable,
+    tmp_columnname: str,
     nrealizations: int = 10000,
     kwargs: dict = {},
 ) -> np.ndarray:
@@ -382,7 +383,7 @@ def run_monte_carlo(
         if tmp is None:
             nvalues[i, :] = np.full(nr, np.nan)
         else:
-            nvalues[i, :] = tmp["ratio"]
+            nvalues[i, :] = tmp[tmp_columnname]
 
     mask_valid = ~np.isnan(nvalues).any(axis=1)
     nvalues_valid = nvalues[mask_valid]
@@ -458,6 +459,7 @@ def compute_ratio_covariances(
         modes=modes,
         sequence=sequence,
         sequence_function=sequence_function,
+        tmp_columnname="ratio",
         nrealizations=nrealizations,
         kwargs={"threepoint": threepoint},
     )
@@ -473,7 +475,7 @@ def compute_glitch_covariances(
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
     inferencesettings: core.InferenceSettings,
-    nrealizations: int = 10000,
+    nrealizations: int = 2000,
     covariance_estimator: str = "mcd",
 ) -> tuple[np.ndarray, np.ndarray]:
 
@@ -483,6 +485,7 @@ def compute_glitch_covariances(
         modes=modes,
         sequence=sequence,
         sequence_function=sequence_function,
+        tmp_columnname="value",
         nrealizations=nrealizations,
         kwargs={
             "dnu": dnu,

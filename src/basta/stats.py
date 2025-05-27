@@ -448,40 +448,90 @@ def compute_ratio_log_likelihood(
 
 
 def compute_glitch_log_likelihood(
+    sequence: str,
     star: core.Star,
     corrected_joinedmodes: core.JoinedModes,
+    inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
+    ac_depths: dict[str, Any],
     shapewarn: int = 0,
     dist_type: str = "gaussian",
     dof: int = 50,
-) -> tuple[float, float, int]:
+) -> tuple[float, float, int, float | None, float | None, float | None]:
     """
     Compute seismic (glitches) log-likelihood
     """
-    if corrected_joinedmodes is None:
-        return np.inf, np.inf, shapewarn
-
-    assert star.modes is not None
-    x = (
-        corrected_joinedmodes.model_frequencies
-        - corrected_joinedmodes.observed_frequencies
+    surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
+        corrected_joinedmodes, star.globalseismicparams.get_original("numax")[0]
     )
+    observed_glitches = star.glitches[sequence].values
+
+    # Assign acoustic depts for glitch search
+    if inferencesettings.interp_ratios and "r" in sequence:
+        model_glitches_full = glitch_fit.compute_sequence_of_glitches(
+            modes=corrected_joinedmodes,
+            sequence=sequence,
+            dnu=surfacecorrected_dnu,
+            inferencesettings=inferencesettings,
+            ac_depths=ac_depths,
+            debug=outputoptions.debug,
+        )
+        if model_glitches_full is None:
+            return np.inf, np.inf, shapewarn, None, None, None
+
+        model_glitches = np.copy(observed_glitches)
+        model_glitches["value"][-3:] = model_glitches_full["value"][-3:]
+
+        # Separate and interpolate within the separate r01, r10 and r02 sequences
+        # id = {7, 8, 9} are glitch parameters, can't interpolate those
+        for sequence in np.unique(model_glitches["id"]):
+            if sequence in [7, 8, 9]:
+                continue
+            joinmask = model_glitches["id"] == sequence
+            broadmask = model_glitches_full["id"] == sequence
+            if np.amin(model_glitches["frequency"][joinmask]) < np.amin(
+                model_glitches_full["frequency"][broadmask]
+            ) or np.amax(model_glitches["frequency"][joinmask]) > np.amax(
+                model_glitches_full["frequency"][broadmask]
+            ):
+                return np.inf, np.inf, shapewarn, None, None, None
+
+            interp_func = interp1d(
+                model_glitches_full["frequency"][broadmask],
+                model_glitches_full["value"][broadmask],
+                kind="linear",
+            )
+            model_glitches["value"][joinmask] = interp_func(
+                model_glitches["frequency"][joinmask]
+            )
+    else:
+        model_glitches = glitch_fit.compute_glitchseqs(
+            modes=modes,
+            sequence=sequence,
+            dnu=surfacecorrected_dnu,
+            inferencesettings=inferencesettings,
+            ac_depths=ac_depths,
+            debug=outputoptions.debug,
+        )
+
+    x = model_glitches["value"] - observed_glitches["ratio"]
     w = _weight(len(x), star.modes.seismicweights)
 
-    if x.shape[0] != star.modes.inverse_covariance.shape[0]:
+    if x.shape[0] != star.glitches[sequence].inverse_covariance.shape[0]:
         if outputoptions and outputoptions.debug and outputoptions.verbose:
-            print("DEBUG: Frequency shape mismatch, setting chi2 to inf")
-        return np.inf, np.inf, shapewarn
+            print("DEBUG: Ratio shape mismatch, setting chi2 to inf")
+        return np.inf, np.inf, shapewarn, None, None, None
 
     # Squared Mahalanobis distance
-    r2 = (x.T @ star.modes.inverse_covariance @ x) / w
+    r2 = (x.T @ star.glitches[sequence].inverse_covariance @ x) / w
     d = len(x)
 
     if not np.isfinite(r2) or r2 < 0:
+        print("r2 < 0")
         if outputoptions and outputoptions.debug and outputoptions.verbose:
             print("DEBUG: Invalid Mahalanobis distance, setting to inf")
         shapewarn = 1
-        return np.inf, np.inf, shapewarn
+        return np.inf, np.inf, shapewarn, None, None, None
 
     log_likelihood = compute_log_likelihood_from_residual(
         residual=r2,
@@ -494,7 +544,11 @@ def compute_glitch_log_likelihood(
 
     chi2 = r2
 
-    return log_likelihood, chi2, shapewarn
+    aHe = model_glitches["value"][-3]
+    dHe = model_glitches["value"][-2]
+    tauHe = model_glitches["value"][-1]
+
+    return log_likelihood, chi2, shapewarn, aHe, dHe, tauHe
 
 
 def compute_epsilondifferences_log_likelihood(
@@ -673,10 +727,10 @@ def compute_log_likelihood(
     ):
         assert star.modes is not None
 
-        ahe = np.empty_like(number_of_possible_models)
-        dhe = np.empty_like(number_of_possible_models)
-        tauhe = np.empty_like(number_of_possible_models)
-        surfacecorrected_dnu: np.ndarray = np.empty_like(number_of_possible_models)
+        ahe = np.empty(number_of_possible_models)
+        dhe = np.empty(number_of_possible_models)
+        tauhe = np.empty(number_of_possible_models)
+        surfacecorrected_dnu: np.ndarray = np.empty(number_of_possible_models)
 
         for idxidx, idx in enumerate(np.where(index)[0]):
             model_modes = core.make_model_modes_from_ln_freqinertia(
@@ -735,17 +789,32 @@ def compute_log_likelihood(
                     if ratio_evaluation[2] != 0:
                         shapewarn = ratio_evaluation[2]
             if inferencesettings.has_glitches:
-                glitch_evaluation = compute_glitch_log_likelihood(
-                    star=star,
-                    corrected_joinedmodes=corrected_joinedmodes,
-                    outputoptions=outputoptions,
-                )
-                total_log_likelihood[idxidx] += glitch_evaluation[0]
-                chi2[idxidx] += glitch_evaluation[1]
-                shapewarn = glitch_evaluation[2]
-                # ahe[indd] = glitch_evaluation[2]
-                # dhe[indd] = glitch_evaluation[3]
-                # tauhe[indd] = glitc_evaluation[4]
+                sequences = []
+                for sequence in constants.freqtypes.rtypes:
+                    if "g" + sequence in inferencesettings.fitparams:
+                        sequences.extend("g" + sequence)
+                for sequence in constants.freqtypes.glitches + sequences:
+                    if sequence not in inferencesettings.fitparams:
+                        continue
+                    glitch_evaluation = compute_glitch_log_likelihood(
+                        sequence=sequence,
+                        star=star,
+                        corrected_joinedmodes=corrected_joinedmodes,
+                        ac_depths={
+                            "tauHe": libitem["tauhe"][idx],
+                            "dtauHe": 100.0,
+                            "tauCZ": libitem["taubcz"][idx],
+                            "dtauCZ": 200.0,
+                        },
+                        inferencesettings=inferencesettings,
+                        outputoptions=outputoptions,
+                    )
+                    total_log_likelihood[idxidx] += glitch_evaluation[0]
+                    chi2[idxidx] += glitch_evaluation[1]
+                    shapewarn = glitch_evaluation[2]
+                    ahe[idxidx] = glitch_evaluation[2]
+                    dhe[idxidx] = glitch_evaluation[3]
+                    tauhe[idxidx] = glitch_evaluation[4]
             if inferencesettings.has_epsilondifferences:
                 for sequence in constants.freqtypes.epsdiff:
                     if sequence not in inferencesettings.fitparams:
