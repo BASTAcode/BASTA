@@ -1012,16 +1012,19 @@ def compute_epsilondifferences(
         return None
 
     epsilondifferences = compute_sequence_of_epsilondifferences(
-        modes,
+        modes=modes,
         average_dnu=average_dnu,
         sequence=sequence,
+        frequency_column=frequency_column,
+        n_column=n_column,
     )
+
     covariance_matrix = su.compute_epsilondifference_covariances(
-        nr=epsilondifferences.shape[1],
+        nr=len(epsilondifferences),
         numax=numax,
         modes=modes,
         sequence=sequence,
-        nrealizations=kwargs_epsilondifferences.get("nrealizations", 20000),
+        nrealizations=kwargs_epsilondifferences.get("nrealizations", 10000),
         covariance_estimator=kwargs_epsilondifferences.get(
             "covariance_estimator", "classic"
         ),
@@ -1034,6 +1037,8 @@ def compute_sequence_of_epsilondifferences(
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     average_dnu: float,
     sequence: str,
+    frequency_column: str = "frequency",
+    n_column: str = "n",
 ) -> np.ndarray:
     """
     Computed epsilon differences, based on Roxburgh 2016 (eq. 1 and 4)
@@ -1075,13 +1080,28 @@ def compute_sequence_of_epsilondifferences(
 
     epsilon_ls = sequence_map[sequence]
 
-    def compute_epsilon(modes: np.ndarray, average_dnu: float) -> np.ndarray:
-        return modes["frequency"] / average_dnu - modes["n"] - modes["l"] / 2
+    def compute_epsilon(
+        modes: np.ndarray,
+        average_dnu: float,
+        frequency_column: str = "frequency",
+        n_column: str = "n",
+    ) -> np.ndarray:
+        return modes[frequency_column] / average_dnu - modes[n_column] - modes["l"] / 2
 
     radial_modes = modes.of_angular_degree(0)
-    radial_epsilon = compute_epsilon(modes=radial_modes, average_dnu=average_dnu)
-    epsilon = compute_epsilon(modes=modes.data, average_dnu=average_dnu)
-    radial_epsilon_interp = CubicSpline(radial_modes["frequency"], radial_epsilon)
+    radial_epsilon = compute_epsilon(
+        modes=radial_modes,
+        average_dnu=average_dnu,
+        frequency_column=frequency_column,
+        n_column=n_column,
+    )
+    epsilon = compute_epsilon(
+        modes=modes.data,
+        average_dnu=average_dnu,
+        frequency_column=frequency_column,
+        n_column=n_column,
+    )
+    radial_epsilon_interp = CubicSpline(radial_modes[frequency_column], radial_epsilon)
 
     # Collect epsilon differences for selected l values
     ns = []
@@ -1090,14 +1110,14 @@ def compute_sequence_of_epsilondifferences(
     frequencies = []
     for given_l in epsilon_ls:
         mask = modes.data["l"] == given_l
-        frequencies_l = modes.data["frequency"][mask]
+        frequencies_l = modes.data[frequency_column][mask]
         epsilon_l = epsilon[mask]
         eps0_at_frequencies = radial_epsilon_interp(frequencies_l)
         diff = eps0_at_frequencies - epsilon_l
-        ns.append(modes.data["n"][mask])
-        ls.append(np.ones(np.sum(mask)) * given_l)
-        diffs.append(diff)
-        frequencies.append(frequencies_l)
+        ns.extend(modes.data[n_column][mask])
+        ls.extend(np.ones(np.sum(mask)) * given_l)
+        diffs.extend(diff)
+        frequencies.extend(frequencies_l)
 
     epsilondifferences = core._pack_structuredarray(
         np.asarray(ls),

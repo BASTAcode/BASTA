@@ -56,7 +56,7 @@ def plot_param(
         segments = [list(all_segments)]
     else:
         # If multiple segments, plot each individually
-        where_skip = np.append(where_skip, len(all_segments) - 1)
+        segment_breaks = np.append(segment_breaks, len(all_segments) - 1)
         segments = [
             list(all_segments[start : end + 1])
             for start, end in zip(np.append(0, segment_breaks[:-1] + 1), segment_breaks)
@@ -183,7 +183,7 @@ def kiel(
     fitparams = inferencesettings.fitparams
     filters = (
         list(star.absolutemagnitudes["magnitudes"].keys())
-        if inferencesettings.has_distance_case
+        if inferencesettings.has_distance_case and star.absolutemagnitudes is not None
         else []
     )
     constant_parameters = ["alphaFe", "ove", "gcut", "eta", "alphaMLT"]
@@ -446,10 +446,17 @@ def kiel(
 
             for track in tracks:
                 libitem = grid[track]
-                index: list[bool] = []
+                index = np.ones(len(libitem["age"][:]), dtype=bool)
 
-                # TODO(Amalie) Why is this code repeated in here?
                 # Locate where the lowest l=0 is within set limit
+                index = util.apply_anchor_cut(
+                    index=index,
+                    star=star,
+                    libitem=libitem,
+                    inferencesettings=inferencesettings,
+                )
+                """
+                # TODO(Amalie) Why is this code repeated in here?
                 for ind in range(len(libitem["age"][:])):
                     rawmod = libitem["osc"][ind]
                     rawmodkey = libitem["osckey"][ind]
@@ -472,6 +479,7 @@ def kiel(
                     lower_threshold = -max(dnufrac / 2 * dnu, 3 * obs[1, 0])
                     upper_threshold = dnufrac * dnu
                     index.append(lower_threshold < anchordist <= upper_threshold)
+                """
 
                 # Plot the region
                 if True in index:
@@ -515,13 +523,13 @@ def kiel(
                 tefflim[1][1] - 0.03 * (tefflim[1][1] - tefflim[1][0]),
                 logglim[1][0] + 0.06 * (logglim[1][1] - logglim[1][0]),
             ]
-            axis[1].text(pos[0], pos[1], text, fontsize=12)
+            axes[1].text(pos[0], pos[1], text, fontsize=12)
         else:
             pos = [
                 tefflim[0][1] - 0.03 * (tefflim[0][1] - tefflim[0][0]),
                 logglim[0][0] + 0.06 * (logglim[0][1] - logglim[0][0]),
             ]
-            axis.text(pos[0], pos[1], text, fontsize=12)
+            axes.text(pos[0], pos[1], text, fontsize=12)
 
     fig.tight_layout()
 

@@ -286,7 +286,7 @@ def compute_surfacecorrected_dnu_log_likelihood(
         return np.inf, np.inf, None
 
     dnu_value, dnu_error = star.globalseismicparams.get_scaled("dnufit")
-    numax = star.globalseismicparams.get_scaled("numax")[0]
+    numax = star.globalseismicparams.get_original("numax")[0]
 
     surfacecorrected_dnu, _ = freq_fit.compute_dnufit(modes=joinedmodes, numax=numax)
 
@@ -386,6 +386,8 @@ def compute_ratio_log_likelihood(
             sequence=sequence,
             threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
         )
+        if model_ratios_full is None:
+            return np.inf, np.inf, shapewarn
 
         observed_ratios = np.copy(star.ratios[sequence].values)
 
@@ -426,6 +428,156 @@ def compute_ratio_log_likelihood(
 
     if not np.isfinite(r2) or r2 < 0:
         print("r2 < 0")
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Invalid Mahalanobis distance, setting to inf")
+        shapewarn = 1
+        return np.inf, np.inf, shapewarn
+
+    log_likelihood = compute_log_likelihood_from_residual(
+        residual=r2,
+        dist_type=dist_type,
+        dof=dof,
+        ndim=d,
+        # no need for sigma here
+    )
+    assert isinstance(log_likelihood, float)
+
+    chi2 = r2
+
+    return log_likelihood, chi2, shapewarn
+
+
+def compute_glitches_log_likelihood(
+    star: core.Star,
+    corrected_joinedmodes: core.JoinedModes,
+    outputoptions: core.OutputOptions,
+    shapewarn: int = 0,
+    dist_type: str = "gaussian",
+    dof: int = 50,
+) -> tuple[float, float, int]:
+    """
+    Compute seismic (glitches) log-likelihood
+    """
+    if corrected_joinedmodes is None:
+        return np.inf, np.inf, shapewarn
+
+    assert star.modes is not None
+    x = (
+        corrected_joinedmodes.model_frequencies
+        - corrected_joinedmodes.observed_frequencies
+    )
+    w = _weight(len(x), star.modes.seismicweights)
+
+    if x.shape[0] != star.modes.inverse_covariance.shape[0]:
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Frequency shape mismatch, setting chi2 to inf")
+        return np.inf, np.inf, shapewarn
+
+    # Squared Mahalanobis distance
+    r2 = (x.T @ star.modes.inverse_covariance @ x) / w
+    d = len(x)
+
+    if not np.isfinite(r2) or r2 < 0:
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Invalid Mahalanobis distance, setting to inf")
+        shapewarn = 1
+        return np.inf, np.inf, shapewarn
+
+    log_likelihood = compute_log_likelihood_from_residual(
+        residual=r2,
+        dist_type=dist_type,
+        dof=dof,
+        ndim=d,
+        # no need for sigma here
+    )
+    assert isinstance(log_likelihood, float)
+
+    chi2 = r2
+
+    return log_likelihood, chi2, shapewarn
+
+
+def compute_epsilondifferences_log_likelihood(
+    star: core.Star,
+    sequence: str,
+    model_dnu: float,
+    model_numax: float,
+    corrected_joinedmodes: core.JoinedModes,
+    outputoptions: core.OutputOptions,
+    dnutype: str = "dnufit",
+    shapewarn: int = 0,
+    dist_type: str = "gaussian",
+    dof: int = 50,
+) -> tuple[float, float, int]:
+    """
+    Compute seismic (glitches) log-likelihood
+    """
+    if corrected_joinedmodes is None:
+        return np.inf, np.inf, shapewarn
+
+    assert star.epsilondifferences is not None
+    assert star.modes is not None
+
+    model_epsilondifferences = freq_fit.compute_sequence_of_epsilondifferences(
+        modes=corrected_joinedmodes,
+        sequence=sequence,
+        average_dnu=model_dnu,
+        frequency_column="model_frequency",
+        n_column="model_n",
+    )
+
+    mixedmode_mask = model_epsilondifferences["epsilondifference"] < 0
+    model_epsilondifferences["epsilondifference"][mixedmode_mask] = np.nan
+
+    observed_epsilondifferences = star.epsilondifferences[sequence].values
+
+    interp_model_epsilondifferences = np.full(len(observed_epsilondifferences), np.nan)
+
+    # Interpolate model epsilon differences to the frequencies of the observations
+    for given_l in np.unique(model_epsilondifferences["l"]):
+        indmod = model_epsilondifferences["l"] == given_l
+        indobs = observed_epsilondifferences["l"] == given_l
+
+        model_l = model_epsilondifferences[indmod]
+        obs_l = observed_epsilondifferences[indobs]
+
+        valid_mask = ~np.isnan(model_l["epsilondifference"])
+        if np.count_nonzero(valid_mask) > 1:
+            freqs_mod = model_l["frequency"][valid_mask]
+            diffs_mod = model_l["epsilondifference"][valid_mask]
+
+            try:
+                spline = CubicSpline(freqs_mod, diffs_mod, extrapolate=False)
+                interp_model_epsilondifferences[indobs] = spline(obs_l["frequency"])
+            except Exception as e:
+                print(f"Warning: Spline interpolation failed for l={given_l}: {e}")
+
+    surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
+        modes=corrected_joinedmodes,
+        numax=model_numax / star.globalseismicparams.get_scalefactor("numax"),
+    )
+
+    x_model = np.append(
+        model_epsilondifferences["epsilondifference"], surfacecorrected_dnu
+    )
+    x_obs = np.append(
+        observed_epsilondifferences["epsilondifference"],
+        star.globalseismicparams.get_scaled(dnutype)[0],
+    )
+
+    x = x_model - x_obs
+    w = _weight(len(x), star.modes.seismicweights)
+
+    if x.shape[0] != star.epsilondifferences[sequence].inverse_covariance.shape[0]:
+        if outputoptions and outputoptions.debug and outputoptions.verbose:
+            print("DEBUG: Frequency shape mismatch, setting chi2 to inf")
+        return np.inf, np.inf, shapewarn
+
+    # Squared Mahalanobis distance
+    r2 = (x.T @ star.epsilondifferences[sequence].inverse_covariance @ x) / w
+    d = len(x)
+
+    if not np.isfinite(r2) or r2 < 0:
         if outputoptions and outputoptions.debug and outputoptions.verbose:
             print("DEBUG: Invalid Mahalanobis distance, setting to inf")
         shapewarn = 1
@@ -534,6 +686,7 @@ def compute_log_likelihood(
 
             if (
                 inferencesettings.has_frequencies
+                or inferencesettings.has_epsilondifferences
                 or inferencesettings.fit_surfacecorrected_dnu
             ):
                 assert joinedmodes is not None
@@ -582,7 +735,6 @@ def compute_log_likelihood(
                     if ratio_evaluation[2] != 0:
                         shapewarn = ratio_evaluation[2]
             if inferencesettings.has_glitches:
-
                 glitch_evaluation = compute_glitch_log_likelihood(
                     star=star,
                     corrected_joinedmodes=corrected_joinedmodes,
@@ -595,16 +747,25 @@ def compute_log_likelihood(
                 # dhe[indd] = glitch_evaluation[3]
                 # tauhe[indd] = glitc_evaluation[4]
             if inferencesettings.has_epsilondifferences:
-                epsilondifferences_evaluation = (
-                    compute_epdilondifferences_log_likelihood(
-                        star=star,
-                        corrected_joinedmodes=corrected_joinedmodes,
-                        outputoptions=outputoptions,
+                for sequence in constants.freqtypes.epsdiff:
+                    if sequence not in inferencesettings.fitparams:
+                        continue
+                    model_dnu = libitem["dnufit"][idxidx]
+                    model_numax = libitem["numax"][idxidx]
+                    epsilondifferences_evaluation = (
+                        compute_epsilondifferences_log_likelihood(
+                            star=star,
+                            sequence=sequence,
+                            model_dnu=model_dnu,
+                            model_numax=model_numax,
+                            corrected_joinedmodes=corrected_joinedmodes,
+                            outputoptions=outputoptions,
+                        )
                     )
-                )
-                total_log_likelihood[idxidx] += epsilondifferences_evaluation[0]
-                chi2[idxidx] += epsilondifferences_evaluation[1]
-                shapewarn = epsilondifferences_evaluation[2]
+                    total_log_likelihood[idxidx] += epsilondifferences_evaluation[0]
+                    chi2[idxidx] += epsilondifferences_evaluation[1]
+                    if epsilondifferences_evaluation[2] != 0:
+                        shapewarn = epsilondifferences_evaluation[2]
 
         # TODO(Amalie) this could also be saved if just computed?
         if inferencesettings.fit_surfacecorrected_dnu:
@@ -733,7 +894,7 @@ def chi2_astero(
 
         # Compute surface corrected dnu
         surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
-            modes=joinedmodes, numax=star.globalseismicparams.get_scaled("numax")[0]
+            modes=joinedmodes, numax=star.globalseismicparams.get_original("numax")[0]
         )
 
         chi2rut += ((dnudata - surfacecorrected_dnu) / dnudata_err) ** 2
@@ -801,7 +962,7 @@ def chi2_astero(
         # Compute surface corrected dnu, if not already computed
         if inferencesettings.fit_surfacecorrected_dnu:
             surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
-                joinkeys, corjoin, star.globalseismicparams.get_scaled("numax")
+                joinkeys, corjoin, star.globalseismicparams.get_original("numax")
             )
 
         # Assign acoustic depts for glitch search

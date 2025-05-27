@@ -536,8 +536,7 @@ def get_modes(
     inferencesettings: core.InferenceSettings,
 ) -> core.StarModes | None:
     if not any(
-        x in [*constants.freqtypes.freqs, *constants.freqtypes.rtypes]
-        for x in inferencesettings.fitparams
+        x in [*constants.freqtypes.alltypes] for x in inferencesettings.fitparams
     ):
         return None
 
@@ -766,7 +765,7 @@ def setup_star(
         epsilondifferences = get_epsilondifferences(
             fit_plot_params=fit_plot_params,
             average_dnu=globalseismicparams.get_scaled("dnufit")[0],
-            numax=globalseismicparams.get_scaled("numax")[0],
+            numax=globalseismicparams.get_original("numax")[0],
             star=inputstar,
             modes=modes,
             inferencesettings=inferencesettings,

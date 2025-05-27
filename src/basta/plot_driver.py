@@ -42,37 +42,45 @@ def plot_all_seismic(
     assert star.modes is not None
 
     if plotconfig.freqplots:
-        if isinstance(plotconfig.freqplots, list):
-            plots += plotconfig.freqplots
+        if isinstance(plotconfig.freqplots[0], list):
+            plots.extend(plotconfig.freqplots)
             if "ratios" in plots:
-                plots += constants.freqtypes.defaultrtypes
+                plots.extend(constants.freqtypes.defaultrtypes)
             if "epsilondifferences" in plots:
-                plots += constants.freqtypes.defaultepstypes
+                plots.extend(constants.freqtypes.defaultepstypes)
         else:
             if inferencesettings.has_any_seismic_case:
-                plots += ["dupechelle", "echelle", "pairechelle"]
+                plots.extend(["dupechelle", "echelle", "pairechelle"])
             if inferencesettings.has_ratios:
-                plots += [
-                    x
-                    for x in constants.freqtypes.rtypes
-                    if x in inferencesettings.fitparams
-                ]
+                plots.extend(
+                    [
+                        x
+                        for x in constants.freqtypes.rtypes
+                        if x in inferencesettings.fitparams
+                    ]
+                )
             if inferencesettings.has_glitches:
-                plots += [
-                    x
-                    for x in constants.freqtypes.glitches
-                    if x in inferencesettings.fitparams
-                ]
+                plots.extend(
+                    [
+                        x
+                        for x in constants.freqtypes.glitches
+                        if x in inferencesettings.fitparams
+                    ]
+                )
             if inferencesettings.has_epsilondifferences:
-                plots += [
-                    x
-                    for x in constants.freqtypes.epsdiff
-                    if x in inferencesettings.fitparams
-                ]
+                plots.extend(
+                    [
+                        x
+                        for x in constants.freqtypes.epsdiff
+                        if x in inferencesettings.fitparams
+                    ]
+                )
             if outputoptions.debug:
-                plots += [
-                    "cormap",
-                ]
+                plots.extend(
+                    [
+                        "cormap",
+                    ]
+                )
 
     try:
         rawmaxmod = Grid[path + "/osc"][ind]
@@ -210,7 +218,7 @@ def plot_all_seismic(
                     )
 
     if any([x in constants.freqtypes.glitches for x in plots]):
-        for sequence in constants.freqtypes.rtypes:
+        for sequence in constants.freqtypes.glitches:
             if not sequence in plots:
                 continue
             glitchnamestr = f"glitches_{sequence}"
@@ -275,11 +283,20 @@ def plot_all_seismic(
         for sequence in constants.freqtypes.epsdiff:
             if not sequence in plots:
                 continue
+            epsnamestr = f"epsdiff_{sequence}"
+            plot_seismic.epsilon_difference_diagram(
+                model_modes=model_modes,
+                model_dnu=maxmoddnu,
+                sequence=sequence,
+                star=star,
+                outputfilename=filepaths.plotfile(epsnamestr),
+            )
+            """
             try:
                 epsnamestr = f"epsdiff_{sequence}"
                 plot_seismic.epsilon_difference_diagram(
                     model_modes=model_modes,
-                    moddnu=maxmoddnu,
+                    model_dnu=maxmoddnu,
                     sequence=sequence,
                     star=star,
                     outputfilename=filepaths.plotfile(epsnamestr),
@@ -289,6 +306,7 @@ def plot_all_seismic(
                     f"\nEpsilon difference plot for {sequence} sequence failed with the error:",
                     e,
                 )
+            """
 
             if "cormap" in plots:
                 try:

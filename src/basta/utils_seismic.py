@@ -428,7 +428,7 @@ def compute_covariance_matrix(
     if covariance_estimator == "classic" and epsilon is not None:
         n_half = len(nvalues_valid) // 2
         cov_half = np.cov(nvalues_valid[:n_half, :], rowvar=False)
-        fnorm = np.linalg.norm(covariance_matrix - cov_half) / epsilon.shape[1] ** 2
+        fnorm = np.linalg.norm(covariance_matrix - cov_half) / len(epsilon) ** 2
         if fnorm > 1.0e-6:
             print(
                 f"Warning: Frobenius norm {fnorm:.2e} > 1e-6 (covariance failed to converge)"
@@ -583,6 +583,7 @@ def compute_epsilondifference_covariances(
             average_dnu=surfacecorrected_dnu,
             sequence=sequence,
         )
+        nvalues[i, :-1] = perturbed_epsilon["epsilondifference"]
 
     mask_valid = ~np.isnan(nvalues).any(axis=1)
     nvalues_valid = nvalues[mask_valid]

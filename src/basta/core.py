@@ -377,6 +377,9 @@ class SeismicSignature:
     # Matrix with inverse covariances of `values`
     inverse_covariance: np.ndarray
 
+    def of_angular_degree(self, given_l: int) -> np.ndarray:
+        return self.values[self.value["l"] == given_l]
+
 
 @dataclass(kw_only=True)
 class Star:
@@ -728,7 +731,7 @@ class PlotConfig:
     nameinplot: str
     kielplots: list[str]
     cornerplots: list[str]
-    freqplots: list[str]
+    freqplots: list[str] | bool = False
 
     style: str = "poster"
     figuresize: tuple[float, float] = (12.8, 8.8)

@@ -433,7 +433,7 @@ def ratioplot(
     sequence: str,
     outputfilename: Path | None = None,
     kwargs_ratios: dict[str, Any] = {},
-    interp_ratios: bool = True,
+    interp_ratios: bool | int = True,
 ) -> None:
     """
     Plot frequency ratios.
@@ -468,6 +468,8 @@ def ratioplot(
             sequence=sequence,
             threepoint=kwargs_ratios.get("threepoint", False),
         )
+
+    assert model_ratios is not None
 
     fig, ax = plt.subplots(1, 1)
     handles: list[Any] = []
@@ -771,10 +773,9 @@ def glitchplot(
 
 def epsilon_difference_diagram(
     *,
-    mod,
-    modkey,
-    moddnu,
-    sequence,
+    sequence: str,
+    model_modes: core.ModelFrequencies,
+    model_dnu: float,
     star: core.Star,
     outputfilename: Path | None,
 ):
@@ -784,25 +785,10 @@ def epsilon_difference_diagram(
 
     Parameters
     ----------
-    mod : array
-        Array of frequency modes in best-fit model.
-    modkey : array
-        Array of mode identification of modes in the best-fit model.
-    moddnu : float
-        Average large frequency separation (dnufit) of best-fit model.
     sequence : str
         The sequence to be plotted
-    obsfreqdata : dict
-        Requested frequency-dependent data such as glitches, ratios, and
-        epsilon difference. It also contains the covariance matrix and its
-        inverse of the individual frequency modes.
-        The keys correspond to the science case, e.g. `r01a, `glitch`, or
-        `e012`.
-        Inside each case, you find the data (`data`), the covariance matrix
-        (`cov`), and its inverse (`covinv`).
-    obsfreqmeta : dict
-        The requested information about which frequency products to fit or
-        plot, unpacked for easier access later.
+    model_dnu : float
+        Average large frequency separation (dnufit) of best-fit model.
     outputfilename : str
         Name and path of outputfilename plotfile.
     """
@@ -813,40 +799,33 @@ def epsilon_difference_diagram(
 
     obsepsdiff = star.epsilondifferences[sequence].values
     obsepsdiff_invcov = star.epsilondifferences[sequence].inverse_covariance
-    obsepsdiff_err = np.sqrt(1 / np.diag(obsepsdiff_invcov))
+    diag = np.diag(obsepsdiff_invcov)
+    safe_diag = np.where(diag == 0, np.nan, diag)
+    obsepsdiff_err = np.sqrt(1 / safe_diag)
 
-    l_available = [int(ll) for ll in set(obsepsdiff[2])]
-    lindex = np.zeros(mod.shape[1], dtype=bool)
-
-    for ll in [0, *l_available]:
-        lindex |= modkey[0] == ll
-    mod = mod[:, lindex]
-    modkey = modkey[:, lindex]
-
-    modepsdiff = freq_fit.compute_epsilondiffseqs(
-        modkey,
-        mod,
-        moddnu,
-        sequence,
+    modepsdiff = freq_fit.compute_sequence_of_epsilondifferences(
+        modes=model_modes,
+        average_dnu=model_dnu,
+        sequence=sequence,
     )
 
     # Mixed modes results in negative differences. Flag using nans, not displayed
-    mask = np.where(modepsdiff[0, :] < 0)[0]
-    modepsdiff[0, mask] = np.nan
+    mask = np.where(modepsdiff["epsilondifference"] < 0)[0]
+    modepsdiff["epsilondifference"][mask] = np.nan
 
     fig, ax = plt.subplots(1, 1)
     handles, legends = [], []
-    for ll in l_available:
-        indobs = obsepsdiff[2] == ll
-        indmod = modepsdiff[2] == ll
-        indmod &= modepsdiff[1] > min(obsepsdiff[1]) - 3 * moddnu
-        indmod &= modepsdiff[1] < max(obsepsdiff[1]) + 3 * moddnu
-        indmod &= ~np.isnan(modepsdiff[0])
+    for ll in np.unique(obsepsdiff["l"]):
+        indobs = obsepsdiff["l"] == ll
+        indmod = modepsdiff["l"] == ll
+        indmod &= modepsdiff["frequency"] > min(obsepsdiff["frequency"]) - 3 * model_dnu
+        indmod &= modepsdiff["frequency"] < max(obsepsdiff["frequency"]) + 3 * model_dnu
+        indmod &= ~np.isnan(modepsdiff["epsilondifference"])
 
         # Model with spline
         (moddot,) = ax.plot(
-            modepsdiff[1][indmod],
-            modepsdiff[0][indmod],
+            modepsdiff["frequency"][indmod],
+            modepsdiff["epsilondifference"][indmod],
             marker=modmarkers["l" + str(ll)],
             color=colors["l" + str(ll)],
             lw=0,
@@ -854,9 +833,9 @@ def epsilon_difference_diagram(
 
         # Observed with uncertainties
         obsdot = ax.errorbar(
-            obsepsdiff[1][indobs],
-            obsepsdiff[0][indobs],
-            yerr=obsepsdiff_err[indobs],
+            obsepsdiff["frequency"][indobs],
+            obsepsdiff["epsilondifference"][indobs],
+            yerr=obsepsdiff_err[:-1][indobs],
             marker=obsmarker,
             color=colors["l" + str(ll)],
             markeredgewidth=0.5,
@@ -866,17 +845,21 @@ def epsilon_difference_diagram(
 
         if sum(indmod) > 1:
             spline = CubicSpline(
-                modepsdiff[1][indmod], modepsdiff[0][indmod], extrapolate=False
+                modepsdiff["frequency"][indmod],
+                modepsdiff["epsilondifference"][indmod],
+                extrapolate=False,
             )
             fnew = np.linspace(
-                min(modepsdiff[1][indmod]), max(modepsdiff[1][indmod]), 100
+                min(modepsdiff["frequency"][indmod]),
+                max(modepsdiff["epsilondifference"][indmod]),
+                100,
             )
             ax.plot(fnew, spline(fnew), "-", color=splinecolor, zorder=-1)
 
             # Model at observed
             (modobs,) = ax.plot(
-                obsepsdiff[1][indobs],
-                spline(obsepsdiff[1][indobs]),
+                obsepsdiff["frequency"][indobs],
+                spline(obsepsdiff["frequency"][indobs]),
                 marker=splinemarkers[ll],
                 color="k",
                 markeredgewidth=2,
