@@ -641,7 +641,17 @@ class InferenceSettings:
 
     # fittypes: list[Literal["gr01", "gr010", "gr012", "gr02", "gr10", "gr102"]]
     kwargs_glitches: dict
-    # kwargs_glitches = {'nrealizations': 10000,
+    """
+    kwargs_glitches = {
+    'nrealizations': 10000,
+    'glitchmethod': 'freq'/'second_differences',
+    'npoly_params': 5,
+    'nderiv': 3,
+    'tol_grad': 1e-3,
+    'regu_param': 7,
+    'nguesses': 200,
+    }
+    """
 
     # nrealizations: int = 10000
 

@@ -24,9 +24,9 @@ def compute_observed_glitches(
     modes: core.StarModes,
     sequence: str,
     dnu: float,
+    inferencesettings: core.InferenceSettings,
     kwargs: dict,
-    debug: bool = False,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray] | None:
     """
     Routine to compute glitch parameters (and ratios) with full covariance
     matrix using MC sampling.
@@ -59,17 +59,23 @@ def compute_observed_glitches(
         sequence_length = 3
     else:
         # Ratios and glitch parameters
-        ratios = freq_fit.compute_ratioseqs(
-            osckey, osc, sequence[1:], fitfreqs["threepoint"]
+        ratios = freq_fit.compute_ratio_sequences(
+            modes=modes.modes,
+            sequence=sequence[1:],
+            threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
         )
-        sequence_length = ratios.shape[1] + 3
+        if ratios is None:
+            return None
+        sequence_length = len(ratios["ratio"]) + 3
 
     # Call routine for sampling covariance
-    glitchseq, glitchseq_cov = su.compute_cov_from_mc(
+    glitchseq, glitchseq_cov = su.compute_glitch_covariances(
         nr=sequence_length,
-        modes=modes,
+        dnu=dnu,
+        modes=modes.modes,
         sequence=sequence,
-        kwargs=kwargs,
+        inferencesettings=inferencesettings,
+        **kwargs,
     )
 
     return glitchseq, glitchseq_cov
@@ -82,17 +88,17 @@ class AcDepths(TypedDict):
     dtauCZ: float
 
 
-def compute_glitchseqs(
-    modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
+def compute_sequence_of_glitches(
+    modes: core.ObservedFrequencies | core.JoinedModes,
     sequence: str,
     dnu: float,
-    fitfreqs: dict,
+    inferencesettings: core.InferenceSettings,
     ac_depths: AcDepths | None = None,
     debug: bool = False,
 ) -> np.ndarray:
     """
     Routine to compute glitch parameters of given frequencies, based
-    on the given method options.
+    on the given glitchmethod options.
 
     Parameters
     ----------
@@ -104,8 +110,6 @@ def compute_glitchseqs(
         Glitch sequence to be computed, see constants.freqtypes.glitches.
     dnu : float
         Value of large frequency separation to be used in the computation.
-    fitfreqs : dict
-        Dictionary containing frequency fitting options/controls.
     ac_depts : bool or dict
         Acoustic depths used to search for glitch signatures. If not provided as a
         dict, they will be calculated as a simple estimate.
@@ -122,6 +126,7 @@ def compute_glitchseqs(
         raise ModuleNotFoundError(
             "Unable to import glitch modules, see installation guide for compiling them"
         )
+    assert modes is not None
 
     # Setup array, make similar to ratios
     glitchseq = np.empty((4, 3)) * np.nan
@@ -137,21 +142,35 @@ def compute_glitchseqs(
             "dtauCZ": 0.10 * acousticRadius,
         }
 
-    # Reformat frequencies for input to methods and filter out l=3
-    freqs = np.zeros((len(osckey[0, osckey[0, :] < 3]), 4))
-    freqs[:, 0] = osckey[0, osckey[0, :] < 3]
-    freqs[:, 1] = osckey[1, osckey[0, :] < 3]
-    freqs[:, 2] = osc[0, osckey[0, :] < 3]
-    # If model frequencies from join, use error of observed frequencies
-    if osc.shape[0] > 2:
-        freqs[:, 3] = osc[3, osckey[0, :] < 3]
+    # Reformat frequencies for input to glitchmethod and filter out l=3
+    mask = modes.data["l"] < 3
+    if isinstance(modes, core.JoinedModes):
+        frequency_column = "model_frequency"
+        n_column = "model_n"
+        error_column = "obs_error"
     else:
-        freqs[:, 3] = osc[1, osckey[0, :] < 3]
+        frequency_column = "frequency"
+        n_column = "n"
+        error_column = "error"
+
+    freqs = np.empty(((len(modes.data["l"][mask])), 4))
+    freqs[:, 0] = modes.data["l"][mask]  # osckey[0, osckey[0, :] < 3]
+    freqs[:, 1] = modes.data[n_column][mask]  # osckey[1, osckey[0, :] < 3]
+    freqs[:, 2] = modes.data[frequency_column][mask]  # osc[0, osckey[0, :] < 3]
+    freqs[:, 3] = modes.data[error_column][mask]
 
     # Number of n values for each l
-    num_of_n = np.array([sum(osckey[0, :] == ll) for ll in set(osckey[0])])
-    if fitfreqs["glitchmethod"].lower() == "freq":
-        nparams = len(num_of_n) * fitfreqs["npoly_params"] + 7
+    num_of_n = np.array(
+        [sum(modes.data["l"] == given_l) for given_l in set(modes.data["l"])]
+    )
+    glitchmethod = inferencesettings.kwargs_glitches.get("glitchmethod", "freq")
+    npoly_params = inferencesettings.kwargs_glitches.get("npoly_params", 5)
+    nderiv = inferencesettings.kwargs_glitches.get("nderiv", 3)
+    tol_grad = inferencesettings.kwargs_glitches.get("tol_grad", 1e-3)
+    regu_param = inferencesettings.kwargs_glitches.get("regu_param", 7)
+    nguesses = inferencesettings.kwargs_glitches.get("nguesses", 200)
+
+    if glitchmethod == "freq":
         param, _, _, ier = fit_fq(
             freqs,
             num_of_n,
@@ -160,14 +179,14 @@ def compute_glitchseqs(
             ac_depths["dtauHe"],
             ac_depths["tauCZ"],
             ac_depths["dtauCZ"],
-            npoly_fq=fitfreqs["npoly_params"],
-            total_num_of_param_fq=nparams,
-            nderiv_fq=fitfreqs["nderiv"],
-            tol_grad_fq=fitfreqs["tol_grad"],
-            regu_param_fq=fitfreqs["regu_param"],
-            num_guess=fitfreqs["nguesses"],
+            npoly_fq=npoly_params,
+            total_num_of_param_fq=len(num_of_n) * npoly_params + 7,
+            nderiv_fq=nderiv,
+            tol_grad_fq=tol_grad,
+            regu_param_fq=regu_param,
+            num_guess=nguesses,
         )
-    elif fitfreqs["glitchmethod"].lower() == "secdif":
+    elif glitchmethod == "second_differences":
         freq_sd = sd(freqs, num_of_n, icov_sd.shape[0])
         param, _, _, ier = fit_sd(
             freq_sd,
@@ -177,17 +196,15 @@ def compute_glitchseqs(
             ac_depths["dtauHe"],
             ac_depths["tauCZ"],
             ac_depths["dtauCZ"],
-            npoly_sd=fitfreqs["npoly_params"],
-            total_num_of_param_sd=fitfreqs["npoly_params"] + 7,
-            nderiv_sd=fitfreqs["nderiv"],
-            tol_grad_sd=fitfreqs["tol_grad"],
-            regu_param_sd=fitfreqs["regu_param"],
-            num_guess=fitfreqs["nguesses"],
+            npoly_sd=npoly_params,
+            total_num_of_param_sd=npoly_params + 7,
+            nderiv_sd=nderiv,
+            tol_grad_sd=tol_grad,
+            regu_param_sd=regu_param,
+            num_guess=nguesses,
         )
     else:
-        raise KeyError(
-            f"Invalid glitch-fitting method {fitfreqs['glitchmethod']} requested!"
-        )
+        raise KeyError(f"Invalid glitch-fitting method {glitchmethod} requested!")
     # If failed, don't overwrite NaNS in output
     if ier == 0:
         # Determine average amplitudes
@@ -196,7 +213,7 @@ def compute_glitchseqs(
             fmin=np.amin(freqs[:, 2]),
             fmax=np.amax(freqs[:, 2]),
             dnu=dnu,
-            method=fitfreqs["glitchmethod"],
+            glitchmethod=glitchmethod,
         )
         # Restructure glitch parameters
         glitchseq[0, :] = [AHe, param[-3], param[-2]]
@@ -205,16 +222,20 @@ def compute_glitchseqs(
     if sequence == "glitches":
         return glitchseq
     # Compute ratio sequence
-    ratios = freq_fit.compute_ratioseqs(
-        osckey, osc, sequence[1:], fitfreqs["threepoint"]
+    ratios = freq_fit.compute_ratio_sequences(
+        modes=modes,
+        sequence=sequence[1:],
+        threepoint=inferencesettings.kwargs_ratios.get("threepoint", False),
     )
+    assert ratios is not None
 
     # Stack arrays and return full sequence
     glitchseq = np.hstack((ratios, glitchseq))
+
     return glitchseq
 
 
-def _average_amplitudes(param, fmin, fmax, dnu=None, method="Freq"):
+def _average_amplitudes(param, fmin, fmax, dnu=None, glitchmethod="freq"):
     """
     Compute average amplitude of He and CZ signature
 
@@ -228,7 +249,7 @@ def _average_amplitudes(param, fmin, fmax, dnu=None, method="Freq"):
         Upper limit on frequency used in averaging (muHz)
     dnu : float
         An estimate of the large frequency separation, only
-        necessary for method "SecDif"
+        necessary for method "second_differences"
 
     Returns
     -------
@@ -239,8 +260,10 @@ def _average_amplitudes(param, fmin, fmax, dnu=None, method="Freq"):
     """
 
     # Check dnu is available for Second Deifferences method
-    if method.lower() == "secdif" and dnu is None:
-        raise ValueError("An estimate of dnu is necessary for the SecDif method!")
+    if glitchmethod.lower() == "second_differences" and dnu is None:
+        raise ValueError(
+            "An estimate of dnu is necessary for the second_differences method!"
+        )
 
     n0 = len(param) - 7
 
@@ -260,7 +283,7 @@ def _average_amplitudes(param, fmin, fmax, dnu=None, method="Freq"):
     )
 
     # Scale amplitudes from Freq to SecDif
-    if method.lower() == "secdif":
+    if glitchmethod.lower() == "second_differences":
         Acz /= (2.0 * np.sin(2.0 * np.pi * dnu * 1.0e-6 * param[n0 + 1])) ** 2
         Ahe /= (2.0 * np.sin(2.0 * np.pi * dnu * 1.0e-6 * param[n0 + 5])) ** 2
 

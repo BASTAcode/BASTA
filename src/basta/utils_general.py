@@ -644,11 +644,11 @@ def get_glitches(
             )
         else:
             datos = glitch_fit.compute_observed_glitches(
-                modes=modes,
                 sequence=sequence,
+                modes=modes,
                 dnu=globalseismicparams.get_scaled("dnufit")[0],
+                inferencesettings=inferencesettings,
                 kwargs=inferencesettings.kwargs_glitches,
-                debug=outputoptions.debug,
             )
 
         if datos is None:

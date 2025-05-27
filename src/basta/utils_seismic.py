@@ -470,13 +470,14 @@ def compute_ratio_covariances(
 def compute_glitch_covariances(
     nr: int,
     dnu: float,
-    numax: float,
     modes: core.ObservedFrequencies | core.ModelFrequencies | core.JoinedModes,
     sequence: str,
+    inferencesettings: core.InferenceSettings,
     nrealizations: int = 10000,
     covariance_estimator: str = "mcd",
 ) -> tuple[np.ndarray, np.ndarray]:
-    sequence_function = glitch_fit.compute_glitchseqs
+
+    sequence_function = glitch_fit.compute_sequence_of_glitches
     nvalues_valid = run_monte_carlo(
         nr=nr,
         modes=modes,
@@ -485,6 +486,7 @@ def compute_glitch_covariances(
         nrealizations=nrealizations,
         kwargs={
             "dnu": dnu,
+            "inferencesettings": inferencesettings,
         },
     )
     covariance_matrix = compute_covariance_matrix(

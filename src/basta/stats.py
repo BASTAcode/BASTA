@@ -447,7 +447,7 @@ def compute_ratio_log_likelihood(
     return log_likelihood, chi2, shapewarn
 
 
-def compute_glitches_log_likelihood(
+def compute_glitch_log_likelihood(
     star: core.Star,
     corrected_joinedmodes: core.JoinedModes,
     outputoptions: core.OutputOptions,
@@ -510,7 +510,7 @@ def compute_epsilondifferences_log_likelihood(
     dof: int = 50,
 ) -> tuple[float, float, int]:
     """
-    Compute seismic (glitches) log-likelihood
+    Compute seismic (psilon differences) log-likelihood
     """
     if corrected_joinedmodes is None:
         return np.inf, np.inf, shapewarn
