@@ -2,7 +2,7 @@ import numpy as np
 
 from typing import Any
 
-from basta import core, freq_fit, plot_seismic, stats, surfacecorrections
+from basta import core, constants, freq_fit, plot_seismic, stats, surfacecorrections
 from basta import utils_seismic as su
 from basta.constants import freqtypes
 
@@ -37,15 +37,42 @@ def plot_all_seismic(
 
     """
 
-    freqplots = plotconfig.freqplots
+    plots = []
 
     assert star.modes is not None
 
-    allfplots = freqplots[0] == True  # noqa: E712
-    if "allechelle" in freqplots:
-        freqplots += ["dupechelle", "echelle", "pairechelle"]
-    if any(x in freqtypes.rtypes for x in freqplots):
-        freqplots += ["ratios"]
+    if plotconfig.freqplots:
+        if isinstance(plotconfig.freqplots, list):
+            plots += plotconfig.freqplots
+            if "ratios" in plots:
+                plots += constants.freqtypes.defaultrtypes
+            if "epsilondifferences" in plots:
+                plots += constants.freqtypes.defaultepstypes
+        else:
+            if inferencesettings.has_any_seismic_case:
+                plots += ["dupechelle", "echelle", "pairechelle"]
+            if inferencesettings.has_ratios:
+                plots += [
+                    x
+                    for x in constants.freqtypes.rtypes
+                    if x in inferencesettings.fitparams
+                ]
+            if inferencesettings.has_glitches:
+                plots += [
+                    x
+                    for x in constants.freqtypes.glitches
+                    if x in inferencesettings.fitparams
+                ]
+            if inferencesettings.has_epsilondifferences:
+                plots += [
+                    x
+                    for x in constants.freqtypes.epsdiff
+                    if x in inferencesettings.fitparams
+                ]
+            if outputoptions.debug:
+                plots += [
+                    "cormap",
+                ]
 
     try:
         rawmaxmod = Grid[path + "/osc"][ind]
@@ -78,6 +105,7 @@ def plot_all_seismic(
         "_uncorrected",
     ]
 
+    assert joinedmodes is not None
     corrected_joinedmodes, coeffs = surfacecorrections.apply_surfacecorrection(
         joinedmodes=joinedmodes, star=star
     )
@@ -102,7 +130,7 @@ def plot_all_seismic(
         labels.append("")
 
     for x, label in zip(xs, labels):
-        if allfplots or "echelle" in freqplots:
+        if "echelle" in plots:
             plotname = f"echelle{label}"
             try:
                 plot_seismic.echelle(
@@ -114,7 +142,7 @@ def plot_all_seismic(
             except Exception as e:
                 print(f"\n{plotname} failed with the error:", e)
 
-        if allfplots or "pairechelle" in freqplots:
+        if "pairechelle" in plots:
             plotname = f"pairechelle{label}"
             try:
                 plot_seismic.echelle(
@@ -126,7 +154,7 @@ def plot_all_seismic(
             except Exception as e:
                 print(f"\n{plotname} failed with the error:", e)
 
-        if allfplots or "dupechelle" in freqplots:
+        if "dupechelle" in plots:
             plotname = f"dupechelle{label}"
             try:
                 plot_seismic.echelle(
@@ -138,7 +166,7 @@ def plot_all_seismic(
             except Exception as e:
                 print(f"\n{plotname} failed with the error:", e)
 
-    if "freqcormap" in freqplots or outputoptions.debug:
+    if "cormap" in plots:
         try:
             plot_seismic.correlation_map(
                 "freqs",
@@ -148,70 +176,71 @@ def plot_all_seismic(
         except Exception as e:
             print("\nFrequencies correlation map failed with the error:", e)
 
-    for ratiotype in plotconfig.freqplots:
-        if ratiotype == "ratios":
-            sequence = "r012"
-        else:
-            sequence = ratiotype
-        try:
-            ratnamestr = f"ratios_{ratiotype}"
-            plot_seismic.ratioplot(
-                star=star,
-                joinedmodes=joinedmodes,
-                model_modes=model_modes,
-                sequence=sequence,
-                outputfilename=filepaths.plotfile(ratnamestr),
-                kwargs_ratios=inferencesettings.kwargs_ratios,
-                interp_ratios=inferencesettings.interp_ratios,
-            )
-        except Exception as e:
-            print(
-                f"\nRatio plot for {ratiotype} sequence failed with the error:",
-                e,
-            )
-
-        if inputstar.correlations:
+    if any([x in constants.freqtypes.rtypes for x in plots]):
+        for sequence in constants.freqtypes.rtypes:
+            if not sequence in plots:
+                continue
             try:
-                plot_seismic.correlation_map(
-                    ratiotype,
-                    star,
-                    outputfilename=filepaths.plotfile(ratnamestr + "_cormap"),
+                ratnamestr = f"ratios_{sequence}"
+                plot_seismic.ratioplot(
+                    star=star,
+                    joinedmodes=joinedmodes,
+                    model_modes=model_modes,
+                    sequence=sequence,
+                    outputfilename=filepaths.plotfile(ratnamestr),
+                    kwargs_ratios=inferencesettings.kwargs_ratios,
+                    interp_ratios=inferencesettings.interp_ratios,
                 )
             except Exception as e:
                 print(
-                    f"\nRatio correlation map for {ratiotype} sequence failed with the error:",
+                    f"Ratio plot for {sequence} sequence failed with the error:",
+                    e,
+                )
+            if "cormap" in plots:
+                try:
+                    plot_seismic.correlation_map(
+                        sequence,
+                        star,
+                        outputfilename=filepaths.plotfile(ratnamestr + "_cormap"),
+                    )
+                except Exception as e:
+                    print(
+                        f"Ratio correlation map for {sequence} sequence failed with the error:",
+                        e,
+                    )
+
+    if any([x in constants.freqtypes.glitches for x in plots]):
+        for sequence in constants.freqtypes.rtypes:
+            if not sequence in plots:
+                continue
+            glitchnamestr = f"glitches_{sequence}"
+            assert quantities_at_runtime is not None
+            try:
+                plot_seismic.glitchplot(
+                    star,
+                    sequence,
+                    quantities_at_runtime["glitches"],
+                    maxPath=path,
+                    maxInd=np.argmax(selectedmodels[path].logPDF),
+                    outputfilename=filepaths.plotfile(glitchnamestr),
+                )
+            except Exception as e:
+                print(
+                    f"\nGlitch plot for {sequence} sequence failed with the error:",
                     e,
                 )
 
-    for glitchseq in plotconfig.freqplots:
-        if glitchseq not in freqtypes.glitches:
-            continue
-        glitchnamestr = f"glitches_{glitchseq}"
-        try:
-            plot_seismic.glitchplot(
-                star,
-                glitchseq,
-                quantities_at_runtime["glitches"],
-                maxPath=path,
-                maxInd=np.argmax(selectedmodels[path].logPDF),
-                outputfilename=filepaths.plotfile(glitchnamestr),
-            )
-        except Exception as e:
-            print(
-                f"\nGlitch plot for {glitchseq} sequence failed with the error:",
-                e,
-            )
-        if glitchseq != "glitches":
-            # TODO(Amalie): Implement different approach
-            ratiotype = glitchseq[1:]
+            # TODO(Amalie) Fix this plot
+            """
+            ratiotype = sequence[1:]
             ratnamestr = f"ratios_{ratiotype}"
             if ratiotype not in obsfreqdata:
                 mask = np.where(
-                    np.isin(obsfreqdata[glitchseq]["data"][2, :], [1.0, 2.0, 10.0])
+                    np.isin(obsfreqdata[sequence]["data"][2, :], [1.0, 2.0, 10.0])
                 )[0]
                 obsfreqdata[ratiotype] = {
-                    "data": obsfreqdata[glitchseq]["data"][:, mask],
-                    "cov": obsfreqdata[glitchseq]["cov"][np.ix_(mask, mask)],
+                    "data": obsfreqdata[sequence]["data"][:, mask],
+                    "cov": obsfreqdata[sequence]["cov"][np.ix_(mask, mask)],
                 }
             try:
                 plot_seismic.ratioplot(
@@ -228,46 +257,48 @@ def plot_all_seismic(
                     f"\nRatio plot for {ratiotype} sequence failed with the error:",
                     e,
                 )
-        if inputstar.correlations:
+            """
+            if "cormap" in plots:
+                try:
+                    plot_seismic.correlation_map(
+                        sequence,
+                        star,
+                        outputfilename=filepaths.plotfile(glitchnamestr + "_cormap"),
+                    )
+                except Exception as e:
+                    print(
+                        f"\nGlitch correlation map for {sequence} sequence failed with the error:",
+                        e,
+                    )
+
+    if any([x in constants.freqtypes.epsdiff for x in plots]):
+        for sequence in constants.freqtypes.epsdiff:
+            if not sequence in plots:
+                continue
             try:
-                plot_seismic.correlation_map(
-                    glitchseq,
-                    star,
-                    outputfilename=filepaths.plotfile(glitchnamestr + "_cormap"),
+                epsnamestr = f"epsdiff_{sequence}"
+                plot_seismic.epsilon_difference_diagram(
+                    model_modes=model_modes,
+                    moddnu=maxmoddnu,
+                    sequence=sequence,
+                    star=star,
+                    outputfilename=filepaths.plotfile(epsnamestr),
                 )
             except Exception as e:
                 print(
-                    f"\nGlitch correlation map for {glitchseq} sequence failed with the error:",
+                    f"\nEpsilon difference plot for {sequence} sequence failed with the error:",
                     e,
                 )
 
-    for epsseq in plotconfig.freqplots:
-        if epsseq not in freqtypes.epsdiff:
-            continue
-        try:
-            epsnamestr = f"epsdiff_{epsseq}"
-            plot_seismic.epsilon_difference_diagram(
-                model_modes=model_modes,
-                moddnu=maxmoddnu,
-                sequence=epsseq,
-                star=star,
-                outputfilename=filepaths.plotfile(epsnamestr),
-            )
-        except Exception as e:
-            print(
-                f"\nEpsilon difference plot for {epsseq} sequence failed with the error:",
-                e,
-            )
-
-        if inputstar.correlations:
-            try:
-                plot_seismic.correlation_map(
-                    epsseq,
-                    star,
-                    outputfilename=filepaths.plotfile(epsnamestr + "_cormap"),
-                )
-            except Exception as e:
-                print(
-                    f"\nEpsilon difference correlation map for {epsseq} sequence failed with the error:",
-                    e,
-                )
+            if "cormap" in plots:
+                try:
+                    plot_seismic.correlation_map(
+                        sequence,
+                        star,
+                        outputfilename=filepaths.plotfile(epsnamestr + "_cormap"),
+                    )
+                except Exception as e:
+                    print(
+                        f"\nEpsilon difference correlation map for {sequence} sequence failed with the error:",
+                        e,
+                    )
