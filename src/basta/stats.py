@@ -1263,24 +1263,66 @@ def chi_for_plot(selectedmodels):
     return maxPDFchi2, minchi2
 
 
-def quantile_1D(data, weights, quantile):
+def quantile_1D(
+    data: np.ndarray,
+    weights: np.ndarray,
+    quantile: float | np.ndarray,
+    nan_safe: bool = True,
+) -> np.ndarray:
     """
     Compute the weighted quantile of a 1D numpy array.
-    The function is borrowed from the Python package wquantiles
 
     Parameters
     ----------
-    data : ndarray
-        Input array (one dimension).
-    weights : ndarray
-        Array with the weights of the same size of `data`.
-    quantile : float
-        Quantile to compute. It must have a value between 0 and 1.
+    data : np.ndarray
+        Input array (1D).
+    weights : np.ndarray
+        Weights array, same shape as `data`.
+    quantile : float or array-like
+        Quantile(s) to compute, must be between 0 and 1.
+    nan_safe : bool, optional
+        If True, automatically removes NaNs from data and weights.
+        If False, any NaN will cause the result to be NaN.
 
     Returns
     -------
-    result : float
-        The output value.
+    result : np.ndarray
+        Computed quantile values (same shape as `quantile` input).
+    """
+    data = np.asarray(data)
+    weights = np.asarray(weights)
+    quantile = np.asarray(quantile)
+
+    if data.shape != weights.shape:
+        raise ValueError("Data and weights must have the same shape.")
+
+    if nan_safe:
+        mask = np.isfinite(data) & np.isfinite(weights)
+        data = data[mask]
+        weights = weights[mask]
+
+    if len(data) == 0 or np.sum(weights) == 0:
+        # Return NaNs matching quantile shape if degenerate input
+        return np.full_like(quantile, np.nan, dtype=float)
+
+    ind_sorted = np.argsort(data)
+    sorted_data = data[ind_sorted]
+    sorted_weights = weights[ind_sorted]
+
+    Sn = np.cumsum(sorted_weights)
+    total_weight = Sn[-1]
+    Pn = (Sn - 0.5 * sorted_weights) / total_weight
+
+    # Check monotonicity (should normally be fine, but just in case)
+    if np.any(np.diff(Pn) < 0):
+        raise ValueError("Computed cumulative weights are not monotonic.")
+
+    result = np.interp(quantile, Pn, sorted_data)
+
+    if np.any(np.isnan(result)):
+        print("Warning: NaN encountered in quantile_1D result.")
+
+    return result
     """
     # Sort the data
     ind_sorted = np.argsort(data)
@@ -1295,6 +1337,7 @@ def quantile_1D(data, weights, quantile):
     assert not np.any(np.isnan(result)), "NaN encounted in quantile_1D."
 
     return result
+    """
 
 
 def posterior(x, nonzeroprop, sampled_indices, nsigma=0.25):

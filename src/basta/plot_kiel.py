@@ -9,7 +9,7 @@ import numpy as np
 
 from basta import core, constants, stats
 from basta import fileio as fio
-from basta import utils_general as gu
+from basta import utils_general as util
 from basta import utils_seismic as su
 from basta.downloader import get_basta_dir
 
@@ -49,13 +49,11 @@ def plot_param(
         The designated plotting color for the parameter, see 'constants.py'
     """
     # Find out if there are multiple segments in track
-    where_skip = np.where(np.diff(all_segments) != 1)[0]
+    segment_breaks = np.where(np.diff(all_segments) != 1)[0]
 
-    # If only one, plot the whole segment
-    if len(where_skip) == 0:
+    if len(segment_breaks) == 0:
         segments = [list(all_segments)]
     else:
-        # If multiple segments, plot each individually
         segment_breaks = np.append(segment_breaks, len(all_segments) - 1)
         segments = [
             list(all_segments[start : end + 1])
@@ -289,8 +287,8 @@ def kiel(
         max_logPDF = selectedmodels[maxPDF_path].logPDF.max()
         for track in tracks:
             # Make a copy to allow manipulation
-            xs = gu.h5py_to_array(grid[track + "/Teff"])
-            ys = gu.h5py_to_array(grid[track + "/logg"])
+            xs = util.h5py_to_array(grid[track + "/Teff"])
+            ys = util.h5py_to_array(grid[track + "/logg"])
 
             # Special treatment to plot points color-coded by likelihood
             if color_by_likelihood:
