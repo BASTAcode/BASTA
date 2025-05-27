@@ -283,15 +283,6 @@ def plot_all_seismic(
         for sequence in constants.freqtypes.epsdiff:
             if not sequence in plots:
                 continue
-            epsnamestr = f"epsdiff_{sequence}"
-            plot_seismic.epsilon_difference_diagram(
-                model_modes=model_modes,
-                model_dnu=maxmoddnu,
-                sequence=sequence,
-                star=star,
-                outputfilename=filepaths.plotfile(epsnamestr),
-            )
-            """
             try:
                 epsnamestr = f"epsdiff_{sequence}"
                 plot_seismic.epsilon_difference_diagram(
@@ -306,7 +297,6 @@ def plot_all_seismic(
                     f"\nEpsilon difference plot for {sequence} sequence failed with the error:",
                     e,
                 )
-            """
 
             if "cormap" in plots:
                 try:
