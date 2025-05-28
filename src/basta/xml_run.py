@@ -78,6 +78,20 @@ def _find_get(
     return val
 
 
+def get_validated_param(source, element_path, key, valid_values, default):
+    try:
+        element = source.find(element_path)
+        value = element.get("value", "").lower() if element is not None else default
+        if value not in valid_values:
+            raise ValueError(
+                f"{key.capitalize()} must be one of {valid_values}, but got '{value}'"
+            )
+    except (AttributeError, ValueError) as e:
+        print(f"Warning: {e}")
+        value = default
+    return value
+
+
 def _define_centroid_and_uncertainties(
     root: ET.Element, inputparams: dict[str, Any]
 ) -> dict[str, Any]:
@@ -97,83 +111,55 @@ def _define_centroid_and_uncertainties(
     inputparams : dict
         Updated dictionary of input parameters
     """
-    try:
-        centroid_element = root.find("default/centroid")
-        if centroid_element is not None:
-            inputparams["centroid"] = centroid_element.get("value", "").lower()
-        else:
-            inputparams["centroid"] = "median"
-        if inputparams["centroid"] not in {"median", "mean"}:
-            raise ValueError(
-                f"Centroid must be either 'median' or 'mean', but got '{inputparams['centroid']}'"
-            )
-    except (AttributeError, ValueError) as e:
-        inputparams["centroid"] = "median"
-        print(f"Warning: {e}")
 
-    try:
-        uncert_element = root.find("default/uncert")
-        if uncert_element is not None:
-            inputparams["uncert"] = uncert_element.get("value", "").lower()
-        else:
-            inputparams["uncert"] = "quantiles"
-        if inputparams["uncert"] not in {"quantiles", "std"}:
-            raise ValueError(
-                f"Uncertainty must be either 'quantiles' or 'std', but got '{inputparams['uncert']}'"
-            )
-    except (AttributeError, ValueError) as e:
-        inputparams["uncert"] = "quantiles"
-        print(f"Warning: {e}")
+    inputparams["centroid"] = get_validated_param(
+        root, "default/centroid", "centroid", {"median", "mean"}, "median"
+    )
+    inputparams["uncert"] = get_validated_param(
+        root, "default/uncert", "uncert", {"quantiles", "std"}, "quantiles"
+    )
 
     return inputparams
 
 
 def _get_true_or_list(
-    params: list[ET.Element],
+    params: list[Any],
     deflist: list[str] | None = None,
     check: bool = True,
+    from_xml: bool = True,
 ) -> list[str] | list[bool]:
     """
-    Handles input lists that may be set to True to follow a default behavior or
-    specified parameters for custom behavior.
+    Handles input lists from XML elements or json strings.
 
     Parameters
     ----------
     params : list
         The inputted list
-    deflist : list
-        List to copy, if input in params is simply True
-    check : bool
-        Whether to check the entrances in the list with available parameters in
-        BASTA, defined in `basta.constants.parameters`
+    deflist : list, optional
+        Default list if params is 'True'
+    check : bool, optional
+        Whether to filter against valid parameters
+    from_xml : bool, optional
+        If True, extracts .tag from XML elements; if False, uses strings directly
 
     Returns
     -------
-    extract : list
-        - Returns an empty list if `params` is empty or 'False'.
-        - Returns `[True]` if `params` is 'True' and `deflist` is `None`.
-        - Returns `deflist` if `params` is 'True' and `deflist` exists.
-        - Otherwise, extracts the tags from `params`.
-
-    Notes
-    -----
-    - If `check` is True, filters the extracted list based on available parameters.
+    list[str] or list[bool]
     """
     if not params:
         return []
 
-    first_tag = params[0].tag.lower()
+    get_value = (lambda p: p.tag.lower()) if from_xml else (lambda p: str(p).lower())
 
-    if len(params) == 1:
-        if first_tag == "true":
-            if deflist is None:
-                return [True]
-            deflist[:]
-        if first_tag == "false":
-            return []
-        return [first_tag]
+    first_tag = get_value(params[0])
 
-    extract = [par.tag for par in params]
+    if first_tag == "false":
+        return []
+
+    if first_tag == "true":
+        return [True] if deflist is None else deflist.copy()
+
+    extract = [get_value(par) for par in params]
 
     if check and deflist is not None:
         checklist = {"distance", "parallax", *parameters.names}
@@ -1247,7 +1233,7 @@ def run_xml(
                         "threepoint": inputparams["fitfreqs"]["threepoint"],
                     },
                     kwargs_glitches={
-                        "nrealizations": inputparams["fitfreqs"]["nrealizations"],
+                        "nrealizations": 200,  # inputparams["fitfreqs"]["nrealizations"],
                     },
                     kwargs_epsilondifferences={
                         "nsorting": inputparams["fitfreqs"]["nsorting"],

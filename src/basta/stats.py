@@ -487,23 +487,25 @@ def compute_glitch_log_likelihood(
         for sequence in np.unique(model_glitches["id"]):
             if sequence in [7, 8, 9]:
                 continue
-            joinmask = model_glitches["id"] == sequence
-            broadmask = model_glitches_full["id"] == sequence
-            if np.amin(model_glitches["frequency"][joinmask]) < np.amin(
-                model_glitches_full["frequency"][broadmask]
-            ) or np.amax(model_glitches["frequency"][joinmask]) > np.amax(
-                model_glitches_full["frequency"][broadmask]
-            ):
-                return np.inf, np.inf, shapewarn, None, None, None
+            obs_mask = model_glitches["id"] == sequence
+            mod_mask = model_glitches_full["id"] == sequence
+            obs_freqs = model_glitches[obs_mask]["frequency"]
+            mod_freqs = model_glitches_full[mod_mask]["frequency"]
+
+            # Check interpolation range
+            if obs_freqs[0] < mod_freqs[0] or mod_freqs[-1] < obs_freqs[-1]:
+                print("logic")
+                print(sequence)
+                print(obs_freqs)
+                print(mod_freqs)
+                return np.inf, np.inf, 2
 
             interp_func = interp1d(
-                model_glitches_full["frequency"][broadmask],
-                model_glitches_full["value"][broadmask],
+                mod_freqs,
+                model_glitches_full[mod_mask]["value"],
                 kind="linear",
             )
-            model_glitches["value"][joinmask] = interp_func(
-                model_glitches["frequency"][joinmask]
-            )
+            model_glitches[obs_mask]["value"] = interp_func(obs_freqs)
     else:
         model_glitches = glitch_fit.compute_glitchseqs(
             modes=modes,
@@ -514,6 +516,9 @@ def compute_glitch_log_likelihood(
             debug=outputoptions.debug,
         )
 
+    print(model_glitches)
+    print(observed_glitches)
+    raise SystemExit
     x = model_glitches["value"] - observed_glitches["ratio"]
     w = _weight(len(x), star.modes.seismicweights)
 
