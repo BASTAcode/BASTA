@@ -653,8 +653,8 @@ def compute_ratio_sequences(
     radial_n = modes.of_angular_degree(0)[n_column]
     dipole_freqs = modes.of_angular_degree(1)[frequency_column]
     dipole_n = modes.of_angular_degree(1)[n_column]
-    quadropole_freqs = modes.of_angular_degree(1)[frequency_column]
-    quadropole_n = modes.of_angular_degree(1)[n_column]
+    quadropole_freqs = modes.of_angular_degree(2)[frequency_column]
+    quadropole_n = modes.of_angular_degree(2)[n_column]
 
     r01 = (
         compute_r01(
