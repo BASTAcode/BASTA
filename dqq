@@ -1,0 +1,100 @@
+[35mcore.py[m[36m:[m    inverse_[1;31mcovariance[m: np.ndarray
+[35mcore.py[m[36m:[m    # Matrix with inverse [1;31mcovariance[ms of `values`
+[35mcore.py[m[36m:[m    inverse_[1;31mcovariance[m: np.ndarray
+[35mfileio.py[m[36m:[m    Read frequency [1;31mcovariance[ms from xml-file
+[35mfileio.py[m[36m:[m                    [1;31mcovariance[m = row.find("[1;31mcovariance[m")
+[35mfileio.py[m[36m:[m                    assert [1;31mcovariance[m is not None
+[35mfileio.py[m[36m:[m                    cov[ii, jj] = cov[jj, ii] = [1;31mcovariance[m.get("value")
+[35mfileio.py[m[36m:[m    corresponding [1;31mcovariance[m matrix
+[35mfileio.py[m[36m:[m        Read also the [1;31mcovariance[ms in the individual frequencies
+[35mfileio.py[m[36m:[m        Array including [1;31mcovariance[ms in the frequencies. If ``covarfre`` is
+[35mfileio.py[m[36m:[m    provided in this file as well, for [1;31mcovariance[m between them.
+[35mfileio.py[m[36m:[m    # Read data and [1;31mcovariance[m matrix
+[35mfileio.py[m[36m:[m    Read the precomputed ratios and [1;31mcovariance[m matrix from xml-file.
+[35mfileio.py[m[36m:[m        True for reading [1;31mcovariance[m matrix from xml, False to assume no
+[35mfileio.py[m[36m:[m    # Either read [1;31mcovariance[m matrix or assume uncorrelated
+[35mfileio.py[m[36m:[m    Read the precomputed [1;31mcovariance[m matrix of the read precomputed ratios.
+[35mfileio.py[m[36m:[m                    "Could not find [1;31mcovariance[m between {0}(n={1}) and {2}(n={3}) in xml"
+[35mfileio.py[m[36m:[m            cov[ind1, ind2] = float(element.find("[1;31mcovariance[m").get("value"))
+[35mfileio.py[m[36m:[m        epsilon difference. It also contains the [1;31mcovariance[m matrix and its
+[35mfileio.py[m[36m:[m        Inside each case, you find the data (`data`), the [1;31mcovariance[m matrix
+[35mfileio.py[m[36m:[m    # Compute inverse [1;31mcovariance[m matrix
+[35mfileio.py[m[36m:[m        epsilon difference. It also contains the [1;31mcovariance[m matrix and its
+[35mfileio.py[m[36m:[m        Inside each case, you find the data (`data`), the [1;31mcovariance[m matrix
+[35mfileio.py[m[36m:[m    # As the inverse [1;31mcovariance[m matrix is actually what is used, compute it once
+[35mfileio.py[m[36m:[m    # Diagonalise [1;31mcovariance[m matrices if correlations is set to False
+[35mfileio.py[m[36m:[m        ascii-files with the extensions '.cov' (frequency [1;31mcovariance[ms),
+[35mfileio.py[m[36m:[m        '.ratios', '.cov010', and '.cov02' (ratios and their [1;31mcovariance[ms).
+[35mfileio.py[m[36m:[m        File containing [1;31mcovariance[ms, ends in `.cov`.
+[35mfileio.py[m[36m:[m        File containing precomputed ratio 010 [1;31mcovariance[ms, end in `.cov010`.
+[35mfileio.py[m[36m:[m        File containing precomputed ratio 02 [1;31mcovariance[ms, end in `.cov02`.
+[35mfileio.py[m[36m:[m    # Flags for existence of ratios and [1;31mcovariance[ms
+[35mfileio.py[m[36m:[m        # If [1;31mcovariance[ms are available, read them
+[35mfileio.py[m[36m:[m    # Look for ratios and their [1;31mcovariance[ms, read if available
+[35mfileio.py[m[36m:[m    # If needed for [1;31mcovariance[m, store mode id
+[35mfileio.py[m[36m:[m        # Double loop over [1;31mcovariance[m matrix row and columns
+[35mfileio.py[m[36m:[m            # Get modeid and create subsection of full [1;31mcovariance[m list
+[35mfileio.py[m[36m:[m                [1;31mcovariance[m = covf1["[1;31mcovariance[m"][f2_index]
+[35mfileio.py[m[36m:[m                SubElement(freq_corr_element, "[1;31mcovariance[m", {"value": str([1;31mcovariance[m)})
+[35mfileio.py[m[36m:[m            [1;31mcovariance[m = cov010["[1;31mcovariance[m"][i]
+[35mfileio.py[m[36m:[m            SubElement(ratio_corr_element, "[1;31mcovariance[m", {"value": str([1;31mcovariance[m)})
+[35mfileio.py[m[36m:[m            [1;31mcovariance[m = cov02["[1;31mcovariance[m"][i]
+[35mfileio.py[m[36m:[m            SubElement(ratio_corr_element, "[1;31mcovariance[m", {"value": str([1;31mcovariance[m)})
+[35mfileio.py[m[36m:[m    Read [1;31mcovariance[m and correlations for individual frequencies from an
+[35mfileio.py[m[36m:[m        Contains the angular degree, radial order, [1;31mcovariance[ms and
+[35mfileio.py[m[36m:[m            ("[1;31mcovariance[m", "float"),
+[35mfileio.py[m[36m:[m    Read [1;31mcovariance[m and correlations for frequency ratios from an
+[35mfileio.py[m[36m:[m        Contains the ratio type, radial order, [1;31mcovariance[ms and
+[35mfileio.py[m[36m:[m            ("[1;31mcovariance[m", "float"),
+[35mfreq_fit.py[m[36m:[m    and combined sequences, along with their [1;31mcovariance[m matrix and its
+[35mfreq_fit.py[m[36m:[m        [1;31mcovariance[m matrix.
+[35mfreq_fit.py[m[36m:[m    Compute epsilon differences and [1;31mcovariance[ms.
+[35mfreq_fit.py[m[36m:[m    For MonteCarlo sampling of the [1;31mcovariance[ms, it is replicated from the
+[35mfreq_fit.py[m[36m:[m    [1;31mcovariance[m determination of frequency ratios in BASTA, (sec 4.1.3 of
+[35mfreq_fit.py[m[36m:[m        If int: number of realisations used for MC-sampling the [1;31mcovariance[ms
+[35mfreq_fit.py[m[36m:[m        of [1;31mcovariance[ms. If True, nrealisations of 20,000 is used.
+[35mglitch_fit.py[m[36m:[m    Routine to compute glitch parameters (and ratios) with full [1;31mcovariance[m
+[35mglitch_fit.py[m[36m:[m        Determined [1;31mcovariance[m matrix of glitch parameters (and ratios)
+[35mglitch_fit.py[m[36m:[m    # Call routine for sampling [1;31mcovariance[m
+[35mglitch_sd.f95[m[36m:[m!     icov : (input) Inverse [1;31mcovariance[m matrix for second differences
+[35micov_sd.f95[m[36m:[m!     icov : (output) Real array containing the inverse [1;31mcovariance[m matrix
+[35micov_sd.f95[m[36m:[m      !Inverse of the [1;31mcovariance[m matrix
+[35micov_sd.f95[m[36m:[m        WRITE (*,'(A)') 'ERROR: Failed to invert [1;31mcovariance[m matrix!'
+[35mplot_seismic.py[m[36m:[m    obsratio_invcov = star.ratios[ratiotype].inverse_[1;31mcovariance[m
+[35mplot_seismic.py[m[36m:[m    Create a plot of the [1;31mcovariance[m confidence ellipse of *x* and *y*.
+[35mplot_seismic.py[m[36m:[m    obs_invcov = star.glitches[glitchtype].inverse_[1;31mcovariance[m
+[35mplot_seismic.py[m[36m:[m        epsilon difference. It also contains the [1;31mcovariance[m matrix and its
+[35mplot_seismic.py[m[36m:[m        Inside each case, you find the data (`data`), the [1;31mcovariance[m matrix
+[35mplot_seismic.py[m[36m:[m    obsepsdiff_invcov = star.epsilondifferences[sequence].inverse_[1;31mcovariance[m
+[35mplot_seismic.py[m[36m:[m        invcov = star.ratios[fittype].inverse_[1;31mcovariance[m
+[35mplot_seismic.py[m[36m:[m        invcov = star.epsilondifferences[fittype].inverse_[1;31mcovariance[m
+[35mplot_seismic.py[m[36m:[m        invcov = star.glitches[fittype].inverse_[1;31mcovariance[m
+[35mstats.py[m[36m:[m    if x.shape[0] != star.modes.inverse_[1;31mcovariance[m.shape[0]:
+[35mstats.py[m[36m:[m    r2 = (x.T @ star.modes.inverse_[1;31mcovariance[m @ x) / w
+[35mstats.py[m[36m:[m        Contains ratios, glitches, epsilon differences and [1;31mcovariance[m matrices.
+[35mstats.py[m[36m:[m        if x.shape[0] == star.modes.inverse_[1;31mcovariance[m.shape[0]:
+[35mstats.py[m[36m:[m            chi2rut += (x.T.dot(star.modes.inverse_[1;31mcovariance[m).dot(x)) / w
+[35mutils_general.py[m[36m:[mdef compute_inverse_[1;31mcovariance[mmatrix([1;31mcovariance[m: np.ndarray, inputstar: core.InputStar):
+[35mutils_general.py[m[36m:[m        [1;31mcovariance[m = np.diag(np.diag([1;31mcovariance[m))
+[35mutils_general.py[m[36m:[m    return compute_matrix_inverse([1;31mcovariance[m)
+[35mutils_general.py[m[36m:[mdef compute_matrix_inverse([1;31mcovariance[m: np.ndarray) -> np.ndarray:
+[35mutils_general.py[m[36m:[m        c_factor = scipy.linalg.cho_factor([1;31mcovariance[m, lower=True, check_finite=False)
+[35mutils_general.py[m[36m:[m            c_factor, np.eye([1;31mcovariance[m.shape[0]), check_finite=False
+[35mutils_general.py[m[36m:[m        covinv = np.linalg.pinv([1;31mcovariance[m, rcond=1e-8)
+[35mutils_general.py[m[36m:[m    covinv = compute_inverse_[1;31mcovariance[mmatrix([1;31mcovariance[m=obscov, inputstar=inputstar)
+[35mutils_general.py[m[36m:[m        inverse_[1;31mcovariance[m=covinv,
+[35mutils_general.py[m[36m:[m        covinv = compute_inverse_[1;31mcovariance[mmatrix(
+[35mutils_general.py[m[36m:[m            [1;31mcovariance[m=datos[1], inputstar=inputstar
+[35mutils_general.py[m[36m:[m        covinv = compute_inverse_[1;31mcovariance[mmatrix(datos[1], inputstar=inputstar)
+[35mutils_general.py[m[36m:[m        covinv = compute_inverse_[1;31mcovariance[mmatrix(datos[1], inputstar=inputstar)
+[35mutils_seismic.py[m[36m:[mfrom sklearn import [1;31mcovariance[m as skcov  # type: ignore[import]
+[35mutils_seismic.py[m[36m:[mdef compute_[1;31mcovariance[m_epsilondifferences
+[35mutils_seismic.py[m[36m:[m    Compute [1;31mcovariance[m matrix (and its inverse) using Monte Carlo realisations.
+[35mutils_seismic.py[m[36m:[m        Size of [1;31mcovariance[m matrix
+[35mutils_seismic.py[m[36m:[m        [1;31mcovariance[m matrix.
+[35mutils_seismic.py[m[36m:[m            "Science case for [1;31mcovariance[m matrix is not implemented"
+[35mutils_seismic.py[m[36m:[m    # Compute different perturbed realisations (Monte Carlo) for [1;31mcovariance[ms
+[35mutils_seismic.py[m[36m:[m        desc=f"Sampling {fittype} [1;31mcovariance[ms",
+[35mutils_seismic.py[m[36m:[m    # Compute robust [1;31mcovariance[m matrix
+[35mutils_seismic.py[m[36m:[m    tmpcov = skcov.MinCovDet().fit(nvalues_valid[:n_half]).[1;31mcovariance[m_
+[35mutils_seismic.py[m[36m:[m    fullcov = skcov.MinCovDet().fit(nvalues_valid).[1;31mcovariance[m_

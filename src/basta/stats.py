@@ -484,20 +484,17 @@ def compute_glitch_log_likelihood(
 
         # Separate and interpolate within the separate r01, r10 and r02 sequences
         # id = {7, 8, 9} are glitch parameters, can't interpolate those
-        for sequence in np.unique(model_glitches["id"]):
-            if sequence in [7, 8, 9]:
+        for id_value in np.unique(model_glitches["id"]):
+            if id_value in [7, 8, 9]:
                 continue
-            obs_mask = model_glitches["id"] == sequence
-            mod_mask = model_glitches_full["id"] == sequence
+            obs_mask = model_glitches["id"] == id_value
+            mod_mask = model_glitches_full["id"] == id_value
             obs_freqs = model_glitches[obs_mask]["frequency"]
             mod_freqs = model_glitches_full[mod_mask]["frequency"]
 
             # Check interpolation range
+            """
             if obs_freqs[0] < mod_freqs[0] or mod_freqs[-1] < obs_freqs[-1]:
-                print("logic")
-                print(sequence)
-                print(obs_freqs)
-                print(mod_freqs)
                 return np.inf, np.inf, 2
 
             interp_func = interp1d(
@@ -506,6 +503,11 @@ def compute_glitch_log_likelihood(
                 kind="linear",
             )
             model_glitches[obs_mask]["value"] = interp_func(obs_freqs)
+            """
+            assert len(obs_freqs) > 0, sequence
+            model_glitches[obs_mask]["value"] = np.interp(
+                x=obs_freqs, xp=mod_freqs, fp=model_glitches_full[mod_mask]["value"]
+            )  # , left=np.nan, right=np.nan)
     else:
         model_glitches = glitch_fit.compute_glitchseqs(
             modes=modes,
@@ -516,10 +518,7 @@ def compute_glitch_log_likelihood(
             debug=outputoptions.debug,
         )
 
-    print(model_glitches)
-    print(observed_glitches)
-    raise SystemExit
-    x = model_glitches["value"] - observed_glitches["ratio"]
+    x = model_glitches["value"] - observed_glitches["value"]
     w = _weight(len(x), star.modes.seismicweights)
 
     if x.shape[0] != star.glitches[sequence].inverse_covariance.shape[0]:
