@@ -218,6 +218,7 @@ def echelle(
     fmod, fmod_all, fobs, fobs_all, eobs, eobs_all = {}, {}, {}, {}, {}, {}
 
     for l in obsls:
+        l = int(l)
         mod_givenl = corrected_model_modes.of_angular_degree(l)
         obs_givenl = star.modes.modes.of_angular_degree(l)
         fmod_all[l] = mod_givenl["frequency"] / scalex
@@ -250,8 +251,8 @@ def echelle(
             fobs_all[obsls[0]] * dnu,
             xerr=eobs_all[obsls[0]],
             fmt=obsmarker,
-            mfc=colors["l" + obsls[0]],
-            ecolor=colors["l" + obsls[0]],
+            mfc=colors[f"l{obsls[0]}"],
+            ecolor=colors[f"l{obsls[0]}"],
             zorder=0,
             **errorbar_kwargs_base,  # type: ignore
         )
@@ -264,8 +265,8 @@ def echelle(
             fobs_all[obsls[0]] / dnu,
             xerr=eobs_all[obsls[0]],
             fmt=obsmarker,
-            mfc=colors["l" + obsls[0]],
-            ecolor=colors["l" + obsls[0]],
+            mfc=colors[f"l{obsls[0]}"],
+            ecolor=colors[f"l{obsls[0]}"],
             zorder=0,
             **errorbar_kwargs_base,  # type: ignore
         )
@@ -279,8 +280,8 @@ def echelle(
             fobs_all[l],
             xerr=eobs_all[l],
             fmt=obsmarker,
-            mfc=colors["l" + l],
-            ecolor=colors["l" + l],
+            mfc=colors[f"l{l}"],
+            ecolor=colors[f"l{l}"],
             zorder=1,
             **errorbar_kwargs_base,  # type: ignore
         )
@@ -290,8 +291,8 @@ def echelle(
                 fobs_all[l],
                 xerr=eobs_all[l],
                 fmt=obsmarker,
-                mfc=colors["l" + l],
-                ecolor=colors["l" + l],
+                mfc=colors[f"l{l}"],
+                ecolor=colors[f"l{l}"],
                 zorder=1,
                 **errorbar_kwargs_base,  # type: ignore
             )
@@ -301,8 +302,8 @@ def echelle(
             fmod_all[l] % modx,
             fmod_all[l],
             s=s[int(l)],
-            c=colors["l" + l],
-            marker=modmarkers["l" + l],
+            c=colors[f"l{l}"],
+            marker=modmarkers[f"l{l}"],
             zorder=2,
             **scatter_kwargs_case,  # type: ignore
         )
@@ -311,8 +312,8 @@ def echelle(
                 fmod_all[l] % modx - modx,
                 fmod_all[l],
                 s=s[int(l)],
-                c=colors["l" + l],
-                marker=modmarkers["l" + l],
+                c=colors[f"l{l}"],
+                marker=modmarkers[f"l{l}"],
                 zorder=2,
                 **scatter_kwargs_case,  # type: ignore
             )
@@ -327,8 +328,8 @@ def echelle(
                     fmod[l] % modx,
                     fmod[l],
                     s=sjoin[int(l)],
-                    c=colors["l" + l],
-                    marker=modmarkers["l" + l],
+                    c=colors[f"l{l}"],
+                    marker=modmarkers[f"l{l}"],
                     linewidths=1,
                     edgecolors="k",
                     zorder=3,
@@ -339,8 +340,8 @@ def echelle(
                         fmod[l] % modx - modx,
                         fmod[l],
                         s=sjoin[int(l)],
-                        c=colors["l" + l],
-                        marker=modmarkers["l" + l],
+                        c=colors[f"l{l}"],
+                        marker=modmarkers[f"l{l}"],
                         linewidths=1,
                         edgecolors="k",
                         zorder=3,
@@ -350,8 +351,8 @@ def echelle(
                     fobs[l],
                     xerr=eobs[l],
                     fmt=obsmarker,
-                    mfc=colors["l" + l],
-                    ecolor=colors["l" + l],
+                    mfc=colors[f"l{l}"],
+                    ecolor=colors[f"l{l}"],
                     zorder=1,
                     label=f"Measured $\\ell={l}$",
                 )
@@ -361,8 +362,8 @@ def echelle(
                         fobs[l],
                         xerr=eobs[l],
                         fmt=obsmarker,
-                        mfc=colors["l" + l],
-                        ecolor=colors["l" + l],
+                        mfc=colors[f"l{l}"],
+                        ecolor=colors[f"l{l}"],
                         zorder=1,
                     )
 
@@ -373,7 +374,7 @@ def echelle(
                         fobs=fobs[l],
                         modx=modx,
                         duplicatemode=duplicatemode,
-                        color=colors["l" + l],
+                        color=colors[f"l{l}"],
                         line_kwargs_base=line_kwargs_base,
                     )
 
@@ -626,12 +627,13 @@ def confidence_ellipse(
 
 def glitchplot(
     star: core.Star,
-    sequence,
+    sequence: str,
     modelvalues,
     maxPath,
     maxInd,
     outputfilename: Path | None,
 ) -> None:
+
     if star.glitches is None or sequence not in star.glitches:
         return
     labels = {
@@ -640,21 +642,23 @@ def glitchplot(
         9: r"$\tau_{\mathrm{He}}$ (s)",
     }
 
-    # Read in data
-    obs_glitches = star.glitches[sequence].values
-    obs_covinv = star.glitches[sequence].inverse_covariance
-    obs_errors = np.sqrt(1 / np.diag(obs_covinv))
+    glitches = star.glitches[sequence]
+    values = glitches.values
+    inv_cov = glitches.inverse_covariance
+    errors = np.sqrt(1 / np.diag(inv_cov))
+    cov = compute_matrix_inverse(inv_cov)
 
-    # TODO(Amalie) Why are we using the id in glitches/ratios as int and not just descriptive str?
-    mask_obs_aHe = obs_glitches["id"] == 7
-    mask_obs_dHe = obs_glitches["id"] == 8
-    mask_obs_tauHe = obs_glitches["id"] == 9
-    obs_aHe = obs_glitches[mask_obs_aHe]
-    error_obs_aHe = obs_errors[mask_obs_aHe]
-    obs_dHe = obs_glitches[mask_obs_dHe]
-    error_obs_dHe = obs_errors[mask_obs_dHe]
-    obs_tauHe = obs_glitches[mask_obs_tauHe]
-    error_obs_tauHe = obs_errors[mask_obs_tauHe]
+    def extract_obs_data(param_id):
+        mask = values["id"] == param_id
+        return values[mask], errors[mask], mask
+
+    obs_aHe, error_obs_aHe, mask_obs_aHe = extract_obs_data(7)
+    obs_dHe, error_obs_dHe, mask_obs_dHe = extract_obs_data(8)
+    obs_tauHe, error_obs_tauHe, mask_obs_tauHe = extract_obs_data(9)
+
+    model_aHe = (modelvalues[maxPath]["glitchparameters"]["aHe"][maxInd],)
+    model_dHe = (modelvalues[maxPath]["glitchparameters"]["dHe"][maxInd],)
+    model_tauHe = (modelvalues[maxPath]["glitchparameters"]["tauHe"][maxInd],)
 
     # Start figure
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))
@@ -673,8 +677,8 @@ def glitchplot(
 
     # AHe vs dHe
     ax[1, 0].errorbar(
-        obs_aHe["value"],
-        obs_dHe["value"],
+        obs_aHe,
+        obs_dHe,
         xerr=error_obs_aHe,
         yerr=error_obs_dHe,
         marker=".",
@@ -684,21 +688,20 @@ def glitchplot(
         label="Measured",
     )
     ax[1, 0].plot(
-        modelvalues[maxPath].AHe[maxInd],
-        modelvalues[maxPath].dHe[maxInd],
+        model_aHe,
+        model_dHe,
         "*",
         ms=20,
         color="#0072B2",
         zorder=2,
         label="Best fit",
     )
-    obs_cov = compute_matrix_inverse(obs_covinv)
     confidence_ellipse(
-        obs_aHe["value"],
+        obs_aHe,
         error_obs_aHe,
-        obs_dHe["value"],
+        obs_dHe,
         error_obs_dHe,
-        obs_cov[mask_obs_aHe, mask_obs_dHe],
+        cov[mask_obs_aHe, mask_obs_dHe],
         ax[1, 0],
         edgecolor="#D55E00",
         lw=1.5,
@@ -709,8 +712,8 @@ def glitchplot(
 
     # AHe vs tauHe
     ax[0, 0].errorbar(
-        obs_aHe["value"],
-        obs_tauHe["value"],
+        obs_aHe,
+        obs_tauHe,
         xerr=error_obs_aHe,
         yerr=error_obs_tauHe,
         marker=".",
@@ -720,8 +723,8 @@ def glitchplot(
         label="Measured",
     )
     ax[0, 0].plot(
-        modelvalues[maxPath].AHe[maxInd],
-        modelvalues[maxPath].tauHe[maxInd],
+        model_aHe,
+        model_tauHe,
         "*",
         ms=20,
         color="#0072B2",
@@ -729,11 +732,11 @@ def glitchplot(
         label="Best fit",
     )
     confidence_ellipse(
-        obs_aHe["value"],
+        obs_aHe,
         error_obs_aHe,
-        obs_tauHe["value"],
+        obs_tauHe,
         error_obs_tauHe,
-        obs_cov[mask_obs_aHe, mask_obs_tauHe],
+        cov[mask_obs_aHe, mask_obs_tauHe],
         ax[0, 0],
         edgecolor="#D55E00",
         lw=1.5,
@@ -744,8 +747,8 @@ def glitchplot(
 
     # tauHe vs dHe
     ax[1, 1].errorbar(
-        obs_tauHe["value"],
-        obs_dHe["value"],
+        obs_tauHe,
+        obs_dHe,
         xerr=error_obs_tauHe,
         yerr=error_obs_dHe,
         marker=".",
@@ -755,8 +758,8 @@ def glitchplot(
         label="Measured",
     )
     ax[1, 1].plot(
-        modelvalues[maxPath].tauHe[maxInd],
-        modelvalues[maxPath].dHe[maxInd],
+        model_tauHe,
+        model_dHe,
         "*",
         ms=20,
         color="#0072B2",
@@ -764,11 +767,11 @@ def glitchplot(
         label="Best fit",
     )
     confidence_ellipse(
-        obs_tauHe["value"],
+        obs_tauHe,
         error_obs_tauHe,
-        obs_dHe["value"],
+        obs_dHe,
         error_obs_dHe,
-        obs_cov[mask_obs_tauHe, mask_obs_dHe],
+        cov[mask_obs_tauHe, mask_obs_dHe],
         ax[1, 1],
         edgecolor="#D55E00",
         lw=1.5,

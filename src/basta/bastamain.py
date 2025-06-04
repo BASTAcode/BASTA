@@ -161,10 +161,6 @@ def _bastamain(
 
     # In some cases we need to store quantities computed at runtime
     quantities_at_runtime: dict[str, Any] = {}
-    if inferencesettings.has_glitches:
-        quantities_at_runtime["glitches"] = {}
-    if inferencesettings.fit_surfacecorrected_dnu:
-        quantities_at_runtime["surfacecorrected_dnu"] = {}
 
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.
@@ -195,12 +191,14 @@ def _bastamain(
 
             # Compute the log likelihood contributions of most stellar observables
             if np.any(index):
-                log_likelihood, chi2, shapewarn = stats.compute_log_likelihood(
-                    libitem,
-                    index=index,
-                    star=star,
-                    inferencesettings=inferencesettings,
-                    outputoptions=outputoptions,
+                log_likelihood, chi2, shapewarn, quantities_per_track = (
+                    stats.compute_log_likelihood(
+                        libitem,
+                        index=index,
+                        star=star,
+                        inferencesettings=inferencesettings,
+                        outputoptions=outputoptions,
+                    )
                 )
 
                 # Bayesian weights (across tracks/isochrones)
@@ -246,6 +244,14 @@ def _bastamain(
                 else:
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, posterior, chi2
+                    )
+                if inferencesettings.fit_surfacecorrected_dnu:
+                    quantities_at_runtime[group_name + name]["surfacecorrected_dnu"] = (
+                        quantities_per_track["surfacecorrected_dnu"]
+                    )
+                if inferencesettings.has_glitches:
+                    quantities_at_runtime[group_name + name]["glitchparameters"] = (
+                        quantities_per_track["glitchparameters"]
                     )
         # End loop over isochrones/tracks
         #######################################################################
@@ -333,7 +339,7 @@ def _bastamain(
             "Did not get any frequency file input, skipping ratios and echelle plots."
         )
 
-    # TODO(Amalie) Write quantities_computed_at_runtime to json file
+    # TODO(Amalie) Write quantities_at_runtime to json file
     if inferencesettings.fit_surfacecorrected_dnu or inferencesettings.has_glitches:
         pass
 

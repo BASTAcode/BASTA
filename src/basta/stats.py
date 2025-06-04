@@ -25,6 +25,9 @@ from basta import utils_general as util
 from basta import utils_seismic as su
 from basta.constants import freqtypes, statdata
 
+# TODO(Amalie) move these definitions to core?
+from basta.glitch_fit import AcDepths
+
 
 @dataclass(frozen=True)
 class Trackstats:
@@ -453,7 +456,7 @@ def compute_glitch_log_likelihood(
     corrected_joinedmodes: core.JoinedModes,
     inferencesettings: core.InferenceSettings,
     outputoptions: core.OutputOptions,
-    ac_depths: dict[str, Any],
+    ac_depths: AcDepths | None = None,
     shapewarn: int = 0,
     dist_type: str = "gaussian",
     dof: int = 50,
@@ -461,6 +464,8 @@ def compute_glitch_log_likelihood(
     """
     Compute seismic (glitches) log-likelihood
     """
+    assert star.modes is not None
+    assert star.glitches is not None
     surfacecorrected_dnu, _ = freq_fit.compute_dnufit(
         corrected_joinedmodes, star.globalseismicparams.get_original("numax")[0]
     )
@@ -509,8 +514,9 @@ def compute_glitch_log_likelihood(
                 x=obs_freqs, xp=mod_freqs, fp=model_glitches_full[mod_mask]["value"]
             )  # , left=np.nan, right=np.nan)
     else:
-        model_glitches = glitch_fit.compute_glitchseqs(
-            modes=modes,
+        # TODO(Amalie) is this really the corrected modes?
+        model_glitches = glitch_fit.compute_sequence_of_glitches(
+            modes=corrected_joinedmodes,
             sequence=sequence,
             dnu=surfacecorrected_dnu,
             inferencesettings=inferencesettings,
@@ -687,9 +693,9 @@ def compute_log_likelihood(
     outputoptions: core.OutputOptions,
     dist_type: str = "gaussian",
     dof: int = 50,
-) -> tuple[np.ndarray, np.ndarray, int]:
+) -> tuple[np.ndarray, np.ndarray, int, dict[str, Any]]:
     if not np.any(index):
-        return np.array([]), np.array([]), 0
+        return np.array([]), np.array([]), 0, {}
 
     quantities_per_track: dict[str, np.ndarray | dict[str, np.ndarray] | None] = {
         "surfacecorrected_dnu": None,
@@ -793,7 +799,7 @@ def compute_log_likelihood(
                     if ratio_evaluation[2] != 0:
                         shapewarn = ratio_evaluation[2]
             if inferencesettings.has_glitches:
-                sequences = []
+                sequences: list = []
                 for sequence in constants.freqtypes.rtypes:
                     if "g" + sequence in inferencesettings.fitparams:
                         sequences.extend("g" + sequence)
@@ -850,7 +856,7 @@ def compute_log_likelihood(
                 "tauHe": tauhe,
             }
 
-    return total_log_likelihood, chi2, shapewarn
+    return total_log_likelihood, chi2, shapewarn, quantities_per_track
 
 
 def chi2_astero(

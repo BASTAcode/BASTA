@@ -223,6 +223,14 @@ def plot_all_seismic(
                 continue
             glitchnamestr = f"glitches_{sequence}"
             assert quantities_at_runtime is not None
+            plot_seismic.glitchplot(
+                star,
+                sequence,
+                quantities_at_runtime["glitches"],
+                maxPath=path,
+                maxInd=np.argmax(selectedmodels[path].logPDF),
+                outputfilename=filepaths.plotfile(glitchnamestr),
+            )
             try:
                 plot_seismic.glitchplot(
                     star,
