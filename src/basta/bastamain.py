@@ -245,14 +245,19 @@ def _bastamain(
                     selectedmodels[group_name + name] = stats.Trackstats(
                         index, posterior, chi2
                     )
-                if inferencesettings.fit_surfacecorrected_dnu:
-                    quantities_at_runtime[group_name + name]["surfacecorrected_dnu"] = (
-                        quantities_per_track["surfacecorrected_dnu"]
-                    )
-                if inferencesettings.has_glitches:
-                    quantities_at_runtime[group_name + name]["glitchparameters"] = (
-                        quantities_per_track["glitchparameters"]
-                    )
+                if (
+                    inferencesettings.fit_surfacecorrected_dnu
+                    or inferencesettings.has_glitches
+                ):
+                    quantities_at_runtime[group_name + name] = {}
+                    if inferencesettings.fit_surfacecorrected_dnu:
+                        quantities_at_runtime[group_name + name][
+                            "surfacecorrected_dnu"
+                        ] = quantities_per_track["surfacecorrected_dnu"]
+                    if inferencesettings.has_glitches:
+                        quantities_at_runtime[group_name + name]["glitchparameters"] = (
+                            quantities_per_track["glitchparameters"]
+                        )
         # End loop over isochrones/tracks
         #######################################################################
     # End loop over metals

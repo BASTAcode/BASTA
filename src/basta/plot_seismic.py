@@ -628,9 +628,8 @@ def confidence_ellipse(
 def glitchplot(
     star: core.Star,
     sequence: str,
-    modelvalues,
-    maxPath,
-    maxInd,
+    modelvalues: dict[str, np.ndarray],
+    max_index: np.ndarray,
     outputfilename: Path | None,
 ) -> None:
 
@@ -656,9 +655,9 @@ def glitchplot(
     obs_dHe, error_obs_dHe, mask_obs_dHe = extract_obs_data(8)
     obs_tauHe, error_obs_tauHe, mask_obs_tauHe = extract_obs_data(9)
 
-    model_aHe = (modelvalues[maxPath]["glitchparameters"]["aHe"][maxInd],)
-    model_dHe = (modelvalues[maxPath]["glitchparameters"]["dHe"][maxInd],)
-    model_tauHe = (modelvalues[maxPath]["glitchparameters"]["tauHe"][maxInd],)
+    model_aHe = (modelvalues["aHe"][max_index],)
+    model_dHe = (modelvalues["dHe"][max_index],)
+    model_tauHe = (modelvalues["tauHe"][max_index],)
 
     # Start figure
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))

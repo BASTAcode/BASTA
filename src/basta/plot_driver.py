@@ -226,8 +226,7 @@ def plot_all_seismic(
             plot_seismic.glitchplot(
                 star,
                 sequence,
-                quantities_at_runtime["glitches"],
-                maxPath=path,
+                quantities_at_runtime[path]["glitchparameters"],
                 maxInd=np.argmax(selectedmodels[path].logPDF),
                 outputfilename=filepaths.plotfile(glitchnamestr),
             )
@@ -235,8 +234,7 @@ def plot_all_seismic(
                 plot_seismic.glitchplot(
                     star,
                     sequence,
-                    quantities_at_runtime["glitches"],
-                    maxPath=path,
+                    quantities_at_runtime[path]["glitchparameters"],
                     maxInd=np.argmax(selectedmodels[path].logPDF),
                     outputfilename=filepaths.plotfile(glitchnamestr),
                 )
