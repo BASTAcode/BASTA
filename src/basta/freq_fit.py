@@ -89,11 +89,6 @@ def make_intervals(
 
     radial = data.of_angular_degree(0)
     fl0 = radial["frequency"]
-    """
-    osckeyl0, oscl0 = su.get_givenl(l=0, osc=osc, osckey=osckey)
-    fl0 = oscl0[0, :]
-    nl0 = osckeyl0[1, :]
-    """
 
     if dnu is None:
         dnu = np.median(np.diff(fl0))
@@ -430,7 +425,6 @@ def compute_ratios(
         threepoint=kwargs_ratios.get("threepoint", False),
     )
 
-    # Check for valid return
     if ratios is None:
         return None
 
@@ -470,7 +464,7 @@ def _create_ratio_array(
 
 def _is_valid(frequencies: np.ndarray, ns: np.ndarray) -> bool:
     """
-    Common check if ratio can be computed
+    Check: can the ratio sequence be computed?
     """
     return len(frequencies) > 0 and len(frequencies) == (ns[-1] - ns[0] + 1)
 
@@ -590,9 +584,11 @@ def compute_r10(
         return None
 
     if n0[0] - 1 >= n1[0]:
-        i00, i01 = 0, n0[0] - n1[0] - 1
+        i00 = 0
+        i01 = n0[0] - n1[0] - 1
     else:
-        i00, i01 = n1[0] - n0[0] + 1, 0
+        i00 = n1[0] - n0[0] + 1
+        i01 = 0
 
     if threepoint:
         nr = min(n0[-1] - n0[i00], n1[-1] - n1[i01])
@@ -944,6 +940,15 @@ Epsilon difference fitting
 """
 
 
+def compute_epsilon(
+    modes: np.ndarray,
+    average_dnu: float,
+    frequency_column: str = "frequency",
+    n_column: str = "n",
+) -> np.ndarray:
+    return modes[frequency_column] / average_dnu - modes[n_column] - modes["l"] / 2
+
+
 def compute_epsilondifferences(
     average_dnu: float,
     numax: float,
@@ -996,6 +1001,7 @@ def compute_epsilondifferences(
     epsdiff_cov : array
         Covariances matrix.
     """
+
     if isinstance(modes, core.JoinedModes):
         frequency_column = "model_frequency"
         n_column = "model_n"
@@ -1005,17 +1011,13 @@ def compute_epsilondifferences(
 
     radial_freqs = modes.of_angular_degree(0)[frequency_column]
     radial_n = modes.of_angular_degree(0)[n_column]
-    dipole_freqs = modes.of_angular_degree(1)[frequency_column]
-    dipole_n = modes.of_angular_degree(1)[n_column]
-    quadropole_freqs = modes.of_angular_degree(1)[frequency_column]
-    quadropole_n = modes.of_angular_degree(1)[n_column]
 
     # Remove modes outside of l=0 range
     if kwargs_epsilondifferences.get("extrapolation", False):
         mask = (
             np.amin(radial_freqs)
             < modes.data[frequency_column]
-            <= np.amax(radial_freqs[1])
+            <= np.amax(radial_freqs)
         )
         if debug and any(~mask):
             print(
@@ -1087,7 +1089,6 @@ def compute_sequence_of_epsilondifferences(
         Array containing epsilon differences.
     """
 
-    # Select the sequence(s) to use
     sequence_map = {
         "e012": [1, 2],
         "e02": [2],
@@ -1097,14 +1098,6 @@ def compute_sequence_of_epsilondifferences(
         raise KeyError(f"Undefined epsilon difference sequence: '{sequence}'")
 
     epsilon_ls = sequence_map[sequence]
-
-    def compute_epsilon(
-        modes: np.ndarray,
-        average_dnu: float,
-        frequency_column: str = "frequency",
-        n_column: str = "n",
-    ) -> np.ndarray:
-        return modes[frequency_column] / average_dnu - modes[n_column] - modes["l"] / 2
 
     radial_modes = modes.of_angular_degree(0)
     radial_epsilon = compute_epsilon(
@@ -1121,17 +1114,19 @@ def compute_sequence_of_epsilondifferences(
     )
     radial_epsilon_interp = CubicSpline(radial_modes[frequency_column], radial_epsilon)
 
-    # Collect epsilon differences for selected l values
     ns = []
     ls: list = []
     diffs = []
     frequencies = []
+
     for given_l in epsilon_ls:
         mask = modes.data["l"] == given_l
         frequencies_l = modes.data[frequency_column][mask]
         epsilon_l = epsilon[mask]
         eps0_at_frequencies = radial_epsilon_interp(frequencies_l)
+
         diff = eps0_at_frequencies - epsilon_l
+
         ns.extend(modes.data[n_column][mask])
         ls.extend(np.ones(np.sum(mask)) * given_l)
         diffs.extend(diff)
