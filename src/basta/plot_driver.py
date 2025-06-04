@@ -227,7 +227,7 @@ def plot_all_seismic(
                 star,
                 sequence,
                 quantities_at_runtime[path]["glitchparameters"],
-                maxInd=np.argmax(selectedmodels[path].logPDF),
+                max_index=np.argmax(selectedmodels[path].logPDF),
                 outputfilename=filepaths.plotfile(glitchnamestr),
             )
             try:
@@ -235,7 +235,7 @@ def plot_all_seismic(
                     star,
                     sequence,
                     quantities_at_runtime[path]["glitchparameters"],
-                    maxInd=np.argmax(selectedmodels[path].logPDF),
+                    max_index=np.argmax(selectedmodels[path].logPDF),
                     outputfilename=filepaths.plotfile(glitchnamestr),
                 )
             except Exception as e:
