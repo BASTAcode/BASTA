@@ -214,17 +214,17 @@ def echelle(
         else None
     )
 
-    obsls = star.modes.modes.possible_angular_degrees.astype(str)
+    obsls = star.modes.modes.possible_angular_degrees
     fmod, fmod_all, fobs, fobs_all, eobs, eobs_all = {}, {}, {}, {}, {}, {}
 
     for l in obsls:
-        mod_givenl = corrected_model_modes.of_angular_degree(int(l))
-        obs_givenl = star.modes.modes.of_angular_degree(int(l))
+        mod_givenl = corrected_model_modes.of_angular_degree(l)
+        obs_givenl = star.modes.modes.of_angular_degree(l)
         fmod_all[l] = mod_givenl["frequency"] / scalex
         fobs_all[l] = obs_givenl["frequency"] / scalex
         eobs_all[l] = obs_givenl["error"] / scalex
         if corrected_joinedmodes is not None:
-            ljoin = corrected_joinedmodes.of_angular_degree(int(l))
+            ljoin = corrected_joinedmodes.of_angular_degree(l)
             fmod[l] = ljoin["model_frequency"] / scalex
             fobs[l] = ljoin["observed_frequency"] / scalex
             eobs[l] = ljoin["error"] / scalex
@@ -453,8 +453,8 @@ def ratioplot(
         return
 
     obs_ratios = star.ratios[sequence].values
-    obs_ratios_invcov = star.ratios[sequence].inverse_covariance
-    obs_ratios_err = np.sqrt(1 / np.diag(obs_ratios_invcov))
+    obs_ratios_covinv = star.ratios[sequence].inverse_covariance
+    obs_ratios_err = np.sqrt(1 / np.diag(obs_ratios_covinv))
 
     if interp_ratios:
         model_ratios = freq_fit.compute_ratio_sequences(
@@ -641,9 +641,20 @@ def glitchplot(
     }
 
     # Read in data
-    obsparams = star.glitches[sequence].values
-    obs_invcov = star.glitches[sequence].inverse_covariance
-    obs_err = np.sqrt(1 / np.diag(obs_invcov))
+    obs_glitches = star.glitches[sequence].values
+    obs_covinv = star.glitches[sequence].inverse_covariance
+    obs_errors = np.sqrt(1 / np.diag(obs_covinv))
+
+    # TODO(Amalie) Why are we using the id in glitches/ratios as int and not just descriptive str?
+    mask_obs_aHe = obs_glitches["id"] == 7
+    mask_obs_dHe = obs_glitches["id"] == 8
+    mask_obs_tauHe = obs_glitches["id"] == 9
+    obs_aHe = obs_glitches[mask_obs_aHe]
+    error_obs_aHe = obs_errors[mask_obs_aHe]
+    obs_dHe = obs_glitches[mask_obs_dHe]
+    error_obs_dHe = obs_errors[mask_obs_dHe]
+    obs_tauHe = obs_glitches[mask_obs_tauHe]
+    error_obs_tauHe = obs_errors[mask_obs_tauHe]
 
     # Start figure
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))
@@ -662,10 +673,10 @@ def glitchplot(
 
     # AHe vs dHe
     ax[1, 0].errorbar(
-        obsparams[0, obsparams[2, :] == 7.0],
-        obsparams[0, obsparams[2, :] == 8.0],
-        xerr=obs_err[obsparams[2, :] == 7.0],
-        yerr=obs_err[obsparams[2, :] == 8.0],
+        obs_aHe["value"],
+        obs_dHe["value"],
+        xerr=error_obs_aHe,
+        yerr=error_obs_dHe,
         marker=".",
         linestyle="None",
         color="#D55E00",
@@ -681,13 +692,13 @@ def glitchplot(
         zorder=2,
         label="Best fit",
     )
-    obs_cov = compute_matrix_inverse(obs_invcov)
+    obs_cov = compute_matrix_inverse(obs_covinv)
     confidence_ellipse(
-        obsparams[0, obsparams[2, :] == 7.0],
-        obs_err[obsparams[2, :] == 7.0],
-        obsparams[0, obsparams[2, :] == 8.0],
-        obs_err[obsparams[2, :] == 8.0],
-        obs_cov[obsparams[2, :] == 7.0, obsparams[2, :] == 8.0],
+        obs_aHe["value"],
+        error_obs_aHe,
+        obs_dHe["value"],
+        error_obs_dHe,
+        obs_cov[mask_obs_aHe, mask_obs_dHe],
         ax[1, 0],
         edgecolor="#D55E00",
         lw=1.5,
@@ -698,10 +709,10 @@ def glitchplot(
 
     # AHe vs tauHe
     ax[0, 0].errorbar(
-        obsparams[0, obsparams[2, :] == 7.0],
-        obsparams[0, obsparams[2, :] == 9.0],
-        xerr=obs_err[obsparams[2, :] == 7.0],
-        yerr=obs_err[obsparams[2, :] == 9.0],
+        obs_aHe["value"],
+        obs_tauHe["value"],
+        xerr=error_obs_aHe,
+        yerr=error_obs_tauHe,
         marker=".",
         linestyle="None",
         color="#D55E00",
@@ -718,11 +729,11 @@ def glitchplot(
         label="Best fit",
     )
     confidence_ellipse(
-        obsparams[0, obsparams[2, :] == 7.0],
-        obs_err[obsparams[2, :] == 7.0],
-        obsparams[0, obsparams[2, :] == 9.0],
-        obs_err[obsparams[2, :] == 9.0],
-        obs_cov[obsparams[2, :] == 7.0, obsparams[2, :] == 9.0],
+        obs_aHe["value"],
+        error_obs_aHe,
+        obs_tauHe["value"],
+        error_obs_tauHe,
+        obs_cov[mask_obs_aHe, mask_obs_tauHe],
         ax[0, 0],
         edgecolor="#D55E00",
         lw=1.5,
@@ -733,10 +744,10 @@ def glitchplot(
 
     # tauHe vs dHe
     ax[1, 1].errorbar(
-        obsparams[0, obsparams[2, :] == 9.0],
-        obsparams[0, obsparams[2, :] == 8.0],
-        xerr=obs_err[obsparams[2, :] == 9.0],
-        yerr=obs_err[obsparams[2, :] == 8.0],
+        obs_tauHe["value"],
+        obs_dHe["value"],
+        xerr=error_obs_tauHe,
+        yerr=error_obs_dHe,
         marker=".",
         linestyle="None",
         color="#D55E00",
@@ -753,11 +764,11 @@ def glitchplot(
         label="Best fit",
     )
     confidence_ellipse(
-        obsparams[0, obsparams[2, :] == 9.0],
-        obs_err[obsparams[2, :] == 9.0],
-        obsparams[0, obsparams[2, :] == 8.0],
-        obs_err[obsparams[2, :] == 8.0],
-        obs_cov[obsparams[2, :] == 9.0, obsparams[2, :] == 8.0],
+        obs_tauHe["value"],
+        error_obs_tauHe,
+        obs_dHe["value"],
+        error_obs_dHe,
+        obs_cov[mask_obs_tauHe, mask_obs_dHe],
         ax[1, 1],
         edgecolor="#D55E00",
         lw=1.5,
@@ -798,8 +809,8 @@ def epsilon_difference_diagram(
     delab = r"$\delta\epsilon^{%s}_{0%d}$"
 
     obsepsdiff = star.epsilondifferences[sequence].values
-    obsepsdiff_invcov = star.epsilondifferences[sequence].inverse_covariance
-    diag = np.diag(obsepsdiff_invcov)
+    obsepsdiff_covinv = star.epsilondifferences[sequence].inverse_covariance
+    diag = np.diag(obsepsdiff_covinv)
     safe_diag = np.where(diag == 0, np.nan, diag)
     obsepsdiff_err = np.sqrt(1 / safe_diag)
 
@@ -946,7 +957,7 @@ def correlation_map(fittype, star, outputfilename: Path | None) -> None:
         if fittype not in star.ratios:
             return
         data = star.ratios[fittype].values
-        invcov = star.ratios[fittype].inverse_covariance
+        covinv = star.ratios[fittype].inverse_covariance
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
@@ -954,7 +965,7 @@ def correlation_map(fittype, star, outputfilename: Path | None) -> None:
         if fittype not in star.epsilondifferences:
             return
         data = star.epsilondifferences[fittype].values
-        invcov = star.epsilondifferences[fittype].inverse_covariance
+        covinv = star.epsilondifferences[fittype].inverse_covariance
         fmtstr = r"$\delta\epsilon_{{{:02d}}}({{{:d}}})$"
         ln_zip = zip(data[2, :], data[3, :])
 
@@ -962,7 +973,7 @@ def correlation_map(fittype, star, outputfilename: Path | None) -> None:
         if fittype not in star.glitches:
             return
         data = star.glitches[fittype].values
-        invcov = star.glitches[fittype].inverse_covariance
+        covinv = star.glitches[fittype].inverse_covariance
         fmtstr = r"$r_{{{:02d}}}({{{:d}}})$"
         if fittype != "glitches":
             ln_zip = zip(data[2, :-3], data[3, :-3])
@@ -986,8 +997,8 @@ def correlation_map(fittype, star, outputfilename: Path | None) -> None:
             labs.append(glitchlabels[int(sequence)])
 
     # Compute correlations
-    Dinv = np.diag(np.sqrt(np.diag(invcov)))
-    cor = Dinv @ (1 / invcov) @ Dinv
+    Dinv = np.diag(np.sqrt(np.diag(covinv)))
+    cor = Dinv @ (1 / covinv) @ Dinv
 
     # Produce figure
     fig, ax = plt.subplots(1, 1, figsize=(7.3, 6))
@@ -995,9 +1006,9 @@ def correlation_map(fittype, star, outputfilename: Path | None) -> None:
     plt.colorbar(im)
 
     # Beautify
-    ax.set_xticks(range(invcov.shape[1]))
+    ax.set_xticks(range(covinv.shape[1]))
     ax.set_xticklabels(labs, rotation=90)
-    ax.set_yticks(range(invcov.shape[1]))
+    ax.set_yticks(range(covinv.shape[1]))
     ax.set_yticklabels(labs)
     fig.tight_layout()
 
