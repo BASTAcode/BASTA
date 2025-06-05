@@ -430,7 +430,6 @@ def compute_ratio_log_likelihood(
     d = len(x)
 
     if not np.isfinite(r2) or r2 < 0:
-        print("r2 < 0")
         if outputoptions and outputoptions.debug and outputoptions.verbose:
             print("DEBUG: Invalid Mahalanobis distance, setting to inf")
         shapewarn = 1
@@ -537,7 +536,6 @@ def compute_glitch_log_likelihood(
     d = len(x)
 
     if not np.isfinite(r2) or r2 < 0:
-        print("r2 < 0")
         if outputoptions and outputoptions.debug and outputoptions.verbose:
             print("DEBUG: Invalid Mahalanobis distance, setting to inf")
         shapewarn = 1
@@ -694,6 +692,7 @@ def compute_log_likelihood(
     dist_type: str = "gaussian",
     dof: int = 50,
 ) -> tuple[np.ndarray, np.ndarray, int, dict[str, Any]]:
+
     if not np.any(index):
         return np.array([]), np.array([]), 0, {}
 
@@ -710,6 +709,7 @@ def compute_log_likelihood(
         classical_evaluation = compute_classical_log_likelihood(
             libitem=libitem, index=index, star=star, dist_type=dist_type, dof=dof
         )
+
         total_log_likelihood += classical_evaluation[0]
         chi2 += classical_evaluation[1]
 
@@ -717,6 +717,7 @@ def compute_log_likelihood(
         globalseismic_evaluation = compute_globalseismic_log_likelihood(
             libitem=libitem, index=index, star=star, dist_type=dist_type, dof=dof
         )
+
         total_log_likelihood += globalseismic_evaluation[0]
         chi2 += globalseismic_evaluation[1]
 
@@ -728,6 +729,7 @@ def compute_log_likelihood(
             inferencesettings=inferencesettings,
             outputoptions=outputoptions,
         )
+
         total_log_likelihood += distance_evaluation
 
     # These evaluations are done on a model-to-model basis
@@ -764,6 +766,7 @@ def compute_log_likelihood(
                     corrected_joinedmodes=corrected_joinedmodes,
                     outputoptions=outputoptions,
                 )
+
                 total_log_likelihood[idxidx] += mode_evaluation[0]
                 chi2[idxidx] += mode_evaluation[1]
                 shapewarn = mode_evaluation[2]
@@ -778,6 +781,7 @@ def compute_log_likelihood(
                     dist_type=dist_type,
                     dof=dof,
                 )
+
                 total_log_likelihood[idxidx] += surfcorr_evaluation[0]
                 chi2[idxidx] += surfcorr_evaluation[1]
                 surfacecorrected_dnu[idxidx] = surfcorr_evaluation[2]
@@ -786,6 +790,7 @@ def compute_log_likelihood(
                 for sequence in constants.freqtypes.rtypes:
                     if sequence not in inferencesettings.fitparams:
                         continue
+
                     ratio_evaluation = compute_ratio_log_likelihood(
                         sequence=sequence,
                         star=star,
@@ -794,18 +799,22 @@ def compute_log_likelihood(
                         inferencesettings=inferencesettings,
                         outputoptions=outputoptions,
                     )
+
                     total_log_likelihood[idxidx] += ratio_evaluation[0]
                     chi2[idxidx] += ratio_evaluation[1]
                     if ratio_evaluation[2] != 0:
                         shapewarn = ratio_evaluation[2]
+
             if inferencesettings.has_glitches:
                 sequences: list = []
                 for sequence in constants.freqtypes.rtypes:
                     if "g" + sequence in inferencesettings.fitparams:
                         sequences.extend("g" + sequence)
+
                 for sequence in constants.freqtypes.glitches + sequences:
                     if sequence not in inferencesettings.fitparams:
                         continue
+
                     glitch_evaluation = compute_glitch_log_likelihood(
                         sequence=sequence,
                         star=star,
@@ -819,18 +828,23 @@ def compute_log_likelihood(
                         inferencesettings=inferencesettings,
                         outputoptions=outputoptions,
                     )
+
                     total_log_likelihood[idxidx] += glitch_evaluation[0]
                     chi2[idxidx] += glitch_evaluation[1]
-                    shapewarn = glitch_evaluation[2]
-                    ahe[idxidx] = glitch_evaluation[2]
-                    dhe[idxidx] = glitch_evaluation[3]
-                    tauhe[idxidx] = glitch_evaluation[4]
+                    if glitch_evaluation[2] != 0:
+                        shapewarn = glitch_evaluation[2]
+                    ahe[idxidx] = glitch_evaluation[3]
+                    dhe[idxidx] = glitch_evaluation[4]
+                    tauhe[idxidx] = glitch_evaluation[5]
+
             if inferencesettings.has_epsilondifferences:
                 for sequence in constants.freqtypes.epsdiff:
                     if sequence not in inferencesettings.fitparams:
                         continue
+
                     model_dnu = libitem["dnufit"][idxidx]
                     model_numax = libitem["numax"][idxidx]
+
                     epsilondifferences_evaluation = (
                         compute_epsilondifferences_log_likelihood(
                             star=star,
@@ -841,12 +855,12 @@ def compute_log_likelihood(
                             outputoptions=outputoptions,
                         )
                     )
+
                     total_log_likelihood[idxidx] += epsilondifferences_evaluation[0]
                     chi2[idxidx] += epsilondifferences_evaluation[1]
                     if epsilondifferences_evaluation[2] != 0:
                         shapewarn = epsilondifferences_evaluation[2]
 
-        # TODO(Amalie) this could also be saved if just computed?
         if inferencesettings.fit_surfacecorrected_dnu:
             quantities_per_track["surfacecorrected_dnu"] = surfacecorrected_dnu
         if inferencesettings.has_glitches:

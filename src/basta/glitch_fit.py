@@ -107,6 +107,176 @@ class AcDepths(TypedDict):
     dtauCZ: float
 
 
+def compute_second_difference_for_mode(
+    freq: np.ndarray, current_idx: int
+) -> (np.ndarray, np.ndarray):
+    """
+    Compute second difference and error for a given mode
+    """
+    second_diff = (
+        freq[current_idx - 1, 2] - 2.0 * freq[current_idx, 2] + freq[current_idx + 1, 2]
+    )
+    combined_err = np.sqrt(
+        freq[current_idx - 1, 3] ** 2
+        + freq[current_idx + 1, 3] ** 2
+        + 4.0 * freq[current_idx, 3] ** 2
+    )
+    return second_diff, combined_err
+
+
+def compute_second_differences(
+    freq: np.ndarray,
+    num_of_n: list | np.ndarray,
+    num_of_l: int,
+    num_of_mode: int,
+    num_of_dif2: int,
+) -> np.ndarray:
+    """
+    Vectorized, Python version of the fortran routine sd.
+
+    Parameters
+    ----------
+    freq : ndarray of shape (num_of_mode, 4)
+        Columns: l, n, freq (muHz), err (muHz)
+    num_of_n : list or array of length num_of_l
+        Number of modes for each l
+    num_of_l : int
+        Number of harmonic degrees
+    num_of_mode : int
+        Total number of modes
+    num_of_dif2 : int
+        Number of second differences
+
+    Returns
+    -------
+    dif2 : ndarray of shape (num_of_dif2, 6)
+        Columns: l, n, freq (muHz), err (muHz), dif2 (muHz), err (muHz)
+    """
+
+    check_radial_orders(freq, num_of_n, num_of_l)
+    dif2 = np.zeros((num_of_dif2, 6), dtype=np.float64)
+
+    # Overall mode counter
+    mode_idx = 0
+    # Second difference counter
+    diff_idx = 0
+
+    for l_index in range(num_of_l):
+        n_count = num_of_n[l_index]
+        if n_count == 0:
+            continue
+
+        # Check radial order consistency
+        block = freq[mode_idx : mode_idx + n_count]
+        expected_n = int(round(block[-1, 1] - block[0, 1] + 1))
+        if expected_n != n_count:
+            raise ValueError(f"ERROR: Missing radial order! Check l = {l_index}")
+
+        if n_count >= 3:
+            # Slice center, previous, and next points
+            center = block[1:-1]
+            prev = block[:-2]
+            next_ = block[2:]
+
+            second_diff = prev[:, 2] - 2.0 * center[:, 2] + next_[:, 2]
+            combined_err = np.sqrt(
+                prev[:, 3] ** 2 + next_[:, 3] ** 2 + 4.0 * center[:, 3] ** 2
+            )
+
+            # Assemble result: l, n, freq, err, second_diff, combined_err
+            dif2_block = np.column_stack(
+                [
+                    center[:, 0],
+                    center[:, 1],
+                    center[:, 2],
+                    center[:, 3],
+                    second_diff,
+                    combined_err,
+                ]
+            )
+
+            dif2_list.append(dif2_block)
+
+        mode_idx += n_count
+
+    # Combine all l blocks into final array
+    if dif2_list:
+        dif2 = np.vstack(dif2_list)
+    else:
+        dif2 = np.zeros((0, 6), dtype=np.float64)  # empty fallback
+
+    return dif2
+
+
+def compute_icov(
+    num_of_l: int,
+    num_of_n: int,
+    freq: np.ndarray,
+    num_of_dif2: int,
+    cond_threshold=1e12,
+):
+    """
+    Python version of the Fortran routine `icov_sd`.
+    This Compute the inverse covariance matrix for second differences.
+
+    Parameters
+    ----------
+    num_of_l : int
+        Number of harmonic degrees
+    num_of_n : array-like
+        Number of modes per l
+    freq : ndarray (num_of_mode, 4)
+        Columns: l, n, freq, err
+    num_of_dif2 : int
+        Number of second differences
+    cond_threshold : float
+        Condition number threshold to switch to pseudo-inverse
+
+    Returns
+    -------
+    icov : ndarray (num_of_dif2, num_of_dif2)
+        Inverse (or pseudo-inverse if singular) covariance matrix
+    """
+
+    num_of_mode = freq.shape[0]
+    jacob = np.zeros((num_of_dif2, num_of_mode), dtype=np.float64)
+
+    mode_idx = 0
+    diff_idx = 0
+    for l_index in range(num_of_l):
+        n_count = num_of_n[l_index]
+        if n_count == 0:
+            continue
+
+        for j in range(n_count - 2):
+            jacob[diff_idx, mode_idx + j] = 1.0
+            jacob[diff_idx, mode_idx + j + 1] = -2.0
+            jacob[diff_idx, mode_idx + j + 2] = 1.0
+            diff_idx += 1
+
+        mode_idx += n_count
+
+    # Build diagonal variance matrix
+    variance = freq[:, 3] ** 2  # (num_of_mode,)
+    cov = jacob @ np.diag(variance) @ jacob.T  # shape (num_of_dif2, num_of_dif2)
+
+    # Check condition number
+    cond_number = np.linalg.cond(cov)
+    print(f"Covariance matrix condition number: {cond_number:.2e}")
+
+    if cond_number > cond_threshold:
+        print("WARNING: Covariance matrix is ill-conditioned, using pseudo-inverse.")
+        icov = np.linalg.pinv(cov)
+    else:
+        try:
+            icov = np.linalg.inv(cov)
+        except np.linalg.LinAlgError:
+            print("WARNING: Matrix inversion failed, falling back to pseudo-inverse.")
+            icov = np.linalg.pinv(cov)
+
+    return icov
+
+
 def compute_sequence_of_glitches(
     modes: core.ObservedFrequencies | core.JoinedModes,
     sequence: str,
@@ -165,6 +335,7 @@ def compute_sequence_of_glitches(
 
     # Reformat frequencies for input to glitchmethod and filter out l=3
     mask = modes.data["l"] < 3
+
     if isinstance(modes, core.JoinedModes):
         frequency_column = "model_frequency"
         n_column = "model_n"
@@ -182,7 +353,7 @@ def compute_sequence_of_glitches(
 
     # Number of n values for each l
     num_of_n = np.array(
-        [sum(modes.data["l"] == given_l) for given_l in set(modes.data["l"])]
+        [np.sum(modes.data["l"] == given_l) for given_l in set(modes.data["l"])]
     )
     glitchmethod = inferencesettings.kwargs_glitches.get("glitchmethod", "freq")
     npoly_params = inferencesettings.kwargs_glitches.get("npoly_params", 5)
@@ -226,6 +397,7 @@ def compute_sequence_of_glitches(
         )
     else:
         raise KeyError(f"Invalid glitch-fitting method {glitchmethod} requested!")
+
     # If failed, don't overwrite NaNS in output
     if ier == 0:
         # Determine average amplitudes
@@ -241,6 +413,7 @@ def compute_sequence_of_glitches(
         glitch_struct["id"] = [7, 8, 9]
     # If only glitches, return these
     if sequence == "glitches":
+        print("just glitches")
         return glitch_struct
     # Compute ratio sequence
     ratios = freq_fit.compute_ratio_sequences(

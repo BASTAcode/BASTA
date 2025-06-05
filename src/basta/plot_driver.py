@@ -189,13 +189,13 @@ def plot_all_seismic(
             if not sequence in plots:
                 continue
             try:
-                ratnamestr = f"ratios_{sequence}"
+                namestr = f"ratios_{sequence}"
                 plot_seismic.ratioplot(
                     star=star,
                     joinedmodes=joinedmodes,
                     model_modes=model_modes,
                     sequence=sequence,
-                    outputfilename=filepaths.plotfile(ratnamestr),
+                    outputfilename=filepaths.plotfile(namestr),
                     kwargs_ratios=inferencesettings.kwargs_ratios,
                     interp_ratios=inferencesettings.interp_ratios,
                 )
@@ -209,7 +209,7 @@ def plot_all_seismic(
                     plot_seismic.correlation_map(
                         sequence,
                         star,
-                        outputfilename=filepaths.plotfile(ratnamestr + "_cormap"),
+                        outputfilename=filepaths.plotfile(namestr + "_cormap"),
                     )
                 except Exception as e:
                     print(
@@ -223,18 +223,12 @@ def plot_all_seismic(
                 continue
             glitchnamestr = f"glitches_{sequence}"
             assert quantities_at_runtime is not None
-            plot_seismic.glitchplot(
-                star,
-                sequence,
-                quantities_at_runtime[path]["glitchparameters"],
-                max_index=np.argmax(selectedmodels[path].logPDF),
-                outputfilename=filepaths.plotfile(glitchnamestr),
-            )
             try:
                 plot_seismic.glitchplot(
                     star,
                     sequence,
-                    quantities_at_runtime[path]["glitchparameters"],
+                    quantities_at_runtime,
+                    max_path=path,
                     max_index=np.argmax(selectedmodels[path].logPDF),
                     outputfilename=filepaths.plotfile(glitchnamestr),
                 )
@@ -245,16 +239,26 @@ def plot_all_seismic(
                 )
 
             ratiotype = sequence[1:]
-            ratnamestr = f"ratios_{ratiotype}"
+            namestr = f"ratios_{ratiotype}"
+            print(namestr)
+            plot_seismic.ratioplot(
+                star=star,
+                joinedmodes=joinedmodes,
+                model_modes=model_modes,
+                sequence=ratiotype,
+                outputfilename=filepaths.plotfile(namestr),
+                kwargs_ratios=inferencesettings.kwargs_ratios,
+                interp_ratios=inferencesettings.interp_ratios,
+            )
             try:
                 plot_seismic.ratioplot(
-                    star,
-                    joinedmodes,
-                    model_modes,
-                    ratiotype,
-                    outputfilename=filepaths.plotfile(ratnamestr),
-                    threepoint=inputstar.threepoint,
-                    interp_ratios=inputstar.interp_ratios,
+                    star=star,
+                    joinedmodes=joinedmodes,
+                    model_modes=model_modes,
+                    sequence=ratiotype,
+                    outputfilename=filepaths.plotfile(namestr),
+                    kwargs_ratios=inferencesettings.kwargs_ratios,
+                    interp_ratios=inferencesettings.interp_ratios,
                 )
             except Exception as e:
                 print(

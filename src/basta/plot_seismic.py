@@ -628,7 +628,8 @@ def confidence_ellipse(
 def glitchplot(
     star: core.Star,
     sequence: str,
-    modelvalues: dict[str, np.ndarray],
+    quantities_at_runtime: dict[str, np.ndarray],
+    max_path: str,
     max_index: np.ndarray,
     outputfilename: Path | None,
 ) -> None:
@@ -649,29 +650,31 @@ def glitchplot(
 
     def extract_obs_data(param_id):
         mask = values["id"] == param_id
-        return values[mask], errors[mask], mask
+        return values["value"][mask], errors[mask], mask
 
     obs_aHe, error_obs_aHe, mask_obs_aHe = extract_obs_data(7)
     obs_dHe, error_obs_dHe, mask_obs_dHe = extract_obs_data(8)
     obs_tauHe, error_obs_tauHe, mask_obs_tauHe = extract_obs_data(9)
 
-    model_aHe = (modelvalues["aHe"][max_index],)
-    model_dHe = (modelvalues["dHe"][max_index],)
-    model_tauHe = (modelvalues["tauHe"][max_index],)
+    model_aHe = (quantities_at_runtime[max_path]["glitchparameters"]["aHe"][max_index],)
+    model_dHe = (quantities_at_runtime[max_path]["glitchparameters"]["dHe"][max_index],)
+    model_tauHe = (
+        quantities_at_runtime[max_path]["glitchparameters"]["tauHe"][max_index],
+    )
 
     # Start figure
     fig, ax = plt.subplots(2, 2, figsize=(8, 8))
     fig.delaxes(ax[0, 1])
 
     # Loop over each track to plot
-    for trackparams in modelvalues.values():
-        AHe = trackparams.AHe
-        dHe = trackparams.dHe[AHe > 1e-14]
-        tauHe = trackparams.tauHe[AHe > 1e-14]
-        AHe = AHe[AHe > 1e-14]
+    for trackparams in quantities_at_runtime.values():
+        aHe = trackparams["glitchparameters"]["aHe"]
+        dHe = trackparams["glitchparameters"]["dHe"][aHe > 1e-14]
+        tauHe = trackparams["glitchparameters"]["tauHe"][aHe > 1e-14]
+        aHe = aHe[aHe > 1e-14]
 
-        ax[1, 0].plot(AHe, dHe, ".", color="grey", ms=5, zorder=1)
-        ax[0, 0].plot(AHe, tauHe, ".", color="grey", ms=5, zorder=1)
+        ax[1, 0].plot(aHe, dHe, ".", color="grey", ms=5, zorder=1)
+        ax[0, 0].plot(aHe, tauHe, ".", color="grey", ms=5, zorder=1)
         ax[1, 1].plot(tauHe, dHe, ".", color="grey", ms=5, zorder=1)
 
     # AHe vs dHe
