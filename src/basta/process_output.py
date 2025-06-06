@@ -89,12 +89,12 @@ def compute_posterior(
 
     kielplots = plotconfig.kielplots
 
-    params = util.unique_unsort(outputoptions.asciiparams + cornerplots)
     fitparams = (
         star.classicalparams.params
         | star.globalseismicparams.params
         | star.distanceparams.params
     )
+    params = util.unique_unsort(outputoptions.asciiparams + cornerplots)
 
     # Initialize necessary arrays for results
     hout = ["starid"]

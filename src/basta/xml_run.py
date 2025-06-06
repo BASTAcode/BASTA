@@ -635,9 +635,11 @@ def run_xml(
             )
 
     # Extract plotting parameters, defaulting to fitparams if "True"
+    print(root.findall("default/outparams/"))
     asciiparams = unique_unsort(
         _get_true_or_list(root.findall("default/outparams/"), fitparams)
     )
+    asciiparams = _get_true_or_list(root.findall("default/outparams/"))
     inputparams.update(
         {
             "asciiparams": asciiparams,

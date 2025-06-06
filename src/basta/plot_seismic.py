@@ -432,6 +432,8 @@ def ratioplot(
     joinedmodes: core.JoinedModes,
     model_modes: core.ModelFrequencies,
     sequence: str,
+    obs_ratios: np.ndarray | None = None,
+    obs_ratios_covinv: np.ndarray | None = None,
     outputfilename: Path | None = None,
     kwargs_ratios: dict[str, Any] = {},
     interp_ratios: bool | int = True,
@@ -449,12 +451,14 @@ def ratioplot(
         to the frequencies of the observed ratios, in order to compare the
         sequences at the same frequencies.
     """
+    if obs_ratios is None or obs_ratios_covinv is None:
+        if star.ratios is None:
+            return
+        obs_ratios = star.ratios[sequence].values
+        obs_ratios_covinv = star.ratios[sequence].inverse_covariance
 
-    if star.ratios is None:
+    if len(obs_ratios) < 1:
         return
-
-    obs_ratios = star.ratios[sequence].values
-    obs_ratios_covinv = star.ratios[sequence].inverse_covariance
     obs_ratios_err = np.sqrt(1 / np.diag(obs_ratios_covinv))
 
     if interp_ratios:

@@ -240,9 +240,17 @@ def plot_all_seismic(
 
             ratiotype = sequence[1:]
             namestr = f"ratios_{ratiotype}"
-            print(namestr)
+            ratio_dtype = [
+                ("id", int),
+                ("n", int),
+                ("ratio", float),
+                ("frequency", float),
+            ]
+            ratios = np.array(star.glitches[sequence].values[:-3], dtype=ratio_dtype)
             plot_seismic.ratioplot(
                 star=star,
+                obs_ratios=ratios,
+                obs_ratios_covinv=star.glitches[sequence].inverse_covariance[:-3, :-3],
                 joinedmodes=joinedmodes,
                 model_modes=model_modes,
                 sequence=ratiotype,

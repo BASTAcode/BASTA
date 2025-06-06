@@ -57,6 +57,7 @@ def compute_observed_glitches(
     if sequence == "glitches":
         # Purely the three glitch parameters
         sequence_length = 3
+        ratios = None
     else:
         # Ratios and glitch parameters
         ratios = freq_fit.compute_ratio_sequences(
@@ -275,6 +276,95 @@ def compute_icov(
             icov = np.linalg.pinv(cov)
 
     return icov
+
+
+def matinv(A, use_pinv=False, cond_threshold=1e12):
+    """
+    Python version of the Fortran routine `matinv`.
+    This inverts a square matrix A.
+
+    Parameters
+    ----------
+    A : ndarray (N, N)
+        Input matrix to invert.
+    use_pinv : bool, optional
+        If True, always use pseudo-inverse.
+    cond_threshold : float, optional
+        Condition number threshold to switch to pseudo-inverse.
+
+    Returns
+    -------
+    AI : ndarray (N, N)
+        Inverse (or pseudo-inverse) of A.
+    """
+
+    A = np.array(A, dtype=np.float64)
+    if A.shape[0] != A.shape[1]:
+        raise ValueError("Input matrix A must be square.")
+
+    cond_number = np.linalg.cond(A)
+    print(f"Matrix condition number: {cond_number:.2e}")
+
+    if use_pinv or cond_number > cond_threshold:
+        print("Using pseudo-inverse (pinv).")
+        AI = np.linalg.pinv(A)
+    else:
+        try:
+            AI = np.linalg.inv(A)
+        except np.linalg.LinAlgError:
+            print("WARNING: Matrix inversion failed, falling back to pseudo-inverse.")
+            AI = np.linalg.pinv(A)
+
+    return AI
+
+
+def gauelm(A: np.ndarray, B: np.ndarray, compute_det=False) -> np.ndarray:
+    """
+    Python version of the Fortrain routine `gauelm`.
+    Solve linear system A X = B using Gaussian elimination with partial pivoting.
+
+    Parameters
+    ----------
+    A : ndarray (N, N)
+        Coefficient matrix.
+    B : ndarray (N,) or (N, NUM)
+        Right-hand side(s).
+    compute_det : bool, optional
+        If True, also compute determinant.
+
+    Returns
+    -------
+    X : ndarray
+        Solution array.
+    det : float (optional)
+        Determinant of A, if compute_det is True.
+    """
+    A = np.array(A, dtype=np.float64)
+    B = np.array(B, dtype=np.float64)
+
+    if A.shape[0] != A.shape[1]:
+        raise ValueError("Matrix A must be square.")
+    if B.shape[0] != A.shape[0]:
+        raise ValueError("B must have same number of rows as A.")
+
+    # Solve system
+    try:
+        X = np.linalg.solve(A, B)
+    except np.linalg.LinAlgError as e:
+        print(
+            "WARNING: Matrix is singular or nearly singular. Using least-squares solution."
+        )
+        X = np.linalg.lstsq(A, B, rcond=None)[0]
+
+    if compute_det:
+        try:
+            det = np.linalg.det(A)
+        except np.linalg.LinAlgError as e:
+            print("WARNING: Failed to compute determinant.")
+            det = np.nan
+        return X, det
+    else:
+        return X
 
 
 def compute_sequence_of_glitches(

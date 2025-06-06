@@ -503,7 +503,10 @@ def print_model_info(Grid, path, index, star, outputoptions, label, score):
     if "name" in Grid[path]:
         _bullet(f"Name: {Grid[path + '/name'][index].decode('utf-8')}", level=1)
 
-    for param in outputoptions.asciiparams:
+    asciiparams = [
+        constants.parameters.get_param_name(p) for p in outputoptions.asciiparams
+    ]
+    for param in asciiparams:
         if param == "distance":
             continue
         paramval = Grid[os.path.join(path, param)][index]

@@ -402,6 +402,7 @@ def get_parameter_values(parameter, Grid, selectedmodels, noofind):
     x_all : array
         parameter values
     """
+    parameter = constants.parameters.get_param_name(parameter)
     x_all = np.zeros(noofind)
     i = 0
     for modelpath in selectedmodels:

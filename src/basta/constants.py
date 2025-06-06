@@ -316,6 +316,12 @@ class parameters:
 
     names = [i[0] for i in params]
 
+    @classmethod
+    def get_param_name(cls, user_input):
+        # Create mapping from lowercase name to original name
+        name_map = {name.lower(): name for name, *_ in cls.params}
+        return name_map.get(user_input.lower())
+
     @staticmethod
     def exclude_params(excludeparams):
         """
@@ -355,7 +361,8 @@ class parameters:
             inputparams = list(inputparams)
 
         missing = []
-        for par in inputparams:
+        for name in inputparams:
+            par = parameters.get_param_name(name)
             entry = [i for i in classParams if i[0] == par]
             if not entry:
                 if par in [
