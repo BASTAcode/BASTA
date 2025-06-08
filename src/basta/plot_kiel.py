@@ -483,6 +483,7 @@ def kiel(
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     cl0 = modl0[0, same_n]
                     cl0 = cl0[0] if len(cl0 > 1) else cl0
+                    cl0 = cl0.item()
                     if not (
                         (
                             cl0

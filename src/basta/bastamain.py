@@ -251,7 +251,13 @@ def BASTA(
     )
 
     # Use a progress bar (with the package tqdm; will write to stderr)
-    pbar = tqdm(total=trackcounter, desc="--> Progress", ascii=True)
+    pbar = tqdm(
+        total=trackcounter,
+        desc="--> Progress",
+        ascii=True,
+        mininterval=10.0,
+        maxinterval=30.0,
+    )
     for FeH in metal:
         if "grid" not in defaultpath:
             group_name = f"{defaultpath}FeH={FeH:.4f}/"
@@ -345,8 +351,11 @@ def BASTA(
                     # then [0, 0] is the lowest l=0 mode
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     cl0 = modl0[0, same_n]
+                    if cl0.size == 0:
+                        continue
                     if len(cl0) > 1:
                         cl0 = cl0[0]
+                    cl0 = cl0.item()
 
                     # Note to self: This code is pretty hard to read...
                     if (
