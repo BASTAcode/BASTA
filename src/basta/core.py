@@ -199,7 +199,7 @@ class DistanceParameters:
     """
 
     params: dict[str, Fitparam]
-    magnitudes: dict[str, tuple[float, float]]
+    magnitudes: dict[str, Fitparam]
     coordinates: dict[str, Any]
     EBV: list[Any]
 
