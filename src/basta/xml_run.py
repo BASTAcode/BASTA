@@ -621,6 +621,7 @@ def run_xml(
     fitfreqs["active"] = any(param in freqtypes.alltypes for param in fitparams)
     fitfreqs["fittypes"] = [param for param in fitparams if param in freqtypes.alltypes]
     fitdist = "parallax" in fitparams  # If parallax is included, fit for distance
+    dnufrac = 0.15
 
     # Get global parameters
     overwriteparams: dict[str, tuple[float, float]] = {}
@@ -661,6 +662,7 @@ def run_xml(
 
     # Extract parameters for frequency fitting
     if fitfreqs["active"]:
+        dnufrac = float(_find_get(root, "default/freqparams/dnufrac", "value", 0.15))
         fitfreqs.update(
             {
                 "freqpath": _find_get(root, "default/freqparams/freqpath", "value"),
@@ -684,9 +686,6 @@ def run_xml(
                 ),
                 "readratios": strtobool(
                     _find_get(root, "default/freqparams/readratios", "value", "False")
-                ),
-                "dnufrac": float(
-                    _find_get(root, "default/freqparams/dnufrac", "value", 0.15)
                 ),
                 "dnufit_in_ratios": strtobool(
                     _find_get(
@@ -765,28 +764,37 @@ def run_xml(
     # Get priors
     priors: dict[str, Any] = {}
     imf: str | None = None
+    boxpriors: dict[str, core.PriorEntry] = {}
     for param in root.findall("default/priors/"):
-        if any(limit in param.attrib for limit in ["min", "max", "abstol", "sigmacut"]):
+        param_name = param.tag
+        limit_kwargs = {}
+
+        # Only include these if they are present
+        for key in ["min", "max", "abstol", "sigmacut"]:
+            if key in param.attrib:
+                limit_kwargs[key] = float(param.attrib[key])
+
+        if param.tag == "IMF":
+            assert not limit_kwargs
+            assert imf is None
+            imf = "salpeter1955"
+        elif param.tag in imfs.PRIOR_FUNCTIONS:
+            assert not limit_kwargs
+            assert imf is None
+            imf = param.tag
+        else:
+            assert limit_kwargs
             priors[param.tag] = [
                 float(param.attrib.get("min", -np.inf)),
                 float(param.attrib.get("max", np.inf)),
                 float(param.attrib.get("abstol", np.inf)),
                 float(param.attrib.get("sigmacut", np.inf)),
             ]
-        elif param.tag in [
-            "IMF",
-            "salpeter1955",
-            "millerscalo1979",
-            "kennicutt1994",
-            "scalo1998",
-            "kroupa2001",
-            "baldryglazebrook2003",
-            "chabrier2003",
-        ]:
-            assert imf is None
-            imf = param.tag
-        else:
-            raise ValueError
+            boxpriors[param_name] = core.PriorEntry(kwargs=limit_kwargs)
+    # Add dnufrac to priors
+    boxpriors["dnufrac"] = core.PriorEntry(kwargs={"dnufit": dnufrac})
+    # Add the constraint on the anchormode
+    boxpriors["anchormode"] = core.PriorEntry(kwargs={"dnufit": dnufrac})
 
     # Get interpolation if requested (and if available!), otherwise empty dictionary
     if root.find("default/interpolation"):
@@ -978,7 +986,6 @@ def run_xml(
                         "nrealizations": 10000,
                         "threepoint": False,
                         "readratios": False,
-                        "dnufrac": 0.15,
                         "dnufit_in_ratios": False,
                         "interp_ratios": True,
                         "nsorting": True,
@@ -1184,32 +1191,6 @@ def run_xml(
                     glitchfile=inputparams["fitfreqs"]["glitchfile"],
                     dnubias=inputparams["fitfreqs"]["dnubias"],
                 )
-                boxpriors: dict[str, core.PriorEntry] = {}
-                for param in root.findall("default/priors/"):
-                    param_name = param.tag
-                    kwargs = {}
-
-                    # Only include these if they are present
-                    for key in ["min", "max", "abstol", "sigmacut"]:
-                        if key in param.attrib:
-                            kwargs[key] = float(param.attrib[key])
-                    if param_name == "IMF":
-                        param_name = "salpeter1955"
-                    if param_name in imfs.PRIOR_FUNCTIONS:
-                        continue
-                    boxpriors[param_name] = core.PriorEntry(
-                        kwargs=kwargs if kwargs else {}
-                    )
-                # Add dnufrac to priors
-                if inputparams["fitfreqs"]["dnufrac"] is not None:
-                    boxpriors["dnufrac"] = core.PriorEntry(
-                        kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
-                    )
-                # Add the constraint on the anchormode
-                if inputparams["fitfreqs"]["dnufrac"] is not None:
-                    boxpriors["anchormode"] = core.PriorEntry(
-                        kwargs={"dnufit": inputparams["fitfreqs"]["dnufrac"]}
-                    )
 
                 inferencesettings = core.InferenceSettings(
                     fitparams=fitparams,
