@@ -1112,12 +1112,11 @@ def run_xml(
                 # Call BASTA itself!
                 distparams = core.DistanceParameters(
                     magnitudes={
-                        f: (m, m_err)
-                        for f, m, m_err in zip(
-                            inputparams["distanceparams"]["filters"],
-                            inputparams["distanceparams"]["m"].values(),
-                            inputparams["distanceparams"]["m_err"].values(),
+                        f: (
+                            inputparams["distanceparams"]["m"][f],
+                            inputparams["distanceparams"]["m_err"][f],
                         )
+                        for f in inputparams["distanceparams"]["filters"]
                     },
                     coordinates={
                         "frame": inputparams["distanceparams"]["dustframe"],
