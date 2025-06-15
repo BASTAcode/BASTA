@@ -871,10 +871,86 @@ def run_xml(
             )
 
             # Loop over stars
-            for star in root.findall("star"):
-                starid = star.get("starid")
-                assert starid is not None
-                assert isinstance(starid, str)
+            for star_xml in root.findall("star"):
+
+                class StarData(TypedDict):
+                    starid: str
+                    value: dict[str, float]
+                    error: dict[str, float]
+                    coordinates: dict[str, Any]
+                    dif: tuple[str, ...] | str | None
+                    phase: tuple[str, ...] | str | None
+                    EBV: list[Any]
+
+                def parse_star_xml(star_xml) -> StarData:
+                    starid = star_xml.get("starid")
+                    assert starid is not None
+                    assert isinstance(starid, str)
+                    dif: tuple[str, ...] | str | None = None
+                    phase: tuple[str, ...] | str | None = None
+                    param_name_set = set(parameters.names)
+                    value: dict[str, float] = {}
+                    error: dict[str, float] = {}
+                    EBV: list[Any] = []
+
+                    EBV_xml = star_xml.find("EBV")
+                    if EBV_xml is not None:
+                        EBV = [0, float(EBV_xml.attrib["value"]), 0]
+
+                    for kid in star_xml:
+                        if kid.tag == "dif":
+                            if "value" not in kid.attrib:
+                                continue
+                            value_str = kid.attrib["value"]
+                            dif = (
+                                tuple(value_str.split(","))
+                                if "," in value_str
+                                else value_str
+                            )
+                            continue
+                        if kid.tag == "phase":
+                            if "value" not in kid.attrib:
+                                continue
+                            value_str = kid.attrib["value"]
+                            phase = (
+                                tuple(value_str.split(","))
+                                if "," in value_str
+                                else value_str
+                            )
+                            continue
+                        if kid.tag in param_name_set or kid.tag in ("dnu", "parallax"):
+                            if "value" not in kid.attrib:
+                                continue
+                            assert (
+                                kid.tag == "dnu" or "dnu" not in kid.tag
+                            ), f"must specify <dnu>, not <{kid.tag}>"
+                            value[kid.tag] = float(kid.attrib["value"])
+                            if "error" in kid.attrib:
+                                error[kid.tag] = float(kid.attrib["error"])
+                            continue
+                    coordinates: dict[str, Any] = {
+                        "frame": _find_get(
+                            root, "default/distanceInput/dustframe", "value", ""
+                        ),
+                    }
+                    for coord in ["lon", "lat", "RA", "DEC"]:
+                        fc = star_xml.find(coord)
+                        if fc is not None:
+                            coordinates[coord] = float(fc.attrib["value"])
+                    return {
+                        "starid": starid,
+                        "value": value,
+                        "error": error,
+                        "coordinates": coordinates,
+                        "dif": dif,
+                        "phase": phase,
+                        "EBV": EBV,
+                    }
+
+                star_data = parse_star_xml(star_xml)
+                coordinates = star_data["coordinates"]
+
+                starid = star_data["starid"]
                 starfitparams: dict[str, core.Fitparam] = {}
                 skipstar = False
                 gridfile = grid
@@ -888,8 +964,6 @@ def run_xml(
 
                 # Get fitparameters for the given star
                 for param in fitparams:
-                    kid = star.find("dnu") if "dnu" in param else star.find(param)
-
                     if param in [
                         *overwriteparams,
                         *overwritephasedif,
@@ -897,23 +971,32 @@ def run_xml(
                     ]:
                         continue  # Skip special fitting keys, handled later
 
-                    val = kid.get("value") if kid is not None else None
-                    err = kid.get("error") if kid is not None else None
-
                     # Handle the special phase tag behaviour
-                    if param in ["phase", "dif"]:
-                        if val is None:
+                    if param == "phase":
+                        if star_data["phase"] is None:
                             inputparams.pop(param, None)
-                        elif "," in val:
-                            inputparams[param] = tuple(val.split(","))
                         else:
-                            inputparams[param] = val
-                    elif val is not None:
-                        assert err is not None
-                        starfitparams[param] = (
-                            float(val),
-                            float(err),
-                        )
+                            inputparams[param] = star_data["phase"]
+                        continue
+                    if param == "dif":
+                        if star_data["dif"] is None:
+                            inputparams.pop(param, None)
+                        else:
+                            inputparams[param] = star_data["dif"]
+                        continue
+                    kid_value = (
+                        star_data["value"].get("dnu")
+                        if "dnu" in param
+                        else star_data["value"].get(param)
+                    )
+                    kid_error = (
+                        star_data["error"].get("dnu")
+                        if "dnu" in param
+                        else star_data["error"].get(param)
+                    )
+                    if kid_value is not None:
+                        assert kid_error is not None
+                        starfitparams[param] = kid_value, kid_error
                     else:
                         skipstar = True
                         msg = f"Fitparameter '{param}' not provided for star {starid} and will be skipped"
@@ -956,15 +1039,13 @@ def run_xml(
                                 if fitfreqs["glitchfit"] and fitfreqs["readglitchfile"]
                                 else None
                             ),
-                            "dnufit": float(_find_get(star, "dnu", "value")),
-                            "numax": float(_find_get(star, "numax", "value")),
-                            "dnufit_err": float(
-                                _find_get(star, "dnu", "error", default="nan")
-                            ),
+                            "dnufit": star_data["value"]["dnu"],
+                            "numax": star_data["value"]["numax"],
+                            "dnufit_err": star_data["error"].get("dnu", float("nan")),
                         }
                     )
                     for fp in ["nottrustedfile", "excludemodes", "onlyradial"]:
-                        fp_element = star.find(fp)
+                        fp_element = star_xml.find(fp)
                         if fp_element is not None:
                             fitfreqs[fp] = fp_element.get("value")
                         else:
@@ -1015,58 +1096,21 @@ def run_xml(
                 # Add parallax and other distance parameters to dictionary
                 if fitdist:
                     assert distancefilters is not None
-                    # TODO(Amalie): add precise type for this in core
-                    distanceparams: dict[str, Any] = {
-                        "parallax": (
-                            [
-                                float(_find_get(star, "parallax", "value")),
-                                float(_find_get(star, "parallax", "error")),
-                            ]
-                            if "parallax" in fitparams
-                            else None
-                        ),
-                        "dustframe": _find_get(
-                            root, "default/distanceInput/dustframe", "value"
-                        ),
-                        "filters": distancefilters,
-                        "m": {},
-                        "m_err": {},
-                    }
-
-                    for coord in ["lon", "lat", "RA", "DEC"]:
-                        fc = star.find(coord)
-                        if fc is not None:
-                            distanceparams[coord] = float(fc.attrib["value"])
-
-                    # Load extinction or use dustmap
-                    EBV = star.find("EBV")
-                    if EBV is not None:
-                        distanceparams["EBV"] = [0, float(EBV.attrib["value"]), 0]
-                    else:
-                        distanceparams["EBV"] = []
+                    assert coordinates["frame"]
+                    if "parallax" in fitparams:
+                        assert star_data["value"]["parallax"] is not None
 
                     # Find available filters and load corresponding magnitudes
-                    for f in distanceparams["filters"]:
+                    magnitudes: dict[str, core.Fitparam] = {}
+                    for f in distancefilters:
                         try:
-                            star_f = star.find(f)
-                            assert star_f is not None
-                            distanceparams["m"][f] = float(star_f.attrib["value"])
-                            distanceparams["m_err"][f] = float(star_f.attrib["error"])
+                            magnitudes[f] = star_data["value"][f], star_data["error"][f]
                         except Exception:
                             print("WARNING: Could not find values for " + f)
-
-                    inputparams["distanceparams"] = distanceparams
                 else:
-                    inputparams["distanceparams"] = {
-                        "parallax": [],
-                        "dustframe": "",
-                        "filters": [],
-                        "m": {},
-                        "m_err": {},
-                        "RA": -9999,
-                        "DEC": -9999,
-                        "EBV": [],
-                    }
+                    coordinates.setdefault("RA", -9999)
+                    coordinates.setdefault("DEC", -9999)
+                    magnitudes = {}
 
                 # Seperate treatment of distance output file
                 if "distance" in inputparams["asciiparams"]:
@@ -1109,24 +1153,18 @@ def run_xml(
                         f"Unhandled Error: {e}",
                     )
 
+                distparamsparams: dict[str, core.Fitparam] = {}
+                if "parallax" in star_data["value"]:
+                    distparamsparams["parallax"] = (
+                        star_data["value"]["parallax"],
+                        star_data["error"]["parallax"],
+                    )
                 # Call BASTA itself!
                 distparams = core.DistanceParameters(
-                    magnitudes={
-                        f: (
-                            inputparams["distanceparams"]["m"][f],
-                            inputparams["distanceparams"]["m_err"][f],
-                        )
-                        for f in inputparams["distanceparams"]["filters"]
-                    },
-                    coordinates={
-                        "frame": inputparams["distanceparams"]["dustframe"],
-                        "RA": inputparams["distanceparams"]["RA"],
-                        "DEC": inputparams["distanceparams"]["DEC"],
-                    },
-                    params={
-                        "parallax": inputparams["distanceparams"]["parallax"],
-                    },
-                    EBV=inputparams["distanceparams"]["EBV"],
+                    magnitudes=magnitudes,
+                    coordinates=coordinates,
+                    params=distparamsparams,
+                    EBV=star_data["EBV"],
                 )
 
                 prefixes = ("dnu", "numax")
