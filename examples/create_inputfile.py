@@ -114,6 +114,11 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     The full list is available in constants.py
     define_fit["fitparams"] = ("Teff", "FeH", "logg")
 
+    model_bounds = {
+        "massfin": {"min": 0.5, "max": 2.0},
+        "age": {"min": 0.1, "max": 13.8},
+    }
+
     # ------------------------------------------------------------
     # BLOCK 2a: Fitting control, priors
     # ------------------------------------------------------------
@@ -502,6 +507,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         define_output,
         define_plots,
         define_intpol,
+        model_bounds,
     )
 
 

@@ -87,8 +87,6 @@ def BASTA(
     # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
     #     and 'Teff' instead of np.str_('Teff') to the .log file
 
-    print(f"Received model_bounds: {inputparams.get('model_bounds')}")
-
     np.set_printoptions(legacy="1.25")
 
     # Set output directory and filenames
@@ -558,7 +556,7 @@ def BASTA(
     best_age = Grid[maxPDF_path]["age"][maxPDF_ind] / 1000.0
 
     print(
-        rf"\nBest model has final mass of {best_massfin:.3f} $\mathrm{{M}}_\odot$ at age of {best_age:.3f} Gyr"
+        rf"Best model has final mass of {best_massfin:.3f} Msun at age of {best_age:.3f} Gyr"
     )
 
     # check if within bounds
@@ -571,15 +569,10 @@ def BASTA(
         final_ind = maxPDF_ind
     else:
         if not mass_ok:
-            # print(f"Best model massfin {best_massfin:.3f} $\\mathrm{{M}}_{{\\odot}}$ fails mass bounds [{mass_min}, {mass_max}]")
-            print(
-                rf"Best model (with {best_massfin:.3f} $\mathrm{{M}}_\odot$) fails mass bounds [{mass_min}, {mass_max}]"
-            )
+            print(rf"Best model fails mass bounds [{mass_min}, {mass_max}]")
 
         if not age_ok:
-            print(
-                f"Best model (with age {best_age:.3f} Gyr) fails age bounds [{age_min}, {age_max}]"
-            )
+            print(f"Best model fails age bounds [{age_min}, {age_max}]")
 
         print("Searching for alternative model...")
 
@@ -632,9 +625,8 @@ def BASTA(
             final_ind = best_ind_valid
             new_massfin = Grid[final_path]["massfin"][final_ind]
             new_age = Grid[final_path]["age"][final_ind] / 1000.0
-            print(f"New best model selected at {final_path} index {final_ind}")
             print(
-                rf"\nwith final mass and age: {new_massfin:.3f} $\mathrm{{M}}_\odot$, {new_age:.3f} Gyr"
+                rf"New best model selected at index {final_ind} with final mass {new_massfin:.3f} Msun and age {new_age:.3f} Gyr"
             )
         else:
             print(
@@ -648,18 +640,31 @@ def BASTA(
     final_age = Grid[final_path]["age"][final_ind] / 1000.0
 
     print(
-        f"\nFinal selected model for output. path = {final_path}, index = {final_ind}, massfin = {final_massfin:.3f} $\\mathrm{{M}}_{{\\odot}}$, age = {final_age:.3f} Gyr"
+        f"\nFinal selected model for output: index = {final_ind}, massfin = {final_massfin:.3f} Msun, age = {final_age:.3f} Gyr"
     )
+
+    full_stats = selectedmodels[
+        final_path
+    ]  # full statistics from original selectedmodels
+
+    # find relative index of final_ind within full_stats.index
+
+    if full_stats.index.dtype == bool:
+        relative_index = np.flatnonzero(full_stats.index).tolist().index(final_ind)
+    else:
+        relative_index = list(full_stats.index).index(final_ind)
+
+    final_logPDF = full_stats.logPDF[relative_index]
+    final_chi2 = full_stats.chi2[relative_index]
 
     # build selectedmodels containing only final model for downstream
     selectedmodels = {
         final_path: stats.Trackstats(
             index=np.array([final_ind]),
-            logPDF=np.array([-9999.0]),  # recompute this properly eventually
-            chi2=np.array([9999.0]),  # same for chi2
+            logPDF=np.array([final_logPDF]),
+            chi2=np.array([final_chi2]),
         )
     }
-
     # ----------------------------------------------------------------------------------
 
     stats.get_lowest_chi2(Grid, selectedmodels, inputparams)

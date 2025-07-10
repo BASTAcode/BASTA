@@ -666,7 +666,7 @@ def run_xml(
             if max_val is not None:
                 model_bounds[param_name]["max"] = float(max_val)
 
-    print(f"Parsed model_bounds from XML: {model_bounds}")
+    # print(f"Parsed model_bounds from XML: {model_bounds}")
     inputparams["model_bounds"] = model_bounds
     # ----------------------------------------------------------------------------------
 
