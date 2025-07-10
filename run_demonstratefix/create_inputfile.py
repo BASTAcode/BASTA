@@ -114,11 +114,6 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     The full list is available in constants.py
     define_fit["fitparams"] = ("Teff", "FeH", "alphaFe", "numax", "dnuSer")
 
-    model_bounds = {
-        "massfin": {"min": 0.5, "max": 2.0},
-        "age": {"min": 0.1, "max": 13.8},
-    }
-
     # ------------------------------------------------------------
     # BLOCK 2a: Fitting control, priors
     # ------------------------------------------------------------
@@ -329,6 +324,30 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     "tol_grad": 1e-3,
     #     "regu_param": 7,
     #     "nguesses": 200,
+    # }
+
+    # ------------------------------------------------------------
+    # BLOCK 2g: Fitting control, post-process age and mass filters
+    # ------------------------------------------------------------
+    # The stellar model grid extends to ages >13.8 Gyr to prevent edge effects
+    # in the posterior (see Section 3.1 of the BASTA II paper). However, for
+    # selecting final solutions, we often wish to enforce physical limits.
+
+    # For example:
+    # - To ensure ages respect cosmological limits (e.g., <13.8 Gyr)
+    # - To reject implausible solutions based on prior astrophysical knowledge
+    #   (e.g., GC stars older than 12 Gyr must have mass < 1 M_sun)
+
+    # These are **not true priors**: the full posterior is computed first,
+    # and filters are applied only when selecting the best-fit model.
+
+    # To apply no filtering, leave as None:
+    model_bounds = None
+
+    # To enable filtering, uncomment and modify as needed:
+    # model_bounds = {
+    #     "massfin": {"min": 0.5, "max": 1.2},
+    #     "age": {"min": 0.1, "max": 13.8},
     # }
 
     # ==================================================================================
