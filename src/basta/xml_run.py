@@ -650,6 +650,26 @@ def run_xml(
         else:
             usepriors.append(param.tag)
 
+    # ----------------------------------------------------------------------------------
+    # parse model bounds
+    # ----------------------------------------------------------------------------------
+    model_bounds = {}
+    bounds_elem = root.find("default/model_bounds")
+    if bounds_elem is not None:
+        for bound in bounds_elem:
+            param_name = bound.tag
+            min_val = bound.attrib.get("min")
+            max_val = bound.attrib.get("max")
+            model_bounds[param_name] = {}
+            if min_val is not None:
+                model_bounds[param_name]["min"] = float(min_val)
+            if max_val is not None:
+                model_bounds[param_name]["max"] = float(max_val)
+
+    print(f"Parsed model_bounds from XML: {model_bounds}")
+    inputparams["model_bounds"] = model_bounds
+    # ----------------------------------------------------------------------------------
+
     # Get interpolation if requested (and if available!), otherwise empty dictionary
     if root.find("default/interpolation"):
         if fitfreqs["active"]:

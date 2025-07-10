@@ -40,6 +40,7 @@ def generate_xml(
     freqplots: bool = False,
     optionaloutputs: bool = True,
     delimiter: str | None = None,
+    model_bounds: dict | None = None,
 ):
     """
     Converts an ascii table into an xml input file. Defines the properties
@@ -184,6 +185,22 @@ def generate_xml(
     # Add solar dnu and numax to <default>
     SubElement(default, "solardnu", {"value": str(sundnu)})
     SubElement(default, "solarnumax", {"value": str(sunnumax)})
+
+    # ----------------------------------------------------------------------------------
+    # Include final mass / age bounds in input xml
+    # ----------------------------------------------------------------------------------
+
+    if model_bounds:
+        modelboundselement = SubElement(default, "model_bounds")
+        for key, bound in model_bounds.items():
+            bound_dict = {}
+            if "min" in bound:
+                bound_dict["min"] = str(bound["min"])
+            if "max" in bound:
+                bound_dict["max"] = str(bound["max"])
+            SubElement(modelboundselement, key, bound_dict)
+
+    # ----------------------------------------------------------------------------------
 
     # Add solar model toggle to <default>
     if solarmodel is None or isinstance(solarmodel, bool):
