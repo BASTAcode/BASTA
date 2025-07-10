@@ -190,16 +190,6 @@ def generate_xml(
     # Include final mass / age bounds in input xml
     # ----------------------------------------------------------------------------------
 
-    # if model_bounds:
-    #     modelboundselement = SubElement(default, "model_bounds")
-    #     for key, bound in model_bounds.items():
-    #         bound_dict = {}
-    #         if "min" in bound:
-    #             bound_dict["min"] = str(bound["min"])
-    #         if "max" in bound:
-    #             bound_dict["max"] = str(bound["max"])
-    #         SubElement(modelboundselement, key, bound_dict)
-
     if model_bounds:
         modelboundselement = SubElement(default, "model_bounds")
         for key, bound in model_bounds.items():

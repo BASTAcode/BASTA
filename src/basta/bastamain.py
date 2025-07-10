@@ -566,7 +566,7 @@ def BASTA(
     mass_ok = mass_min <= best_massfin <= mass_max
     age_ok = age_min <= best_age <= age_max
 
-    # Extract strict filtering option from bounds
+    # strict filtering option from model_bounds
     strict_mode = bounds.pop("strict", "none").lower()
 
     if mass_ok and age_ok:
@@ -583,15 +583,13 @@ def BASTA(
         print("Searching for alternative model...")
 
         # initialize search variables
-        best_logPDF_valid = (
-            -np.inf
-        )  # highest log-likelihood found that meets mass and age bounds
-        best_path_valid = None  # HDF5 group path of best model
-        best_ind_valid = None  # index of best model
+        best_logPDF_valid = -np.inf
+        best_path_valid = None
+        best_ind_valid = None
 
         # loop over all selected models
         for path, stats_obj in selectedmodels.items():
-            lib = Grid[path]  # for each model, extract ...
+            lib = Grid[path]
             mass_arr = lib["massfin"][stats_obj.index]
             age_arr = lib["age"][stats_obj.index] / 1000.0
             logPDF_arr = stats_obj.logPDF
@@ -649,7 +647,6 @@ def BASTA(
                 final_path = maxPDF_path
                 final_ind = maxPDF_ind
 
-    # final selected model summary
     final_massfin = Grid[final_path]["massfin"][final_ind]
     final_age = Grid[final_path]["age"][final_ind] / 1000.0
 
@@ -672,6 +669,7 @@ def BASTA(
     final_chi2 = full_stats.chi2[relative_index]
 
     # build selectedmodels containing only final model for downstream
+
     selectedmodels = {
         final_path: stats.Trackstats(
             index=np.array([final_ind]),
