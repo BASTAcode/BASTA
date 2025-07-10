@@ -327,28 +327,37 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # }
 
     # ------------------------------------------------------------
-    # BLOCK 2g: Fitting control, post-process age and mass filters
+    # BLOCK 2g: Fitting control — post-processing filters on mass and age
     # ------------------------------------------------------------
-    # The stellar model grid extends to ages >13.8 Gyr to prevent edge effects
-    # in the posterior (see Section 3.1 of the BASTA II paper). However, for
-    # selecting final solutions, we often wish to enforce physical limits.
+    # The stellar model grids included extend beyond 13.8 Gyr to avoid edge effects
+    # in the posterior sampling (see Section 3.1 of the BASTA II paper).
+    # However, when selecting the final best-fit model, we may wish to impose
+    # physical constraints for interpretability. e.g.,
+    # - Enforcing a maximum age (e.g., 13.8 Gyr from cosmology)
+    # - Rejecting implausible stellar masses based on evolutionary stage
+    #   (e.g., very old GC stars should be < ~1 M_sun)
 
-    # For example:
-    # - To ensure ages respect cosmological limits (e.g., <13.8 Gyr)
-    # - To reject implausible solutions based on prior astrophysical knowledge
-    #   (e.g., GC stars older than 12 Gyr must have mass < 1 M_sun)
+    # Note: These are not priors — the full posterior is computed first,
+    # and filtering is applied only when selecting the final model.
 
-    # These are **not true priors**: the full posterior is computed first,
-    # and filters are applied only when selecting the best-fit model.
+    # configuration:
 
-    # To apply no filtering, leave as None:
-    model_bounds = None
+    # To apply no filtering:
+    # model_bounds = None
 
-    # To enable filtering, uncomment and modify as needed:
-    # model_bounds = {
-    #     "massfin": {"min": 0.5, "max": 1.2},
-    #     "age": {"min": 0.1, "max": 13.8},
-    # }
+    # To apply filtering, define any combination of:
+    # - "massfin": {"min": ..., "max": ...}
+    # - "age": {"min": ..., "max": ...}
+    # - "strict": controls behavior if no valid model is found:
+    #     False (or omitted) -- the solution falls back to the best model outside bounds
+    #     True -- skip output entirely if no valid model exists
+    #     "mass", "age", or "both" -- enforce strict filtering on one field only
+
+    model_bounds = {
+        "massfin": {"min": 0.4, "max": 2.0},
+        "age": {"min": 0.1, "max": 13.8},
+        "strict": "False",
+    }
 
     # ==================================================================================
     # BLOCK 3: Output control

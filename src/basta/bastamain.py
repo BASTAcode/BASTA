@@ -137,6 +137,9 @@ def BASTA(
     limits = inputparams.get("limits")
     bounds = inputparams.get("model_bounds", {})
 
+    if bounds is None:
+        bounds = {}
+
     # Scale dnu and numax using a solar model or default solar values
     inputparams = su.solar_scaling(Grid, inputparams, diffusion=difsolarmodel)
 
@@ -563,6 +566,9 @@ def BASTA(
     mass_ok = mass_min <= best_massfin <= mass_max
     age_ok = age_min <= best_age <= age_max
 
+    # Extract strict filtering option from bounds
+    strict_mode = bounds.pop("strict", "none").lower()
+
     if mass_ok and age_ok:
         print("Best model falls within mass and age bounds.")
         final_path = maxPDF_path
@@ -632,8 +638,16 @@ def BASTA(
             print(
                 "No models found within requested mass/age boundaries. Keeping original best model."
             )
-            final_path = maxPDF_path
-            final_ind = maxPDF_ind
+            if strict_mode in ("true", "both", "mass", "age"):
+                print(f"Strict filtering '{strict_mode}' enabled: Skipping output.")
+                Grid.close()
+                plt.close("all")
+                sys.stdout = stdout
+                return None
+            else:
+                print("Fallback mode: Keeping original best model.")
+                final_path = maxPDF_path
+                final_ind = maxPDF_ind
 
     # final selected model summary
     final_massfin = Grid[final_path]["massfin"][final_ind]

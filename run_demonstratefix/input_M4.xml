@@ -6,6 +6,11 @@
 		<outputfile value="results.ascii"/>
 		<solardnu value="135.1"/>
 		<solarnumax value="3090.0"/>
+		<model_bounds>
+			<massfin min="0.4" max="2.0"/>
+			<age min="0.1" max="13.8"/>
+			<strict>both</strict>
+		</model_bounds>
 		<solarmodel value="True"/>
 		<missingval value="-999.999"/>
 		<centroid value="median"/>

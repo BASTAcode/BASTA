@@ -72,16 +72,41 @@ class PostProcessingValidator:
             df["mass_diff_abs"] = df["mass_diff"].abs()
 
     def plot_residuals(self):
-
-        for run in self.runs:
-            df = run["df"]
-            # print(df["mass_diff_abs"])
-
         fig, axes = plt.subplots(2, 1, figsize=(10 / 3, 1.5 * 10 / 3), sharey=False)
+        cluster_colors = ["#ef8a62", "#b2182b", "#2166ac", "#67a9cf"]
 
-        axes[0].plot(np.arange(0, len(df), 1), df["mass_diff_abs"], "o")
-        axes[1].plot(np.arange(0, len(df), 1), (df["age"] * 1e6) / 1e9, "o")
+        for run, color in zip(self.runs, cluster_colors):
+            df = run["df"]
+            label = run["label"]
+            xvals = np.arange(len(df))
 
+            # Top plot: Absolute mass residuals
+            axes[0].scatter(xvals, df["mass_diff_abs"], label=label, color=color, s=10)
+
+            # Bottom plot: Age converted from Myr to Gyr
+            axes[1].scatter(xvals, df["age"] / 1e3, label=label, color=color, s=10)
+
+        # Shade unphysical ages > 13.8 Gyr
+        axes[1].axhspan(
+            13.8, axes[1].get_ylim()[1], color="gray", alpha=0.3, label="> 13.8 Gyr"
+        )
+
+        # Shade M4 literature age range (adjust if needed)
+        axes[1].axhspan(
+            11, 13, color="lightblue", alpha=0.3, label="M4 literature range"
+        )
+
+        # Axis labels
+        axes[0].set_ylabel(r"$|\Delta M|$ [$\mathrm{M}_\odot$]")
+        axes[1].set_ylabel("Age [Gyr]")
+        axes[1].set_xlabel("Star Index")
+
+        # Legends to the right of each subplot
+        axes[0].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize="small")
+        axes[1].legend(loc="center left", bbox_to_anchor=(1.02, 0.5), fontsize="small")
+
+        plt.tight_layout()
+        plt.subplots_adjust(right=0.78)
         plt.show()
 
         # for run, color in zip(self.runs, cluster_colors):
@@ -193,7 +218,12 @@ class PostProcessingValidator:
 
 if __name__ == "__main__":
 
-    configs = [("M4 (Howell+2022)", "../output/M4/results.ascii", "globular")]
+    configs = [
+        ("no filters", "../output/M4/results.ascii", "globular"),
+        ("age filter", "output_age_nomassfilter/M4/results.ascii", "globular"),
+        ("mass filter", "output_noagefilter_mass/M4/results.ascii", "globular"),
+        ("both mass and age filter", "output_bothfilters/M4/results.ascii", "globular"),
+    ]
 
     validator = PostProcessingValidator(
         configs, "literatureM_openClusters.dat", "literatureM_globularClusters.dat"
