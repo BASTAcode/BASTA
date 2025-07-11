@@ -523,6 +523,7 @@ def run_xml(
     kielplots = _get_true_or_list(root.findall("default/kielplots/"))
     freqplots = _get_true_or_list(root.findall("default/freqplots/"), check=False)
     inputparams["asciiparams"] = unique_unsort(outparams)
+
     inputparams["cornerplots"] = unique_unsort(cornerplots)
     inputparams["kielplots"] = unique_unsort(kielplots)
     inputparams["freqplots"] = freqplots

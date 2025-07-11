@@ -67,6 +67,7 @@ def compute_posterior(
     validationmode : bool, optional
         If True, assume a validation run with changed behaviour
     """
+
     # Load setings
     asciifile = inputparams.get("asciioutput")
     asciifile_dist = inputparams.get("asciioutput_dist")

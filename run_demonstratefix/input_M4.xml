@@ -9,7 +9,7 @@
 		<model_bounds>
 			<massfin min="0.4" max="2.0"/>
 			<age min="0.1" max="13.8"/>
-			<strict>both</strict>
+			<strict>false</strict>
 		</model_bounds>
 		<solarmodel value="True"/>
 		<missingval value="-999.999"/>
@@ -40,6 +40,7 @@
 			<logg/>
 			<massfin/>
 			<age/>
+			<chi2/>
 		</cornerplots>
 		<kielplots>
 			<True/>
@@ -51,6 +52,7 @@
 			<logg/>
 			<massfin/>
 			<age/>
+			<chi2/>
 		</outparams>
 		<optionaloutputfiles>
 			<True/>

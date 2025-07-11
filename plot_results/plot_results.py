@@ -32,29 +32,42 @@ class PostProcessingValidator:
             names=[
                 "cluster",
                 "starid",
-                "howell_mass",
-                "M_rand_err",
-                "M_sys_err",
+                "lit_M",
+                "lit_M_rand_err",
+                "lit_M_sys_err",
                 "ref",
             ],
         )
         self.glob_m["starid"] = self.glob_m["starid"].astype(int)
 
         self.runs = []
-        for label, filename, cluster_type in run_configs:
-            if cluster_type == "open":
-                df = pd.read_csv(filename, sep=r"\s+", comment="#", names=self.cols)
-                merged_df = pd.merge(df, self.open_m, on="starid")
-            elif cluster_type == "globular":
-                df = pd.read_csv(filename, sep=r"\s+", comment="#", names=self.cols)
-                merged_df = pd.merge(df, self.glob_m, on="starid")
-            else:
-                raise ValueError(f"Unknown cluster_type: {cluster_type}")
+        for label, result_file, chi2_file, cluster_type in run_configs:
 
-            self._add_mass_error(merged_df, cluster_type)
-            self.runs.append(
-                {"label": label, "df": merged_df, "cluster_type": cluster_type}
+            df = pd.read_csv(result_file, sep=r"\s+", comment="#", names=self.cols)
+            chi2_df = pd.read_csv(
+                chi2_file, sep="\t", names=["starid", "chi2"], header=0
             )
+
+            df["starid"] = df["starid"].astype(int)
+            chi2_df["starid"] = chi2_df["starid"].astype(int)
+
+            df = pd.merge(df, chi2_df, on="starid", how="left")
+
+            df["chi2_scaled"] = 10 + 90 * (df["chi2"] - df["chi2"].min()) / (
+                df["chi2"].max() - df["chi2"].min()
+            )
+
+        if cluster_type == "open":
+            merged_df = pd.merge(df, self.open_m, on="starid")
+        elif cluster_type == "globular":
+            merged_df = pd.merge(df, self.glob_m, on="starid")
+        else:
+            raise ValueError(f"Unknown cluster_type: {cluster_type}")
+
+        self._add_mass_error(merged_df, cluster_type)
+        self.runs.append(
+            {"label": label, "df": merged_df, "cluster_type": cluster_type}
+        )
 
     def _add_mass_error(self, df, cluster_type):
         if cluster_type == "open":
@@ -64,9 +77,9 @@ class PostProcessingValidator:
             df["massfin_errm"] = df["M_lower_err"]
         elif cluster_type == "globular":
             df["howell_mass_err"] = np.sqrt(
-                df["M_rand_err"] ** 2 + df["M_sys_err"] ** 2
+                df["lit_M_rand_err"] ** 2 + df["lit_M_sys_err"] ** 2
             )
-            df["mass_diff"] = df["massfin"] - df["howell_mass"]
+            df["mass_diff"] = df["massfin"] - df["lit_M"]
             df["mass_diff_abs"] = df["mass_diff"].abs()
 
     def plot_residuals(self):
@@ -78,8 +91,16 @@ class PostProcessingValidator:
             label = run["label"]
             xvals = np.arange(len(df))
 
-            axes[0].scatter(xvals, df["mass_diff_abs"], label=label, color=color, s=10)
-            axes[1].scatter(xvals, df["age"] / 1e3, label=label, color=color, s=10)
+            axes[0].scatter(
+                xvals,
+                df["mass_diff_abs"],
+                label=label,
+                color=color,
+                s=df["chi2_scaled"],
+            )
+            axes[1].scatter(
+                xvals, df["age"] / 1e3, label=label, color=color, s=df["chi2_scaled"]
+            )
 
         axes[1].axhspan(
             13.8, axes[1].get_ylim()[1], color="gray", alpha=0.3, label="> 13.8 Gyr"
@@ -99,19 +120,3 @@ class PostProcessingValidator:
         plt.tight_layout()
         plt.subplots_adjust(right=0.78)
         plt.show()
-
-
-if __name__ == "__main__":
-
-    configs = [
-        ("no filters", "../output/M4/results.ascii", "globular"),
-        ("age filter", "output_age_nomassfilter/M4/results.ascii", "globular"),
-        ("mass filter", "output_noagefilter_mass/M4/results.ascii", "globular"),
-        ("both mass and age filter", "output_bothfilters/M4/results.ascii", "globular"),
-    ]
-
-    validator = PostProcessingValidator(
-        configs, "literatureM_openClusters.dat", "literatureM_globularClusters.dat"
-    )
-
-    validator.plot_residuals()
