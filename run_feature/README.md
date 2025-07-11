@@ -1,14 +1,14 @@
-# M4 Red Giant Run Example
+# M4 Red Giant Example
 
-Demonstration of a BASTA run using red giant stars in the M4 globular cluster, with post-processing filters on final mass and age.
+Demonstration of a BASTA run using red giants in the globular cluster M4, with post-processing filters on final mass and age.
 
-Ultimately, it is the user's responsibility to assess the physical plausibility of their results. This feature helps streamline that process by giving users greater flexibility to filter their best-fit solutions and inspect the effects.
+Ultimately, it is the user's responsibility to assess the physical plausibility of their results. This feature helps streamline that process by giving users greater flexibility to filter their best-fit solutions and inspect the consequences.
 
 ## Summary
 
-This feature adds functionality to apply user-defined bounds on final mass and age when selecting the best-fit model in BASTA. These bounds are not applied as priors, but are enforced after the full posterior is computed, during result selection.
+We add functionality to apply user-defined bounds on final mass and age when selecting the best-fit model in BASTA. These bounds are not applied as priors, but are enforced after the full posterior is computed during result selection.
 
-BASTA includes isochrone grids that extend beyond the cosmological age limit of 13.8 Gyr, reaching up to 16 Gyr. This approach mitigates edge effects in the posterior distribution, as highlighted by Valle et al. (2014, 2015), and avoids artificial truncation that can bias age estimates for the oldest stellar populations. However, while computationally useful, such solutions are not physically plausible in a cosmological context. This feature allows users to retain the benefits of the full grid while selectively filtering best-fit results based on physical expectations.
+Note: BASTA includes isochrone grids that extend beyond the (current) universe age limit of 13.8 Gyr, reaching up to 16 Gyr. This design choice helps mitigate edge effects in the posterior distribution (see Section 3.1 of the BASTA II paper) by avoiding artificial truncation near hard boundaries when sampling old stellar populations. Although such extended models are useful during posterior computation, the resulting best-fit solutions may not be physically plausible in a cosmological context. By applying mass and age filters after the posterior has been computed, this feature preserves the statistical robustness of the sampling while allowing users to restrict final results to physically meaningful ranges.
 
 bastamain.py has been modified to:
 
@@ -51,7 +51,7 @@ Example:
 
 - Seismic input: Howell et al. (2022)
 
-- Spectroscopic input: Cross-matched APOGEE DR17 abundances
+- Spectroscopic input: APOGEE DR17 (Abdurro’uf et al. 2022)
 
 ## Configuration
 
@@ -73,10 +73,12 @@ We provide three XML input files in run_feature/input_files/, built from templat
 
 3. Run All Three
 
-Use the included shell script to run all variants in series:
+Use the included shell script to run the three variants in series:
 
     chmod +x run_basta_M4.sh
     ./run_basta_M4.sh
+
+For a typical laptop (4-core CPU), the full script takes approx. 11 mins.
 
 ## Output
 
@@ -101,9 +103,3 @@ The directory plot_results/ contains:
     plotting_notebook.ipynb — interactive example notebook
 
     plot_results.py — core Python class for post-processing and plotting
-
-## References
-
-    Howell et al. (2022) — seismic data
-
-    APOGEE DR17 — spectroscopic data
