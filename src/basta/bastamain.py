@@ -94,11 +94,6 @@ def BASTA(
     outputdir = inputparams.get("output")
     outfilename = os.path.join(outputdir, starid)
 
-    chi2_summary_file = os.path.join(outputdir, "chi2_summary.txt")
-    if not os.path.exists(chi2_summary_file):
-        with open(chi2_summary_file, "w") as f:
-            f.write("starid\tchi2\n")
-
     # Start the log
     stdout = sys.stdout
     sys.stdout = util.Logger(outfilename)
@@ -692,9 +687,6 @@ def BASTA(
     # --> Generate Kiel diagrams
     print("\n\nComputing posterior distributions for the requested output parameters!")
     print("==> Summary statistics printed below ...\n")
-
-    with open(chi2_summary_file, "a") as f:
-        f.write(f"{starid}\t{final_chi2:.6f}\n")
 
     process_output.compute_posterior(
         starid=starid,

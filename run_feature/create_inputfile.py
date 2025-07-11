@@ -326,6 +326,39 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     "nguesses": 200,
     # }
 
+    # ------------------------------------------------------------
+    # BLOCK 2g: Fitting control — post-processing filters on mass and age
+    # ------------------------------------------------------------
+    # The stellar model grids included extend beyond 13.8 Gyr to avoid edge effects
+    # in the posterior sampling (see Section 3.1 of the BASTA II paper).
+    # However, when selecting the final best-fit model, we may wish to impose
+    # physical constraints for interpretability. e.g.,
+    # - Enforcing a maximum age (e.g., 13.8 Gyr from cosmology)
+    # - Rejecting implausible stellar masses based on evolutionary stage
+    #   (e.g., very old GC stars are likely < ~1-1.5 M_sun)
+
+    # Note: These are not priors — the full posterior is computed first,
+    # and filtering is applied only when selecting the final model.
+
+    # configuration:
+
+    # To apply no filtering:
+    # model_bounds = None
+
+    # To apply filtering, define any combination of:
+    # - "massfin": {"min": ..., "max": ...}
+    # - "age": {"min": ..., "max": ...}
+    # - "strict": controls behavior if no valid model is found:
+    #     False (or omitted) -- the solution falls back to the best model outside bounds
+    #     True -- skip output entirely if no valid model exists
+    #     "mass", "age", or "both" -- enforce strict filtering on one field only
+
+    model_bounds = {
+        # "massfin": {"min": 0.4, "max": 2.0},
+        "age": {"min": 0.01, "max": 13.8},
+        "strict": "True",
+    }
+
     # ==================================================================================
     # BLOCK 3: Output control
     # ==================================================================================
@@ -502,6 +535,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
         define_output,
         define_plots,
         define_intpol,
+        model_bounds,
     )
 
 
