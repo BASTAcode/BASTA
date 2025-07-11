@@ -55,13 +55,13 @@ Example:
 
 ## Configuration
 
-1. Stellar Grid
+1. Stellar grid
 
 Download the BaSTI isochrone grid if not already available:
 
     BASTAdownload iso
 
-2. Input Files
+2. Input files
 
 We provide three XML input files in run_feature/input_files/, built from templates in input_files/templates/:
 
@@ -71,7 +71,7 @@ We provide three XML input files in run_feature/input_files/, built from templat
 
     input_M4_bothfilters.xml — age and mass filtered (mass ≤ 2.0 M$_\odot$)
 
-3. Run All Three
+3. Run all three
 
 Use the included shell script to run the three variants in series:
 
