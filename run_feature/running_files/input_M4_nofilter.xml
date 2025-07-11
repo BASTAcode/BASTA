@@ -2,14 +2,10 @@
 <stars>
 	<default>
 		<library path="/Users/giuliaccinquegrana/Documents/GitHub/BASTA/grids/BaSTI_iso2018.hdf5"/>
-		<output path="output/M4/"/>
+		<output path="output/M4_nofilter/"/>
 		<outputfile value="results.ascii"/>
 		<solardnu value="135.1"/>
 		<solarnumax value="3090.0"/>
-		<model_bounds>
-			<age min="0.01" max="13.8"/>
-			<strict>true</strict>
-		</model_bounds>
 		<solarmodel value="True"/>
 		<missingval value="-999.999"/>
 		<centroid value="median"/>
@@ -33,16 +29,8 @@
 			<Teff sigmacut="3"/>
 			<FeH abstol="0.5"/>
 		</priors>
-		<cornerplots>
-			<Teff/>
-			<FeH/>
-			<logg/>
-			<massfin/>
-			<age/>
-		</cornerplots>
-		<kielplots>
-			<True/>
-		</kielplots>
+		<cornerplots/>
+		<kielplots/>
 		<freqplots/>
 		<outparams>
 			<Teff/>

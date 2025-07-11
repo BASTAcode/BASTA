@@ -23,7 +23,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # ==================================================================================
     # Name of the XML input file to produce
     # --> Use as input: BASTArun input_myfit.xml
-    xmlfilename = "input_M4.xml"
+    xmlfilename = "input_M4_agefilter.xml"
 
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
@@ -31,7 +31,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     define_io["gridfile"] = os.path.join(__gridpath__, "BaSTI_iso2018.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = os.path.join("output", "M4")
+    define_io["outputpath"] = os.path.join("output", "M4_agefilter")
 
     # BASTA is designed to fit multiple stars in the same run. To generate the input
     # file, a table in plain ascii with the observed stellar parameters must be
@@ -401,12 +401,12 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> If the keyword "distance" is present, an additional distance corner plot is
     #     produced.
     # --> To disable, use an empty list or tuple.
-    define_plots["cornerplots"] = define_output["outparams"]
+    define_plots["cornerplots"] = []  # define_output["outparams"]
 
     # BASTA can produce a Kiel diagram (Teff vs logg) with the observations and the
     # model points from the grid. The latter will be color coded based on the fitting
     # parameters and their uncertainties/constraints.
-    define_plots["kielplots"] = True
+    define_plots["kielplots"] = False
 
     # When fitting frequencies or frequency ratios, BASTA can generate echelle diagrams
     # and plots of the surface independent quantities (ratios, epsilon differences).

@@ -131,7 +131,8 @@ class PostProcessingValidator:
             axes[1].legend(loc="upper center", bbox_to_anchor=(0.5, -0.35), ncol=1)
             plt.tight_layout()
             plt.subplots_adjust(bottom=0.3)
-            plt.show()
+            # plt.show()
+            plt.savefig(f"allruns.png", format="png", dpi=300)
 
         else:
             # one plot per run
@@ -167,7 +168,11 @@ class PostProcessingValidator:
                 axes[1].legend(loc="upper center", bbox_to_anchor=(0.5, -0.35), ncol=1)
                 plt.tight_layout()
                 plt.subplots_adjust(bottom=0.3)
-                plt.show()
+                # plt.show()
+                safe_label = (
+                    label.lower().replace(" ", "_").replace("(", "").replace(")", "")
+                )
+                plt.savefig(f"{safe_label}.png", format="png", dpi=300)
 
     def _plot_scatters(
         self, axes, df, label, color, xlim=None, ylim_mass=None, ylim_age=None
