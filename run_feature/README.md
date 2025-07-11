@@ -8,21 +8,19 @@ Ultimately, it is the user's responsibility to assess the physical plausibility 
 
 This feature adds functionality to apply user-defined bounds on final mass and age when selecting the best-fit model in BASTA. These bounds are not applied as priors, but are enforced after the full posterior is computed, during result selection.
 
-Why? When fitting RGB stars in clusters using seismic + spectroscopic data, we encountered unrealistic best-fit solutions using standard grids — e.g., ages > 13.8 Gyr or final masses of 5–10 M$_\odot$. These issues arise because age and final mass are outputs, not inputs, of the stellar grid, and therefore cannot be constrained using standard priors.
+BASTA includes isochrone grids that extend beyond the cosmological age limit of 13.8 Gyr, reaching up to 16 Gyr. This approach mitigates edge effects in the posterior distribution, as highlighted by Valle et al. (2014, 2015), and avoids artificial truncation that can bias age estimates for the oldest stellar populations. However, while computationally useful, such solutions are not physically plausible in a cosmological context. This feature allows users to retain the benefits of the full grid while selectively filtering best-fit results based on physical expectations.
 
-    Note: BASTA includes isochrone grids that extend beyond the cosmological age limit of 13.8 Gyr, reaching up to 16 Gyr. This approach mitigates edge effects in the posterior distribution, as highlighted by Valle et al. (2014, 2015), and avoids artificial truncation that can bias age estimates for the oldest stellar populations. However, while computationally useful, such solutions are not physically plausible in a cosmological context. This feature allows users to retain the benefits of the full grid while selectively filtering best-fit results based on physical expectations.
+bastamain.py has been modified to:
 
-This update modifies bastamain.py to:
+- Check if the best-fit model violates user-defined bounds on age and massfin.
 
-    Check if the best-fit model violates user-defined bounds on age and massfin.
+- If it does, select the next-best model within bounds.
 
-    If it does, select the next-best model within bounds.
+- If no valid model remains:
 
-    If no valid model remains:
+- (i) Return the original best fit (default), or
 
-        Return the original best fit (default), or
-
-        Skip output entirely if "strict" is set to True.
+- (ii) Skip output entirely if "strict" is set to True.
 
 Users can specify filters in the XML input file (BLOCK 2g). To apply no filtering:
 
@@ -44,16 +42,16 @@ To apply filtering, define any combination of:
 
 Example:
 
-model_bounds = {
-    "age": {"min": 0.01, "max": 13.8},
-    "strict": "True",
-}
+    model_bounds = {
+        "age": {"min": 0.01, "max": 13.8},
+        "strict": "True",
+    }
 
 ## Data
 
-    Seismic input: Howell et al. (2022)
+- Seismic input: Howell et al. (2022)
 
-    Spectroscopic input: Cross-matched APOGEE DR17 abundances
+- Spectroscopic input: Cross-matched APOGEE DR17 abundances
 
 ## Configuration
 
@@ -61,7 +59,7 @@ model_bounds = {
 
 Download the BaSTI isochrone grid if not already available:
 
-BASTAdownload iso
+    BASTAdownload iso
 
 2. Input Files
 
@@ -77,16 +75,16 @@ We provide three XML input files in run_feature/input_files/, built from templat
 
 Use the included shell script to run all variants in series:
 
-chmod +x run_basta_M4.sh
-./run_basta_M4.sh
+    chmod +x run_basta_M4.sh
+    ./run_basta_M4.sh
 
 ## Output
 
 Each BASTA run creates an output directory:
 
-run_feature/running_files/output/M4_nofilter
-run_feature/running_files/output/M4_agefilter
-run_feature/running_files/output/M4_bothfilters
+    run_feature/running_files/output/M4_nofilter
+    run_feature/running_files/output/M4_agefilter
+    run_feature/running_files/output/M4_bothfilters
 
 Each contains:
 
