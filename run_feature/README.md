@@ -24,7 +24,7 @@ bastamain.py has been modified to:
 
 Users can specify filters in the XML input file (BLOCK 2g). To apply no filtering:
 
-model_bounds = None
+    model_bounds = None
 
 To apply filtering, define any combination of:
 
@@ -101,28 +101,6 @@ The directory plot_results/ contains:
     plotting_notebook.ipynb — interactive example notebook
 
     plot_results.py — core Python class for post-processing and plotting
-
-### Quick Example
-
-from plot_results import PostProcessingValidator
-
-configs = [
-    ("no filters", "../running_files/output/M4_nofilter"),
-    ("age filter only", "../running_files/output/M4_agefilter"),
-    ("both filters", "../running_files/output/M4_bothfilters"),
-]
-
-validator = PostProcessingValidator(configs, "literatureM_globularClusters.dat")
-
-validator.plot_residuals(separate=True, xlim=(0, 52), ylim_mass=(0, 2), ylim_age=(0, 20))
-
-validator.plot_residuals(separate=True, chi2_lim=300, xlim=(0, 52), ylim_mass=(0, 2), ylim_age=(0, 20))
-
-    Using separate=True generates a (2,1) subplot for each run.
-
-    chi2_lim=300 filters out poor fits; larger markers indicate higher $\chi^2$.
-
-    Example figures can be found in plot_results/example_figs/.
 
 ## References
 
