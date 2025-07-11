@@ -23,15 +23,15 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # ==================================================================================
     # Name of the XML input file to produce
     # --> Use as input: BASTArun input_myfit.xml
-    xmlfilename = "input_myfit.xml"
+    xmlfilename = "input_M4_agefilter.xml"
 
     # The path to the grid to be used by BASTA for the fitting.
     # --> If using isochrones, remember to also specify physics settings in BLOCK 3c
     # --> If you need the location of BASTA, it is in BASTADIR
-    define_io["gridfile"] = os.path.join(__gridpath__, "Garstec_16CygA.hdf5")
+    define_io["gridfile"] = os.path.join(__gridpath__, "BaSTI_iso2018.hdf5")
 
     # Where to store the output of the BASTA run
-    define_io["outputpath"] = os.path.join("output", "myfit")
+    define_io["outputpath"] = os.path.join("output", "M4_agefilter")
 
     # BASTA is designed to fit multiple stars in the same run. To generate the input
     # file, a table in plain ascii with the observed stellar parameters must be
@@ -53,21 +53,21 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> Only those relevant are included in the produced input file.
 
     # Location of the input file with the star(s) to be fitted and the columns included
-    define_io["asciifile"] = os.path.join("data", "16CygA.ascii")
+    define_io["asciifile"] = os.path.join("data", "M4_.ascii")
     define_io["params"] = (
         "starid",
-        "RA",
-        "DEC",
-        "numax",
-        "numax_err",
-        "dnu",
-        "dnu_err",
         "Teff",
         "Teff_err",
         "FeH",
         "FeH_err",
-        "logg",
-        "logg_err",
+        "alphaFe",
+        "alphaFe_err",
+        "numax",
+        "numax_err",
+        "dnu",
+        "dnu_err",
+        "RA",
+        "DEC",
     )
 
     # Special option: Change the assumed delimiter for the ascii table
@@ -112,7 +112,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     (dnu). The one provided must match the one you add to fitting parameters in
     #     the next block. If present in the grid, "dnufit" is the most reliable one.
     #     The full list is available in constants.py
-    define_fit["fitparams"] = ("Teff", "FeH", "logg")
+    define_fit["fitparams"] = ("Teff", "FeH", "alphaFe", "numax", "dnuSer")
 
     # ------------------------------------------------------------
     # BLOCK 2a: Fitting control, priors
@@ -158,12 +158,12 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # The dnu of the solar model is automatically extracted from the grid. If set to
     # False, the scaling functionality is switched off (not recommended unless testing).
-    # define_fit["solarmodel"] = True
+    define_fit["solarmodel"] = True
 
     # To perform the scaling, the observed values of dnu and numax for the Sun must be
     # assumed. By default BASTA uses the values from the SYD pipeline.
-    # define_fit["sundnu"] = 135.1
-    # define_fit["sunnumax"] = 3090.0
+    define_fit["sundnu"] = 135.1
+    define_fit["sunnumax"] = 3090.0
 
     # ------------------------------------------------------------
     # BLOCK 2c: Fitting control, isochrones
@@ -180,7 +180,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # define_fit["odea"] = (0.2, 0, 0,   0)    # Overshooting
     # define_fit["odea"] = (0.2, 0, 0.3, 0)    # + mass loss
     # define_fit["odea"] = (0.2, 1, 0.3, 0)    # + diffusion
-    # define_fit["odea"] = (0.2, 1, 0.3, 0.4)  # + alpha enhancement
+    define_fit["odea"] = (0.2, 1, 0.3, 0.4)  # + alpha enhancement
 
     # ------------------------------------------------------------
     # BLOCK 2d: Fitting control, frequencies
@@ -343,7 +343,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # configuration:
 
     # To apply no filtering:
-    model_bounds = None
+    # model_bounds = None
 
     # To apply filtering, define any combination of:
     # - "massfin": {"min": ..., "max": ...}
@@ -353,11 +353,11 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     #     True -- skip output entirely if no valid model exists
     #     "mass", "age", or "both" -- enforce strict filtering on one field only
 
-    # model_bounds = {
-    #     "massfin": {"min": 0.4, "max": 2.0},
-    #     "age": {"min": 0.01, "max": 13.8},
-    #     "strict": "True",
-    # }
+    model_bounds = {
+        # "massfin": {"min": 0.4, "max": 2.0},
+        "age": {"min": 0.01, "max": 13.8},
+        "strict": "True",
+    }
 
     # ==================================================================================
     # BLOCK 3: Output control
@@ -367,7 +367,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> The names must match entries in the parameter list (basta/constants.py)
     # --> A reasonable choice is to (as a minimum) output the parameters used in the fit
     # --> If you want to predict distance, add the special keyword "distance".
-    define_output["outparams"] = ("Teff", "FeH", "logg", "radPhot", "massfin", "age")
+    define_output["outparams"] = ("Teff", "FeH", "logg", "massfin", "age")
 
     # Name of the output file containing the results of the fit in ascii format.
     # --> A version in xml-format will be automatically created
@@ -401,12 +401,12 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> If the keyword "distance" is present, an additional distance corner plot is
     #     produced.
     # --> To disable, use an empty list or tuple.
-    define_plots["cornerplots"] = define_output["outparams"]
+    define_plots["cornerplots"] = []  # define_output["outparams"]
 
     # BASTA can produce a Kiel diagram (Teff vs logg) with the observations and the
     # model points from the grid. The latter will be color coded based on the fitting
     # parameters and their uncertainties/constraints.
-    define_plots["kielplots"] = True
+    define_plots["kielplots"] = False
 
     # When fitting frequencies or frequency ratios, BASTA can generate echelle diagrams
     # and plots of the surface independent quantities (ratios, epsilon differences).

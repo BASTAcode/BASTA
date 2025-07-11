@@ -86,6 +86,7 @@ def BASTA(
     # Enable legacy printing of NumPy data types
     # --> E.g., print 104.14836386995329 instead of np.float64(104.14836386995329)
     #     and 'Teff' instead of np.str_('Teff') to the .log file
+
     np.set_printoptions(legacy="1.25")
 
     # Set output directory and filenames
@@ -134,6 +135,10 @@ def BASTA(
     fitfreqs = inputparams["fitfreqs"]
     distparams = inputparams.get("distanceparams", False)
     limits = inputparams.get("limits")
+    bounds = inputparams.get("model_bounds", {})
+
+    if bounds is None:
+        bounds = {}
 
     # Scale dnu and numax using a solar model or default solar values
     inputparams = su.solar_scaling(Grid, inputparams, diffusion=difsolarmodel)
@@ -536,6 +541,144 @@ def BASTA(
     maxPDF_path, maxPDF_ind = stats.get_highest_likelihood(
         Grid, selectedmodels, inputparams
     )
+
+    # ----------------------------------------------------------------------------------
+    # check whether best solution falls within defined mass and age bounds
+    # ----------------------------------------------------------------------------------
+
+    mass_min = float(bounds.get("massfin", {}).get("min", -np.inf))
+    mass_max = float(bounds.get("massfin", {}).get("max", np.inf))
+    age_min = float(bounds.get("age", {}).get("min", -np.inf))
+    age_max = float(bounds.get("age", {}).get("max", np.inf))
+
+    print(f"Mass bounds: min={mass_min}, max={mass_max}")
+    print(f"Age bounds: min={age_min}, max={age_max}")
+
+    # get best model mass and age
+    best_massfin = Grid[maxPDF_path]["massfin"][maxPDF_ind]
+    best_age = Grid[maxPDF_path]["age"][maxPDF_ind] / 1000.0
+
+    print(
+        rf"Best model has final mass of {best_massfin:.3f} Msun at age of {best_age:.3f} Gyr"
+    )
+
+    # check if within bounds
+    mass_ok = mass_min <= best_massfin <= mass_max
+    age_ok = age_min <= best_age <= age_max
+
+    # strict filtering option from model_bounds
+    strict_mode = bounds.pop("strict", "none").lower()
+
+    if mass_ok and age_ok:
+        print("Best model falls within mass and age bounds.")
+        final_path = maxPDF_path
+        final_ind = maxPDF_ind
+    else:
+        if not mass_ok:
+            print(rf"Best model fails mass bounds [{mass_min}, {mass_max}]")
+
+        if not age_ok:
+            print(f"Best model fails age bounds [{age_min}, {age_max}]")
+
+        print("Searching for alternative model...")
+
+        # initialize search variables
+        best_logPDF_valid = -np.inf
+        best_path_valid = None
+        best_ind_valid = None
+
+        # loop over all selected models
+        for path, stats_obj in selectedmodels.items():
+            lib = Grid[path]
+            mass_arr = lib["massfin"][stats_obj.index]
+            age_arr = lib["age"][stats_obj.index] / 1000.0
+            logPDF_arr = stats_obj.logPDF
+
+            # create mask for models within mass/age bounds
+            mask_valid = (
+                (mass_arr >= mass_min)
+                & (mass_arr <= mass_max)
+                & (age_arr >= age_min)
+                & (age_arr <= age_max)
+            )
+
+            # check if any models pass bounds
+            if np.any(mask_valid):
+                # identify best valid model in this group
+                valid_indices = np.where(mask_valid)[0]
+                local_best_idx = valid_indices[logPDF_arr[mask_valid].argmax()]
+
+                # map relative index (within this group) to absolute index
+                if (
+                    isinstance(stats_obj.index, np.ndarray)
+                    and stats_obj.index.dtype == bool
+                ):
+                    absolute_idx = np.where(stats_obj.index)[0][local_best_idx]
+                else:
+                    absolute_idx = stats_obj.index[local_best_idx]
+
+                # update best model if this is better
+                local_best_logPDF = logPDF_arr[mask_valid].max()
+                if local_best_logPDF > best_logPDF_valid:
+                    best_logPDF_valid = local_best_logPDF
+                    best_path_valid = path
+                    best_ind_valid = absolute_idx
+
+        if best_path_valid is not None:
+            final_path = best_path_valid
+            final_ind = best_ind_valid
+            new_massfin = Grid[final_path]["massfin"][final_ind]
+            new_age = Grid[final_path]["age"][final_ind] / 1000.0
+            print(
+                rf"New best model selected at index {final_ind} with final mass {new_massfin:.3f} Msun and age {new_age:.3f} Gyr"
+            )
+        else:
+            print(
+                "No models found within requested mass/age boundaries. Keeping original best model."
+            )
+            if strict_mode in ("true", "both", "mass", "age"):
+                print(f"Strict filtering '{strict_mode}' enabled: Skipping output.")
+                Grid.close()
+                plt.close("all")
+                sys.stdout = stdout
+                return None
+            else:
+                print("Fallback mode: Keeping original best model.")
+                final_path = maxPDF_path
+                final_ind = maxPDF_ind
+
+    final_massfin = Grid[final_path]["massfin"][final_ind]
+    final_age = Grid[final_path]["age"][final_ind] / 1000.0
+
+    print(
+        f"\nFinal selected model for output: index = {final_ind}, massfin = {final_massfin:.3f} Msun, age = {final_age:.3f} Gyr"
+    )
+
+    full_stats = selectedmodels[
+        final_path
+    ]  # full statistics from original selectedmodels
+
+    # find relative index of final_ind within full_stats.index
+
+    if full_stats.index.dtype == bool:
+        relative_index = np.flatnonzero(full_stats.index).tolist().index(final_ind)
+    else:
+        relative_index = list(full_stats.index).index(final_ind)
+
+    final_logPDF = full_stats.logPDF[relative_index]
+    final_chi2 = full_stats.chi2[relative_index]
+
+    # build selectedmodels containing only final model for downstream
+
+    selectedmodels = {
+        final_path: stats.Trackstats(
+            index=np.array([final_ind]),
+            logPDF=np.array([final_logPDF]),
+            chi2=np.array([final_chi2]),
+        )
+    }
+    # ----------------------------------------------------------------------------------
+
     stats.get_lowest_chi2(Grid, selectedmodels, inputparams)
 
     # Generate posteriors of ascii- and plotparams
@@ -544,6 +687,7 @@ def BASTA(
     # --> Generate Kiel diagrams
     print("\n\nComputing posterior distributions for the requested output parameters!")
     print("==> Summary statistics printed below ...\n")
+
     process_output.compute_posterior(
         starid=starid,
         selectedmodels=selectedmodels,
@@ -576,8 +720,8 @@ def BASTA(
             obs=obs,
             obsintervals=obsintervals,
             selectedmodels=selectedmodels,
-            path=maxPDF_path,
-            ind=maxPDF_ind,
+            path=final_path,
+            ind=final_ind,
             plotfname=outfilename + "_{0}." + inputparams["plotfmt"],
             nameinplot=inputparams["nameinplot"],
             **addstats,
