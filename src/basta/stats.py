@@ -237,8 +237,20 @@ def chi2_astero(
         if fitfreqs["interp_ratios"]:
             # Get all available model ratios
             broadratio = freq_fit.compute_ratioseqs(
-                modkey, mod, ratiotype, threepoint=fitfreqs["threepoint"]
+                modkey,
+                mod,
+                ratiotype,
+                threepoint=fitfreqs["threepoint"],
             )
+            # Ratios calculation fails in rare cases due to strange
+            # radial orders at the lowest frequency end
+            if broadratio is None:
+                broadratio = freq_fit.compute_ratioseqs(
+                    joinkeys,
+                    join,
+                    ratiotype,
+                    threepoint=fitfreqs["threepoint"],
+                )
             modratio = copy.deepcopy(obsfreqdata[ratiotype]["data"])
             if fitfreqs["dnufit_in_ratios"]:
                 modratio[0, 0] = dnusurf
@@ -256,10 +268,13 @@ def chi2_astero(
                     chi2rut = np.inf
                     shapewarn = 3
                     return chi2rut, warnings, shapewarn, addpars
+                # Note that extrapolation may be necessary only rarely when
+                # first attempt of broadratio calculation fails
                 intfunc = interp1d(
                     broadratio[1, modmask],
                     broadratio[0, modmask],
                     kind="linear",
+                    fill_value="extrapolate",
                 )
                 modratio[0, obsmask] = intfunc(modratio[1, obsmask])
         else:
@@ -282,6 +297,11 @@ def chi2_astero(
 
     # Add contribution from glitches
     if any(x in freqtypes.glitches for x in fitfreqs["fittypes"]):
+        if not all(joinkeys[1, joinkeys[0, :] < 3] == joinkeys[2, joinkeys[0, :] < 3]):
+            chi2rut = np.inf
+            shapewarn = 5
+            return chi2rut, warnings, shapewarn, addpars
+
         # Obtain glitch sequence to be fitted
         glitchtype = obsfreqmeta["glitch"]["fit"][0]
 
@@ -309,6 +329,15 @@ def chi2_astero(
                 ratiotype,
                 threepoint=fitfreqs["threepoint"],
             )
+            # Ratios calculation fails in rare cases due to strange
+            # radial orders at the lowest frequency end
+            if broadratio is None:
+                broadratio = freq_fit.compute_ratioseqs(
+                    joinkeys,
+                    join,
+                    ratiotype,
+                    threepoint=fitfreqs["threepoint"],
+                )
             modratio = copy.deepcopy(obsfreqdata[glitchtype]["data"][:, :-3])
             if fitfreqs["dnufit_in_ratios"]:
                 modratio[0, 0] = dnusurf
@@ -324,12 +353,15 @@ def chi2_astero(
                     or modratio[1, obsmask][-1] > broadratio[1, modmask][-1]
                 ):
                     chi2rut = np.inf
-                    shapewarn = 5
+                    shapewarn = 6
                     return chi2rut, warnings, shapewarn, addpars
+                # Note that extrapolation may be necessary only rarely when
+                # first attempt of broadratio calculation fails
                 intfunc = interp1d(
                     broadratio[1, modmask],
                     broadratio[0, modmask],
                     kind="linear",
+                    fill_value="extrapolate",
                 )
                 modratio[0, obsmask] = intfunc(modratio[1, obsmask])
 
@@ -367,7 +399,7 @@ def chi2_astero(
         if x.shape[0] == covinv.shape[0] and not any(np.isnan(x)):
             chi2rut += (x.T.dot(covinv).dot(x)) / w
         else:
-            shapewarn = 6
+            shapewarn = 7
             chi2rut = np.inf
 
         # Store the determined glitch parameters for outputting
@@ -424,7 +456,7 @@ def chi2_astero(
         # Check extreme values
         if any(np.isnan(evalepsdiff)):
             chi2rut = np.inf
-            shapewarn = 7
+            shapewarn = 8
         elif ~np.isfinite(chi2rut) or chi2rut < 0:
             chi2rut = np.inf
 
