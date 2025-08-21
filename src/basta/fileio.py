@@ -17,6 +17,29 @@ from basta import stats, freq_fit, glitch_fit
 from basta import utils_seismic as su
 from basta import utils_general as util
 from basta.constants import freqtypes
+from pathlib import Path
+
+
+# ------------------------------------------------------------
+class FrequenciesFormatError(Exception):
+    pass
+
+
+def _looks_like_xml(path: str) -> bool:
+    """XML if suffix .xml OR first non-whitespace byte is '<'."""
+    p = Path(path)
+    if p.suffix.lower() == ".xml":
+        return True
+    try:
+        with open(p, "rb") as fh:
+            head = fh.read(1024).lstrip()
+        return head.startswith(b"<")
+    except OSError:
+
+        return False
+
+
+# ------------------------------------------------------------
 
 
 def _export_selectedmodels(selectedmodels: dict) -> dict:
@@ -225,6 +248,10 @@ def read_freq_xml(filename: str) -> tuple[np.array, np.array, np.array, np.array
     degrees : array
         Angular degree
     """
+
+    if not _looks_like_xml(filename):
+        # fail fast
+        raise FrequenciesFormatError(f"ASCII frequencies detected for '{filename}.'")
 
     # Parse the XML file:
     tree = ElementTree.parse(filename)
