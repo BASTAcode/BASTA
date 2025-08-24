@@ -29,11 +29,22 @@ class FrequenciesFormatError(Exception):
     pass
 
 
+# def _looks_like_xml(path: str) -> bool:
+#     """XML if suffix .xml OR first non-whitespace byte is '<'."""
+#     p = Path(path)
+#     if p.suffix.lower() == ".xml":
+#         return True
+#     try:
+#         with open(p, "rb") as fh:
+#             head = fh.read(1024).lstrip()
+#         return head.startswith(b"<")
+#     except OSError:
+#         return False
+
+
 def _looks_like_xml(path: str) -> bool:
-    """XML if suffix .xml OR first non-whitespace byte is '<'."""
-    p = Path(path)
-    if p.suffix.lower() == ".xml":
-        return True
+
+    p = Path(path).expanduser()
     try:
         with open(p, "rb") as fh:
             head = fh.read(1024).lstrip()
@@ -367,35 +378,30 @@ def read_freq(
         ``False`` then a diagonal matrix is produced
     """
 
+    # ----
+
+    p = Path(filename).expanduser()
+    if p.suffix.lower() == ".xml" and not p.exists():
+        for ext in (".fre", ".txt", ".dat"):
+            cand = p.with_suffix(ext)
+            if cand.exists():
+                filename = str(cand)
+                break
+    # ----
     tmp_dir = None
     xml_path = None
-
     try:
         if not _looks_like_xml(filename):
-            if "freqs_ascii_to_xml" not in globals():
-                raise FrequenciesFormatError(
-                    "ASCII detected but freqs_ascii_to_xml() not available."
-                )
-
             ascii_in = Path(filename).expanduser().resolve()
             if not ascii_in.is_file():
                 raise FrequenciesFormatError(f"ASCII file does not exist: {ascii_in}")
 
             tmp_dir = Path(tempfile.mkdtemp(prefix="freq_ascii2xml_"))
-            starid = ascii_in.stem  # e.g. "16CygA"
+            starid = ascii_in.stem
 
             try:
                 freqs_ascii_to_xml(
-                    directory=str(tmp_dir),
-                    starid=starid,
-                    freqsfile=str(ascii_in),
-                    covfile=None,
-                    ratiosfile=None,
-                    cov010file=None,
-                    cov02file=None,
-                    symmetric_errors=True,
-                    check_radial_orders=False,
-                    verbose=False,
+                    directory=str(tmp_dir), starid=starid, freqsfile=str(ascii_in)
                 )
             except Exception as conv_err:
                 raise FrequenciesFormatError(
@@ -403,9 +409,13 @@ def read_freq(
                 ) from conv_err
 
             xml_path = tmp_dir / f"{starid}.xml"
+            if not xml_path.is_file():
+                raise FrequenciesFormatError(
+                    f"Conversion produced no XML at {xml_path}"
+                )
 
-            # pretend user passed XML file
-            filename = str(xml_path)
+            filename = str(xml_path)  # proceed as if user passed XML
+
         # ----------------------
         # Read frequencies from file
         frecu, errors, norder, ldegree = read_freq_xml(filename)
@@ -470,7 +480,7 @@ def read_freq(
 
     # ----------------------
     finally:
-        # Clean up any temp outputs we created
+        # clean up temp outputs
         if xml_path:
             with contextlib.suppress(OSError):
                 os.remove(xml_path)
