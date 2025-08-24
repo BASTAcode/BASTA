@@ -29,19 +29,6 @@ class FrequenciesFormatError(Exception):
     pass
 
 
-# def _looks_like_xml(path: str) -> bool:
-#     """XML if suffix .xml OR first non-whitespace byte is '<'."""
-#     p = Path(path)
-#     if p.suffix.lower() == ".xml":
-#         return True
-#     try:
-#         with open(p, "rb") as fh:
-#             head = fh.read(1024).lstrip()
-#         return head.startswith(b"<")
-#     except OSError:
-#         return False
-
-
 def _looks_like_xml(path: str) -> bool:
 
     p = Path(path).expanduser()
