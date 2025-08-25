@@ -54,7 +54,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
     # --> Only those relevant are included in the produced input file.
 
     # Example of the columns in the example file:
-    define_io["asciifile"] = os.path.join("../data", "16CygA_stell.ascii")
+    define_io["asciifile"] = os.path.join("data", "16CygA.ascii")
     define_io["params"] = (
         "starid",
         "RA",
@@ -253,7 +253,7 @@ def define_input(define_io, define_fit, define_output, define_plots, define_intp
 
     # Example of typical settings for a frequency fit (with default seismic weights):
     define_fit["freqparams"] = {
-        "freqpath": os.path.abspath("../data/freqs"),
+        "freqpath": os.path.abspath("data/freqs"),
         "fcor": "BG14",
         "correlations": False,
         "dnufrac": 0.15,

@@ -23,7 +23,7 @@
 			<salpeter1955/>
 		</priors>
 		<freqparams>
-			<freqpath value="/Users/giuliaccinquegrana/Documents/GitHub/BASTA/data/freqs"/>
+			<freqpath value="/Users/giuliaccinquegrana/Documents/GitHub/BASTA/feature_freqsascii/data/freqs"/>
 			<fcor value="BG14"/>
 			<correlations value="False"/>
 			<dnufrac value="0.15"/>
