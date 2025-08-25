@@ -22,14 +22,29 @@ from basta.constants import freqtypes
 from pathlib import Path
 import shutil
 
-# -----------------
-
 
 class FrequenciesFormatError(Exception):
+    """
+    Frequency file cannot be interpreted or converted.
+
+    Raised by `read_freq` when:
+    - The input format is unsupported or malformed.
+    - The expected file is missing on disk.
+    - ASCII --> XML conversion fails.
+    """
+
     pass
 
 
 def _looks_like_xml(path: str) -> bool:
+    """
+    Quick content check -- does the file start with an XML tag?
+
+    Returns
+    -------
+    bool
+        True if the first non-whitespace byte is '<'; otherwise False.
+    """
 
     p = Path(path).expanduser()
     try:
@@ -39,9 +54,6 @@ def _looks_like_xml(path: str) -> bool:
     except OSError:
 
         return False
-
-
-# -----------------
 
 
 def _export_selectedmodels(selectedmodels: dict) -> dict:
@@ -340,7 +352,12 @@ def read_freq(
 ) -> tuple[np.array, np.array, np.array]:
     """
     Routine to extract the frequencies in the desired n-range, and the
-    corresponding covariance matrix
+    corresponding covariance matrix.
+
+    Supports XML natively. For ASCII inputs (.fre/.txt/.dat), the file
+    is converted on the fly to a temporary <starid>.xml using
+    freqs_ascii_to_xml, parsed through the existing XML reader, and then
+    the temporary file is deleted.
 
     Parameters
     ----------
@@ -365,16 +382,23 @@ def read_freq(
         ``False`` then a diagonal matrix is produced
     """
 
-    # ----
+    # if requested <starid>.xml is missing, fall back to a same-stem ASCII
+    # file (.fre/.txt/.dat) in the same directory
+    # if non-xml, gives a file name for _looks_like_xml to check
 
     p = Path(filename).expanduser()
+
     if p.suffix.lower() == ".xml" and not p.exists():
         for ext in (".fre", ".txt", ".dat"):
             cand = p.with_suffix(ext)
+
             if cand.exists():
                 filename = str(cand)
                 break
-    # ----
+
+    # use _looks_like_xml to check if input isn’t XML
+    # if ASCII - convert to a temporary <starid>.xml using freqs_ascii_to_xml
+
     tmp_dir = None
     xml_path = None
     try:
@@ -401,7 +425,7 @@ def read_freq(
                     f"Conversion produced no XML at {xml_path}"
                 )
 
-            filename = str(xml_path)  # proceed as if user passed XML
+            filename = str(xml_path)  # then proceed below as if user passed XML
 
         # ----------------------
         # Read frequencies from file
@@ -465,16 +489,14 @@ def read_freq(
 
         return obskey, obs, covarfreq
 
-    # ----------------------
     finally:
-        # clean up temp outputs
+        # clean up any temp outputs created (if input was ASCII)
         if xml_path:
             with contextlib.suppress(OSError):
                 os.remove(xml_path)
         if tmp_dir:
             with contextlib.suppress(Exception):
                 shutil.rmtree(tmp_dir, ignore_errors=True)
-    # ----------------------
 
 
 def _read_precomputed_glitches(
