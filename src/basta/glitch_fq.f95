@@ -62,6 +62,7 @@
       REAL*8 :: chi2_total, chi2, reg, chi2_total_new, chi2_new, reg_new
       REAL*8 :: tol_grad_fq, regu_param_fq
       REAL*8 :: loga, logb
+      REAL*8 :: Hhe
       REAL*8 :: param(total_num_of_param_fq)
       REAL*8 :: dparam(total_num_of_param_fq,2)
       REAL*8 :: par(total_num_of_param_fq)
@@ -114,6 +115,8 @@
         par(i0+4) = par(i0+4)**2
         par(i0+5) = SQRT(par(i0+5)**2/(8.d0 * PI**2))
         par(i0+7) = MODULO(par(i0+7),2*PI)
+        Hhe = par(i0+4)/par(i0+5)
+        Hhe = Hhe * acoustic_radius/SQRT(2.d0 * PI**3)
 
         ! Update the fit only if:
         !--------------------------
@@ -131,7 +134,7 @@
         IF (chi2_total_new .LT. chi2_total .AND. &
             chi2_new .LE. chi2 .AND. &
             MAXVAL(ABS(grad(:))) .LT. tol_grad_fq .AND. &
-            par(i0+5) .GT. 0.1d0 .AND. &
+            Hhe .LT. 1.67d0 .AND. &
             par(i0+2) .GT. 0.d0 .AND. par(i0+6) .GT. 0.d0 .AND. &
             par(i0+2) .GT. par(i0+6) .AND. &
             par(i0+2) .LT. acoustic_radius) THEN
