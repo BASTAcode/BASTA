@@ -2,21 +2,21 @@
 Routines to download examples (for non-GitHub installations)
 """
 
-import os
+import argparse
 import gzip
+import os
 import shutil
 import tarfile
+
 import requests
-import argparse
 from tqdm import tqdm
 
 from basta.__about__ import __version__
-from basta.downloader import get_basta_dir
 
 EXAMPLESFILE = "_examplespath.py"
 
 
-def get_bundle(version: float, force: bool = False):
+def get_bundle(version: str, force: bool = False) -> None:
     """
     Download a bundle file with examples from the BASTAcode examples repository.
 
@@ -30,13 +30,6 @@ def get_bundle(version: float, force: bool = False):
     """
     # Settings
     block_size = 1024
-    tqdm_settings = {
-        "unit": "B",
-        "unit_scale": True,
-        "unit_divisor": 1024,
-        "ascii": True,
-        "desc": "--> Progress",
-    }
 
     # Mapping to download location
     # --> Switched to anon share link due to (temporary?) issues with ERDA
@@ -60,7 +53,14 @@ def get_bundle(version: float, force: bool = False):
             res = requests.get(url, stream=True)
             res.raise_for_status()
             total_size = int(res.headers.get("content-length", 0))
-            with tqdm(total=total_size, **tqdm_settings) as pbar:
+            with tqdm(
+                total=total_size,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                ascii=True,
+                desc="--> Progress",
+            ) as pbar:
                 with open(getname, "wb") as fid:
                     for data in res.iter_content(block_size):
                         datasize = fid.write(data)
@@ -96,7 +96,7 @@ def get_bundle(version: float, force: bool = False):
         print(f"The folder '{outpath}' already exists! Will not overwrite.")
 
 
-def main():
+def main() -> None:
     """
     Run the examples/templates downloader
     """

@@ -6,16 +6,16 @@ import os
 import sys
 import time
 
-import h5py
+import h5py  # type: ignore[import]
 import numpy as np
 
-from basta.constants import parameters
-from basta.constants import sydsun as sydc
-from basta.utils_general import Logger
-from basta import interpolation_helpers as ih
 from basta import interpolation_across as iac
 from basta import interpolation_along as ial
 from basta import interpolation_combined as ico
+from basta import interpolation_helpers as ih
+from basta.constants import parameters
+from basta.constants import sydsun as sydc
+from basta.remtor import Logger
 
 
 # ======================================================================================
@@ -43,14 +43,14 @@ def _rescale_param(param, value, dnu):
     # Only run for dnu params, do nothing for other parameters
     if param.startswith("dnu") and param != "dnufit":
         print(
-            "Note: {0} converted to solar units from {1} muHz".format(param, value),
-            "assuming dnusun = {0:.2f} muHz".format(dnu),
+            f"Note: {param} converted to solar units from {value} muHz",
+            f"assuming dnusun = {dnu:.2f} muHz",
         )
         value /= dnu
     return value
 
 
-def _redundancy_print(case, intpol):
+def _redundancy_print(case, intpol) -> None:
     """
     Prints a warning to the user, that a specified resolution is not used.
 
@@ -62,14 +62,16 @@ def _redundancy_print(case, intpol):
         Dictionary of all interpolation input.
     """
 
-    red = False
+    red: list[str] | None = None
     if case == "along" and "gridresolution" in intpol:
         red = ["Grid", "along"]
     elif case == "across" and "trackresolution" in intpol:
         red = ["Track", "across"]
-    prtstr = "Warning: {0}resolution is set for {1} interpolation but is ignored."
     if red:
-        print(prtstr.format(red[0], red[1]))
+        print(
+            f"Warning: {red[0]}resolution is set for {red[1]} "
+            "interpolation but is ignored."
+        )
 
 
 def _unpack_intpol(intpol, dnusun, basepath):
@@ -105,10 +107,8 @@ def _unpack_intpol(intpol, dnusun, basepath):
     try:
         case = intpol["method"]["case"]
         if case not in cases:
-            prtstr = "\nThe selected case {0} is not valid for interpolation!".format(
-                case
-            )
-            prtstr += "The allowed cases are: {0}".format(" | ".join(cases))
+            prtstr = f"\nThe selected case {case} is not valid for interpolation!"
+            prtstr += "The allowed cases are: {}".format(" | ".join(cases))
             raise ValueError(prtstr)
     except KeyError:
         print("\nNo interpolation case specified!")
@@ -125,21 +125,19 @@ def _unpack_intpol(intpol, dnusun, basepath):
                 trackres["param"], trackres["value"], dnusun
             )
             print(
-                "Required trackresolution in {0}: {1}".format(
+                "Required trackresolution in {}: {}".format(
                     trackres["param"], trackres["value"]
                 )
             )
             if trackres["baseparam"] != "default":
                 print(
-                    "Base parameter changed from default to '{0}'.".format(
+                    "Base parameter changed from default to '{}'.".format(
                         trackres["baseparam"]
                     )
                 )
         except KeyError:
             print(
-                "\nERROR! Trackresolution must be specified for {0} interpolation!".format(
-                    case
-                )
+                f"\nERROR! Trackresolution must be specified for {case} interpolation!"
             )
             raise
 
@@ -153,13 +151,11 @@ def _unpack_intpol(intpol, dnusun, basepath):
             [print(" ", k, gridres[k]) if gridres[k] != 0 else None for k in gridres]
         except KeyError:
             print(
-                "\nERROR! Gridresolution must be specified for {0} interpolation!".format(
-                    case
-                )
+                f"\nERROR! Gridresolution must be specified for {case} interpolation!"
             )
             raise
 
-    # TODO: While no Cartesian formulation of isochrone interpolation
+    # TODO(Mark): While no Cartesian formulation of isochrone interpolation
     if gridres is not None and ("grid" not in basepath and "scale" not in gridres):
         prtstr = "\nERROR! Isochrones can currently not be interpolated across with"
         prtstr += " a Cartesian, please specify 'scale' for Sobol interpolation!"
@@ -175,7 +171,9 @@ def _unpack_intpol(intpol, dnusun, basepath):
     return case, trackres, gridres, limits, alongvar
 
 
-def _copy_tracks(grid, outfile, basepath, intpolparams, selectedmodels, intpol_freqs):
+def _copy_tracks(
+    grid, outfile, basepath, intpolparams, selectedmodels, intpol_freqs
+) -> None:
     """
     If the extend option has been enabled, copy the sub-box of old models
     to the new gridfile.
@@ -223,7 +221,7 @@ def _interpolate_grid(
     basepath="grid/",
     outbasename="",
     debug=False,
-):
+) -> None:
     """
     Select a part of a BASTA grid based on observational limits. Interpolate all
     quantities in that part and write to a new grid file. Create and interpolate
@@ -291,16 +289,10 @@ def _interpolate_grid(
             grid[os.path.join(basepath, groupname, itemname, alongvar)]
             intpolparams.append(alongvar)
             print(
-                "Using {0} as additional base parameter in across interpolation".format(
-                    alongvar
-                )
+                f"Using {alongvar} as additional base parameter in across interpolation"
             )
         except KeyError:
-            print(
-                "Specified base parameter {0} does not exist in the grid!".format(
-                    alongvar
-                )
-            )
+            print(f"Specified base parameter {alongvar} does not exist in the grid!")
             raise
 
     # Nicknames for resolution in frequency
@@ -392,10 +384,10 @@ def _interpolate_grid(
             for key in outfile[libname].keys():
                 keypath = os.path.join(libname, key)
                 vec = outfile[keypath][()]
-                if type(vec) != np.ndarray:
+                if not isinstance(vec, np.ndarray):
                     continue
                 # If osc or osckey, transform to 2D index array
-                elif len(vec.shape) > 1:
+                if len(vec.shape) > 1:
                     nv = vec.shape[1]
                     indexNd = np.array(np.transpose([index for _ in range(nv)]))
                     vec = vec[indexNd].reshape((-1, nv))
@@ -459,11 +451,10 @@ def perform_interpolation(
         intime = Grid["header/interpolation_time"][()]
     except KeyError:
         Grid.close()
-        grid_is_intpol = False
     else:
         print(
             "WARNING! The use of interpolation was requested. However,",
-            "the input grid was already interpolated at {0}".format(intime),
+            f"the input grid was already interpolated at {intime}",
             "Will *not* calculate another interpolation, moving on...\n",
         )
         Grid.close()
@@ -479,7 +470,7 @@ def perform_interpolation(
     # If requested interpolated grid already exists, move on
     if os.path.exists(intpolgrid):
         print(
-            "The requested interpolated grid '{0}' already exists!".format(intpolgrid),
+            f"The requested interpolated grid '{intpolgrid}' already exists!",
             "No need to re-calculate, moving on...",
         )
         return intpolgrid
@@ -503,9 +494,7 @@ def perform_interpolation(
         basepath = "grid/"
     elif "isochrones" in gridtype.lower():
         if gridid:
-            basepath = "ove={0:.4f}/dif={1:.4f}/eta={2:.4f}/alphaFe={3:.4f}/".format(
-                gridid[0], gridid[1], gridid[2], gridid[3]
-            )
+            basepath = f"ove={gridid[0]:.4f}/dif={gridid[1]:.4f}/eta={gridid[2]:.4f}/alphaFe={gridid[3]:.4f}/"
         else:
             print(
                 "Unable to construct path for science case, due to missing",
@@ -519,7 +508,7 @@ def perform_interpolation(
         + inputparams["cornerplots"]
         + inputparams["asciiparams"]
     )
-    if any([x in allparams for x in ["distance", "parallax"]]):
+    if any(x in allparams for x in ["distance", "parallax"]):
         allparams += inputparams["distanceparams"]["filters"]
     intpolparams = list(np.unique(allparams))
     if "distance" in intpolparams:
@@ -545,10 +534,10 @@ def perform_interpolation(
     )
     it1 = time.localtime()
     dt = time.mktime(it1) - time.mktime(it0)
-    print("\nInterpolation done in {0} seconds!".format(dt))
+    print(f"\nInterpolation done in {dt} seconds!")
 
     # CLose the log
     sys.stdout = stdout
-    print("Saved log to {0}.log".format(logname))
-    print("\nNow fitting using the interpolated grid '{0}'\n\n".format(intpolgrid))
+    print(f"Saved log to {logname}.log")
+    print(f"\nNow fitting using the interpolated grid '{intpolgrid}'\n\n")
     return intpolgrid

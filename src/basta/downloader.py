@@ -2,15 +2,16 @@
 Routines to download assets
 """
 
-import os
-import gzip
-import shutil
-import requests
 import argparse
-from tqdm import tqdm
+import gzip
+import os
+import shutil
+
+import requests
 
 # Import dusmaps configuration (the maps themselves are slow)
-from dustmaps.config import config
+from dustmaps.config import config  # type: ignore[import]
+from tqdm import tqdm
 
 DUSTMAPFILE = "_dustpath.py"
 GRIDPATHFILE = "_gridpath.py"
@@ -27,7 +28,7 @@ def get_basta_dir() -> str:
     return rootdir
 
 
-def get_grid(case: str, gridpath=None):
+def get_grid(case: str, gridpath=None) -> None:
     """
     Download a grid from the BASTAcode grid repository. Will be stored in the default
     location: BASTA/grids/ .
@@ -41,13 +42,6 @@ def get_grid(case: str, gridpath=None):
     """
     # Settings
     block_size = 1024
-    tqdm_settings = {
-        "unit": "B",
-        "unit_scale": True,
-        "unit_divisor": 1024,
-        "ascii": True,
-        "desc": "--> Progress",
-    }
 
     # Mapping to download location
     # --> Switched to anon share link due to (temporary?) issues with ERDA
@@ -93,7 +87,14 @@ def get_grid(case: str, gridpath=None):
             res = requests.get(url, stream=True)
             res.raise_for_status()
             total_size = int(res.headers.get("content-length", 0))
-            with tqdm(total=total_size, **tqdm_settings) as pbar:
+            with tqdm(
+                total=total_size,
+                unit="B",
+                unit_scale=True,
+                unit_divisor=1024,
+                ascii=True,
+                desc="--> Progress",
+            ) as pbar:
                 with open(gz_tmp, "wb") as fid:
                     for data in res.iter_content(block_size):
                         datasize = fid.write(data)
@@ -123,7 +124,7 @@ def get_grid(case: str, gridpath=None):
         print(f"The grid '{gridpath}' already exists! Will not download.")
 
 
-def get_dustmaps(dustpath: str | None = None, skip: bool = False):
+def get_dustmaps(dustpath: str | None = None, skip: bool = False) -> None:
     """
     Configure dustmaps and download if necessary
 
@@ -158,7 +159,7 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
         print("Obtaining dustmaps!")
         # SFD/Schlegel dustmap
         print("\nFetching the SFD dustmap ...\n", flush=True)
-        import dustmaps.sfd
+        import dustmaps.sfd  # type: ignore[import]
 
         dustmaps.sfd.fetch()
         print("\nDone!")
@@ -166,7 +167,7 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
 
         # Bayestar/Green dustmap
         print("\nFetching the Bayestar dustmap ...\n", flush=True)
-        import dustmaps.bayestar
+        import dustmaps.bayestar  # type: ignore[import]
 
         dustmaps.bayestar.fetch()
         print("\nDone!")
@@ -174,7 +175,7 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
         print("Assuming dustmaps to be available without download!")
 
 
-def main():
+def main() -> None:
     """
     Run the downloader
     """

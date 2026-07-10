@@ -12,19 +12,18 @@ This modified version:
  - Cleaned
 """
 
-import logging
 import colorsys
+import logging
 
-import numpy as np
-import matplotlib
-from scipy.stats import gaussian_kde
-from scipy.ndimage import gaussian_filter
-from matplotlib.ticker import MaxNLocator, NullLocator
-from matplotlib.colors import LinearSegmentedColormap, colorConverter
-from matplotlib.ticker import ScalarFormatter
+import matplotlib as mpl
 import matplotlib.colors as mc
+import numpy as np
+from matplotlib.colors import LinearSegmentedColormap, colorConverter
+from matplotlib.ticker import MaxNLocator, NullLocator, ScalarFormatter
+from scipy.ndimage import gaussian_filter  # type: ignore[import]
+from scipy.stats import gaussian_kde  # type: ignore[import]
 
-matplotlib.use("Agg")
+mpl.use("Agg")
 import matplotlib.pyplot as plt
 
 fontdic = {"size": 12}
@@ -176,9 +175,9 @@ def corner(
     else:
         assert len(xs.shape) == 2, "The input sample array must be 1- or 2-D."
         xs = xs.T
-    assert xs.shape[0] <= xs.shape[1], (
-        "I don't believe that you want more " "dimensions than samples!"
-    )
+    assert (
+        xs.shape[0] <= xs.shape[1]
+    ), "I don't believe that you want more dimensions than samples!"
 
     # Parse the parameter ranges.
     # --> Set dummy ranges [v-1, v+1] for parameters that never change..
@@ -200,16 +199,14 @@ def corner(
                 xbin = np.histogram_bin_edges(x, bins="auto", range=np.sort(prange[i]))
                 if len(xbin) > 1000:
                     print(
-                        "Parameter {0} resulted in {1} bins, raising MemoryError".format(
-                            labels[i], len(xbin)
-                        )
+                        f"Parameter {labels[i]} resulted in {len(xbin)} bins, raising MemoryError"
                     )
                     raise MemoryError
             except MemoryError:
                 print(
                     "WARNING! Using 'auto' as bin-rule causes a memory crash!"
-                    "Switching to '{0}'".format(binrule_fallback),
-                    "for the parameter '{0}'!".format(labels[i]),
+                    f"Switching to '{binrule_fallback}'",
+                    f"for the parameter '{labels[i]}'!",
                 )
                 xbin = np.histogram_bin_edges(
                     x, bins=binrule_fallback, range=np.sort(prange[i])
@@ -258,11 +255,10 @@ def corner(
 
         if np.shape(xs)[0] == 1:
             ax = axes
+        elif reverse:
+            ax = axes[K - i - 1, K - i - 1]
         else:
-            if reverse:
-                ax = axes[K - i - 1, K - i - 1]
-            else:
-                ax = axes[i, i]
+            ax = axes[i, i]
 
         if isinstance(truth_color, str):
             tcolor = truth_color
@@ -327,7 +323,7 @@ def corner(
             title = None
             if title_fmt is not None:
                 # Format the quantile display.
-                fmt = "{{0:{0}}}".format(title_fmt).format
+                fmt = f"{{0:{title_fmt}}}".format
                 if uncert == "quantiles":
                     title = r"${{{0}}}_{{-{1}}}^{{+{2}}}$"
                     title = title.format(fmt(q), fmt(m), fmt(p))
@@ -337,10 +333,10 @@ def corner(
 
                 # Add in the column name if it's given.
                 if labels is not None:
-                    title = "{0} = {1}".format(labels[i], title)
+                    title = f"{labels[i]} = {title}"
 
             elif labels is not None:
-                title = "{0}".format(labels[i])
+                title = f"{labels[i]}"
 
             if title is not None:
                 if reverse:
@@ -385,11 +381,10 @@ def corner(
         for j, y in enumerate(xs):
             if np.shape(xs)[0] == 1:
                 ax = axes
+            elif reverse:
+                ax = axes[K - i - 1, K - j - 1]
             else:
-                if reverse:
-                    ax = axes[K - i - 1, K - j - 1]
-                else:
-                    ax = axes[i, j]
+                ax = axes[i, j]
             if j > i:
                 ax.set_frame_on(False)
                 ax.set_xticks([])
@@ -397,7 +392,7 @@ def corner(
                 if j == K - 1 and i == 0:
                     ax.set_title(nameinplot if nameinplot else "")
                 continue
-            elif j == i:
+            if j == i:
                 continue
 
             if isinstance(truth_color, str):
@@ -559,7 +554,7 @@ def hist2d(
     # contours are filled.
     rgba_color = colorConverter.to_rgba(color)
     contour_cmap = [list(rgba_color) for l in levels] + [rgba_color]
-    for i, l in enumerate(levels):
+    for i, _l in enumerate(levels):
         contour_cmap[i][-1] *= float(i) / (len(levels) + 1)
 
     # We'll make the 2D histogram to directly estimate the density.
@@ -630,7 +625,7 @@ def hist2d(
 
     if plot_datapoints:
         if data_kwargs is None:
-            data_kwargs = dict()
+            data_kwargs = {}
         data_kwargs["color"] = data_kwargs.get("color", color)
         data_kwargs["ms"] = data_kwargs.get("ms", 2.0)
         data_kwargs["mec"] = data_kwargs.get("mec", "none")
@@ -665,7 +660,7 @@ def hist2d(
         # Plot the contour edge colors.
         if plot_contours:
             if contour_kwargs is None:
-                contour_kwargs = dict()
+                contour_kwargs = {}
             contour_kwargs["colors"] = contour_kwargs.get("colors", color)
             ax.contour(X2, Y2, H2.T, V, **contour_kwargs)
 
@@ -674,6 +669,7 @@ def hist2d(
         ax.set_xlim(prange[0])
     if not np.all(y == y[0]):
         ax.set_ylim(prange[1])
+    return ax
 
 
 def lighten_color(color, amount=0.5):
@@ -688,7 +684,7 @@ def lighten_color(color, amount=0.5):
     """
     try:
         c = mc.cnames[color]
-    except:
+    except Exception:
         c = color
 
     c = colorsys.rgb_to_hls(*mc.to_rgb(c))
