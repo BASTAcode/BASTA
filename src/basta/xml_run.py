@@ -1179,25 +1179,32 @@ def run_xml(
                         ]
                     }
                 )
-                numaxdnuparams = {
-                    k: core.ScaledValueError(original=v, scale=1.0)
-                    for k, v in starfitparams.items()
-                    if k.startswith(prefixes)
-                }
-                if not numaxdnuparams:
+
+                if (
+                    len([k for k, v in starfitparams.items() if k.startswith(prefixes)])
+                    < 1
+                ):
+                    globalseismicparams = core.GlobalSeismicParameters(params={})
+                else:
                     numaxdnuparams = {
-                        "dnufit": core.ScaledValueError(
-                            original=(fitfreqs["dnufit"], fitfreqs["dnufit_err"]),
-                            scale=1.0,
-                        ),
-                        "numax": core.ScaledValueError(
-                            original=(fitfreqs["numax"], 0.05 * fitfreqs["numax"]),
-                            scale=1.0,
-                        ),
+                        k: core.ScaledValueError(original=v, scale=1.0)
+                        for k, v in starfitparams.items()
+                        if k.startswith(prefixes)
                     }
-                globalseismicparams = core.GlobalSeismicParameters(
-                    params=numaxdnuparams,
-                )
+                    if not numaxdnuparams:
+                        numaxdnuparams = {
+                            "dnufit": core.ScaledValueError(
+                                original=(fitfreqs["dnufit"], fitfreqs["dnufit_err"]),
+                                scale=1.0,
+                            ),
+                            "numax": core.ScaledValueError(
+                                original=(fitfreqs["numax"], 0.05 * fitfreqs["numax"]),
+                                scale=1.0,
+                            ),
+                        }
+                    globalseismicparams = core.GlobalSeismicParameters(
+                        params=numaxdnuparams,
+                    )
 
                 if inputparams["fitfreqs"]["fcor"] == "":
                     surfacecorrection = None

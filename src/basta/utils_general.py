@@ -73,21 +73,6 @@ def read_grid_header(Grid) -> GridHeader:
     }
 
 
-def extract_gridid(Grid) -> tuple[float, float, float, float] | bool:
-    """
-    Extracts model parameters needed to build isochrone paths.
-    Returns False if missing.
-    """
-    try:
-        ove = Grid["header/ove"][()]
-        dif = Grid["header/dif"][()]
-        eta = Grid["header/eta"][()]
-        alphaFe = Grid["header/alphaFe"][()]
-        return (ove, dif, eta, alphaFe)
-    except KeyError:
-        return False
-
-
 def check_gridtype(
     gridtype: str,
     gridid: tuple[float, float, float, float] | bool = False,
@@ -127,8 +112,7 @@ def get_grid(
     """
     Grid = h5py.File(inferencesettings.gridfile, "r")
     header = read_grid_header(Grid)
-    gridid = extract_gridid(Grid)
-    return Grid, header, check_gridtype(header["gridtype"], gridid)
+    return Grid, header, check_gridtype(header["gridtype"], inferencesettings.gridid)
 
 
 def read_bayesianweights(

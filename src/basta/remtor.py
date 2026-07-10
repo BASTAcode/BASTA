@@ -100,7 +100,7 @@ def print_bastaheader(
     print()
     prt_center(f"Version {__version__}", llen)
     print()
-    prt_center("(c) 2025, The BASTA Team", llen)
+    prt_center("(c) 2026, The BASTA Team", llen)
     prt_center("https://github.com/BASTAcode/BASTA", llen)
     print(llen * "=")
     print(f"\nRun started on {time.strftime('%Y-%m-%d %H:%M:%S', t0)}.\n")
@@ -512,7 +512,11 @@ def print_model_info(Grid, path, index, star, outputoptions, label, score):
         paramval = Grid[os.path.join(path, param)][index]
 
         if param.startswith("dnu") or param.startswith("numax"):
-            scale = star.globalseismicparams.get_scalefactor(param)
+            # When working with isochrones,
+            if param not in star.globalseismicparams.params.keys():
+                scale = 1
+            else:
+                scale = star.globalseismicparams.get_scalefactor(param)
             scaleval = paramval / scale
             scaleprt = f"(after rescaling: {scaleval:12.6f})"
         else:

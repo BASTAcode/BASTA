@@ -358,7 +358,9 @@ def kiel(
         ncol = 2
         for i, param in enumerate(sorted_parameters):
             label = labels[i]
-            if param == "Teff":
+            if param == "phase":
+                continue
+            elif param == "Teff":
                 ncol += 1
                 val, err = star.classicalparams.params[param]
                 Tmin = np.ones(2) * val - err
@@ -516,16 +518,16 @@ def kiel(
         # The cases for single or divided plot
         if True in make_subplot:
             pos = [
-                tefflim[1][1] - 0.03 * (tefflim[1][1] - tefflim[1][0]),
-                logglim[1][0] + 0.06 * (logglim[1][1] - logglim[1][0]),
+                tefflim[1][1][1] - 0.03 * (tefflim[1][1][1] - tefflim[1][1][0]),
+                logglim[1][1][0] + 0.06 * (logglim[1][1][1] - logglim[1][1][0]),
             ]
             axes[1].text(pos[0], pos[1], text, fontsize=12)
         else:
             pos = [
-                tefflim[0][1] - 0.03 * (tefflim[0][1] - tefflim[0][0]),
-                logglim[0][0] + 0.06 * (logglim[0][1] - logglim[0][0]),
+                tefflim[0][0][1] - 0.03 * (tefflim[0][0][1] - tefflim[0][0][0]),
+                logglim[0][0][0] + 0.06 * (logglim[0][0][1] - logglim[0][0][0]),
             ]
-            axes.text(pos[0], pos[1], text, fontsize=12)
+            axes[0].text(pos[0], pos[1], text, fontsize=12)
 
     fig.tight_layout()
 
