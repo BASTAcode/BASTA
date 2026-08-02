@@ -928,6 +928,10 @@ def run_xml(
             except Exception as e:
                 print(f"BASTA failed for star {starid} with the error:")
                 print(traceback.format_exc())
+                # Since we might have already written an output inside BASTA(),
+                # we need to flush before invoking no_models() to avoid data corruption
+                # (although in that case, the output file will have the same starid twice ...)
+                fout.flush()
                 no_models(
                     starid,
                     inputparams,
