@@ -138,6 +138,8 @@ def BASTA(
 
     # Prepare asteroseismic quantities if required
     if fitfreqs["active"]:
+        if not os.path.exists(fitfreqs["freqfile"]):
+            raise ValueError("fitfreqs enabled, but freqfile does not exist")
         if not all(x in freqtypes.alltypes for x in fitfreqs["fittypes"]):
             print(fitfreqs["fittypes"])
             raise ValueError("Unrecognized frequency fitting parameters!")
