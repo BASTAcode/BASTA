@@ -347,6 +347,8 @@ def BASTA(
                     # then [0, 0] is the lowest l=0 mode
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     cl0 = modl0[0, same_n]
+                    if len(cl0) == 0:
+                        continue
                     if len(cl0) > 1:
                         cl0 = cl0[0]
 

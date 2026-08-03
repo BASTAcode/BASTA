@@ -482,11 +482,12 @@ def kiel(
                     # As mod is ordered, [0, 0] is the lowest l=0 mode
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     if not np.any(same_n):
-                        raise Exception(
-                            f"No models found with same n {obskey[1, 0]} as observation"
-                        )
+                        continue
+                        # raise Exception(
+                        #    f"No models found with same n {obskey[1, 0]} as observation"
+                        # )
                     cl0 = modl0[0, same_n]
-                    cl0 = cl0[0] if len(cl0 > 1) else cl0
+                    cl0 = cl0[0] if len(cl0) > 1 else cl0
                     if not (
                         (
                             cl0
