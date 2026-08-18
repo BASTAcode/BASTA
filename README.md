@@ -7,9 +7,9 @@
 [![ADS](https://img.shields.io/badge/ads-2022MNRAS.509.4344A-blue.svg)](https://ui.adsabs.harvard.edu/abs/2022MNRAS.509.4344A/abstract)
 [![DOI](https://img.shields.io/badge/doi-10.1093/mnras/stab2911-orange.svg)](https://doi.org/10.1093/mnras/stab2911)
 
-Current stable version: v1.5.3
+Current stable version: v1.5.4
 
-**Important note:** BASTA is currently developed for Python 3.12, but Python >= 3.10 should suffice.
+**Important note:** BASTA should work in Python >= 3.10, but we generally recommend using the latest stable version.
 
 
 ## Before you begin
