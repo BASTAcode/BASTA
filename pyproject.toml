@@ -28,10 +28,12 @@ classifiers = [
   "Programming Language :: Python :: 3.10",
   "Programming Language :: Python :: 3.11",
   "Programming Language :: Python :: 3.12",
+  "Programming Language :: Python :: 3.13",
+  "Programming Language :: Python :: 3.14",
 ]
 requires-python = ">=3.10"
 dependencies = [
-  "astropy>=6.1.4",
+  "astropy>=7.2,<8.0",
   "black>=24.10.0",
   "bottleneck>=1.4.2",
   "dustmaps>=1.0.13",
