@@ -1,4 +1,5 @@
 import re
+import shutil
 import subprocess
 import sys
 from pathlib import Path
@@ -27,6 +28,16 @@ class F2PyBuildHook(BuildHookInterface):
     def initialize(self, version, build_data):
         src_dir = Path(self.root) / "src" / "basta"
 
+        if shutil.which("gfortran") is None:
+            self.app.display_warning(
+                "gfortran not found on this system. Skipping compilation of "
+                f"Fortran extension modules ({', '.join(MODULES)}). "
+                "BASTA will install and run, but the glitch fitting relying on "
+                "these modules will be unavailable. Install gfortran and "
+                "reinstall BASTA if you need to fit glitches."
+            )
+            return
+
         # The combination of new systems (newer glibc) and old Fortran code can create issues.
         # --> https://discourse.nixos.org/t/fortran-and-executable-stack/78108
         #     * Background info. The fix do not work for Fortran code.
@@ -41,6 +52,7 @@ class F2PyBuildHook(BuildHookInterface):
         if gfortran_version is not None and gfortran_version >= 14:
             f90flags.append("-ftrampoline-impl=heap")
 
+        built = []
         for name in MODULES:
             source = src_dir / f"{name}.f95"
             cmd = [
@@ -50,10 +62,24 @@ class F2PyBuildHook(BuildHookInterface):
             if f90flags:
                 cmd.append(f"--f90flags={' '.join(f90flags)}")
 
-            subprocess.check_call(cmd, cwd=src_dir)
+            try:
+                subprocess.check_call(cmd, cwd=src_dir)
+                built.append(name)
+            except subprocess.CalledProcessError:
+                self.app.display_warning(
+                    f"Failed to compile Fortran module '{name}'. "
+                    "Features relying on it will be unavailable."
+                )
+
+        if not built:
+            self.app.display_warning(
+                "No Fortran extension modules were built. BASTA will install "
+                "and run, but glitch fitting will be unavailable."
+            )
+            return
 
         build_data["artifacts"] = build_data.get("artifacts", []) + [
-            f"src/basta/{name}*.so" for name in MODULES
+            f"src/basta/{name}*.so" for name in built
         ]
         build_data["pure_python"] = False
         build_data["infer_tag"] = True
