@@ -1,4 +1,3 @@
-import os
 import subprocess
 import sys
 from pathlib import Path
@@ -14,15 +13,15 @@ class F2PyBuildHook(BuildHookInterface):
     def initialize(self, version, build_data):
         src_dir = Path(self.root) / "src" / "basta"
 
-        env = os.environ.copy()
-        env["LDFLAGS"] = (env.get("LDFLAGS", "") + " -Wl,-z,noexecstack").strip()
-
         for name in MODULES:
             source = src_dir / f"{name}.f95"
             subprocess.check_call(
-                [sys.executable, "-m", "numpy.f2py", "-c", str(source), "-m", name],
+                [
+                    sys.executable, "-m", "numpy.f2py",
+                    "-c", str(source), "-m", name,
+                    "--f90flags=-ftrampoline-impl=heap",
+                ],
                 cwd=src_dir,
-                env=env,
             )
 
         build_data["artifacts"] = build_data.get("artifacts", []) + [
