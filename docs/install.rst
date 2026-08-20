@@ -8,7 +8,7 @@ Installation
 Obtaining the code and virtual environment
 ******************************************
 
-*Important note: BASTA requires Python 3.10 or newer; it is currently developed for Python 3.12.*
+*Important note: BASTA requires Python 3.10 or newer; it is currently developed for Python 3.13.*
 
 
 Start out by obtaining a copy of BASTA; either from GitHub by cloning the GitHub repository or downloadning a source code release, or from the Python Package Index (PyPI).
@@ -128,23 +128,9 @@ Glitch-fitting and Fortran modules
 
 *If you don't want to contribute fit glitches, you can safely skip this section!*
 
-In case you need to fit glitches (and only in that case), you must compile the external Fortran-modules. Firstly, activate your virtual environment and then:
+If a Fortran compiler (`gfortran`) is present on your system, the Fortran modules for the glitch fitting should be automatically compiled when you install the code.
 
-.. code-block:: bash
-
-    pip install meson ninja
-
-
-Assuming you cloned the repository from GitHub to the suggested location run the following:
-
-.. code-block:: bash
-
-    cd ~/BASTA/src/basta
-    f2py -c glitch_fq.f95 -m glitch_fq
-    f2py -c glitch_sd.f95 -m glitch_sd
-    f2py -c icov_sd.f95 -m icov_sd
-    f2py -c sd.f95 -m sd
-
+If you do not have a Fortran compiler, you cannot fit glitches but the rest of BASTA will work just fine.
 
 
 .. _ref_hooks:
