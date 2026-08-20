@@ -9,6 +9,11 @@ path = "src/basta/__about__.py"
 path = "hatch_build.py"
 
 
+# Ensure that the code can be parser by older Python versions
+[tool.black]
+target-version = ['py313']
+
+
 [project]
 name = "BASTA"
 description = "The BAyesian STellar Algorithm"

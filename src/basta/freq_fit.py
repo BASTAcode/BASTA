@@ -10,7 +10,6 @@ from scipy.interpolate import CubicSpline
 
 from basta import utils_seismic as su
 
-
 """
 Individual frequencies
 """

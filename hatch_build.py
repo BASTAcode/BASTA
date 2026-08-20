@@ -6,11 +6,14 @@ from pathlib import Path
 
 from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
+# We will compile these Fortran modules
 MODULES = ["glitch_fq", "glitch_sd", "icov_sd", "sd"]
 
 
 def get_gfortran_major_version():
-    """Return gfortran's major version number, or None if it can't be determined."""
+    """
+    Return gfortran's major version number, or None if it can't be determined.
+    """
     try:
         output = subprocess.check_output(
             ["gfortran", "-dumpversion"], text=True
@@ -22,12 +25,14 @@ def get_gfortran_major_version():
     return int(match.group(1)) if match else None
 
 
+# This defines the hook to be triggered in hatchling
 class F2PyBuildHook(BuildHookInterface):
     PLUGIN_NAME = "f2py-build"
 
     def initialize(self, version, build_data):
         src_dir = Path(self.root) / "src" / "basta"
 
+        # Raise a warning if gfortran is not present but allow BASTA to be installed
         if shutil.which("gfortran") is None:
             self.app.display_warning(
                 "gfortran not found on this system. Skipping compilation of "
@@ -52,12 +57,18 @@ class F2PyBuildHook(BuildHookInterface):
         if gfortran_version is not None and gfortran_version >= 14:
             f90flags.append("-ftrampoline-impl=heap")
 
+        # Loop the loop!
         built = []
         for name in MODULES:
             source = src_dir / f"{name}.f95"
             cmd = [
-                sys.executable, "-m", "numpy.f2py",
-                "-c", str(source), "-m", name,
+                sys.executable,
+                "-m",
+                "numpy.f2py",
+                "-c",
+                str(source),
+                "-m",
+                name,
             ]
             if f90flags:
                 cmd.append(f"--f90flags={' '.join(f90flags)}")
@@ -78,6 +89,7 @@ class F2PyBuildHook(BuildHookInterface):
             )
             return
 
+        # Finalise and then we are done
         build_data["artifacts"] = build_data.get("artifacts", []) + [
             f"src/basta/{name}*.so" for name in built
         ]
