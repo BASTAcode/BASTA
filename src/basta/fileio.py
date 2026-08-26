@@ -3,6 +3,8 @@ Auxiliary functions for file operations
 """
 
 import os
+import tempfile
+import contextlib
 import json
 import h5py
 import warnings
@@ -17,6 +19,41 @@ from basta import stats, freq_fit, glitch_fit
 from basta import utils_seismic as su
 from basta import utils_general as util
 from basta.constants import freqtypes
+from pathlib import Path
+import shutil
+
+
+class FrequenciesFormatError(Exception):
+    """
+    Frequency file cannot be interpreted or converted.
+
+    Raised by `read_freq` when:
+    - The input format is unsupported or malformed.
+    - The expected file is missing on disk.
+    - ASCII --> XML conversion fails.
+    """
+
+    pass
+
+
+def _looks_like_xml(path: str) -> bool:
+    """
+    Quick content check -- does the file start with an XML tag?
+
+    Returns
+    -------
+    bool
+        True if the first non-whitespace byte is '<'; otherwise False.
+    """
+
+    p = Path(path).expanduser()
+    try:
+        with open(p, "rb") as fh:
+            head = fh.read(1024).lstrip()
+        return head.startswith(b"<")
+    except OSError:
+
+        return False
 
 
 def _export_selectedmodels(selectedmodels: dict) -> dict:
@@ -315,7 +352,12 @@ def read_freq(
 ) -> tuple[np.array, np.array, np.array]:
     """
     Routine to extract the frequencies in the desired n-range, and the
-    corresponding covariance matrix
+    corresponding covariance matrix.
+
+    Supports XML natively. For ASCII inputs (.fre/.txt/.dat), the file
+    is converted on the fly to a temporary <starid>.xml using
+    freqs_ascii_to_xml, parsed through the existing XML reader, and then
+    the temporary file is deleted.
 
     Parameters
     ----------
@@ -339,61 +381,122 @@ def read_freq(
         Array including covariances in the frequencies. If ``covarfre`` is
         ``False`` then a diagonal matrix is produced
     """
-    # Read frequencies from file
-    frecu, errors, norder, ldegree = read_freq_xml(filename)
 
-    # Build osc and osckey in a sorted manner
-    f = np.asarray([])
-    n = np.asarray([])
-    e = np.asarray([])
-    l = np.asarray([])
-    for li in [0, 1, 2]:
-        given_l = ldegree == li
-        incrn = np.argsort(norder[given_l], kind="mergesort")
-        l = np.concatenate([l, ldegree[given_l][incrn]])
-        n = np.concatenate([n, norder[given_l][incrn]])
-        f = np.concatenate([f, frecu[given_l][incrn]])
-        e = np.concatenate([e, errors[given_l][incrn]])
-    assert len(f) == len(n) == len(e) == len(l)
-    obskey = np.asarray([l, n], dtype=int)
-    obs = np.array([f, e])
+    # if requested <starid>.xml is missing, fall back to a same-stem ASCII
+    # file (.fre/.txt/.dat) in the same directory
+    # if non-xml, gives a file name for _looks_like_xml to check
 
-    # Remove untrusted frequencies
-    if excludemodes not in [None, "", "None", "none", "False", "false"]:
-        with warnings.catch_warnings():
-            warnings.simplefilter("ignore")
-            nottrustedobskey = np.genfromtxt(excludemodes, comments="#", encoding=None)
-        # If there is only one not-trusted mode, it misses a dimension
-        if nottrustedobskey.size == 0:
-            print("File for not-trusted frequencies was empty")
-        else:
-            if nottrustedobskey.shape == (2,):
-                nottrustedobskey = [nottrustedobskey]
-            for l, n in nottrustedobskey:
-                nottrustedmask = (obskey[0] == l) & (obskey[1] == n)
-                print(
-                    *(f"Removed mode at {x} µHz" for x in obs[:, nottrustedmask][0]),
-                    sep="\n",
+    p = Path(filename).expanduser()
+
+    if p.suffix.lower() == ".xml" and not p.exists():
+        for ext in (".fre", ".txt", ".dat"):
+            cand = p.with_suffix(ext)
+
+            if cand.exists():
+                filename = str(cand)
+                break
+
+    # use _looks_like_xml to check if input isn’t XML
+    # if ASCII - convert to a temporary <starid>.xml using freqs_ascii_to_xml
+
+    tmp_dir = None
+    xml_path = None
+    try:
+        if not _looks_like_xml(filename):
+            ascii_in = Path(filename).expanduser().resolve()
+            if not ascii_in.is_file():
+                raise FrequenciesFormatError(f"ASCII file does not exist: {ascii_in}")
+
+            tmp_dir = Path(tempfile.mkdtemp(prefix="freq_ascii2xml_"))
+            starid = ascii_in.stem
+
+            try:
+                freqs_ascii_to_xml(
+                    directory=str(tmp_dir), starid=starid, freqsfile=str(ascii_in)
                 )
-                obskey = obskey[:, ~nottrustedmask]
-                obs = obs[:, ~nottrustedmask]
-    if flag_onlyls or onlyradial:
-        if onlyradial:
-            flag_onlyls = [
-                0,
-            ]
-        assert all(isinstance(x, int) for x in flag_onlyls)
-        onlylsmask = np.isin(obskey[0], flag_onlyls)
-        print("\n".join(f"Removed mode at {x} µHz" for x in obs[:, ~onlylsmask][0]))
-        obskey = obskey[:, onlylsmask]
-        obs = obs[:, onlylsmask]
+            except Exception as conv_err:
+                raise FrequenciesFormatError(
+                    f"Failed to convert ASCII frequencies '{ascii_in}' to XML."
+                ) from conv_err
 
-    if covarfre:
-        corrfre, covarfreq = _read_freq_cov_xml(filename, obskey)
-    else:
-        covarfreq = np.diag(obs[1, :]) ** 2
+            xml_path = tmp_dir / f"{starid}.xml"
+            if not xml_path.is_file():
+                raise FrequenciesFormatError(
+                    f"Conversion produced no XML at {xml_path}"
+                )
 
-    return obskey, obs, covarfreq
+            filename = str(xml_path)  # then proceed below as if user passed XML
+
+        # ----------------------
+        # Read frequencies from file
+        frecu, errors, norder, ldegree = read_freq_xml(filename)
+
+        # Build osc and osckey in a sorted manner
+        f = np.asarray([])
+        n = np.asarray([])
+        e = np.asarray([])
+        l = np.asarray([])
+        for li in [0, 1, 2]:
+            given_l = ldegree == li
+            incrn = np.argsort(norder[given_l], kind="mergesort")
+            l = np.concatenate([l, ldegree[given_l][incrn]])
+            n = np.concatenate([n, norder[given_l][incrn]])
+            f = np.concatenate([f, frecu[given_l][incrn]])
+            e = np.concatenate([e, errors[given_l][incrn]])
+        assert len(f) == len(n) == len(e) == len(l)
+        obskey = np.asarray([l, n], dtype=int)
+        obs = np.array([f, e])
+
+        # Remove untrusted frequencies
+        if excludemodes not in [None, "", "None", "none", "False", "false"]:
+            with warnings.catch_warnings():
+                warnings.simplefilter("ignore")
+                nottrustedobskey = np.genfromtxt(
+                    excludemodes, comments="#", encoding=None
+                )
+            # If there is only one not-trusted mode, it misses a dimension
+            if nottrustedobskey.size == 0:
+                print("File for not-trusted frequencies was empty")
+            else:
+                if nottrustedobskey.shape == (2,):
+                    nottrustedobskey = [nottrustedobskey]
+                for l, n in nottrustedobskey:
+                    nottrustedmask = (obskey[0] == l) & (obskey[1] == n)
+                    print(
+                        *(
+                            f"Removed mode at {x} µHz"
+                            for x in obs[:, nottrustedmask][0]
+                        ),
+                        sep="\n",
+                    )
+                    obskey = obskey[:, ~nottrustedmask]
+                    obs = obs[:, ~nottrustedmask]
+        if flag_onlyls or onlyradial:
+            if onlyradial:
+                flag_onlyls = [
+                    0,
+                ]
+            assert all(isinstance(x, int) for x in flag_onlyls)
+            onlylsmask = np.isin(obskey[0], flag_onlyls)
+            print("\n".join(f"Removed mode at {x} µHz" for x in obs[:, ~onlylsmask][0]))
+            obskey = obskey[:, onlylsmask]
+            obs = obs[:, onlylsmask]
+
+        if covarfre:
+            corrfre, covarfreq = _read_freq_cov_xml(filename, obskey)
+        else:
+            covarfreq = np.diag(obs[1, :]) ** 2
+
+        return obskey, obs, covarfreq
+
+    finally:
+        # clean up any temp outputs created (if input was ASCII)
+        if xml_path:
+            with contextlib.suppress(OSError):
+                os.remove(xml_path)
+        if tmp_dir:
+            with contextlib.suppress(Exception):
+                shutil.rmtree(tmp_dir, ignore_errors=True)
 
 
 def _read_precomputed_glitches(

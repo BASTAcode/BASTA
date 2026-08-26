@@ -124,3 +124,7 @@ fort.*
 
 # Misc
 .DS_Store
+
+# local dust map ps
+/dust/
+/dustmaps/

@@ -1,0 +1,65 @@
+<?xml version="1.0" ?>
+<stars>
+	<default>
+		<library path="/Users/giuliaccinquegrana/Documents/GitHub/BASTA/grids/Garstec_16CygA.hdf5"/>
+		<output path="/Users/giuliaccinquegrana/Documents/GitHub/BASTA/output/freqs/"/>
+		<outputfile value="results.ascii"/>
+		<solardnu value="135.1"/>
+		<solarnumax value="3090.0"/>
+		<solarmodel value="True"/>
+		<missingval value="-999.999"/>
+		<centroid value="median"/>
+		<uncert value="quantiles"/>
+		<plotfmt value="pdf"/>
+		<bayesianweights value="True"/>
+		<fitparams>
+			<Teff/>
+			<FeH/>
+			<freqs/>
+		</fitparams>
+		<priors>
+			<Teff sigmacut="3"/>
+			<FeH abstol="0.5"/>
+			<salpeter1955/>
+		</priors>
+		<freqparams>
+			<freqpath value="/Users/giuliaccinquegrana/Documents/GitHub/BASTA/feature_freqsascii/data/freqs"/>
+			<fcor value="BG14"/>
+			<correlations value="False"/>
+			<dnufrac value="0.15"/>
+		</freqparams>
+		<cornerplots>
+			<Teff/>
+			<FeH/>
+			<dnufit/>
+			<numax/>
+			<radPhot/>
+			<massfin/>
+			<age/>
+		</cornerplots>
+		<kielplots>
+			<True/>
+		</kielplots>
+		<freqplots>
+			<allechelle/>
+		</freqplots>
+		<outparams>
+			<Teff/>
+			<FeH/>
+			<dnufit/>
+			<numax/>
+			<radPhot/>
+			<massfin/>
+			<age/>
+		</outparams>
+		<optionaloutputfiles>
+			<False/>
+		</optionaloutputfiles>
+	</default>
+	<star starid="16CygA">
+		<Teff value="5825" error="50"/>
+		<FeH value="0.1" error="0.026"/>
+		<dnu value="103.3" error="0.5"/>
+		<numax value="2188.5"/>
+	</star>
+</stars>
