@@ -39,7 +39,11 @@ def get_bundle(version: float, force: bool = False):
     }
 
     # Mapping to download location
-    baseurl = "https://www.erda.au.dk/vgrid/BASTA/public-examples/"
+    # --> Switched to anon share link due to (temporary?) issues with ERDA
+    #     NB! Direct link to files differs in URL from true share link...
+    #     (https://anon.erda.au.dk/sharelink/FVgq2M3mxY)
+    # baseurl = "https://www.erda.au.dk/vgrid/BASTA/public-examples/"
+    baseurl = "https://anon.erda.au.dk/share_redirect/FVgq2M3mxY"
 
     # Resolve grid name, location and write to file for easy reference
     getname = "basta-examples_v" + version.replace(".", "-") + ".tar.gz"

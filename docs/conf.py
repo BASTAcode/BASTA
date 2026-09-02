@@ -15,6 +15,7 @@ import sys
 
 # Make the modules importable
 sys.path.insert(0, os.path.abspath(".."))
+sys.path.insert(0, os.path.abspath("../src"))
 sys.path.insert(0, os.path.abspath("../src/basta"))
 sys.path.insert(0, os.path.abspath("../examples"))
 
@@ -22,14 +23,14 @@ sys.path.insert(0, os.path.abspath("../examples"))
 
 # General information about the project.
 project = "BASTA"
-copyright = "2024, The BASTA Team"
+copyright = "2025, The BASTA Team"
 author = "The BASTA Team"
 
 # The short X.Y version.
-version = "1.5.0"
+version = "1.5.3"
 
 # The full version, including alpha/beta/rc tags.
-release = "1.5.0"
+release = "1.5.3"
 
 
 # -- General configuration ------------------------------------------------
@@ -97,6 +98,8 @@ autodoc_mock_imports = [
     "sklearn",
     "scipy",
     "tqdm",
+    "basta._dustpath",
+    "basta._gridpath",
 ]
 
 

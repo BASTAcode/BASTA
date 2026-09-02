@@ -1,30 +1,30 @@
 Key|Unit|Parameter|Description
-``Mu_JC``|mag|:math:`U`|:math:`U` magnitude in the Johnson/Cousins photometric system
-``Mbx_JC``|mag|:math:`Bx`|:math:`Bx` magnitude in the Johnson/Cousins photometric system
-``Mb_JC``|mag|:math:`B`|:math:`B` magnitude in the Johnson/Cousins photometric system
-``Mv_JC``|mag|:math:`V`|:math:`V` magnitude in the Johnson/Cousins photometric system
-``Mr_JC``|mag|:math:`R`|:math:`R` magnitude in the Johnson/Cousins photometric system
-``Mi_JC``|mag|:math:`I`|:math:`I` magnitude in the Johnson/Cousins photometric system
-``Mj_JC``|mag|:math:`J`|:math:`J` magnitude in the Johnson/Cousins photometric system
-``Mh_JC``|mag|:math:`H`|:math:`H` magnitude in the Johnson/Cousins photometric system
-``Mk_JC``|mag|:math:`K`|:math:`K` magnitude in the Johnson/Cousins photometric system
-``Mlp_JC``|mag|:math:`Lp`|:math:`Lp` magnitude in the Johnson/Cousins photometric system
-``Ml_JC``|mag|:math:`L`|:math:`L` magnitude in the Johnson/Cousins photometric system
-``Mm_JC``|mag|:math:`M`|:math:`M` magnitude in the Johnson/Cousins photometric system
-``Mu_SAGE``|mag|:math:`u`|:math:`u` magnitude in the SAGE photometric system
-``Mv_SAGE``|mag|:math:`v`|:math:`v` magnitude in the SAGE photometric system
-``Mg_SAGE``|mag|:math:`g`|:math:`g` magnitude in the SAGE photometric system
-``Mr_SAGE``|mag|:math:`r`|:math:`r` magnitude in the SAGE photometric system
-``Mi_SAGE``|mag|:math:`i`|:math:`i` magnitude in the SAGE photometric system
+``Mu_JC``|mag|:math:`U`| :math:`U` magnitude in the Johnson/Cousins photometric system
+``Mbx_JC``|mag|:math:`Bx`| :math:`Bx` magnitude in the Johnson/Cousins photometric system
+``Mb_JC``|mag|:math:`B`| :math:`B` magnitude in the Johnson/Cousins photometric system
+``Mv_JC``|mag|:math:`V`| :math:`V` magnitude in the Johnson/Cousins photometric system
+``Mr_JC``|mag|:math:`R`| :math:`R` magnitude in the Johnson/Cousins photometric system
+``Mi_JC``|mag|:math:`I`| :math:`I` magnitude in the Johnson/Cousins photometric system
+``Mj_JC``|mag|:math:`J`| :math:`J` magnitude in the Johnson/Cousins photometric system
+``Mh_JC``|mag|:math:`H`| :math:`H` magnitude in the Johnson/Cousins photometric system
+``Mk_JC``|mag|:math:`K`| :math:`K` magnitude in the Johnson/Cousins photometric system
+``Mlp_JC``|mag|:math:`Lp`| :math:`Lp` magnitude in the Johnson/Cousins photometric system
+``Ml_JC``|mag|:math:`L`| :math:`L` magnitude in the Johnson/Cousins photometric system
+``Mm_JC``|mag|:math:`M`| :math:`M` magnitude in the Johnson/Cousins photometric system
+``Mu_SAGE``|mag|:math:`u`| :math:`u` magnitude in the SAGE photometric system
+``Mv_SAGE``|mag|:math:`v`| :math:`v` magnitude in the SAGE photometric system
+``Mg_SAGE``|mag|:math:`g`| :math:`g` magnitude in the SAGE photometric system
+``Mr_SAGE``|mag|:math:`r`| :math:`r` magnitude in the SAGE photometric system
+``Mi_SAGE``|mag|:math:`i`| :math:`i` magnitude in the SAGE photometric system
 ``DDO51_SAGE``|mag|DDO51|DDO51 magnitude in the SAGE photometric system
-``Han_SAGE``|mag|:math:`\text{H}\alpha_\mathrm{n}`|H:math:`\alpha_\mathrm{n}` magnitude in the SAGE photometric system
-``Haw_SAGE``|mag|:math:`\text{H}\alpha_\mathrm{w}`|H:math:`\alpha_\mathrm{w}` magnitude in the SAGE photometric system
-``Mj_2MASS``|mag|:math:`J`|:math:`J` magnitude in the 2MASS photometric system
-``Mh_2MASS``|mag|:math:`H`|:math:`H` magnitude in the 2MASS photometric system
-``Mk_2MASS``|mag|:math:`K`|:math:`K` magnitude in the 2MASS photometric system
-``G_GAIA``|mag|:math:`G`|:math:`G` magnitude in the Gaia photometric system
-``BP_GAIA``|mag|:math:`G_\mathrm{BP}`|:math:`G_\mathrm{BP}` magnitude in the Gaia photometric system
-``RP_GAIA``|mag|:math:`G_\mathrm{RP}`|:math:`G_\mathrm{RP}` magnitude in the Gaia photometric system
+``Han_SAGE``|mag|:math:`\text{H}\alpha_\mathrm{n}`|H :math:`\alpha_\mathrm{n}` magnitude in the SAGE photometric system
+``Haw_SAGE``|mag|:math:`\text{H}\alpha_\mathrm{w}`|H :math:`\alpha_\mathrm{w}` magnitude in the SAGE photometric system
+``Mj_2MASS``|mag|:math:`J`| :math:`J` magnitude in the 2MASS photometric system
+``Mh_2MASS``|mag|:math:`H`| :math:`H` magnitude in the 2MASS photometric system
+``Mk_2MASS``|mag|:math:`K`| :math:`K` magnitude in the 2MASS photometric system
+``G_GAIA``|mag|:math:`G`| :math:`G` magnitude in the Gaia photometric system
+``BP_GAIA``|mag|:math:`G_\mathrm{BP}`| :math:`G_\mathrm{BP}` magnitude in the Gaia photometric system
+``RP_GAIA``|mag|:math:`G_\mathrm{RP}`| :math:`G_\mathrm{RP}` magnitude in the Gaia photometric system
 ``F070W_JWST``|mag|F070W|F070W magnitude in the JWST photometric system
 ``F090W_JWST``|mag|F090W|F090W magnitude in the JWST photometric system
 ``F115W_JWST``|mag|F115W|F115W magnitude in the JWST photometric system
@@ -33,22 +33,22 @@ Key|Unit|Parameter|Description
 ``F277W_JWST``|mag|F277W|F277W magnitude in the JWST photometric system
 ``F356W_JWST``|mag|F356W|F356W magnitude in the JWST photometric system
 ``F444W_JWST``|mag|F444W|F444W magnitude in the JWST photometric system
-``Mu_SLOAN``|mag|:math:`u\prime`|:math:`u\prime` magnitude in the Sloan photometric system
-``Mg_SLOAN``|mag|:math:`g\prime`|:math:`g\prime` magnitude in the Sloan photometric system
-``Mr_SLOAN``|mag|:math:`r\prime`|:math:`r\prime` magnitude in the Sloan photometric system
-``Mi_SLOAN``|mag|:math:`i\prime`|:math:`i\prime` magnitude in the Sloan photometric system
-``Mz_SLOAN``|mag|:math:`z\prime`|:math:`z\prime` magnitude in the Sloan photometric system
-``Mu_STROMGREN``|mag|:math:`u`|:math:`u` magnitude in the Stromgren photometric system
-``Mv_STROMGREN``|mag|:math:`v`|:math:`v` magnitude in the Stromgren photometric system
-``Mb_STROMGREN``|mag|:math:`b`|:math:`b` magnitude in the Stromgren photometric system
-``My_STROMGREN``|mag|:math:`y`|:math:`y` magnitude in the Stromgren photometric system
+``Mu_SLOAN``|mag|:math:`u\prime`| :math:`u\prime` magnitude in the Sloan photometric system
+``Mg_SLOAN``|mag|:math:`g\prime`| :math:`g\prime` magnitude in the Sloan photometric system
+``Mr_SLOAN``|mag|:math:`r\prime`| :math:`r\prime` magnitude in the Sloan photometric system
+``Mi_SLOAN``|mag|:math:`i\prime`| :math:`i\prime` magnitude in the Sloan photometric system
+``Mz_SLOAN``|mag|:math:`z\prime`| :math:`z\prime` magnitude in the Sloan photometric system
+``Mu_STROMGREN``|mag|:math:`u`| :math:`u` magnitude in the Stromgren photometric system
+``Mv_STROMGREN``|mag|:math:`v`| :math:`v` magnitude in the Stromgren photometric system
+``Mb_STROMGREN``|mag|:math:`b`| :math:`b` magnitude in the Stromgren photometric system
+``My_STROMGREN``|mag|:math:`y`| :math:`y` magnitude in the Stromgren photometric system
 ``m1_STROMGREN``|mag|:math:`m_{1}`|Index m1 in the Stromgren photometric system
 ``c1_STROMGREN``|mag|:math:`c_{1}`|Index c1 in the Stromgren photometric system
-``Mz_VISTA``|mag|:math:`Z`|:math:`Z` magnitude in the VISTA photometric system
-``My_VISTA``|mag|:math:`Y`|:math:`Y` magnitude in the VISTA photometric system
-``Mj_VISTA``|mag|:math:`J`|:math:`J` magnitude in the VISTA photometric system
-``Mh_VISTA``|mag|:math:`H`|:math:`H` magnitude in the VISTA photometric system
-``Mk_VISTA``|mag|:math:`K`|:math:`K` magnitude in the VISTA photometric system
+``Mz_VISTA``|mag|:math:`Z`| :math:`Z` magnitude in the VISTA photometric system
+``My_VISTA``|mag|:math:`Y`| :math:`Y` magnitude in the VISTA photometric system
+``Mj_VISTA``|mag|:math:`J`| :math:`J` magnitude in the VISTA photometric system
+``Mh_VISTA``|mag|:math:`H`| :math:`H` magnitude in the VISTA photometric system
+``Mk_VISTA``|mag|:math:`K`| :math:`K` magnitude in the VISTA photometric system
 ``F160W_WFC2``|mag|F160W|F160W in the WFC2 photometric system
 ``F170W_WFC2``|mag|F170W|F170W in the WFC2 photometric system
 ``F185W_WFC2``|mag|F185W|F185W in the WFC2 photometric system
@@ -90,21 +90,21 @@ Key|Unit|Parameter|Description
 ``F125W_WFC3``|mag|F125W|F125W in the WFC3 UVIS/IR photometric system
 ``F140W_WFC3``|mag|F140W|F140W in the WFC3 UVIS/IR photometric system
 ``F160W_WFC3``|mag|F160W|F160W in the WFC3 UVIS/IR photometric system
-``Mu_DECAM``|mag|:math:`u`|:math:`u` in the DECAM photometric system
-``Mg_DECAM``|mag|:math:`g`|:math:`g` in the DECAM photometric system
-``Mr_DECAM``|mag|:math:`r`|:math:`r` in the DECAM photometric system
-``Mi_DECAM``|mag|:math:`i`|:math:`i` in the DECAM photometric system
-``Mz_DECAM``|mag|:math:`z`|:math:`z` in the DECAM photometric system
-``My_DECAM``|mag|:math:`y`|:math:`y` in the DECAM photometric system
-``Mu_SKYMAPPER``|mag|:math:`u`|:math:`u` in the SkyMapper photometric system
-``Mv_SKYMAPPER``|mag|:math:`v`|:math:`v` in the SkyMapper photometric system
-``Mg_SKYMAPPER``|mag|:math:`g`|:math:`g` in the SkyMapper photometric system
-``Mr_SKYMAPPER``|mag|:math:`r`|:math:`r` in the SkyMapper photometric system
-``Mi_SKYMAPPER``|mag|:math:`i`|:math:`i` in the SkyMapper photometric system
-``Mz_SKYMAPPER``|mag|:math:`z`|:math:`z` in the SkyMapper photometric system
-``Mule_SKYMAPPER``|mag|:math:`u_\mathrm{le}`|:math:`u_\mathrm{le}` in the SkyMapper photometric system
+``Mu_DECAM``|mag|:math:`u`| :math:`u` in the DECAM photometric system
+``Mg_DECAM``|mag|:math:`g`| :math:`g` in the DECAM photometric system
+``Mr_DECAM``|mag|:math:`r`| :math:`r` in the DECAM photometric system
+``Mi_DECAM``|mag|:math:`i`| :math:`i` in the DECAM photometric system
+``Mz_DECAM``|mag|:math:`z`| :math:`z` in the DECAM photometric system
+``My_DECAM``|mag|:math:`y`| :math:`y` in the DECAM photometric system
+``Mu_SKYMAPPER``|mag|:math:`u`| :math:`u` in the SkyMapper photometric system
+``Mv_SKYMAPPER``|mag|:math:`v`| :math:`v` in the SkyMapper photometric system
+``Mg_SKYMAPPER``|mag|:math:`g`| :math:`g` in the SkyMapper photometric system
+``Mr_SKYMAPPER``|mag|:math:`r`| :math:`r` in the SkyMapper photometric system
+``Mi_SKYMAPPER``|mag|:math:`i`| :math:`i` in the SkyMapper photometric system
+``Mz_SKYMAPPER``|mag|:math:`z`| :math:`z` in the SkyMapper photometric system
+``Mule_SKYMAPPER``|mag|:math:`u_\mathrm{le}`| :math:`u_\mathrm{le}` in the SkyMapper photometric system
 ``Mkp_KEPLER``|mag|:math:`K_{p}`|Magnitude in the Kepler photometric system
 ``Mhp_TYCHO``|mag|:math:`H_{p}`|Hipparcos magnitude in the Tycho photometric system
-``Mb_TYCHO``|mag|:math:`B_{t}`|:math:`B` magnitude in the Tycho photometric system
-``Mv_TYCHO``|mag|:math:`V_{t}`|:math:`V` magnitude in the Tycho photometric system
+``Mb_TYCHO``|mag|:math:`B_{t}`| :math:`B` magnitude in the Tycho photometric system
+``Mv_TYCHO``|mag|:math:`V_{t}`| :math:`V` magnitude in the Tycho photometric system
 ``Mt_TESS``|mag|:math:`T_{\mathrm{mag}}`|Magnitude in the TESS photometric system

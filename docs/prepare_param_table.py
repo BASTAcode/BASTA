@@ -79,7 +79,7 @@ def reformat_entry(listpar):
     # font family, the following only works if there are
     # ONLY ONE math section
     if "$" in lpar[3]:
-        lpar[3] = lpar[3].replace("$", ":math:`", 1)
+        lpar[3] = lpar[3].replace("$", " :math:`", 1)
         lpar[3] = lpar[3].replace("$", "`", 1)
 
     # Wrap key in backquotes for highlighting
