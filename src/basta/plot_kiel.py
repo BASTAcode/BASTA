@@ -485,20 +485,24 @@ def kiel(
                     same_n = modkeyl0[1, :] == obskey[1, 0]
                     cl0 = modl0[0, same_n]
                     cl0 = cl0[0] if len(cl0 > 1) else cl0
-                    if not (
-                        (
-                            cl0
-                            >= (
-                                obs[0, 0]
-                                - max(
-                                    (dnufrac / 2 * fitfreqs["dnufit"]),
-                                    (3 * obs[1, 0]),
+                    # To avoid crash when cl0 is empty
+                    if cl0.size == 0:
+                        index[ind] = False
+                    else:
+                        if not (
+                            (
+                                cl0
+                                >= (
+                                    obs[0, 0]
+                                    - max(
+                                        (dnufrac / 2 * fitfreqs["dnufit"]),
+                                        (3 * obs[1, 0]),
+                                    )
                                 )
                             )
-                        )
-                        and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs["dnufit"]))
-                    ):
-                        index[ind] = False
+                            and ((cl0 - obs[0, 0]) <= (dnufrac * fitfreqs["dnufit"]))
+                        ):
+                            index[ind] = False
 
                 # Plot the region
                 if True in index:
