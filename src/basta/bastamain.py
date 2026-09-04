@@ -110,7 +110,7 @@ def BASTA(
     print(f"* Using the grid '{gridfile}' of type '{gridtype}'.")
     print(f"  - Grid built with BASTA version {gridver}, timestamp: {gridtime}.")
 
-    entryname, defaultpath, difsolarmodel = util.check_gridtype(gridtype, gridid=gridid)
+    entryname, defaultpath, difsolarmodel = util.check_gridtype(Grid, gridid=gridid)
 
     # Read available weights if not provided by the user
     bayweights, dweight = (
@@ -165,6 +165,8 @@ def BASTA(
     # skip computation of models, in order to speed up computation
     tracks_headerpath = "header/"
     if "tracks" in gridtype.lower():
+        headerpath: str | bool = tracks_headerpath
+    elif "isochrones" in gridtype.lower() and "grid" in defaultpath:
         headerpath: str | bool = tracks_headerpath
     elif "isochrones" in gridtype.lower():
         headerpath = tracks_headerpath + defaultpath
@@ -223,7 +225,7 @@ def BASTA(
     metal = util.list_metallicities(Grid, defaultpath, inputparams, limits)
 
     # We assume Garstec grid structure. The path will be updated in the loop for BaSTI
-    group_name = defaultpath + "tracks/"
+    group_name = defaultpath
 
     # Before running the actual loop, all tracks/isochrones are counted to better
     # estimate the progress.

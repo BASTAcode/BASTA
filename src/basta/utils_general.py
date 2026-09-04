@@ -79,19 +79,22 @@ def print_bastaheader(
 
 
 def check_gridtype(
-    gridtype: str,
+    Grid,
     allowed_gridtype: list[str] = ["tracks", "isochrones"],
     gridid: str | bool = False,
 ) -> tuple[str, str, None | int]:
     # Check type of grid (isochrones/tracks) and set default grid path
-    gridtype = gridtype.lower()
+    gridtype = Grid["header/library_type"][()].decode("utf-8").lower()
     if "tracks" in gridtype:
         entryname = "tracks"
-        defaultpath = "grid/"
+        defaultpath = "grid/tracks/"
         difsolarmodel = None
     elif "isochrones" in gridtype:
         entryname = "isochrones"
-        if gridid:
+        if "grid/isochrones" in Grid:
+            defaultpath = "grid/isochrones/"
+            difsolarmodel = None
+        elif gridid:
             difsolarmodel = int(gridid[1])
             defaultpath = f"ove={gridid[0]:.4f}/dif={gridid[1]:.4f}/eta={gridid[2]:.4f}/alphaFe={gridid[3]:.4f}/"
         else:

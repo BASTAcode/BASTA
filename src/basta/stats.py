@@ -527,8 +527,10 @@ def get_highest_likelihood(Grid, selectedmodels, inputparams):
     print("* Grid-index: {0}[{1}], with parameters:".format(maxPDF_path, maxPDF_ind))
 
     # Print name if it exists
-    if "name" in Grid[maxPDF_path]:
+    if "name" in Grid[maxPDF_path] and len(Grid[maxPDF_path + "/name"].shape):
         print("  - Name:", Grid[maxPDF_path + "/name"][maxPDF_ind].decode("utf-8"))
+    elif "name" in Grid[maxPDF_path]:
+        print("  - Name:", Grid[maxPDF_path + "/name"][()].decode("utf-8"))
 
     # Print parameters
     outparams = inputparams["asciiparams"]
@@ -583,8 +585,10 @@ def get_lowest_chi2(Grid, selectedmodels, inputparams):
     print("* Grid-index: {0}[{1}], with parameters:".format(minchi2_path, minchi2_ind))
 
     # Print name if it exists
-    if "name" in Grid[minchi2_path]:
+    if "name" in Grid[minchi2_path] and len(Grid[minchi2_path + "/name"].shape):
         print("  - Name:", Grid[minchi2_path + "/name"][minchi2_ind].decode("utf-8"))
+    elif "name" in Grid[minchi2_path]:
+        print("  - Name:", Grid[minchi2_path + "/name"][()].decode("utf-8"))
 
     # Print parameters
     outparams = inputparams["asciiparams"]

@@ -43,6 +43,7 @@ _gridpath.py
 # Virtual environment
 /venv*/
 /bastaenv/
+/benv/
 
 ###########
 ### Generic
