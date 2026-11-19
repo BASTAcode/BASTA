@@ -523,6 +523,7 @@ def run_xml(
     kielplots = _get_true_or_list(root.findall("default/kielplots/"))
     freqplots = _get_true_or_list(root.findall("default/freqplots/"), check=False)
     inputparams["asciiparams"] = unique_unsort(outparams)
+
     inputparams["cornerplots"] = unique_unsort(cornerplots)
     inputparams["kielplots"] = unique_unsort(kielplots)
     inputparams["freqplots"] = freqplots
@@ -649,6 +650,40 @@ def run_xml(
             usepriors.append("salpeter1955")
         else:
             usepriors.append(param.tag)
+
+    # ----------------------------------------------------------------------------------
+    # parse model bounds
+    # ----------------------------------------------------------------------------------
+
+    model_bounds = {}
+    bounds_elem = root.find("default/model_bounds")
+    if bounds_elem is not None:
+        for bound in bounds_elem:
+            tag = bound.tag.strip().lower()
+
+            if tag == "strict":
+                strict_value = bound.text.strip().lower()
+                if strict_value in ("true", "both"):
+                    model_bounds["strict"] = "both"
+                elif strict_value in ("mass", "age", "none", "false"):
+                    model_bounds["strict"] = strict_value
+                else:
+                    raise ValueError(
+                        f"Unrecognized strict value: '{strict_value}' in model_bounds"
+                    )
+            else:
+                param_name = bound.tag
+                min_val = bound.attrib.get("min")
+                max_val = bound.attrib.get("max")
+                model_bounds[param_name] = {}
+                if min_val is not None:
+                    model_bounds[param_name]["min"] = float(min_val)
+                if max_val is not None:
+                    model_bounds[param_name]["max"] = float(max_val)
+
+    inputparams["model_bounds"] = model_bounds
+
+    # ----------------------------------------------------------------------------------
 
     # Get interpolation if requested (and if available!), otherwise empty dictionary
     if root.find("default/interpolation"):

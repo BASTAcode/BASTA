@@ -124,3 +124,12 @@ fort.*
 
 # Misc
 .DS_Store
+
+#---------------
+
+# Large binary data files (dust maps, etc.)
+dust/
+*.h5
+*.fits
+grids/
+*.h5

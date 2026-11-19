@@ -330,6 +330,7 @@ def make_basta_input(define_user_input):
     infodict_output = {}
     infodict_plots = {}
     infodict_intpol = {}
+    model_bounds = {}
 
     # Fill the dictionaries depending on the users selections
     print("Reading user input ...")
@@ -340,6 +341,7 @@ def make_basta_input(define_user_input):
         infodict_output,
         infodict_plots,
         infodict_intpol,
+        model_bounds,
     ) = define_user_input(
         define_io=infodict_io,
         define_fit=infodict_fit,
@@ -377,6 +379,7 @@ def make_basta_input(define_user_input):
                 **infodict_output,
                 **infodict_plots,
                 **infodict_intpol,
+                model_bounds=model_bounds,
             )
         except Exception as e:
             print(
