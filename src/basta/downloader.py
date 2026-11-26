@@ -4,6 +4,7 @@ Routines to download assets
 
 import os
 import gzip
+import types
 import shutil
 import requests
 import argparse
@@ -14,6 +15,27 @@ from dustmaps.config import config
 
 DUSTMAPFILE = "_dustpath.py"
 GRIDPATHFILE = "_gridpath.py"
+
+
+def _patch_dustmaps_user_agent():
+    """
+    Harvard Dataverse returns 403 for the default python-requests
+    User-Agent. dustmaps fixed this after 1.0.14 (gregreen/dustmaps#72);
+    patch older versions.
+    """
+    from dustmaps import fetch_utils
+
+    if hasattr(fetch_utils, "USER_AGENT"):  # fixed upstream
+        return
+
+    def _get(url, **kwargs):
+        headers = dict(kwargs.pop("headers", None) or {})
+        headers.setdefault("User-Agent", "BASTA (dustmaps)")
+        return requests.get(url, headers=headers, **kwargs)
+
+    fetch_utils.requests = types.SimpleNamespace(
+        get=_get, exceptions=requests.exceptions
+    )
 
 
 def get_basta_dir() -> str:
@@ -156,6 +178,10 @@ def get_dustmaps(dustpath: str | None = None, skip: bool = False):
     # Install if required
     if not skip:
         print("Obtaining dustmaps!")
+
+        # Patch the dataverse request if required
+        _patch_dustmaps_user_agent()
+
         # SFD/Schlegel dustmap
         print("\nFetching the SFD dustmap ...\n", flush=True)
         import dustmaps.sfd
